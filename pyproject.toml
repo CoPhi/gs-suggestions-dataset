@@ -1,0 +1,15 @@
+[tool.poetry]
+name = "gs-suggestions-dataset"
+version = "0.1.0"
+description = ""
+authors = ["Gabriele <gabrielegiannessi@gmail.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python =  ">=3.11,<3.12"
+maat = {git = "https://github.com/WMU-Herculaneum-Project/maat"}
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
