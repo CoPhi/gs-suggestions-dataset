@@ -1,0 +1,593 @@
+[
+    {
+        "corpus_id": "DCLP",
+        "file_id": "65795",
+        "block_index": 27,
+        "id": "DCLP/65795/27",
+        "title": "TM 65795",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/>κε . <gap/>\n<gap/>επιτα<gap/>\n<gap/> . οις καὶ κα<gap/>\n<gap/>αι τὰ σημε[ῖα]<gap/>\nυ . εὐχῆς <gap/>\n<gap/> ... <gap/> ",
+        "test_cases": [
+            {
+                "case_index": 1,
+                "id": "DCLP/65795/27/1",
+                "test_case": "<gap/>κε . <gap/>\n<gap/>επιτα<gap/>\n<gap/> . οις καὶ κα<gap/>\n<gap/>αι τὰ σημε[..]<gap/>\nυ . εὐχῆς <gap/>\n<gap/> ... <gap/> "
+            }
+        ]
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "65795",
+        "block_index": 28,
+        "id": "DCLP/65795/28",
+        "title": "TM 65795",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/>[εὐ]χῆς ... .. λ<gap/> \n<gap/>[π]υρὸς ὕδατος δ . <gap/> \n<gap/> . ν ἕκαστα σημεῖα <gap/> \n<gap/> . υσκα .... λοσ . <gap/> ",
+        "test_cases": [
+            {
+                "case_index": 1,
+                "id": "DCLP/65795/28/1",
+                "test_case": "<gap/>[..]χῆς ... .. λ<gap/> \n<gap/>πυρὸς ὕδατος δ . <gap/> \n<gap/> . ν ἕκαστα σημεῖα <gap/> \n<gap/> . υσκα .... λοσ . <gap/> "
+            },
+            {
+                "case_index": 2,
+                "id": "DCLP/65795/28/2",
+                "test_case": "<gap/>εὐχῆς ... .. λ<gap/> \n<gap/>[.]υρὸς ὕδατος δ . <gap/> \n<gap/> . ν ἕκαστα σημεῖα <gap/> \n<gap/> . υσκα .... λοσ . <gap/> "
+            }
+        ]
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "65795",
+        "block_index": 29,
+        "id": "DCLP/65795/29",
+        "title": "TM 65795",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/> . περ φυς .. <gap/>\n<gap/>μενα εὐχ . <gap/> \n<gap/> ἀνημμέ[ν-]<gap/>\n<gap/> .... <gap/> ",
+        "test_cases": [
+            {
+                "case_index": 1,
+                "id": "DCLP/65795/29/1",
+                "test_case": "<gap/> . περ φυς .. <gap/>\n<gap/>μενα εὐχ . <gap/> \n<gap/> ἀνημμέ[..]<gap/>\n<gap/> .... <gap/> "
+            }
+        ]
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "65795",
+        "block_index": 30,
+        "id": "DCLP/65795/30",
+        "title": "TM 65795",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/> ὑπελάμ[βανε]<gap/>\n<gap/>α Δίκης <gap/> ",
+        "test_cases": [
+            {
+                "case_index": 1,
+                "id": "DCLP/65795/30/1",
+                "test_case": "<gap/> ὑπελάμ[....]<gap/>\n<gap/>α Δίκης <gap/> "
+            }
+        ]
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "65795",
+        "block_index": 31,
+        "id": "DCLP/65795/31",
+        "title": "TM 65795",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/> . ερ . <gap/>\n<gap/> . ναι .. <gap/> \n<gap/> ἀνθρω[π]<gap/>\n<gap/> .... υ<gap/> ",
+        "test_cases": [
+            {
+                "case_index": 1,
+                "id": "DCLP/65795/31/1",
+                "test_case": "<gap/> . ερ . <gap/>\n<gap/> . ναι .. <gap/> \n<gap/> ἀνθρω[.]<gap/>\n<gap/> .... υ<gap/> "
+            }
+        ]
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "65795",
+        "block_index": 32,
+        "id": "DCLP/65795/32",
+        "title": "TM 65795",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/> . <gap/>\n<gap/> . ιν ἀμφ .. <gap/> \n<gap/> . ἐᾶμ μ .. <gap/> \n<gap/> ... <gap/> ",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "65795",
+        "block_index": 33,
+        "id": "DCLP/65795/33",
+        "title": "TM 65795",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/> ... <gap/> \n<gap/>.. .... <gap/> \n<gap/> ... οιν .. <gap/> \n<gap/>ριη . <gap/> \n<gap/>αιφ ..... <gap/> ",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "65795",
+        "block_index": 34,
+        "id": "DCLP/65795/34",
+        "title": "TM 65795",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/> . πλ . .σ<gap/>\n<gap/>\n<gap/> . εη <gap/> \n<gap/> .. ειδ . <gap/> \n<gap/> .. <gap/> \n<gap/> .. σιν<gap/> \n<gap/> ... <gap/>\n<gap/> ... <gap/> ",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "65795",
+        "block_index": 35,
+        "id": "DCLP/65795/35",
+        "title": "TM 65795",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/>υν<gap/>\n<gap/> . ολιγ<gap/>\n<gap/> . τ . <gap/> ",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "65795",
+        "block_index": 36,
+        "id": "DCLP/65795/36",
+        "title": "TM 65795",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/> .. τ . <gap/> \n<gap/> . οισ<gap/> \n<gap/> ... ω<gap/>\n<gap/> ..... <gap/>\n<gap/>\n<gap/> ... <gap/> \n<gap/>",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "65795",
+        "block_index": 37,
+        "id": "DCLP/65795/37",
+        "title": "TM 65795",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/>\n. <gap/>\n<gap/> . δη ε<gap/> ",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "65795",
+        "block_index": 38,
+        "id": "DCLP/65795/38",
+        "title": "TM 65795",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/> μέχρ[ι]<gap/>\n<gap/>προκει . <gap/> \n<gap/>ιλην δε<gap/> ",
+        "test_cases": [
+            {
+                "case_index": 1,
+                "id": "DCLP/65795/38/1",
+                "test_case": "<gap/> μέχρ[.]<gap/>\n<gap/>προκει . <gap/> \n<gap/>ιλην δε<gap/> "
+            }
+        ]
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "65795",
+        "block_index": 39,
+        "id": "DCLP/65795/39",
+        "title": "TM 65795",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/>σαμ . <gap/> \n<gap/>ναδιε . <gap/> \n<gap/>νουτε<gap/> \n<gap/> .... <gap/> ",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "65795",
+        "block_index": 40,
+        "id": "DCLP/65795/40",
+        "title": "TM 65795",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/> . σαιτ<gap/> \n<gap/> ... <gap/> \n<gap/> . ν .. <gap/> ",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "65795",
+        "block_index": 41,
+        "id": "DCLP/65795/41",
+        "title": "TM 65795",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/> .. <gap/>\n<gap/> .. <gap/> \n<gap/>\n<gap/>νε<gap/> ",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "65795",
+        "block_index": 42,
+        "id": "DCLP/65795/42",
+        "title": "TM 65795",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/> . <gap/> \n<gap/> . μ<gap/>\n<gap/> . <gap/> ",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "65795",
+        "block_index": 43,
+        "id": "DCLP/65795/43",
+        "title": "TM 65795",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/> . <gap/>\n<gap/> . ειναρ<gap/>\n<gap/>εικω<gap/>\n<gap/> ... <gap/> ",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "65795",
+        "block_index": 44,
+        "id": "DCLP/65795/44",
+        "title": "TM 65795",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/> χ . <gap/>\n<gap/> ο<gap/> ",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "65795",
+        "block_index": 45,
+        "id": "DCLP/65795/45",
+        "title": "TM 65795",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/> ευ<gap/>\n<gap/> τω . <gap/> \n<gap/> οτιο<gap/>\n<gap/> . <gap/> ",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "65795",
+        "block_index": 46,
+        "id": "DCLP/65795/46",
+        "title": "TM 65795",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/> . ωμεν<gap/> \n<gap/>υειν τι . <gap/> ",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "65795",
+        "block_index": 47,
+        "id": "DCLP/65795/47",
+        "title": "TM 65795",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/> .. ε . <gap/> \n<gap/> .. ητ<gap/>\n<gap/> δο . <gap/> ",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "65795",
+        "block_index": 48,
+        "id": "DCLP/65795/48",
+        "title": "TM 65795",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/> . <gap/> \n<gap/>ογκα<gap/>\n<gap/> . <gap/> ",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "65795",
+        "block_index": 49,
+        "id": "DCLP/65795/49",
+        "title": "TM 65795",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/> . ισμ<gap/>\n<gap/> . ισι . <gap/> \n<gap/>θου<gap/> ",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "65795",
+        "block_index": 50,
+        "id": "DCLP/65795/50",
+        "title": "TM 65795",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/> .. <gap/> \n<gap/>τηρ . <gap/> \n<gap/> . με<gap/> ",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "65795",
+        "block_index": 51,
+        "id": "DCLP/65795/51",
+        "title": "TM 65795",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/> . ταζ<gap/> \n<gap/>\n<gap/> .... <gap/> \n<gap/> . ε<gap/>   ",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "65795",
+        "block_index": 52,
+        "id": "DCLP/65795/52",
+        "title": "TM 65795",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/>στε . <gap/> \n<gap/>ατα<gap/>\n<gap/>υπε . <gap/> ",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "65795",
+        "block_index": 53,
+        "id": "DCLP/65795/53",
+        "title": "TM 65795",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/> .. εσ . <gap/> \n<gap/> .... <gap/>",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "65795",
+        "block_index": 54,
+        "id": "DCLP/65795/54",
+        "title": "TM 65795",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/> . <gap/>\n<gap/>ισγ<gap/>\n<gap/>ντ . <gap/> ",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "65795",
+        "block_index": 55,
+        "id": "DCLP/65795/55",
+        "title": "TM 65795",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/>στειναι . <gap/> \n<gap/>βιαστ . <gap/> \n<gap/>τὸγ γεγρα<gap/> \n<gap/> ... σιν . <gap/> \n<gap/> . οτα<gap/> ",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "65795",
+        "block_index": 56,
+        "id": "DCLP/65795/56",
+        "title": "TM 65795",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/> . <gap/> \n<gap/>κνο<gap/> \n<gap/> . ιμι<gap/> \n<gap/>ομε<gap/> \n<gap/> ... <gap/> ",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "65795",
+        "block_index": 57,
+        "id": "DCLP/65795/57",
+        "title": "TM 65795",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/>ε . <gap/> \n<gap/>πο<gap/> \n<gap/>δη<gap/> \n<gap/> . ο<gap/> ",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "65795",
+        "block_index": 58,
+        "id": "DCLP/65795/58",
+        "title": "TM 65795",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/>εισ<gap/>\n<gap/> . οσμε<gap/> \n<gap/>υο<gap/> ",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "65795",
+        "block_index": 59,
+        "id": "DCLP/65795/59",
+        "title": "TM 65795",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/> .. <gap/> \n<gap/> . ραι . <gap/>",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "65795",
+        "block_index": 60,
+        "id": "DCLP/65795/60",
+        "title": "TM 65795",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/> ... <gap/> \n<gap/>νχρη<gap/>\n<gap/>οσαα<gap/> ",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "65795",
+        "block_index": 61,
+        "id": "DCLP/65795/61",
+        "title": "TM 65795",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/>αι . <gap/> \n<gap/>αιεχε<gap/> \n<gap/> .. α .. <gap/> ",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "65795",
+        "block_index": 62,
+        "id": "DCLP/65795/62",
+        "title": "TM 65795",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/> . <gap/> \n<gap/>κα . <gap/> \n<gap/>ωυτ<gap/> ",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "65795",
+        "block_index": 63,
+        "id": "DCLP/65795/63",
+        "title": "TM 65795",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/> . μ<gap/>\n<gap/> . ηρα . τωιθ<gap/>\n<gap/> . αλιπ . δομε<gap/> \n<gap/> . υσ . <gap/> ",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "65795",
+        "block_index": 64,
+        "id": "DCLP/65795/64",
+        "title": "TM 65795",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/>νοηιευ<gap/>\n<gap/> .. <gap/> ",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "65795",
+        "block_index": 65,
+        "id": "DCLP/65795/65",
+        "title": "TM 65795",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/>πρ<gap/>\n<gap/> .. τοδ<gap/>\n<gap/>αυθ . α<gap/> ",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "65795",
+        "block_index": 66,
+        "id": "DCLP/65795/66",
+        "title": "TM 65795",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/>με . <gap/> \n<gap/>μαιν<gap/> ",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "65795",
+        "block_index": 67,
+        "id": "DCLP/65795/67",
+        "title": "TM 65795",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/> . εμ<gap/> \n<gap/> . ολ . <gap/> \n<gap/> . ο<gap/> \n<gap/> .. <gap/> ",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "65795",
+        "block_index": 68,
+        "id": "DCLP/65795/68",
+        "title": "TM 65795",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/> . <gap/> \n<gap/> . oσ<gap/>\n<gap/>υσ<gap/> ",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "65795",
+        "block_index": 69,
+        "id": "DCLP/65795/69",
+        "title": "TM 65795",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/>δαεαυτ<gap/> \n<gap/>ενονεπ<gap/> ",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "65795",
+        "block_index": 70,
+        "id": "DCLP/65795/70",
+        "title": "TM 65795",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/> . ο . <gap/> \n<gap/> . ορ<gap/> ",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "65795",
+        "block_index": 71,
+        "id": "DCLP/65795/71",
+        "title": "TM 65795",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/> .. <gap/> \n<gap/> . <gap/> \n<gap/> . σ<gap/> ",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "65795",
+        "block_index": 72,
+        "id": "DCLP/65795/72",
+        "title": "TM 65795",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/> . σ<gap/> \n<gap/>ατ<gap/> ",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "65795",
+        "block_index": 73,
+        "id": "DCLP/65795/73",
+        "title": "TM 65795",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/> . ε<gap/> \n<gap/> .. τ<gap/> \n<gap/> .. ε<gap/> ",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "65795",
+        "block_index": 74,
+        "id": "DCLP/65795/74",
+        "title": "TM 65795",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/> . <gap/> \n<gap/>μα<gap/>\n<gap/> . ρα<gap/> ",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "65795",
+        "block_index": 75,
+        "id": "DCLP/65795/75",
+        "title": "TM 65795",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/> . υ . <gap/> \n<gap/> . ο<gap/> ",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "65795",
+        "block_index": 76,
+        "id": "DCLP/65795/76",
+        "title": "TM 65795",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/> . ωσι . <gap/> \n<gap/> .. <gap/> ",
+        "test_cases": []
+    }
+]

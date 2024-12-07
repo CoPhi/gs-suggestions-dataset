@@ -1,0 +1,979 @@
+[
+    {
+        "corpus_id": "DCLP",
+        "file_id": "65659",
+        "block_index": 9,
+        "id": "DCLP/65659/9",
+        "title": "P.Herc. 1158",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/> καὶ ἀπ<gap/>\n<gap/>τασιν<gap/>",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "65659",
+        "block_index": 10,
+        "id": "DCLP/65659/10",
+        "title": "P.Herc. 1158",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "ρινο<gap/>\nἑλκομ<gap/>\n...ρ<gap/>\nει<gap/>\n.αι<gap/>\nπον<gap/>",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "65659",
+        "block_index": 11,
+        "id": "DCLP/65659/11",
+        "title": "P.Herc. 1158",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/>υτους·\n<gap/>ρω\n<gap/>ιοι\n<gap/>λε\n<gap/>εινοι\n<gap/>",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "65659",
+        "block_index": 12,
+        "id": "DCLP/65659/12",
+        "title": "P.Herc. 1158",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/>τεροι<gap/>\n<gap/>μειτ<gap/>\n<gap/>α<gap/>\n<gap/>η<gap/>",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "65659",
+        "block_index": 13,
+        "id": "DCLP/65659/13",
+        "title": "P.Herc. 1158",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/>ναι ῥάιδιον· [ο]ὔτε τ<gap/>",
+        "test_cases": [
+            {
+                "case_index": 1,
+                "id": "DCLP/65659/13/1",
+                "test_case": "<gap/>ναι ῥάιδιον· [.]ὔτε τ<gap/>"
+            }
+        ]
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "65659",
+        "block_index": 14,
+        "id": "DCLP/65659/14",
+        "title": "P.Herc. 1158",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/><gap/>ι<gap/>\n<gap/> [τὰ]ς π[ό]λεις <gap/>",
+        "test_cases": [
+            {
+                "case_index": 1,
+                "id": "DCLP/65659/14/1",
+                "test_case": "<gap/><gap/>ι<gap/>\n<gap/> [..]ς πόλεις <gap/>"
+            },
+            {
+                "case_index": 2,
+                "id": "DCLP/65659/14/2",
+                "test_case": "<gap/><gap/>ι<gap/>\n<gap/> τὰς π[.]λεις <gap/>"
+            }
+        ]
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "65659",
+        "block_index": 15,
+        "id": "DCLP/65659/15",
+        "title": "P.Herc. 1158",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/>μ<gap/>\n<gap/>τους<gap/>\n<gap/>αν ἔχειν τον<gap/>\n<gap/>ικ<gap/>",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "65659",
+        "block_index": 16,
+        "id": "DCLP/65659/16",
+        "title": "P.Herc. 1158",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/><gap/>αν<gap/>\n<gap/>ταις<gap/>\n<gap/>θνο<gap/>\n<gap/> [σ]υμπ<gap/>",
+        "test_cases": [
+            {
+                "case_index": 1,
+                "id": "DCLP/65659/16/1",
+                "test_case": "<gap/><gap/>αν<gap/>\n<gap/>ταις<gap/>\n<gap/>θνο<gap/>\n<gap/> [.]υμπ<gap/>"
+            }
+        ]
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "65659",
+        "block_index": 17,
+        "id": "DCLP/65659/17",
+        "title": "P.Herc. 1158",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/>ρειν· ου<gap/>\n<gap/>υτωι<gap/>\n<gap/>τεπι<gap/>",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "65659",
+        "block_index": 18,
+        "id": "DCLP/65659/18",
+        "title": "P.Herc. 1158",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/><gap/>λλω<gap/>\n<gap/>ν συν<gap/>\n<gap/>σειαν λ<gap/>\n<gap/>ατοκο<gap/>\n<gap/>κων σο<gap/>",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "65659",
+        "block_index": 19,
+        "id": "DCLP/65659/19",
+        "title": "P.Herc. 1158",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/>εκτ<gap/>\n<gap/>αιτ<gap/>\n<gap/>ην<gap/>\n<gap/>τω<gap/>\n<gap/>λεων· τη<gap/>\n<gap/>\n<gap/>τηκο<gap/>",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "65659",
+        "block_index": 20,
+        "id": "DCLP/65659/20",
+        "title": "P.Herc. 1158",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/><gap/> τέλος <gap/>",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "65659",
+        "block_index": 21,
+        "id": "DCLP/65659/21",
+        "title": "P.Herc. 1158",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/>κκα<gap/>\n<gap/>εηον<gap/>\n<gap/>ν<gap/>",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "65659",
+        "block_index": 22,
+        "id": "DCLP/65659/22",
+        "title": "P.Herc. 1158",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "α<gap/>\nαυτα<gap/>\nτων<gap/>",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "65659",
+        "block_index": 23,
+        "id": "DCLP/65659/23",
+        "title": "P.Herc. 1158",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/>ωσε<gap/>\n<gap/>και<gap/>\n<gap/>και<gap/>\n<gap/>αιεπο<gap/>",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "65659",
+        "block_index": 24,
+        "id": "DCLP/65659/24",
+        "title": "P.Herc. 1158",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/>παρ<gap/>\n<gap/>εδ.η<gap/>\n<gap/>διον<gap/>\n<gap/>νειν<gap/>\n<gap/> [δ]όξα<gap/>\n<gap/>ατα<gap/>\n<gap/>κ<gap/>",
+        "test_cases": [
+            {
+                "case_index": 1,
+                "id": "DCLP/65659/24/1",
+                "test_case": "<gap/>παρ<gap/>\n<gap/>εδ.η<gap/>\n<gap/>διον<gap/>\n<gap/>νειν<gap/>\n<gap/> [.]όξα<gap/>\n<gap/>ατα<gap/>\n<gap/>κ<gap/>"
+            }
+        ]
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "65659",
+        "block_index": 25,
+        "id": "DCLP/65659/25",
+        "title": "P.Herc. 1158",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/>[ἀλ][λά][τις][αὐτὸ]ς ἴτω, νεμεσιζέ\n[σθω] [δ'] [ἐνὶ] [θυμῶι] [Πάτροκλ]ον\n[Τρωιῆισι] [κ]υσὶ μ[έλπηθρα]\n[γενέσθαι]. Ὥς φάτο, ὀξὺ ἄ\n[κουσεν] [Ὀιλῆ]ος τ[αχ]ὺς Α[ἴα]ς· <gap/>",
+        "test_cases": [
+            {
+                "case_index": 1,
+                "id": "DCLP/65659/25/1",
+                "test_case": "<gap/>[..]λάτιςαὐτὸς ἴτω, νεμεσιζέ\nσθω δ' ἐνὶ θυμῶι Πάτροκλον\nΤρωιῆισι κυσὶ μέλπηθρα\nγενέσθαι. Ὥς φάτο, ὀξὺ ἄ\nκουσεν Ὀιλῆος ταχὺς Αἴας· <gap/>"
+            },
+            {
+                "case_index": 2,
+                "id": "DCLP/65659/25/2",
+                "test_case": "<gap/>ἀλ[..]τιςαὐτὸς ἴτω, νεμεσιζέ\nσθω δ' ἐνὶ θυμῶι Πάτροκλον\nΤρωιῆισι κυσὶ μέλπηθρα\nγενέσθαι. Ὥς φάτο, ὀξὺ ἄ\nκουσεν Ὀιλῆος ταχὺς Αἴας· <gap/>"
+            },
+            {
+                "case_index": 3,
+                "id": "DCLP/65659/25/3",
+                "test_case": "<gap/>ἀλλά[...]αὐτὸς ἴτω, νεμεσιζέ\nσθω δ' ἐνὶ θυμῶι Πάτροκλον\nΤρωιῆισι κυσὶ μέλπηθρα\nγενέσθαι. Ὥς φάτο, ὀξὺ ἄ\nκουσεν Ὀιλῆος ταχὺς Αἴας· <gap/>"
+            },
+            {
+                "case_index": 4,
+                "id": "DCLP/65659/25/4",
+                "test_case": "<gap/>ἀλλάτις[....]ς ἴτω, νεμεσιζέ\nσθω δ' ἐνὶ θυμῶι Πάτροκλον\nΤρωιῆισι κυσὶ μέλπηθρα\nγενέσθαι. Ὥς φάτο, ὀξὺ ἄ\nκουσεν Ὀιλῆος ταχὺς Αἴας· <gap/>"
+            },
+            {
+                "case_index": 5,
+                "id": "DCLP/65659/25/5",
+                "test_case": "<gap/>ἀλλάτιςαὐτὸς ἴτω, νεμεσιζέ\n[...] δ' ἐνὶ θυμῶι Πάτροκλον\nΤρωιῆισι κυσὶ μέλπηθρα\nγενέσθαι. Ὥς φάτο, ὀξὺ ἄ\nκουσεν Ὀιλῆος ταχὺς Αἴας· <gap/>"
+            },
+            {
+                "case_index": 6,
+                "id": "DCLP/65659/25/6",
+                "test_case": "<gap/>ἀλλάτιςαὐτὸς ἴτω, νεμεσιζέ\nσθω [..] ἐνὶ θυμῶι Πάτροκλον\nΤρωιῆισι κυσὶ μέλπηθρα\nγενέσθαι. Ὥς φάτο, ὀξὺ ἄ\nκουσεν Ὀιλῆος ταχὺς Αἴας· <gap/>"
+            },
+            {
+                "case_index": 7,
+                "id": "DCLP/65659/25/7",
+                "test_case": "<gap/>ἀλλάτιςαὐτὸς ἴτω, νεμεσιζέ\nσθω δ' [...] θυμῶι Πάτροκλον\nΤρωιῆισι κυσὶ μέλπηθρα\nγενέσθαι. Ὥς φάτο, ὀξὺ ἄ\nκουσεν Ὀιλῆος ταχὺς Αἴας· <gap/>"
+            },
+            {
+                "case_index": 8,
+                "id": "DCLP/65659/25/8",
+                "test_case": "<gap/>ἀλλάτιςαὐτὸς ἴτω, νεμεσιζέ\nσθω δ' ἐνὶ [.....] Πάτροκλον\nΤρωιῆισι κυσὶ μέλπηθρα\nγενέσθαι. Ὥς φάτο, ὀξὺ ἄ\nκουσεν Ὀιλῆος ταχὺς Αἴας· <gap/>"
+            },
+            {
+                "case_index": 9,
+                "id": "DCLP/65659/25/9",
+                "test_case": "<gap/>ἀλλάτιςαὐτὸς ἴτω, νεμεσιζέ\nσθω δ' ἐνὶ θυμῶι [.......]ον\nΤρωιῆισι κυσὶ μέλπηθρα\nγενέσθαι. Ὥς φάτο, ὀξὺ ἄ\nκουσεν Ὀιλῆος ταχὺς Αἴας· <gap/>"
+            },
+            {
+                "case_index": 10,
+                "id": "DCLP/65659/25/10",
+                "test_case": "<gap/>ἀλλάτιςαὐτὸς ἴτω, νεμεσιζέ\nσθω δ' ἐνὶ θυμῶι Πάτροκλον\n[........] κυσὶ μέλπηθρα\nγενέσθαι. Ὥς φάτο, ὀξὺ ἄ\nκουσεν Ὀιλῆος ταχὺς Αἴας· <gap/>"
+            },
+            {
+                "case_index": 11,
+                "id": "DCLP/65659/25/11",
+                "test_case": "<gap/>ἀλλάτιςαὐτὸς ἴτω, νεμεσιζέ\nσθω δ' ἐνὶ θυμῶι Πάτροκλον\nΤρωιῆισι [.]υσὶ μέλπηθρα\nγενέσθαι. Ὥς φάτο, ὀξὺ ἄ\nκουσεν Ὀιλῆος ταχὺς Αἴας· <gap/>"
+            },
+            {
+                "case_index": 12,
+                "id": "DCLP/65659/25/12",
+                "test_case": "<gap/>ἀλλάτιςαὐτὸς ἴτω, νεμεσιζέ\nσθω δ' ἐνὶ θυμῶι Πάτροκλον\nΤρωιῆισι κυσὶ μ[.......]\nγενέσθαι. Ὥς φάτο, ὀξὺ ἄ\nκουσεν Ὀιλῆος ταχὺς Αἴας· <gap/>"
+            },
+            {
+                "case_index": 13,
+                "id": "DCLP/65659/25/13",
+                "test_case": "<gap/>ἀλλάτιςαὐτὸς ἴτω, νεμεσιζέ\nσθω δ' ἐνὶ θυμῶι Πάτροκλον\nΤρωιῆισι κυσὶ μέλπηθρα\n[........]. Ὥς φάτο, ὀξὺ ἄ\nκουσεν Ὀιλῆος ταχὺς Αἴας· <gap/>"
+            },
+            {
+                "case_index": 14,
+                "id": "DCLP/65659/25/14",
+                "test_case": "<gap/>ἀλλάτιςαὐτὸς ἴτω, νεμεσιζέ\nσθω δ' ἐνὶ θυμῶι Πάτροκλον\nΤρωιῆισι κυσὶ μέλπηθρα\nγενέσθαι. Ὥς φάτο, ὀξὺ ἄ\n[......] Ὀιλῆος ταχὺς Αἴας· <gap/>"
+            },
+            {
+                "case_index": 15,
+                "id": "DCLP/65659/25/15",
+                "test_case": "<gap/>ἀλλάτιςαὐτὸς ἴτω, νεμεσιζέ\nσθω δ' ἐνὶ θυμῶι Πάτροκλον\nΤρωιῆισι κυσὶ μέλπηθρα\nγενέσθαι. Ὥς φάτο, ὀξὺ ἄ\nκουσεν [....]ος ταχὺς Αἴας· <gap/>"
+            },
+            {
+                "case_index": 16,
+                "id": "DCLP/65659/25/16",
+                "test_case": "<gap/>ἀλλάτιςαὐτὸς ἴτω, νεμεσιζέ\nσθω δ' ἐνὶ θυμῶι Πάτροκλον\nΤρωιῆισι κυσὶ μέλπηθρα\nγενέσθαι. Ὥς φάτο, ὀξὺ ἄ\nκουσεν Ὀιλῆος τ[..]ὺς Αἴας· <gap/>"
+            },
+            {
+                "case_index": 17,
+                "id": "DCLP/65659/25/17",
+                "test_case": "<gap/>ἀλλάτιςαὐτὸς ἴτω, νεμεσιζέ\nσθω δ' ἐνὶ θυμῶι Πάτροκλον\nΤρωιῆισι κυσὶ μέλπηθρα\nγενέσθαι. Ὥς φάτο, ὀξὺ ἄ\nκουσεν Ὀιλῆος ταχὺς Α[..]ς· <gap/>"
+            }
+        ]
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "65659",
+        "block_index": 26,
+        "id": "DCLP/65659/26",
+        "title": "P.Herc. 1158",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/><gap/>[κ]υδιανειρα<gap/>\n<gap/>υθ' , οὗ ν<gap/>",
+        "test_cases": [
+            {
+                "case_index": 1,
+                "id": "DCLP/65659/26/1",
+                "test_case": "<gap/><gap/>[.]υδιανειρα<gap/>\n<gap/>υθ' , οὗ ν<gap/>"
+            }
+        ]
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "65659",
+        "block_index": 27,
+        "id": "DCLP/65659/27",
+        "title": "P.Herc. 1158",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/>[τοὺς]\nἄλλους δ' ἄρα π[αρακαλεῖ]\nτις αὐτὸ[ς] <gap/> δύναν\nται δ <gap/>νοιαν\nὑπ<gap/>\n.λ<gap/>",
+        "test_cases": [
+            {
+                "case_index": 1,
+                "id": "DCLP/65659/27/1",
+                "test_case": "<gap/>[....]\nἄλλους δ' ἄρα παρακαλεῖ\nτις αὐτὸς <gap/> δύναν\nται δ <gap/>νοιαν\nὑπ<gap/>\n.λ<gap/>"
+            },
+            {
+                "case_index": 2,
+                "id": "DCLP/65659/27/2",
+                "test_case": "<gap/>τοὺς\nἄλλους δ' ἄρα π[........]\nτις αὐτὸς <gap/> δύναν\nται δ <gap/>νοιαν\nὑπ<gap/>\n.λ<gap/>"
+            },
+            {
+                "case_index": 3,
+                "id": "DCLP/65659/27/3",
+                "test_case": "<gap/>τοὺς\nἄλλους δ' ἄρα παρακαλεῖ\nτις αὐτὸ[.] <gap/> δύναν\nται δ <gap/>νοιαν\nὑπ<gap/>\n.λ<gap/>"
+            }
+        ]
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "65659",
+        "block_index": 28,
+        "id": "DCLP/65659/28",
+        "title": "P.Herc. 1158",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/>εσθαι\n<gap/>αυ\n<gap/>νιδο<gap/>",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "65659",
+        "block_index": 29,
+        "id": "DCLP/65659/29",
+        "title": "P.Herc. 1158",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/><gap/>ην<gap/>\n<gap/>ντ.υοτω<gap/>\n<gap/>μενε.<gap/>\n<gap/>κου<gap/>",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "65659",
+        "block_index": 30,
+        "id": "DCLP/65659/30",
+        "title": "P.Herc. 1158",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "ρε<gap/>\nπρὸς το<gap/>\nτω..ατω<gap/>",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "65659",
+        "block_index": 31,
+        "id": "DCLP/65659/31",
+        "title": "P.Herc. 1158",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "παλι<gap/>\nνον<gap/>\nεὐλο[γ] <gap/>",
+        "test_cases": [
+            {
+                "case_index": 1,
+                "id": "DCLP/65659/31/1",
+                "test_case": "παλι<gap/>\nνον<gap/>\nεὐλο[.] <gap/>"
+            }
+        ]
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "65659",
+        "block_index": 32,
+        "id": "DCLP/65659/32",
+        "title": "P.Herc. 1158",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/>\nἐν τ[ῆι] μάχη[ι] ..... [εὔχον]\nται τῶι Ἀπόλ[λ]ωνι ......\n[εὔ]πορον ἔχ[ε]ιν ........\nσυμμα[χ] <gap/>",
+        "test_cases": [
+            {
+                "case_index": 1,
+                "id": "DCLP/65659/32/1",
+                "test_case": "<gap/>\nἐν τ[..] μάχηι ..... εὔχον\nται τῶι Ἀπόλλωνι ......\nεὔπορον ἔχειν ........\nσυμμαχ <gap/>"
+            },
+            {
+                "case_index": 2,
+                "id": "DCLP/65659/32/2",
+                "test_case": "<gap/>\nἐν τῆι μάχη[.] ..... εὔχον\nται τῶι Ἀπόλλωνι ......\nεὔπορον ἔχειν ........\nσυμμαχ <gap/>"
+            },
+            {
+                "case_index": 3,
+                "id": "DCLP/65659/32/3",
+                "test_case": "<gap/>\nἐν τῆι μάχηι ..... [.....]\nται τῶι Ἀπόλλωνι ......\nεὔπορον ἔχειν ........\nσυμμαχ <gap/>"
+            },
+            {
+                "case_index": 4,
+                "id": "DCLP/65659/32/4",
+                "test_case": "<gap/>\nἐν τῆι μάχηι ..... εὔχον\nται τῶι Ἀπόλ[.]ωνι ......\nεὔπορον ἔχειν ........\nσυμμαχ <gap/>"
+            },
+            {
+                "case_index": 5,
+                "id": "DCLP/65659/32/5",
+                "test_case": "<gap/>\nἐν τῆι μάχηι ..... εὔχον\nται τῶι Ἀπόλλωνι ......\n[..]πορον ἔχειν ........\nσυμμαχ <gap/>"
+            },
+            {
+                "case_index": 6,
+                "id": "DCLP/65659/32/6",
+                "test_case": "<gap/>\nἐν τῆι μάχηι ..... εὔχον\nται τῶι Ἀπόλλωνι ......\nεὔπορον ἔχ[.]ιν ........\nσυμμαχ <gap/>"
+            },
+            {
+                "case_index": 7,
+                "id": "DCLP/65659/32/7",
+                "test_case": "<gap/>\nἐν τῆι μάχηι ..... εὔχον\nται τῶι Ἀπόλλωνι ......\nεὔπορον ἔχειν ........\nσυμμα[.] <gap/>"
+            }
+        ]
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "65659",
+        "block_index": 33,
+        "id": "DCLP/65659/33",
+        "title": "P.Herc. 1158",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/>ωφ..\n<gap/>κ.\n<gap/>ι.ο γὰρ\n<gap/>ζ..υτ..\n<gap/>",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "65659",
+        "block_index": 34,
+        "id": "DCLP/65659/34",
+        "title": "P.Herc. 1158",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/>ιν ἔθηκεν ἡ φύσ[ις] <gap/>\n<gap/> καθάπερ ἂν εἰ πόλεως <gap/>\n<gap/>ς.. διὰ τῶν λογικῶν <gap/>\n<gap/> γε συνάγουσα εἰς <gap/>\n<gap/>. σευ.ον κατὰ λοιπ<gap/>\n<gap/>των ποι<gap/>\n<gap/> οιμαι .εν<gap/>",
+        "test_cases": [
+            {
+                "case_index": 1,
+                "id": "DCLP/65659/34/1",
+                "test_case": "<gap/>ιν ἔθηκεν ἡ φύσ[..] <gap/>\n<gap/> καθάπερ ἂν εἰ πόλεως <gap/>\n<gap/>ς.. διὰ τῶν λογικῶν <gap/>\n<gap/> γε συνάγουσα εἰς <gap/>\n<gap/>. σευ.ον κατὰ λοιπ<gap/>\n<gap/>των ποι<gap/>\n<gap/> οιμαι .εν<gap/>"
+            }
+        ]
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "65659",
+        "block_index": 35,
+        "id": "DCLP/65659/35",
+        "title": "P.Herc. 1158",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/>υτ<gap/>\n<gap/>χθ<gap/>\n<gap/>νη<gap/>\n<gap/>νεις<gap/>",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "65659",
+        "block_index": 36,
+        "id": "DCLP/65659/36",
+        "title": "P.Herc. 1158",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "[α]υτης τ<gap/>\nδα κατα<gap/>\nλ<gap/>",
+        "test_cases": [
+            {
+                "case_index": 1,
+                "id": "DCLP/65659/36/1",
+                "test_case": "[.]υτης τ<gap/>\nδα κατα<gap/>\nλ<gap/>"
+            }
+        ]
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "65659",
+        "block_index": 37,
+        "id": "DCLP/65659/37",
+        "title": "P.Herc. 1158",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/>αν<gap/>\n<gap/>αου<gap/>\n<gap/>ηθηλο<gap/>",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "65659",
+        "block_index": 38,
+        "id": "DCLP/65659/38",
+        "title": "P.Herc. 1158",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/>υα<gap/>\n<gap/>τη [ἔ]χειν <gap/>\n<gap/> ἐκ τοῦ λεγ<gap/>\n<gap/>τατη<gap/>\n<gap/>αι<gap/>",
+        "test_cases": [
+            {
+                "case_index": 1,
+                "id": "DCLP/65659/38/1",
+                "test_case": "<gap/>υα<gap/>\n<gap/>τη [.]χειν <gap/>\n<gap/> ἐκ τοῦ λεγ<gap/>\n<gap/>τατη<gap/>\n<gap/>αι<gap/>"
+            }
+        ]
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "65659",
+        "block_index": 39,
+        "id": "DCLP/65659/39",
+        "title": "P.Herc. 1158",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/><gap/>νειδεμ.ν<gap/>\n<gap/>ω<gap/>",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "65659",
+        "block_index": 40,
+        "id": "DCLP/65659/40",
+        "title": "P.Herc. 1158",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/> ἀλλα<gap/>\n<gap/>τω<gap/>\n<gap/>ν και<gap/>\n<gap/>τ<gap/>\n<gap/>τω<gap/>",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "65659",
+        "block_index": 41,
+        "id": "DCLP/65659/41",
+        "title": "P.Herc. 1158",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/>αντος <gap/>\n<gap/>υτο<gap/>\n<gap/> γὰρ ἄλλως <gap/>\n<gap/>αν μάλιστα ἐπε<gap/>\n<gap/>μι...το<gap/>\n<gap/>η<gap/>",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "65659",
+        "block_index": 42,
+        "id": "DCLP/65659/42",
+        "title": "P.Herc. 1158",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/><gap/>κ<gap/>\n<gap/> τὸ δειν[ὸν] <gap/>\n<gap/> [ὁ] [δε]ιλὸς <gap/>\n<gap/> [ὀνει]δίζη[ται] <gap/>",
+        "test_cases": [
+            {
+                "case_index": 1,
+                "id": "DCLP/65659/42/1",
+                "test_case": "<gap/><gap/>κ<gap/>\n<gap/> τὸ δειν[..] <gap/>\n<gap/> ὁ δειλὸς <gap/>\n<gap/> ὀνειδίζηται <gap/>"
+            },
+            {
+                "case_index": 2,
+                "id": "DCLP/65659/42/2",
+                "test_case": "<gap/><gap/>κ<gap/>\n<gap/> τὸ δεινὸν <gap/>\n<gap/> [.] δειλὸς <gap/>\n<gap/> ὀνειδίζηται <gap/>"
+            },
+            {
+                "case_index": 3,
+                "id": "DCLP/65659/42/3",
+                "test_case": "<gap/><gap/>κ<gap/>\n<gap/> τὸ δεινὸν <gap/>\n<gap/> ὁ [..]ιλὸς <gap/>\n<gap/> ὀνειδίζηται <gap/>"
+            },
+            {
+                "case_index": 4,
+                "id": "DCLP/65659/42/4",
+                "test_case": "<gap/><gap/>κ<gap/>\n<gap/> τὸ δεινὸν <gap/>\n<gap/> ὁ δειλὸς <gap/>\n<gap/> [....]δίζηται <gap/>"
+            },
+            {
+                "case_index": 5,
+                "id": "DCLP/65659/42/5",
+                "test_case": "<gap/><gap/>κ<gap/>\n<gap/> τὸ δεινὸν <gap/>\n<gap/> ὁ δειλὸς <gap/>\n<gap/> ὀνειδίζη[...] <gap/>"
+            }
+        ]
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "65659",
+        "block_index": 43,
+        "id": "DCLP/65659/43",
+        "title": "P.Herc. 1158",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/><gap/>ον ἔχειν προ<gap/>\n<gap/>υπα<gap/>",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "65659",
+        "block_index": 44,
+        "id": "DCLP/65659/44",
+        "title": "P.Herc. 1158",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/>το.νεια<gap/>\n<gap/>ουτων α<gap/>\n<gap/>νων <gap/>\n<gap/>[κ]ινδυ[ν] <gap/>",
+        "test_cases": [
+            {
+                "case_index": 1,
+                "id": "DCLP/65659/44/1",
+                "test_case": "<gap/>το.νεια<gap/>\n<gap/>ουτων α<gap/>\n<gap/>νων <gap/>\n<gap/>[.]ινδυν <gap/>"
+            },
+            {
+                "case_index": 2,
+                "id": "DCLP/65659/44/2",
+                "test_case": "<gap/>το.νεια<gap/>\n<gap/>ουτων α<gap/>\n<gap/>νων <gap/>\n<gap/>κινδυ[.] <gap/>"
+            }
+        ]
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "65659",
+        "block_index": 45,
+        "id": "DCLP/65659/45",
+        "title": "P.Herc. 1158",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/>ους<gap/>\n<gap/>ως λ<gap/>",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "65659",
+        "block_index": 46,
+        "id": "DCLP/65659/46",
+        "title": "P.Herc. 1158",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/><gap/>κλ<gap/>\n<gap/>τον<gap/>\n<gap/>νον κ<gap/>",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "65659",
+        "block_index": 47,
+        "id": "DCLP/65659/47",
+        "title": "P.Herc. 1158",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/>νοις <gap/>\n<gap/>.νια<gap/>\n<gap/>\n<gap/>ιτ<gap/>\n<gap/>εν<gap/>\n<gap/>ου<gap/>\n<gap/>αυ<gap/>",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "65659",
+        "block_index": 48,
+        "id": "DCLP/65659/48",
+        "title": "P.Herc. 1158",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "τοια<gap/>\nσαιοι<gap/>\nχρη<gap/>\nνηκ<gap/>\nπολι<gap/>\n.να<gap/>\n..οι<gap/>\nαυ<gap/>",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "65659",
+        "block_index": 49,
+        "id": "DCLP/65659/49",
+        "title": "P.Herc. 1158",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/>ητεον<gap/>\n<gap/>ια<gap/>\n<gap/>αικ<gap/>\n<gap/>υ.νο<gap/>\n<gap/>α<gap/>\n<gap/>φον<gap/>",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "65659",
+        "block_index": 50,
+        "id": "DCLP/65659/50",
+        "title": "P.Herc. 1158",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/>[ἐν]\nδὲ ταῖς Θήβαις τοῦτ' ἔστιν\nπο[ιη]τέον. Μαχεῖται γὰρ\nαὐτῶι καὶ καταλύσει τὸ\n[α]ὐτῆ συμφέ[ρ]ον ὁμοιου.\nαυτ....οις... τοὺς πο\n[λί]τας.........εινομ<gap/>",
+        "test_cases": [
+            {
+                "case_index": 1,
+                "id": "DCLP/65659/50/1",
+                "test_case": "<gap/>[..]\nδὲ ταῖς Θήβαις τοῦτ' ἔστιν\nποιητέον. Μαχεῖται γὰρ\nαὐτῶι καὶ καταλύσει τὸ\nαὐτῆ συμφέρον ὁμοιου.\nαυτ....οις... τοὺς πο\nλίτας.........εινομ<gap/>"
+            },
+            {
+                "case_index": 2,
+                "id": "DCLP/65659/50/2",
+                "test_case": "<gap/>ἐν\nδὲ ταῖς Θήβαις τοῦτ' ἔστιν\nπο[..]τέον. Μαχεῖται γὰρ\nαὐτῶι καὶ καταλύσει τὸ\nαὐτῆ συμφέρον ὁμοιου.\nαυτ....οις... τοὺς πο\nλίτας.........εινομ<gap/>"
+            },
+            {
+                "case_index": 3,
+                "id": "DCLP/65659/50/3",
+                "test_case": "<gap/>ἐν\nδὲ ταῖς Θήβαις τοῦτ' ἔστιν\nποιητέον. Μαχεῖται γὰρ\nαὐτῶι καὶ καταλύσει τὸ\n[.]ὐτῆ συμφέρον ὁμοιου.\nαυτ....οις... τοὺς πο\nλίτας.........εινομ<gap/>"
+            },
+            {
+                "case_index": 4,
+                "id": "DCLP/65659/50/4",
+                "test_case": "<gap/>ἐν\nδὲ ταῖς Θήβαις τοῦτ' ἔστιν\nποιητέον. Μαχεῖται γὰρ\nαὐτῶι καὶ καταλύσει τὸ\nαὐτῆ συμφέ[.]ον ὁμοιου.\nαυτ....οις... τοὺς πο\nλίτας.........εινομ<gap/>"
+            },
+            {
+                "case_index": 5,
+                "id": "DCLP/65659/50/5",
+                "test_case": "<gap/>ἐν\nδὲ ταῖς Θήβαις τοῦτ' ἔστιν\nποιητέον. Μαχεῖται γὰρ\nαὐτῶι καὶ καταλύσει τὸ\nαὐτῆ συμφέρον ὁμοιου.\nαυτ....οις... τοὺς πο\n[..]τας.........εινομ<gap/>"
+            }
+        ]
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "65659",
+        "block_index": 51,
+        "id": "DCLP/65659/51",
+        "title": "P.Herc. 1158",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/>πολ<gap/>\n<gap/>μ<gap/>\n<gap/>κ.λ.<gap/>",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "65659",
+        "block_index": 52,
+        "id": "DCLP/65659/52",
+        "title": "P.Herc. 1158",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/>τεον\n<gap/>τ\n<gap/>τω\n<gap/>",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "65659",
+        "block_index": 53,
+        "id": "DCLP/65659/53",
+        "title": "P.Herc. 1158",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "ρηθέντα τῆς ε..\n... [συμ]φορᾶς. Ἔχει δὲ πρ.\n..... [οὕ]τως τὰ εἰρημένα\n[ὑπὸ] [το]ῦ Τυρταίου· Ω \n[νέοι], [ἀλλ]ὰ μάχεσθε παρ' ἀλ\n[λήλοισι] [μένο]ντες μηδὲ\n[φυγῆς] [αἰσχρῆς] [ἄρχετε] [μη]\n[δὲ] [φόβου] <gap/>",
+        "test_cases": [
+            {
+                "case_index": 1,
+                "id": "DCLP/65659/53/1",
+                "test_case": "ρηθέντα τῆς ε..\n... [...]φορᾶς. Ἔχει δὲ πρ.\n..... οὕτως τὰ εἰρημένα\nὑπὸ τοῦ Τυρταίου· Ω \nνέοι, ἀλλὰ μάχεσθε παρ' ἀλ\nλήλοισι μένοντες μηδὲ\nφυγῆς αἰσχρῆς ἄρχετε μη\nδὲ φόβου <gap/>"
+            },
+            {
+                "case_index": 2,
+                "id": "DCLP/65659/53/2",
+                "test_case": "ρηθέντα τῆς ε..\n... συμφορᾶς. Ἔχει δὲ πρ.\n..... [..]τως τὰ εἰρημένα\nὑπὸ τοῦ Τυρταίου· Ω \nνέοι, ἀλλὰ μάχεσθε παρ' ἀλ\nλήλοισι μένοντες μηδὲ\nφυγῆς αἰσχρῆς ἄρχετε μη\nδὲ φόβου <gap/>"
+            },
+            {
+                "case_index": 3,
+                "id": "DCLP/65659/53/3",
+                "test_case": "ρηθέντα τῆς ε..\n... συμφορᾶς. Ἔχει δὲ πρ.\n..... οὕτως τὰ εἰρημένα\n[...] τοῦ Τυρταίου· Ω \nνέοι, ἀλλὰ μάχεσθε παρ' ἀλ\nλήλοισι μένοντες μηδὲ\nφυγῆς αἰσχρῆς ἄρχετε μη\nδὲ φόβου <gap/>"
+            },
+            {
+                "case_index": 4,
+                "id": "DCLP/65659/53/4",
+                "test_case": "ρηθέντα τῆς ε..\n... συμφορᾶς. Ἔχει δὲ πρ.\n..... οὕτως τὰ εἰρημένα\nὑπὸ [..]ῦ Τυρταίου· Ω \nνέοι, ἀλλὰ μάχεσθε παρ' ἀλ\nλήλοισι μένοντες μηδὲ\nφυγῆς αἰσχρῆς ἄρχετε μη\nδὲ φόβου <gap/>"
+            },
+            {
+                "case_index": 5,
+                "id": "DCLP/65659/53/5",
+                "test_case": "ρηθέντα τῆς ε..\n... συμφορᾶς. Ἔχει δὲ πρ.\n..... οὕτως τὰ εἰρημένα\nὑπὸ τοῦ Τυρταίου· Ω \n[....], ἀλλὰ μάχεσθε παρ' ἀλ\nλήλοισι μένοντες μηδὲ\nφυγῆς αἰσχρῆς ἄρχετε μη\nδὲ φόβου <gap/>"
+            },
+            {
+                "case_index": 6,
+                "id": "DCLP/65659/53/6",
+                "test_case": "ρηθέντα τῆς ε..\n... συμφορᾶς. Ἔχει δὲ πρ.\n..... οὕτως τὰ εἰρημένα\nὑπὸ τοῦ Τυρταίου· Ω \nνέοι, [...]ὰ μάχεσθε παρ' ἀλ\nλήλοισι μένοντες μηδὲ\nφυγῆς αἰσχρῆς ἄρχετε μη\nδὲ φόβου <gap/>"
+            },
+            {
+                "case_index": 7,
+                "id": "DCLP/65659/53/7",
+                "test_case": "ρηθέντα τῆς ε..\n... συμφορᾶς. Ἔχει δὲ πρ.\n..... οὕτως τὰ εἰρημένα\nὑπὸ τοῦ Τυρταίου· Ω \nνέοι, ἀλλὰ μάχεσθε παρ' ἀλ\n[.......] μένοντες μηδὲ\nφυγῆς αἰσχρῆς ἄρχετε μη\nδὲ φόβου <gap/>"
+            },
+            {
+                "case_index": 8,
+                "id": "DCLP/65659/53/8",
+                "test_case": "ρηθέντα τῆς ε..\n... συμφορᾶς. Ἔχει δὲ πρ.\n..... οὕτως τὰ εἰρημένα\nὑπὸ τοῦ Τυρταίου· Ω \nνέοι, ἀλλὰ μάχεσθε παρ' ἀλ\nλήλοισι [....]ντες μηδὲ\nφυγῆς αἰσχρῆς ἄρχετε μη\nδὲ φόβου <gap/>"
+            },
+            {
+                "case_index": 9,
+                "id": "DCLP/65659/53/9",
+                "test_case": "ρηθέντα τῆς ε..\n... συμφορᾶς. Ἔχει δὲ πρ.\n..... οὕτως τὰ εἰρημένα\nὑπὸ τοῦ Τυρταίου· Ω \nνέοι, ἀλλὰ μάχεσθε παρ' ἀλ\nλήλοισι μένοντες μηδὲ\n[.....] αἰσχρῆς ἄρχετε μη\nδὲ φόβου <gap/>"
+            },
+            {
+                "case_index": 10,
+                "id": "DCLP/65659/53/10",
+                "test_case": "ρηθέντα τῆς ε..\n... συμφορᾶς. Ἔχει δὲ πρ.\n..... οὕτως τὰ εἰρημένα\nὑπὸ τοῦ Τυρταίου· Ω \nνέοι, ἀλλὰ μάχεσθε παρ' ἀλ\nλήλοισι μένοντες μηδὲ\nφυγῆς [.......] ἄρχετε μη\nδὲ φόβου <gap/>"
+            },
+            {
+                "case_index": 11,
+                "id": "DCLP/65659/53/11",
+                "test_case": "ρηθέντα τῆς ε..\n... συμφορᾶς. Ἔχει δὲ πρ.\n..... οὕτως τὰ εἰρημένα\nὑπὸ τοῦ Τυρταίου· Ω \nνέοι, ἀλλὰ μάχεσθε παρ' ἀλ\nλήλοισι μένοντες μηδὲ\nφυγῆς αἰσχρῆς [......] μη\nδὲ φόβου <gap/>"
+            },
+            {
+                "case_index": 12,
+                "id": "DCLP/65659/53/12",
+                "test_case": "ρηθέντα τῆς ε..\n... συμφορᾶς. Ἔχει δὲ πρ.\n..... οὕτως τὰ εἰρημένα\nὑπὸ τοῦ Τυρταίου· Ω \nνέοι, ἀλλὰ μάχεσθε παρ' ἀλ\nλήλοισι μένοντες μηδὲ\nφυγῆς αἰσχρῆς ἄρχετε [..]\nδὲ φόβου <gap/>"
+            },
+            {
+                "case_index": 13,
+                "id": "DCLP/65659/53/13",
+                "test_case": "ρηθέντα τῆς ε..\n... συμφορᾶς. Ἔχει δὲ πρ.\n..... οὕτως τὰ εἰρημένα\nὑπὸ τοῦ Τυρταίου· Ω \nνέοι, ἀλλὰ μάχεσθε παρ' ἀλ\nλήλοισι μένοντες μηδὲ\nφυγῆς αἰσχρῆς ἄρχετε μη\n[..] φόβου <gap/>"
+            },
+            {
+                "case_index": 14,
+                "id": "DCLP/65659/53/14",
+                "test_case": "ρηθέντα τῆς ε..\n... συμφορᾶς. Ἔχει δὲ πρ.\n..... οὕτως τὰ εἰρημένα\nὑπὸ τοῦ Τυρταίου· Ω \nνέοι, ἀλλὰ μάχεσθε παρ' ἀλ\nλήλοισι μένοντες μηδὲ\nφυγῆς αἰσχρῆς ἄρχετε μη\nδὲ [.....] <gap/>"
+            }
+        ]
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "65659",
+        "block_index": 54,
+        "id": "DCLP/65659/54",
+        "title": "P.Herc. 1158",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/>\n......τινι θυμ.......\nθεμεν.ι δ<gap/>\nμου· φευ<gap/>\nπαδ<gap/>\nνι<gap/>",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "65659",
+        "block_index": 55,
+        "id": "DCLP/65659/55",
+        "title": "P.Herc. 1158",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/>τ.υ ποιο<gap/>\n<gap/>\n<gap/>νουτ<gap/>\n<gap/>ντ.ν<gap/>",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "65659",
+        "block_index": 56,
+        "id": "DCLP/65659/56",
+        "title": "P.Herc. 1158",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/>\n..υ....ικ<gap/>\nτων ἑκας<gap/>\nἐκ τῶν <gap/>\n...ν<gap/>",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "65659",
+        "block_index": 57,
+        "id": "DCLP/65659/57",
+        "title": "P.Herc. 1158",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "νοιδ.ο<gap/>\nμω<gap/>\nτε<gap/>\nκα<gap/>\nρον το <gap/>ναν<gap/>",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "65659",
+        "block_index": 58,
+        "id": "DCLP/65659/58",
+        "title": "P.Herc. 1158",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/>[πα]\nτρ[ί]δα γαῖ[αν]. [Αὕ]τη γὰρ ἡ πα\nράκλη[σις] [ἐν] [ταῖς] πολιτικωτά\nταις ἐστίν· [πρῶ]τον μὲν ὀρ\nθῶς τὴν π[όλιν] προστάττου\nσα ἐφ' ἑκ[ά]στου αὐτῶν· δεῖ γὰρ\nοὐ τὴν πόλιν ὑπὲρ ἑκάσ[τ]ου\nτῶν π[ο]λιτ[ῶ]ν ἀναιρεῖσ[θαι], [ἀλ]λ' [αὐτοὺς] [ὑπὲ]ρ τῆς π[όλε]\nως καὶ .α.......ττ.. [πα]\n ραπλησι<gap/>\n..το<gap/>",
+        "test_cases": [
+            {
+                "case_index": 1,
+                "id": "DCLP/65659/58/1",
+                "test_case": "<gap/>[..]\nτρίδα γαῖαν. Αὕτη γὰρ ἡ πα\nράκλησις ἐν ταῖς πολιτικωτά\nταις ἐστίν· πρῶτον μὲν ὀρ\nθῶς τὴν πόλιν προστάττου\nσα ἐφ' ἑκάστου αὐτῶν· δεῖ γὰρ\nοὐ τὴν πόλιν ὑπὲρ ἑκάστου\nτῶν πολιτῶν ἀναιρεῖσθαι, ἀλλ' αὐτοὺς ὑπὲρ τῆς πόλε\nως καὶ .α.......ττ.. πα\n ραπλησι<gap/>\n..το<gap/>"
+            },
+            {
+                "case_index": 2,
+                "id": "DCLP/65659/58/2",
+                "test_case": "<gap/>πα\nτρ[.]δα γαῖαν. Αὕτη γὰρ ἡ πα\nράκλησις ἐν ταῖς πολιτικωτά\nταις ἐστίν· πρῶτον μὲν ὀρ\nθῶς τὴν πόλιν προστάττου\nσα ἐφ' ἑκάστου αὐτῶν· δεῖ γὰρ\nοὐ τὴν πόλιν ὑπὲρ ἑκάστου\nτῶν πολιτῶν ἀναιρεῖσθαι, ἀλλ' αὐτοὺς ὑπὲρ τῆς πόλε\nως καὶ .α.......ττ.. πα\n ραπλησι<gap/>\n..το<gap/>"
+            },
+            {
+                "case_index": 3,
+                "id": "DCLP/65659/58/3",
+                "test_case": "<gap/>πα\nτρίδα γαῖ[..]. Αὕτη γὰρ ἡ πα\nράκλησις ἐν ταῖς πολιτικωτά\nταις ἐστίν· πρῶτον μὲν ὀρ\nθῶς τὴν πόλιν προστάττου\nσα ἐφ' ἑκάστου αὐτῶν· δεῖ γὰρ\nοὐ τὴν πόλιν ὑπὲρ ἑκάστου\nτῶν πολιτῶν ἀναιρεῖσθαι, ἀλλ' αὐτοὺς ὑπὲρ τῆς πόλε\nως καὶ .α.......ττ.. πα\n ραπλησι<gap/>\n..το<gap/>"
+            },
+            {
+                "case_index": 4,
+                "id": "DCLP/65659/58/4",
+                "test_case": "<gap/>πα\nτρίδα γαῖαν. [..]τη γὰρ ἡ πα\nράκλησις ἐν ταῖς πολιτικωτά\nταις ἐστίν· πρῶτον μὲν ὀρ\nθῶς τὴν πόλιν προστάττου\nσα ἐφ' ἑκάστου αὐτῶν· δεῖ γὰρ\nοὐ τὴν πόλιν ὑπὲρ ἑκάστου\nτῶν πολιτῶν ἀναιρεῖσθαι, ἀλλ' αὐτοὺς ὑπὲρ τῆς πόλε\nως καὶ .α.......ττ.. πα\n ραπλησι<gap/>\n..το<gap/>"
+            },
+            {
+                "case_index": 5,
+                "id": "DCLP/65659/58/5",
+                "test_case": "<gap/>πα\nτρίδα γαῖαν. Αὕτη γὰρ ἡ πα\nράκλη[...] ἐν ταῖς πολιτικωτά\nταις ἐστίν· πρῶτον μὲν ὀρ\nθῶς τὴν πόλιν προστάττου\nσα ἐφ' ἑκάστου αὐτῶν· δεῖ γὰρ\nοὐ τὴν πόλιν ὑπὲρ ἑκάστου\nτῶν πολιτῶν ἀναιρεῖσθαι, ἀλλ' αὐτοὺς ὑπὲρ τῆς πόλε\nως καὶ .α.......ττ.. πα\n ραπλησι<gap/>\n..το<gap/>"
+            },
+            {
+                "case_index": 6,
+                "id": "DCLP/65659/58/6",
+                "test_case": "<gap/>πα\nτρίδα γαῖαν. Αὕτη γὰρ ἡ πα\nράκλησις [..] ταῖς πολιτικωτά\nταις ἐστίν· πρῶτον μὲν ὀρ\nθῶς τὴν πόλιν προστάττου\nσα ἐφ' ἑκάστου αὐτῶν· δεῖ γὰρ\nοὐ τὴν πόλιν ὑπὲρ ἑκάστου\nτῶν πολιτῶν ἀναιρεῖσθαι, ἀλλ' αὐτοὺς ὑπὲρ τῆς πόλε\nως καὶ .α.......ττ.. πα\n ραπλησι<gap/>\n..το<gap/>"
+            },
+            {
+                "case_index": 7,
+                "id": "DCLP/65659/58/7",
+                "test_case": "<gap/>πα\nτρίδα γαῖαν. Αὕτη γὰρ ἡ πα\nράκλησις ἐν [....] πολιτικωτά\nταις ἐστίν· πρῶτον μὲν ὀρ\nθῶς τὴν πόλιν προστάττου\nσα ἐφ' ἑκάστου αὐτῶν· δεῖ γὰρ\nοὐ τὴν πόλιν ὑπὲρ ἑκάστου\nτῶν πολιτῶν ἀναιρεῖσθαι, ἀλλ' αὐτοὺς ὑπὲρ τῆς πόλε\nως καὶ .α.......ττ.. πα\n ραπλησι<gap/>\n..το<gap/>"
+            },
+            {
+                "case_index": 8,
+                "id": "DCLP/65659/58/8",
+                "test_case": "<gap/>πα\nτρίδα γαῖαν. Αὕτη γὰρ ἡ πα\nράκλησις ἐν ταῖς πολιτικωτά\nταις ἐστίν· [...]τον μὲν ὀρ\nθῶς τὴν πόλιν προστάττου\nσα ἐφ' ἑκάστου αὐτῶν· δεῖ γὰρ\nοὐ τὴν πόλιν ὑπὲρ ἑκάστου\nτῶν πολιτῶν ἀναιρεῖσθαι, ἀλλ' αὐτοὺς ὑπὲρ τῆς πόλε\nως καὶ .α.......ττ.. πα\n ραπλησι<gap/>\n..το<gap/>"
+            },
+            {
+                "case_index": 9,
+                "id": "DCLP/65659/58/9",
+                "test_case": "<gap/>πα\nτρίδα γαῖαν. Αὕτη γὰρ ἡ πα\nράκλησις ἐν ταῖς πολιτικωτά\nταις ἐστίν· πρῶτον μὲν ὀρ\nθῶς τὴν π[....] προστάττου\nσα ἐφ' ἑκάστου αὐτῶν· δεῖ γὰρ\nοὐ τὴν πόλιν ὑπὲρ ἑκάστου\nτῶν πολιτῶν ἀναιρεῖσθαι, ἀλλ' αὐτοὺς ὑπὲρ τῆς πόλε\nως καὶ .α.......ττ.. πα\n ραπλησι<gap/>\n..το<gap/>"
+            },
+            {
+                "case_index": 10,
+                "id": "DCLP/65659/58/10",
+                "test_case": "<gap/>πα\nτρίδα γαῖαν. Αὕτη γὰρ ἡ πα\nράκλησις ἐν ταῖς πολιτικωτά\nταις ἐστίν· πρῶτον μὲν ὀρ\nθῶς τὴν πόλιν προστάττου\nσα ἐφ' ἑκ[.]στου αὐτῶν· δεῖ γὰρ\nοὐ τὴν πόλιν ὑπὲρ ἑκάστου\nτῶν πολιτῶν ἀναιρεῖσθαι, ἀλλ' αὐτοὺς ὑπὲρ τῆς πόλε\nως καὶ .α.......ττ.. πα\n ραπλησι<gap/>\n..το<gap/>"
+            },
+            {
+                "case_index": 11,
+                "id": "DCLP/65659/58/11",
+                "test_case": "<gap/>πα\nτρίδα γαῖαν. Αὕτη γὰρ ἡ πα\nράκλησις ἐν ταῖς πολιτικωτά\nταις ἐστίν· πρῶτον μὲν ὀρ\nθῶς τὴν πόλιν προστάττου\nσα ἐφ' ἑκάστου αὐτῶν· δεῖ γὰρ\nοὐ τὴν πόλιν ὑπὲρ ἑκάσ[.]ου\nτῶν πολιτῶν ἀναιρεῖσθαι, ἀλλ' αὐτοὺς ὑπὲρ τῆς πόλε\nως καὶ .α.......ττ.. πα\n ραπλησι<gap/>\n..το<gap/>"
+            },
+            {
+                "case_index": 12,
+                "id": "DCLP/65659/58/12",
+                "test_case": "<gap/>πα\nτρίδα γαῖαν. Αὕτη γὰρ ἡ πα\nράκλησις ἐν ταῖς πολιτικωτά\nταις ἐστίν· πρῶτον μὲν ὀρ\nθῶς τὴν πόλιν προστάττου\nσα ἐφ' ἑκάστου αὐτῶν· δεῖ γὰρ\nοὐ τὴν πόλιν ὑπὲρ ἑκάστου\nτῶν π[.]λιτῶν ἀναιρεῖσθαι, ἀλλ' αὐτοὺς ὑπὲρ τῆς πόλε\nως καὶ .α.......ττ.. πα\n ραπλησι<gap/>\n..το<gap/>"
+            },
+            {
+                "case_index": 13,
+                "id": "DCLP/65659/58/13",
+                "test_case": "<gap/>πα\nτρίδα γαῖαν. Αὕτη γὰρ ἡ πα\nράκλησις ἐν ταῖς πολιτικωτά\nταις ἐστίν· πρῶτον μὲν ὀρ\nθῶς τὴν πόλιν προστάττου\nσα ἐφ' ἑκάστου αὐτῶν· δεῖ γὰρ\nοὐ τὴν πόλιν ὑπὲρ ἑκάστου\nτῶν πολιτ[.]ν ἀναιρεῖσθαι, ἀλλ' αὐτοὺς ὑπὲρ τῆς πόλε\nως καὶ .α.......ττ.. πα\n ραπλησι<gap/>\n..το<gap/>"
+            },
+            {
+                "case_index": 14,
+                "id": "DCLP/65659/58/14",
+                "test_case": "<gap/>πα\nτρίδα γαῖαν. Αὕτη γὰρ ἡ πα\nράκλησις ἐν ταῖς πολιτικωτά\nταις ἐστίν· πρῶτον μὲν ὀρ\nθῶς τὴν πόλιν προστάττου\nσα ἐφ' ἑκάστου αὐτῶν· δεῖ γὰρ\nοὐ τὴν πόλιν ὑπὲρ ἑκάστου\nτῶν πολιτῶν ἀναιρεῖσ[...], ἀλλ' αὐτοὺς ὑπὲρ τῆς πόλε\nως καὶ .α.......ττ.. πα\n ραπλησι<gap/>\n..το<gap/>"
+            },
+            {
+                "case_index": 15,
+                "id": "DCLP/65659/58/15",
+                "test_case": "<gap/>πα\nτρίδα γαῖαν. Αὕτη γὰρ ἡ πα\nράκλησις ἐν ταῖς πολιτικωτά\nταις ἐστίν· πρῶτον μὲν ὀρ\nθῶς τὴν πόλιν προστάττου\nσα ἐφ' ἑκάστου αὐτῶν· δεῖ γὰρ\nοὐ τὴν πόλιν ὑπὲρ ἑκάστου\nτῶν πολιτῶν ἀναιρεῖσθαι, [..]λ' αὐτοὺς ὑπὲρ τῆς πόλε\nως καὶ .α.......ττ.. πα\n ραπλησι<gap/>\n..το<gap/>"
+            },
+            {
+                "case_index": 16,
+                "id": "DCLP/65659/58/16",
+                "test_case": "<gap/>πα\nτρίδα γαῖαν. Αὕτη γὰρ ἡ πα\nράκλησις ἐν ταῖς πολιτικωτά\nταις ἐστίν· πρῶτον μὲν ὀρ\nθῶς τὴν πόλιν προστάττου\nσα ἐφ' ἑκάστου αὐτῶν· δεῖ γὰρ\nοὐ τὴν πόλιν ὑπὲρ ἑκάστου\nτῶν πολιτῶν ἀναιρεῖσθαι, ἀλλ' [......] ὑπὲρ τῆς πόλε\nως καὶ .α.......ττ.. πα\n ραπλησι<gap/>\n..το<gap/>"
+            },
+            {
+                "case_index": 17,
+                "id": "DCLP/65659/58/17",
+                "test_case": "<gap/>πα\nτρίδα γαῖαν. Αὕτη γὰρ ἡ πα\nράκλησις ἐν ταῖς πολιτικωτά\nταις ἐστίν· πρῶτον μὲν ὀρ\nθῶς τὴν πόλιν προστάττου\nσα ἐφ' ἑκάστου αὐτῶν· δεῖ γὰρ\nοὐ τὴν πόλιν ὑπὲρ ἑκάστου\nτῶν πολιτῶν ἀναιρεῖσθαι, ἀλλ' αὐτοὺς [...]ρ τῆς πόλε\nως καὶ .α.......ττ.. πα\n ραπλησι<gap/>\n..το<gap/>"
+            },
+            {
+                "case_index": 18,
+                "id": "DCLP/65659/58/18",
+                "test_case": "<gap/>πα\nτρίδα γαῖαν. Αὕτη γὰρ ἡ πα\nράκλησις ἐν ταῖς πολιτικωτά\nταις ἐστίν· πρῶτον μὲν ὀρ\nθῶς τὴν πόλιν προστάττου\nσα ἐφ' ἑκάστου αὐτῶν· δεῖ γὰρ\nοὐ τὴν πόλιν ὑπὲρ ἑκάστου\nτῶν πολιτῶν ἀναιρεῖσθαι, ἀλλ' αὐτοὺς ὑπὲρ τῆς π[...]\nως καὶ .α.......ττ.. πα\n ραπλησι<gap/>\n..το<gap/>"
+            },
+            {
+                "case_index": 19,
+                "id": "DCLP/65659/58/19",
+                "test_case": "<gap/>πα\nτρίδα γαῖαν. Αὕτη γὰρ ἡ πα\nράκλησις ἐν ταῖς πολιτικωτά\nταις ἐστίν· πρῶτον μὲν ὀρ\nθῶς τὴν πόλιν προστάττου\nσα ἐφ' ἑκάστου αὐτῶν· δεῖ γὰρ\nοὐ τὴν πόλιν ὑπὲρ ἑκάστου\nτῶν πολιτῶν ἀναιρεῖσθαι, ἀλλ' αὐτοὺς ὑπὲρ τῆς πόλε\nως καὶ .α.......ττ.. [..]\n ραπλησι<gap/>\n..το<gap/>"
+            }
+        ]
+    }
+]

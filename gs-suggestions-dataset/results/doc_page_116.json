@@ -1,0 +1,614 @@
+[
+    {
+        "corpus_id": "DCLP",
+        "file_id": "65076",
+        "block_index": 6,
+        "id": "DCLP/65076/6",
+        "title": "P. Ant. 3 125",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/><gap/>λιτιο\n<gap/>τοσου\n<gap/>ρης\n<gap/>αρκι λα\n<gap/>..και μ.<gap/>\n[None]επτεον δε\n<gap/>νεργ.νες\n<gap/>κασθαι προς\n<gap/>πο<gap/>\n<gap/>",
+        "test_cases": [
+            {
+                "case_index": 1,
+                "id": "DCLP/65076/6/1",
+                "test_case": "<gap/><gap/>λιτιο\n<gap/>τοσου\n<gap/>ρης\n<gap/>αρκι λα\n<gap/>..και μ.<gap/>\n[....]επτεον δε\n<gap/>νεργ.νες\n<gap/>κασθαι προς\n<gap/>πο<gap/>\n<gap/>"
+            }
+        ]
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "65076",
+        "block_index": 7,
+        "id": "DCLP/65076/7",
+        "title": "P. Ant. 3 125",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/><gap/>ναμε<gap/>\n<gap/>μον και μα<gap/>\n<gap/>εισακροφ.<gap/>\n<gap/>.ρος ενεκτ.<gap/>\n<gap/>.ξ..<gap/>\n<gap/>",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "65076",
+        "block_index": 8,
+        "id": "DCLP/65076/8",
+        "title": "P. Ant. 3 125",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/><gap/>λ\n<gap/>α\n<gap/>ρα\n<gap/>ο<gap/>\n<gap/>..<gap/>\n<gap/>",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "65076",
+        "block_index": 9,
+        "id": "DCLP/65076/9",
+        "title": "P. Ant. 3 125",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/><gap/>.<gap/><gap/>υσχ<gap/>\n<gap/>ιηδ<gap/>\n<gap/>εν...<gap/>\n<gap/>.απαρα<gap/>\n<gap/>τε νυκτα<gap/>\n<gap/>τ<gap/>\n<gap/>",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "65076",
+        "block_index": 10,
+        "id": "DCLP/65076/10",
+        "title": "P. Ant. 3 125",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/>\n.<gap/>\nδ.<gap/>\nσω<gap/>\nτονδ.<gap/>\nψημ<gap/>\n...α.<gap/>\n...κ.<gap/>\n<gap/>",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "65076",
+        "block_index": 11,
+        "id": "DCLP/65076/11",
+        "title": "P. Ant. 3 125",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/><gap/>.τ.<gap/>\n<gap/>.τε<gap/>\n<gap/>με.<gap/>\n<gap/> παρεχ<gap/>\n<gap/>τερον <gap/>\n<gap/>..μον<gap/>\n<gap/>",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "65076",
+        "block_index": 12,
+        "id": "DCLP/65076/12",
+        "title": "P. Ant. 3 125",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/><gap/>οφη<gap/>\n<gap/>ωνθ.<gap/>\n<gap/>σθαι το.<gap/>\n<gap/>ασθω.<gap/>\n<gap/>.<gap/>\n<gap/>",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "65076",
+        "block_index": 13,
+        "id": "DCLP/65076/13",
+        "title": "P. Ant. 3 125",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/><gap/>.ρεπ<gap/>\n[None]μναζεσθ<gap/>\n<gap/>ηνε.<gap/>\n<gap/>.οπ.<gap/>\n<gap/>",
+        "test_cases": [
+            {
+                "case_index": 1,
+                "id": "DCLP/65076/13/1",
+                "test_case": "<gap/><gap/>.ρεπ<gap/>\n[....]μναζεσθ<gap/>\n<gap/>ηνε.<gap/>\n<gap/>.οπ.<gap/>\n<gap/>"
+            }
+        ]
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "65076",
+        "block_index": 14,
+        "id": "DCLP/65076/14",
+        "title": "P. Ant. 3 125",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/><gap/>.<gap/><gap/>.θεσε<gap/>\n<gap/>ως παρηγορια<gap/>",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "65076",
+        "block_index": 15,
+        "id": "DCLP/65076/15",
+        "title": "P. Ant. 3 125",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/><gap/>..<gap/><gap/>.<gap/><gap/>.συ<gap/>\n<gap/>τοισ<gap/>\n<gap/>.ηνεκ<gap/>\n<gap/>ανεσεσ<gap/>\n<gap/>ουε<gap/>\n<gap/>.<gap/>\n<gap/>",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "65076",
+        "block_index": 16,
+        "id": "DCLP/65076/16",
+        "title": "P. Ant. 3 125",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/><gap/>.ατα..<gap/>\n<gap/> επιτρεπ<gap/>\n<gap/>εχης οδ.<gap/>\n<gap/>δε απο .<gap/>\n<gap/>εχοις<gap/>\n<gap/>...<gap/>\n<gap/>",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "65076",
+        "block_index": 17,
+        "id": "DCLP/65076/17",
+        "title": "P. Ant. 3 125",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/><gap/>...<gap/><gap/>αρνη<gap/>\n<gap/>.διδ<gap/>\n<gap/>...<gap/>\n<gap/>",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "65076",
+        "block_index": 18,
+        "id": "DCLP/65076/18",
+        "title": "P. Ant. 3 125",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/><gap/>.νθ.<gap/>\n<gap/>μοτω<gap/>\n<gap/>ηση<gap/>\n<gap/>.ακ<gap/>\n<gap/>..<gap/>\n<gap/>",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "65076",
+        "block_index": 19,
+        "id": "DCLP/65076/19",
+        "title": "P. Ant. 3 125",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/><gap/>ασδ<gap/>\n<gap/>.αριε.<gap/>\n<gap/>.συνδ<gap/>\n<gap/>",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "65076",
+        "block_index": 20,
+        "id": "DCLP/65076/20",
+        "title": "P. Ant. 3 125",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/><gap/>ρυξα.<gap/>\n<gap/>.ροκ<gap/>\n<gap/>",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "65076",
+        "block_index": 21,
+        "id": "DCLP/65076/21",
+        "title": "P. Ant. 3 125",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/><gap/>...<gap/><gap/>ση.<gap/>\n<gap/>χλυ.<gap/>\n<gap/>.ενιζ<gap/>\n<gap/>",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "65076",
+        "block_index": 22,
+        "id": "DCLP/65076/22",
+        "title": "P. Ant. 3 125",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/><gap/>αμ.<gap/>\n<gap/>.μ<gap/>\n<gap/>τεσ.<gap/>\n<gap/>.<gap/>\n<gap/>",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "65076",
+        "block_index": 23,
+        "id": "DCLP/65076/23",
+        "title": "P. Ant. 3 125",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/><gap/>.τ<gap/>\n<gap/>ονο.<gap/>\n<gap/>..<gap/>\n<gap/>ερο <gap/>\n<gap/>",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "65076",
+        "block_index": 24,
+        "id": "DCLP/65076/24",
+        "title": "P. Ant. 3 125",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/><gap/>δε αλ<gap/>\n<gap/>ροσειο<gap/>\n<gap/>οσφ<gap/>\n<gap/>",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "65076",
+        "block_index": 25,
+        "id": "DCLP/65076/25",
+        "title": "P. Ant. 3 125",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/><gap/>χερε<gap/>\n<gap/>διψι.<gap/>\n<gap/>υι.<gap/>\n<gap/>",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "65076",
+        "block_index": 26,
+        "id": "DCLP/65076/26",
+        "title": "P. Ant. 3 125",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/><gap/>.αλλα..<gap/>\n<gap/>ρμον ε<gap/>\n<gap/>.π..<gap/>\n<gap/>",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "65076",
+        "block_index": 27,
+        "id": "DCLP/65076/27",
+        "title": "P. Ant. 3 125",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/><gap/>ροτ<gap/>\n<gap/>υτω<gap/>\n<gap/>.εν<gap/>\n<gap/>",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "65076",
+        "block_index": 28,
+        "id": "DCLP/65076/28",
+        "title": "P. Ant. 3 125",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/><gap/>ασ<gap/>\n<gap/>ον.<gap/>\n<gap/>..ε.<gap/>\n<gap/>",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "65076",
+        "block_index": 29,
+        "id": "DCLP/65076/29",
+        "title": "P. Ant. 3 125",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/>\nτο<gap/>\nτο<gap/>\n.<gap/>\n<gap/>",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "65076",
+        "block_index": 30,
+        "id": "DCLP/65076/30",
+        "title": "P. Ant. 3 125",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/><gap/>πρ<gap/>\n<gap/>πρ.<gap/>\n<gap/>.<gap/>\n<gap/>",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "65076",
+        "block_index": 31,
+        "id": "DCLP/65076/31",
+        "title": "P. Ant. 3 125",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/><gap/>.α<gap/>\n<gap/>υμ<gap/>\n<gap/>αν<gap/>\n<gap/>",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "65076",
+        "block_index": 32,
+        "id": "DCLP/65076/32",
+        "title": "P. Ant. 3 125",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/>\nλ<gap/>\nφθ<gap/>\nπ<gap/>\n<gap/>",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "65076",
+        "block_index": 33,
+        "id": "DCLP/65076/33",
+        "title": "P. Ant. 3 125",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/><gap/>.<gap/><gap/>ηδευ.<gap/>\n<gap/>....<gap/>\n<gap/>",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "65076",
+        "block_index": 34,
+        "id": "DCLP/65076/34",
+        "title": "P. Ant. 3 125",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/><gap/>φο\n<gap/>τες\n<gap/>τρο\n<gap/>εις\n<gap/>",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "65076",
+        "block_index": 35,
+        "id": "DCLP/65076/35",
+        "title": "P. Ant. 3 125",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/><gap/>.<gap/><gap/>ινδ.<gap/>\n<gap/>σλ.<gap/>\n<gap/>",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "65076",
+        "block_index": 36,
+        "id": "DCLP/65076/36",
+        "title": "P. Ant. 3 125",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/><gap/>ονδε<gap/>\n<gap/> φοιν.<gap/>\n<gap/>",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "65076",
+        "block_index": 37,
+        "id": "DCLP/65076/37",
+        "title": "P. Ant. 3 125",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/><gap/>μ<gap/>\n<gap/>ως δα<gap/>",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "65076",
+        "block_index": 38,
+        "id": "DCLP/65076/38",
+        "title": "P. Ant. 3 125",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/><gap/>ουχ<gap/>\n<gap/>τονη<gap/>",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "65076",
+        "block_index": 39,
+        "id": "DCLP/65076/39",
+        "title": "P. Ant. 3 125",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/><gap/>δε αθρο<gap/>\n<gap/>σφερεσθ<gap/>\n<gap/>",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "65076",
+        "block_index": 40,
+        "id": "DCLP/65076/40",
+        "title": "P. Ant. 3 125",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/><gap/>.<gap/>\n κ<gap/>\n[None]ατιοις \n το.<gap/>\n<gap/>ν ξηρο<gap/>\n<gap/>",
+        "test_cases": [
+            {
+                "case_index": 1,
+                "id": "DCLP/65076/40/1",
+                "test_case": "<gap/><gap/>.<gap/>\n κ<gap/>\n[....]ατιοις \n το.<gap/>\n<gap/>ν ξηρο<gap/>\n<gap/>"
+            }
+        ]
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "65076",
+        "block_index": 41,
+        "id": "DCLP/65076/41",
+        "title": "P. Ant. 3 125",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/>\nπροσ..<gap/>\nρευματισμ... μετα<gap/>\nδι τω στομαχω σικυα<gap/>\nψιλους κατεχεται δε προσ<gap/>\nτης οτε δε και απτη...ρ<gap/>\nπαραγιν..α.α.ε.<gap/>\nμη τι νεωτερον εν<gap/>\nτισμου παρ<gap/>\nδευτερ<gap/>\nκατα τουτον εν<gap/>\nκραματος αρτ<gap/>\nγαρ τα εντευθε[ν ]\n..ε.ιας διορθου<gap/>\n<gap/>.δ.<gap/>\n<gap/>",
+        "test_cases": [
+            {
+                "case_index": 1,
+                "id": "DCLP/65076/41/1",
+                "test_case": "<gap/>\nπροσ..<gap/>\nρευματισμ... μετα<gap/>\nδι τω στομαχω σικυα<gap/>\nψιλους κατεχεται δε προσ<gap/>\nτης οτε δε και απτη...ρ<gap/>\nπαραγιν..α.α.ε.<gap/>\nμη τι νεωτερον εν<gap/>\nτισμου παρ<gap/>\nδευτερ<gap/>\nκατα τουτον εν<gap/>\nκραματος αρτ<gap/>\nγαρ τα εντευθε[..]\n..ε.ιας διορθου<gap/>\n<gap/>.δ.<gap/>\n<gap/>"
+            }
+        ]
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "65076",
+        "block_index": 42,
+        "id": "DCLP/65076/42",
+        "title": "P. Ant. 3 125",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/>\n...[None]\nρημε[ν ]\nπα...<gap/>\nτροφη.<gap/>\nεστω δ......ημενε<gap/>\nψυχρα ....απεμεση<gap/>\nρου..αι... τριτου διδ<gap/>\nδε κ[α]ι τα προσκρατησ[None]\nρημενα βοηθηματα .<gap/>",
+        "test_cases": [
+            {
+                "case_index": 1,
+                "id": "DCLP/65076/42/1",
+                "test_case": "<gap/>\n...[....]\nρημεν \nπα...<gap/>\nτροφη.<gap/>\nεστω δ......ημενε<gap/>\nψυχρα ....απεμεση<gap/>\nρου..αι... τριτου διδ<gap/>\nδε και τα προσκρατησNone\nρημενα βοηθηματα .<gap/>"
+            },
+            {
+                "case_index": 2,
+                "id": "DCLP/65076/42/2",
+                "test_case": "<gap/>\n...None\nρημε[..]\nπα...<gap/>\nτροφη.<gap/>\nεστω δ......ημενε<gap/>\nψυχρα ....απεμεση<gap/>\nρου..αι... τριτου διδ<gap/>\nδε και τα προσκρατησNone\nρημενα βοηθηματα .<gap/>"
+            },
+            {
+                "case_index": 3,
+                "id": "DCLP/65076/42/3",
+                "test_case": "<gap/>\n...None\nρημεν \nπα...<gap/>\nτροφη.<gap/>\nεστω δ......ημενε<gap/>\nψυχρα ....απεμεση<gap/>\nρου..αι... τριτου διδ<gap/>\nδε κ[.]ι τα προσκρατησNone\nρημενα βοηθηματα .<gap/>"
+            },
+            {
+                "case_index": 4,
+                "id": "DCLP/65076/42/4",
+                "test_case": "<gap/>\n...None\nρημεν \nπα...<gap/>\nτροφη.<gap/>\nεστω δ......ημενε<gap/>\nψυχρα ....απεμεση<gap/>\nρου..αι... τριτου διδ<gap/>\nδε και τα προσκρατησ[....]\nρημενα βοηθηματα .<gap/>"
+            }
+        ]
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "65076",
+        "block_index": 43,
+        "id": "DCLP/65076/43",
+        "title": "P. Ant. 3 125",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/><gap/>.\n<gap/><gap/>ν παρηγορ<gap/>\n<gap/>χνη. μετα \n<gap/>ρων <gap/>\n<gap/> \n<gap/><gap/>\n<gap/>",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "65076",
+        "block_index": 44,
+        "id": "DCLP/65076/44",
+        "title": "P. Ant. 3 125",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/><gap/>αιτη.<gap/>\n<gap/>οινταε.ιταση .<gap/>\n<gap/>τες εσθ οτα και τ<gap/>\n<gap/>την παραθεσιν τ.<gap/>\n<gap/>μεθα ενθε.<gap/>\n<gap/> .νο.τω<gap/>\n<gap/>.ο.<gap/>\n<gap/>τ.<gap/>\n<gap/>",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "65076",
+        "block_index": 45,
+        "id": "DCLP/65076/45",
+        "title": "P. Ant. 3 125",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/><gap/>δις\n<gap/>.ο\n<gap/>ν\n<gap/>ε\n<gap/>.ον\n<gap/>ει\n<gap/>.ε\n<gap/>λς\n<gap/>τα\n<gap/>ν\n<gap/>θω\n<gap/>μπολ\n<gap/>ευ\n<gap/>..η\n<gap/>νε\n<gap/>ι\n<gap/>ρ.\n<gap/>",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "65076",
+        "block_index": 46,
+        "id": "DCLP/65076/46",
+        "title": "P. Ant. 3 125",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/>\n.<gap/>\nτα.<gap/>\n..<gap/>\nτουτ<gap/>\nναγκ..<gap/>\nτε οινω ο<gap/>\nτ...τεβρ<gap/>\n....μ.<gap/>\n<gap/>",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "65076",
+        "block_index": 47,
+        "id": "DCLP/65076/47",
+        "title": "P. Ant. 3 125",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/><gap/>..κα<gap/>\n<gap/>μου η ψυ<gap/>\n<gap/>δομενης κα<gap/>\n[None]φην \n<gap/>..ετε προστ<gap/>\n<gap/>",
+        "test_cases": [
+            {
+                "case_index": 1,
+                "id": "DCLP/65076/47/1",
+                "test_case": "<gap/><gap/>..κα<gap/>\n<gap/>μου η ψυ<gap/>\n<gap/>δομενης κα<gap/>\n[....]φην \n<gap/>..ετε προστ<gap/>\n<gap/>"
+            }
+        ]
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "65076",
+        "block_index": 48,
+        "id": "DCLP/65076/48",
+        "title": "P. Ant. 3 125",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/>\n..<gap/>\nτ<gap/>\nο<gap/>\nτ<gap/>\n<gap/>\n<gap/>",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "65076",
+        "block_index": 49,
+        "id": "DCLP/65076/49",
+        "title": "P. Ant. 3 125",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/><gap/>.<gap/><gap/>λα.<gap/>\n<gap/>το.<gap/>\n<gap/>.σηει.<gap/>\n<gap/>κεν..δ<gap/>\n<gap/>μ.....<gap/>\n<gap/>",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "65076",
+        "block_index": 50,
+        "id": "DCLP/65076/50",
+        "title": "P. Ant. 3 125",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/><gap/>βρο\n<gap/>οδε\n<gap/>...τον\n<gap/>στρο\n<gap/>.τ...\n<gap/>.ιρ<gap/>\n<gap/>",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "65076",
+        "block_index": 51,
+        "id": "DCLP/65076/51",
+        "title": "P. Ant. 3 125",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/><gap/>.ε.<gap/>\n<gap/>.τ.<gap/>\n<gap/> ασ<gap/>\n<gap/>..ρωμ<gap/>\n<gap/>ευρισκ<gap/>\n<gap/>. ι και ε<gap/>\n<gap/>......<gap/>\n<gap/>",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "65076",
+        "block_index": 52,
+        "id": "DCLP/65076/52",
+        "title": "P. Ant. 3 125",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/><gap/>τερ<gap/>\n<gap/>.ν  ε.<gap/>\n[None]δυνου<gap/>\n[None]πσφορα<gap/>\n<gap/>.φ.<gap/>\n<gap/>",
+        "test_cases": [
+            {
+                "case_index": 1,
+                "id": "DCLP/65076/52/1",
+                "test_case": "<gap/><gap/>τερ<gap/>\n<gap/>.ν  ε.<gap/>\n[....]δυνου<gap/>\nNoneπσφορα<gap/>\n<gap/>.φ.<gap/>\n<gap/>"
+            },
+            {
+                "case_index": 2,
+                "id": "DCLP/65076/52/2",
+                "test_case": "<gap/><gap/>τερ<gap/>\n<gap/>.ν  ε.<gap/>\nNoneδυνου<gap/>\n[....]πσφορα<gap/>\n<gap/>.φ.<gap/>\n<gap/>"
+            }
+        ]
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "65076",
+        "block_index": 53,
+        "id": "DCLP/65076/53",
+        "title": "P. Ant. 3 125",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/><gap/>..<gap/><gap/> τοποις <gap/>\n<gap/>υστηρε<gap/>\n<gap/>οστο<gap/>\n<gap/>",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "65076",
+        "block_index": 54,
+        "id": "DCLP/65076/54",
+        "title": "P. Ant. 3 125",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/><gap/>..<gap/><gap/>υαρε.....<gap/>\n<gap/> παραθεσεως ..<gap/>",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "65076",
+        "block_index": 55,
+        "id": "DCLP/65076/55",
+        "title": "P. Ant. 3 125",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/><gap/>τ<gap/>\n<gap/>.ν<gap/>\n<gap/>ουκα<gap/>\n<gap/>.γινε<gap/>\n<gap/>.τελου<gap/>\n<gap/>...δου<gap/>\n<gap/>.ιν.<gap/>\n<gap/>.<gap/>\n<gap/>",
+        "test_cases": []
+    }
+]

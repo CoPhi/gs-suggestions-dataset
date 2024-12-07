@@ -1,0 +1,936 @@
+[
+    {
+        "corpus_id": "DCLP",
+        "file_id": "61450",
+        "block_index": 25,
+        "id": "DCLP/61450/25",
+        "title": "A Roll wth Lysias, Contra Hippothersem, Contra Theomnestum and Four Other Unknown Orations",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/><gap/>.ν<gap/>\n<gap/>ειτ<gap/>\n<gap/>.ξ.<gap/>\n<gap/>",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "61450",
+        "block_index": 26,
+        "id": "DCLP/61450/26",
+        "title": "A Roll wth Lysias, Contra Hippothersem, Contra Theomnestum and Four Other Unknown Orations",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/><gap/> παραν[όμων ] <gap/>\n<gap/>",
+        "test_cases": [
+            {
+                "case_index": 1,
+                "id": "DCLP/61450/26/1",
+                "test_case": "<gap/><gap/> παραν[.....] <gap/>\n<gap/>"
+            }
+        ]
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "61450",
+        "block_index": 27,
+        "id": "DCLP/61450/27",
+        "title": "A Roll wth Lysias, Contra Hippothersem, Contra Theomnestum and Four Other Unknown Orations",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/>\nαπει<gap/>\nπρὸς [Ο].<gap/>\n<gap/>",
+        "test_cases": [
+            {
+                "case_index": 1,
+                "id": "DCLP/61450/27/1",
+                "test_case": "<gap/>\nαπει<gap/>\nπρὸς [.].<gap/>\n<gap/>"
+            }
+        ]
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "61450",
+        "block_index": 28,
+        "id": "DCLP/61450/28",
+        "title": "A Roll wth Lysias, Contra Hippothersem, Contra Theomnestum and Four Other Unknown Orations",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/><gap/>..ποτ<gap/>\n<gap/>ου καὶ <gap/>\n<gap/>τουμ<gap/>\n<gap/> [π]αρεχομ[ε]<gap/>\n<gap/>ητε κα<gap/>\n<gap/> φασκο[ν]<gap/>\n<gap/>ν<gap/>\n<gap/>",
+        "test_cases": [
+            {
+                "case_index": 1,
+                "id": "DCLP/61450/28/1",
+                "test_case": "<gap/><gap/>..ποτ<gap/>\n<gap/>ου καὶ <gap/>\n<gap/>τουμ<gap/>\n<gap/> [.]αρεχομε<gap/>\n<gap/>ητε κα<gap/>\n<gap/> φασκον<gap/>\n<gap/>ν<gap/>\n<gap/>"
+            },
+            {
+                "case_index": 2,
+                "id": "DCLP/61450/28/2",
+                "test_case": "<gap/><gap/>..ποτ<gap/>\n<gap/>ου καὶ <gap/>\n<gap/>τουμ<gap/>\n<gap/> παρεχομ[.]<gap/>\n<gap/>ητε κα<gap/>\n<gap/> φασκον<gap/>\n<gap/>ν<gap/>\n<gap/>"
+            },
+            {
+                "case_index": 3,
+                "id": "DCLP/61450/28/3",
+                "test_case": "<gap/><gap/>..ποτ<gap/>\n<gap/>ου καὶ <gap/>\n<gap/>τουμ<gap/>\n<gap/> παρεχομε<gap/>\n<gap/>ητε κα<gap/>\n<gap/> φασκο[.]<gap/>\n<gap/>ν<gap/>\n<gap/>"
+            }
+        ]
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "61450",
+        "block_index": 29,
+        "id": "DCLP/61450/29",
+        "title": "A Roll wth Lysias, Contra Hippothersem, Contra Theomnestum and Four Other Unknown Orations",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/>\n..τιον<gap/>\n. [π]αραλ<gap/>\n.. πλειο<gap/>\n.δε τῶν.<gap/>\n<gap/>.αι πίστ[εις ] <gap/>\n<gap/> [π]αραστ<gap/>\n<gap/>ρας ἐδω[κ]<gap/>\n<gap/> [τ]άχα οὖν <gap/>\n<gap/> [ἑ]κάστων <gap/>\n<gap/>ν τις παρ<gap/> [μά]\n[ρ]τυρας ε.<gap/>\n.δοκω κα<gap/>\n.ν εἶναι κ<gap/>\n.ιον ὅτι τ<gap/>\n[ἀν]άγκη τ.<gap/>\nηρεν καλοῦ[μεν] <gap/>",
+        "test_cases": [
+            {
+                "case_index": 1,
+                "id": "DCLP/61450/29/1",
+                "test_case": "<gap/>\n..τιον<gap/>\n. [.]αραλ<gap/>\n.. πλειο<gap/>\n.δε τῶν.<gap/>\n<gap/>.αι πίστεις  <gap/>\n<gap/> παραστ<gap/>\n<gap/>ρας ἐδωκ<gap/>\n<gap/> τάχα οὖν <gap/>\n<gap/> ἑκάστων <gap/>\n<gap/>ν τις παρ<gap/> μά\nρτυρας ε.<gap/>\n.δοκω κα<gap/>\n.ν εἶναι κ<gap/>\n.ιον ὅτι τ<gap/>\nἀνάγκη τ.<gap/>\nηρεν καλοῦμεν <gap/>"
+            },
+            {
+                "case_index": 2,
+                "id": "DCLP/61450/29/2",
+                "test_case": "<gap/>\n..τιον<gap/>\n. παραλ<gap/>\n.. πλειο<gap/>\n.δε τῶν.<gap/>\n<gap/>.αι πίστ[....] <gap/>\n<gap/> παραστ<gap/>\n<gap/>ρας ἐδωκ<gap/>\n<gap/> τάχα οὖν <gap/>\n<gap/> ἑκάστων <gap/>\n<gap/>ν τις παρ<gap/> μά\nρτυρας ε.<gap/>\n.δοκω κα<gap/>\n.ν εἶναι κ<gap/>\n.ιον ὅτι τ<gap/>\nἀνάγκη τ.<gap/>\nηρεν καλοῦμεν <gap/>"
+            },
+            {
+                "case_index": 3,
+                "id": "DCLP/61450/29/3",
+                "test_case": "<gap/>\n..τιον<gap/>\n. παραλ<gap/>\n.. πλειο<gap/>\n.δε τῶν.<gap/>\n<gap/>.αι πίστεις  <gap/>\n<gap/> [.]αραστ<gap/>\n<gap/>ρας ἐδωκ<gap/>\n<gap/> τάχα οὖν <gap/>\n<gap/> ἑκάστων <gap/>\n<gap/>ν τις παρ<gap/> μά\nρτυρας ε.<gap/>\n.δοκω κα<gap/>\n.ν εἶναι κ<gap/>\n.ιον ὅτι τ<gap/>\nἀνάγκη τ.<gap/>\nηρεν καλοῦμεν <gap/>"
+            },
+            {
+                "case_index": 4,
+                "id": "DCLP/61450/29/4",
+                "test_case": "<gap/>\n..τιον<gap/>\n. παραλ<gap/>\n.. πλειο<gap/>\n.δε τῶν.<gap/>\n<gap/>.αι πίστεις  <gap/>\n<gap/> παραστ<gap/>\n<gap/>ρας ἐδω[.]<gap/>\n<gap/> τάχα οὖν <gap/>\n<gap/> ἑκάστων <gap/>\n<gap/>ν τις παρ<gap/> μά\nρτυρας ε.<gap/>\n.δοκω κα<gap/>\n.ν εἶναι κ<gap/>\n.ιον ὅτι τ<gap/>\nἀνάγκη τ.<gap/>\nηρεν καλοῦμεν <gap/>"
+            },
+            {
+                "case_index": 5,
+                "id": "DCLP/61450/29/5",
+                "test_case": "<gap/>\n..τιον<gap/>\n. παραλ<gap/>\n.. πλειο<gap/>\n.δε τῶν.<gap/>\n<gap/>.αι πίστεις  <gap/>\n<gap/> παραστ<gap/>\n<gap/>ρας ἐδωκ<gap/>\n<gap/> [.]άχα οὖν <gap/>\n<gap/> ἑκάστων <gap/>\n<gap/>ν τις παρ<gap/> μά\nρτυρας ε.<gap/>\n.δοκω κα<gap/>\n.ν εἶναι κ<gap/>\n.ιον ὅτι τ<gap/>\nἀνάγκη τ.<gap/>\nηρεν καλοῦμεν <gap/>"
+            },
+            {
+                "case_index": 6,
+                "id": "DCLP/61450/29/6",
+                "test_case": "<gap/>\n..τιον<gap/>\n. παραλ<gap/>\n.. πλειο<gap/>\n.δε τῶν.<gap/>\n<gap/>.αι πίστεις  <gap/>\n<gap/> παραστ<gap/>\n<gap/>ρας ἐδωκ<gap/>\n<gap/> τάχα οὖν <gap/>\n<gap/> [.]κάστων <gap/>\n<gap/>ν τις παρ<gap/> μά\nρτυρας ε.<gap/>\n.δοκω κα<gap/>\n.ν εἶναι κ<gap/>\n.ιον ὅτι τ<gap/>\nἀνάγκη τ.<gap/>\nηρεν καλοῦμεν <gap/>"
+            },
+            {
+                "case_index": 7,
+                "id": "DCLP/61450/29/7",
+                "test_case": "<gap/>\n..τιον<gap/>\n. παραλ<gap/>\n.. πλειο<gap/>\n.δε τῶν.<gap/>\n<gap/>.αι πίστεις  <gap/>\n<gap/> παραστ<gap/>\n<gap/>ρας ἐδωκ<gap/>\n<gap/> τάχα οὖν <gap/>\n<gap/> ἑκάστων <gap/>\n<gap/>ν τις παρ<gap/> [..]\nρτυρας ε.<gap/>\n.δοκω κα<gap/>\n.ν εἶναι κ<gap/>\n.ιον ὅτι τ<gap/>\nἀνάγκη τ.<gap/>\nηρεν καλοῦμεν <gap/>"
+            },
+            {
+                "case_index": 8,
+                "id": "DCLP/61450/29/8",
+                "test_case": "<gap/>\n..τιον<gap/>\n. παραλ<gap/>\n.. πλειο<gap/>\n.δε τῶν.<gap/>\n<gap/>.αι πίστεις  <gap/>\n<gap/> παραστ<gap/>\n<gap/>ρας ἐδωκ<gap/>\n<gap/> τάχα οὖν <gap/>\n<gap/> ἑκάστων <gap/>\n<gap/>ν τις παρ<gap/> μά\n[.]τυρας ε.<gap/>\n.δοκω κα<gap/>\n.ν εἶναι κ<gap/>\n.ιον ὅτι τ<gap/>\nἀνάγκη τ.<gap/>\nηρεν καλοῦμεν <gap/>"
+            },
+            {
+                "case_index": 9,
+                "id": "DCLP/61450/29/9",
+                "test_case": "<gap/>\n..τιον<gap/>\n. παραλ<gap/>\n.. πλειο<gap/>\n.δε τῶν.<gap/>\n<gap/>.αι πίστεις  <gap/>\n<gap/> παραστ<gap/>\n<gap/>ρας ἐδωκ<gap/>\n<gap/> τάχα οὖν <gap/>\n<gap/> ἑκάστων <gap/>\n<gap/>ν τις παρ<gap/> μά\nρτυρας ε.<gap/>\n.δοκω κα<gap/>\n.ν εἶναι κ<gap/>\n.ιον ὅτι τ<gap/>\n[..]άγκη τ.<gap/>\nηρεν καλοῦμεν <gap/>"
+            },
+            {
+                "case_index": 10,
+                "id": "DCLP/61450/29/10",
+                "test_case": "<gap/>\n..τιον<gap/>\n. παραλ<gap/>\n.. πλειο<gap/>\n.δε τῶν.<gap/>\n<gap/>.αι πίστεις  <gap/>\n<gap/> παραστ<gap/>\n<gap/>ρας ἐδωκ<gap/>\n<gap/> τάχα οὖν <gap/>\n<gap/> ἑκάστων <gap/>\n<gap/>ν τις παρ<gap/> μά\nρτυρας ε.<gap/>\n.δοκω κα<gap/>\n.ν εἶναι κ<gap/>\n.ιον ὅτι τ<gap/>\nἀνάγκη τ.<gap/>\nηρεν καλοῦ[...] <gap/>"
+            }
+        ]
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "61450",
+        "block_index": 30,
+        "id": "DCLP/61450/30",
+        "title": "A Roll wth Lysias, Contra Hippothersem, Contra Theomnestum and Four Other Unknown Orations",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/><gap/>α<gap/>\n<gap/>δωτωι <gap/>\n<gap/>την συμβα[λ]<gap/>\n<gap/> μὴ τοῦ κλή[ρου] <gap/>\n<gap/> χρημάτω[ν] <gap/>\n<gap/> εἰς ταύτη[ν] <gap/>\n<gap/>ην ἔκτισιν σωτ<gap/>\n<gap/> [τὸ]ν κλῆρον απ<gap/>\n<gap/>αι τὴν παιδίσκ[ην] <gap/>\n<gap/>ουν ἔφη βεβα[ι] <gap/>\n<gap/>ση.δ εἰ τι φη<gap/>\n<gap/>θ[α]ι ἐμοὶ δικα<gap/>\n<gap/>τ. ἀκού[σ]ας ἱε.<gap/>\n<gap/> και...υτ<gap/>\n<gap/> [βο]υλευσ<gap/>\n<gap/>ην τι τ<gap/>\n<gap/>ατι<gap/>\n<gap/>",
+        "test_cases": [
+            {
+                "case_index": 1,
+                "id": "DCLP/61450/30/1",
+                "test_case": "<gap/><gap/>α<gap/>\n<gap/>δωτωι <gap/>\n<gap/>την συμβα[.]<gap/>\n<gap/> μὴ τοῦ κλήρου <gap/>\n<gap/> χρημάτων <gap/>\n<gap/> εἰς ταύτην <gap/>\n<gap/>ην ἔκτισιν σωτ<gap/>\n<gap/> τὸν κλῆρον απ<gap/>\n<gap/>αι τὴν παιδίσκην <gap/>\n<gap/>ουν ἔφη βεβαι <gap/>\n<gap/>ση.δ εἰ τι φη<gap/>\n<gap/>θαι ἐμοὶ δικα<gap/>\n<gap/>τ. ἀκούσας ἱε.<gap/>\n<gap/> και...υτ<gap/>\n<gap/> βουλευσ<gap/>\n<gap/>ην τι τ<gap/>\n<gap/>ατι<gap/>\n<gap/>"
+            },
+            {
+                "case_index": 2,
+                "id": "DCLP/61450/30/2",
+                "test_case": "<gap/><gap/>α<gap/>\n<gap/>δωτωι <gap/>\n<gap/>την συμβαλ<gap/>\n<gap/> μὴ τοῦ κλή[...] <gap/>\n<gap/> χρημάτων <gap/>\n<gap/> εἰς ταύτην <gap/>\n<gap/>ην ἔκτισιν σωτ<gap/>\n<gap/> τὸν κλῆρον απ<gap/>\n<gap/>αι τὴν παιδίσκην <gap/>\n<gap/>ουν ἔφη βεβαι <gap/>\n<gap/>ση.δ εἰ τι φη<gap/>\n<gap/>θαι ἐμοὶ δικα<gap/>\n<gap/>τ. ἀκούσας ἱε.<gap/>\n<gap/> και...υτ<gap/>\n<gap/> βουλευσ<gap/>\n<gap/>ην τι τ<gap/>\n<gap/>ατι<gap/>\n<gap/>"
+            },
+            {
+                "case_index": 3,
+                "id": "DCLP/61450/30/3",
+                "test_case": "<gap/><gap/>α<gap/>\n<gap/>δωτωι <gap/>\n<gap/>την συμβαλ<gap/>\n<gap/> μὴ τοῦ κλήρου <gap/>\n<gap/> χρημάτω[.] <gap/>\n<gap/> εἰς ταύτην <gap/>\n<gap/>ην ἔκτισιν σωτ<gap/>\n<gap/> τὸν κλῆρον απ<gap/>\n<gap/>αι τὴν παιδίσκην <gap/>\n<gap/>ουν ἔφη βεβαι <gap/>\n<gap/>ση.δ εἰ τι φη<gap/>\n<gap/>θαι ἐμοὶ δικα<gap/>\n<gap/>τ. ἀκούσας ἱε.<gap/>\n<gap/> και...υτ<gap/>\n<gap/> βουλευσ<gap/>\n<gap/>ην τι τ<gap/>\n<gap/>ατι<gap/>\n<gap/>"
+            },
+            {
+                "case_index": 4,
+                "id": "DCLP/61450/30/4",
+                "test_case": "<gap/><gap/>α<gap/>\n<gap/>δωτωι <gap/>\n<gap/>την συμβαλ<gap/>\n<gap/> μὴ τοῦ κλήρου <gap/>\n<gap/> χρημάτων <gap/>\n<gap/> εἰς ταύτη[.] <gap/>\n<gap/>ην ἔκτισιν σωτ<gap/>\n<gap/> τὸν κλῆρον απ<gap/>\n<gap/>αι τὴν παιδίσκην <gap/>\n<gap/>ουν ἔφη βεβαι <gap/>\n<gap/>ση.δ εἰ τι φη<gap/>\n<gap/>θαι ἐμοὶ δικα<gap/>\n<gap/>τ. ἀκούσας ἱε.<gap/>\n<gap/> και...υτ<gap/>\n<gap/> βουλευσ<gap/>\n<gap/>ην τι τ<gap/>\n<gap/>ατι<gap/>\n<gap/>"
+            },
+            {
+                "case_index": 5,
+                "id": "DCLP/61450/30/5",
+                "test_case": "<gap/><gap/>α<gap/>\n<gap/>δωτωι <gap/>\n<gap/>την συμβαλ<gap/>\n<gap/> μὴ τοῦ κλήρου <gap/>\n<gap/> χρημάτων <gap/>\n<gap/> εἰς ταύτην <gap/>\n<gap/>ην ἔκτισιν σωτ<gap/>\n<gap/> [..]ν κλῆρον απ<gap/>\n<gap/>αι τὴν παιδίσκην <gap/>\n<gap/>ουν ἔφη βεβαι <gap/>\n<gap/>ση.δ εἰ τι φη<gap/>\n<gap/>θαι ἐμοὶ δικα<gap/>\n<gap/>τ. ἀκούσας ἱε.<gap/>\n<gap/> και...υτ<gap/>\n<gap/> βουλευσ<gap/>\n<gap/>ην τι τ<gap/>\n<gap/>ατι<gap/>\n<gap/>"
+            },
+            {
+                "case_index": 6,
+                "id": "DCLP/61450/30/6",
+                "test_case": "<gap/><gap/>α<gap/>\n<gap/>δωτωι <gap/>\n<gap/>την συμβαλ<gap/>\n<gap/> μὴ τοῦ κλήρου <gap/>\n<gap/> χρημάτων <gap/>\n<gap/> εἰς ταύτην <gap/>\n<gap/>ην ἔκτισιν σωτ<gap/>\n<gap/> τὸν κλῆρον απ<gap/>\n<gap/>αι τὴν παιδίσκ[..] <gap/>\n<gap/>ουν ἔφη βεβαι <gap/>\n<gap/>ση.δ εἰ τι φη<gap/>\n<gap/>θαι ἐμοὶ δικα<gap/>\n<gap/>τ. ἀκούσας ἱε.<gap/>\n<gap/> και...υτ<gap/>\n<gap/> βουλευσ<gap/>\n<gap/>ην τι τ<gap/>\n<gap/>ατι<gap/>\n<gap/>"
+            },
+            {
+                "case_index": 7,
+                "id": "DCLP/61450/30/7",
+                "test_case": "<gap/><gap/>α<gap/>\n<gap/>δωτωι <gap/>\n<gap/>την συμβαλ<gap/>\n<gap/> μὴ τοῦ κλήρου <gap/>\n<gap/> χρημάτων <gap/>\n<gap/> εἰς ταύτην <gap/>\n<gap/>ην ἔκτισιν σωτ<gap/>\n<gap/> τὸν κλῆρον απ<gap/>\n<gap/>αι τὴν παιδίσκην <gap/>\n<gap/>ουν ἔφη βεβα[.] <gap/>\n<gap/>ση.δ εἰ τι φη<gap/>\n<gap/>θαι ἐμοὶ δικα<gap/>\n<gap/>τ. ἀκούσας ἱε.<gap/>\n<gap/> και...υτ<gap/>\n<gap/> βουλευσ<gap/>\n<gap/>ην τι τ<gap/>\n<gap/>ατι<gap/>\n<gap/>"
+            },
+            {
+                "case_index": 8,
+                "id": "DCLP/61450/30/8",
+                "test_case": "<gap/><gap/>α<gap/>\n<gap/>δωτωι <gap/>\n<gap/>την συμβαλ<gap/>\n<gap/> μὴ τοῦ κλήρου <gap/>\n<gap/> χρημάτων <gap/>\n<gap/> εἰς ταύτην <gap/>\n<gap/>ην ἔκτισιν σωτ<gap/>\n<gap/> τὸν κλῆρον απ<gap/>\n<gap/>αι τὴν παιδίσκην <gap/>\n<gap/>ουν ἔφη βεβαι <gap/>\n<gap/>ση.δ εἰ τι φη<gap/>\n<gap/>θ[.]ι ἐμοὶ δικα<gap/>\n<gap/>τ. ἀκούσας ἱε.<gap/>\n<gap/> και...υτ<gap/>\n<gap/> βουλευσ<gap/>\n<gap/>ην τι τ<gap/>\n<gap/>ατι<gap/>\n<gap/>"
+            },
+            {
+                "case_index": 9,
+                "id": "DCLP/61450/30/9",
+                "test_case": "<gap/><gap/>α<gap/>\n<gap/>δωτωι <gap/>\n<gap/>την συμβαλ<gap/>\n<gap/> μὴ τοῦ κλήρου <gap/>\n<gap/> χρημάτων <gap/>\n<gap/> εἰς ταύτην <gap/>\n<gap/>ην ἔκτισιν σωτ<gap/>\n<gap/> τὸν κλῆρον απ<gap/>\n<gap/>αι τὴν παιδίσκην <gap/>\n<gap/>ουν ἔφη βεβαι <gap/>\n<gap/>ση.δ εἰ τι φη<gap/>\n<gap/>θαι ἐμοὶ δικα<gap/>\n<gap/>τ. ἀκού[.]ας ἱε.<gap/>\n<gap/> και...υτ<gap/>\n<gap/> βουλευσ<gap/>\n<gap/>ην τι τ<gap/>\n<gap/>ατι<gap/>\n<gap/>"
+            },
+            {
+                "case_index": 10,
+                "id": "DCLP/61450/30/10",
+                "test_case": "<gap/><gap/>α<gap/>\n<gap/>δωτωι <gap/>\n<gap/>την συμβαλ<gap/>\n<gap/> μὴ τοῦ κλήρου <gap/>\n<gap/> χρημάτων <gap/>\n<gap/> εἰς ταύτην <gap/>\n<gap/>ην ἔκτισιν σωτ<gap/>\n<gap/> τὸν κλῆρον απ<gap/>\n<gap/>αι τὴν παιδίσκην <gap/>\n<gap/>ουν ἔφη βεβαι <gap/>\n<gap/>ση.δ εἰ τι φη<gap/>\n<gap/>θαι ἐμοὶ δικα<gap/>\n<gap/>τ. ἀκούσας ἱε.<gap/>\n<gap/> και...υτ<gap/>\n<gap/> [..]υλευσ<gap/>\n<gap/>ην τι τ<gap/>\n<gap/>ατι<gap/>\n<gap/>"
+            }
+        ]
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "61450",
+        "block_index": 31,
+        "id": "DCLP/61450/31",
+        "title": "A Roll wth Lysias, Contra Hippothersem, Contra Theomnestum and Four Other Unknown Orations",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/>\n...ουκ α...........\n... ἀλλ’ εἰ μὲν απτ...\n.... [π]ολεμίους αυ[τ]..\n..... οὐκ ἂν εἶχεν ..\n..ακοντος τοιούτωι δ[ὲ]\n[τρό]πωι ἡγήσα[το] δ[ι]\n[κα]ίως ἀγανα[κτεῖν]\nἐπὶ τῶν πατ[ρίων ἀπο]\nστερούμενος ......\nμοι δοκοῦσιν ο[ἱ τὰ ὑμέ]\nτερα πριάμεν[οι] .....\n<gap/>",
+        "test_cases": [
+            {
+                "case_index": 1,
+                "id": "DCLP/61450/31/1",
+                "test_case": "<gap/>\n...ουκ α...........\n... ἀλλ’ εἰ μὲν απτ...\n.... [.]ολεμίους αυτ..\n..... οὐκ ἂν εἶχεν ..\n..ακοντος τοιούτωι δὲ\nτρόπωι ἡγήσατο δι\nκαίως ἀγανακτεῖν\nἐπὶ τῶν πατρίων ἀπο\nστερούμενος ......\nμοι δοκοῦσιν οἱ τὰ ὑμέ\nτερα πριάμενοι .....\n<gap/>"
+            },
+            {
+                "case_index": 2,
+                "id": "DCLP/61450/31/2",
+                "test_case": "<gap/>\n...ουκ α...........\n... ἀλλ’ εἰ μὲν απτ...\n.... πολεμίους αυ[.]..\n..... οὐκ ἂν εἶχεν ..\n..ακοντος τοιούτωι δὲ\nτρόπωι ἡγήσατο δι\nκαίως ἀγανακτεῖν\nἐπὶ τῶν πατρίων ἀπο\nστερούμενος ......\nμοι δοκοῦσιν οἱ τὰ ὑμέ\nτερα πριάμενοι .....\n<gap/>"
+            },
+            {
+                "case_index": 3,
+                "id": "DCLP/61450/31/3",
+                "test_case": "<gap/>\n...ουκ α...........\n... ἀλλ’ εἰ μὲν απτ...\n.... πολεμίους αυτ..\n..... οὐκ ἂν εἶχεν ..\n..ακοντος τοιούτωι δ[.]\nτρόπωι ἡγήσατο δι\nκαίως ἀγανακτεῖν\nἐπὶ τῶν πατρίων ἀπο\nστερούμενος ......\nμοι δοκοῦσιν οἱ τὰ ὑμέ\nτερα πριάμενοι .....\n<gap/>"
+            },
+            {
+                "case_index": 4,
+                "id": "DCLP/61450/31/4",
+                "test_case": "<gap/>\n...ουκ α...........\n... ἀλλ’ εἰ μὲν απτ...\n.... πολεμίους αυτ..\n..... οὐκ ἂν εἶχεν ..\n..ακοντος τοιούτωι δὲ\n[...]πωι ἡγήσατο δι\nκαίως ἀγανακτεῖν\nἐπὶ τῶν πατρίων ἀπο\nστερούμενος ......\nμοι δοκοῦσιν οἱ τὰ ὑμέ\nτερα πριάμενοι .....\n<gap/>"
+            },
+            {
+                "case_index": 5,
+                "id": "DCLP/61450/31/5",
+                "test_case": "<gap/>\n...ουκ α...........\n... ἀλλ’ εἰ μὲν απτ...\n.... πολεμίους αυτ..\n..... οὐκ ἂν εἶχεν ..\n..ακοντος τοιούτωι δὲ\nτρόπωι ἡγήσα[..] δι\nκαίως ἀγανακτεῖν\nἐπὶ τῶν πατρίων ἀπο\nστερούμενος ......\nμοι δοκοῦσιν οἱ τὰ ὑμέ\nτερα πριάμενοι .....\n<gap/>"
+            },
+            {
+                "case_index": 6,
+                "id": "DCLP/61450/31/6",
+                "test_case": "<gap/>\n...ουκ α...........\n... ἀλλ’ εἰ μὲν απτ...\n.... πολεμίους αυτ..\n..... οὐκ ἂν εἶχεν ..\n..ακοντος τοιούτωι δὲ\nτρόπωι ἡγήσατο δ[.]\nκαίως ἀγανακτεῖν\nἐπὶ τῶν πατρίων ἀπο\nστερούμενος ......\nμοι δοκοῦσιν οἱ τὰ ὑμέ\nτερα πριάμενοι .....\n<gap/>"
+            },
+            {
+                "case_index": 7,
+                "id": "DCLP/61450/31/7",
+                "test_case": "<gap/>\n...ουκ α...........\n... ἀλλ’ εἰ μὲν απτ...\n.... πολεμίους αυτ..\n..... οὐκ ἂν εἶχεν ..\n..ακοντος τοιούτωι δὲ\nτρόπωι ἡγήσατο δι\n[..]ίως ἀγανακτεῖν\nἐπὶ τῶν πατρίων ἀπο\nστερούμενος ......\nμοι δοκοῦσιν οἱ τὰ ὑμέ\nτερα πριάμενοι .....\n<gap/>"
+            },
+            {
+                "case_index": 8,
+                "id": "DCLP/61450/31/8",
+                "test_case": "<gap/>\n...ουκ α...........\n... ἀλλ’ εἰ μὲν απτ...\n.... πολεμίους αυτ..\n..... οὐκ ἂν εἶχεν ..\n..ακοντος τοιούτωι δὲ\nτρόπωι ἡγήσατο δι\nκαίως ἀγανα[.....]\nἐπὶ τῶν πατρίων ἀπο\nστερούμενος ......\nμοι δοκοῦσιν οἱ τὰ ὑμέ\nτερα πριάμενοι .....\n<gap/>"
+            },
+            {
+                "case_index": 9,
+                "id": "DCLP/61450/31/9",
+                "test_case": "<gap/>\n...ουκ α...........\n... ἀλλ’ εἰ μὲν απτ...\n.... πολεμίους αυτ..\n..... οὐκ ἂν εἶχεν ..\n..ακοντος τοιούτωι δὲ\nτρόπωι ἡγήσατο δι\nκαίως ἀγανακτεῖν\nἐπὶ τῶν πατ[........]\nστερούμενος ......\nμοι δοκοῦσιν οἱ τὰ ὑμέ\nτερα πριάμενοι .....\n<gap/>"
+            },
+            {
+                "case_index": 10,
+                "id": "DCLP/61450/31/10",
+                "test_case": "<gap/>\n...ουκ α...........\n... ἀλλ’ εἰ μὲν απτ...\n.... πολεμίους αυτ..\n..... οὐκ ἂν εἶχεν ..\n..ακοντος τοιούτωι δὲ\nτρόπωι ἡγήσατο δι\nκαίως ἀγανακτεῖν\nἐπὶ τῶν πατρίων ἀπο\nστερούμενος ......\nμοι δοκοῦσιν ο[........]\nτερα πριάμενοι .....\n<gap/>"
+            },
+            {
+                "case_index": 11,
+                "id": "DCLP/61450/31/11",
+                "test_case": "<gap/>\n...ουκ α...........\n... ἀλλ’ εἰ μὲν απτ...\n.... πολεμίους αυτ..\n..... οὐκ ἂν εἶχεν ..\n..ακοντος τοιούτωι δὲ\nτρόπωι ἡγήσατο δι\nκαίως ἀγανακτεῖν\nἐπὶ τῶν πατρίων ἀπο\nστερούμενος ......\nμοι δοκοῦσιν οἱ τὰ ὑμέ\nτερα πριάμεν[..] .....\n<gap/>"
+            }
+        ]
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "61450",
+        "block_index": 32,
+        "id": "DCLP/61450/32",
+        "title": "A Roll wth Lysias, Contra Hippothersem, Contra Theomnestum and Four Other Unknown Orations",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/>\nταλ<gap/>\nται ν<gap/>\nτος τ<gap/>\nζετ[αι]\nδειξ<gap/>\nρους .<gap/>\nεν τη<gap/>\nμ<gap/>\n<gap/>",
+        "test_cases": [
+            {
+                "case_index": 1,
+                "id": "DCLP/61450/32/1",
+                "test_case": "<gap/>\nταλ<gap/>\nται ν<gap/>\nτος τ<gap/>\nζετ[..]\nδειξ<gap/>\nρους .<gap/>\nεν τη<gap/>\nμ<gap/>\n<gap/>"
+            }
+        ]
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "61450",
+        "block_index": 33,
+        "id": "DCLP/61450/33",
+        "title": "A Roll wth Lysias, Contra Hippothersem, Contra Theomnestum and Four Other Unknown Orations",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/>\n.<gap/>\nπ<gap/>\nμ<gap/>\nδυ<gap/>\nδυ<gap/>\nβ<gap/>\nπ.<gap/>\nρα<gap/>\nξα<gap/>\nτι<gap/>\n<gap/>",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "61450",
+        "block_index": 34,
+        "id": "DCLP/61450/34",
+        "title": "A Roll wth Lysias, Contra Hippothersem, Contra Theomnestum and Four Other Unknown Orations",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/>\nδυ...........σ...\nβ...........εροις ε\nπ.......αι αὐτὸν πα\nρα......ον ἀποδει\nξα..οι...[α]υτον ἐναν\nτία τοῖς ἄλ[λοις] γ[ι]γνώσκον\nτα μόνον  ἂ[ν α]ὐτῷ δικαί\n[ω]ς παρ’ ὑμῶν φ[έ]ροι το..ν\n....ν πῶς γὰρ δύνα[τ]αι",
+        "test_cases": [
+            {
+                "case_index": 1,
+                "id": "DCLP/61450/34/1",
+                "test_case": "<gap/>\nδυ...........σ...\nβ...........εροις ε\nπ.......αι αὐτὸν πα\nρα......ον ἀποδει\nξα..οι...[.]υτον ἐναν\nτία τοῖς ἄλλοις γιγνώσκον\nτα μόνον  ἂν αὐτῷ δικαί\nως παρ’ ὑμῶν φέροι το..ν\n....ν πῶς γὰρ δύναται"
+            },
+            {
+                "case_index": 2,
+                "id": "DCLP/61450/34/2",
+                "test_case": "<gap/>\nδυ...........σ...\nβ...........εροις ε\nπ.......αι αὐτὸν πα\nρα......ον ἀποδει\nξα..οι...αυτον ἐναν\nτία τοῖς ἄλ[....] γιγνώσκον\nτα μόνον  ἂν αὐτῷ δικαί\nως παρ’ ὑμῶν φέροι το..ν\n....ν πῶς γὰρ δύναται"
+            },
+            {
+                "case_index": 3,
+                "id": "DCLP/61450/34/3",
+                "test_case": "<gap/>\nδυ...........σ...\nβ...........εροις ε\nπ.......αι αὐτὸν πα\nρα......ον ἀποδει\nξα..οι...αυτον ἐναν\nτία τοῖς ἄλλοις γ[.]γνώσκον\nτα μόνον  ἂν αὐτῷ δικαί\nως παρ’ ὑμῶν φέροι το..ν\n....ν πῶς γὰρ δύναται"
+            },
+            {
+                "case_index": 4,
+                "id": "DCLP/61450/34/4",
+                "test_case": "<gap/>\nδυ...........σ...\nβ...........εροις ε\nπ.......αι αὐτὸν πα\nρα......ον ἀποδει\nξα..οι...αυτον ἐναν\nτία τοῖς ἄλλοις γιγνώσκον\nτα μόνον  ἂ[...]ὐτῷ δικαί\nως παρ’ ὑμῶν φέροι το..ν\n....ν πῶς γὰρ δύναται"
+            },
+            {
+                "case_index": 5,
+                "id": "DCLP/61450/34/5",
+                "test_case": "<gap/>\nδυ...........σ...\nβ...........εροις ε\nπ.......αι αὐτὸν πα\nρα......ον ἀποδει\nξα..οι...αυτον ἐναν\nτία τοῖς ἄλλοις γιγνώσκον\nτα μόνον  ἂν αὐτῷ δικαί\n[.]ς παρ’ ὑμῶν φέροι το..ν\n....ν πῶς γὰρ δύναται"
+            },
+            {
+                "case_index": 6,
+                "id": "DCLP/61450/34/6",
+                "test_case": "<gap/>\nδυ...........σ...\nβ...........εροις ε\nπ.......αι αὐτὸν πα\nρα......ον ἀποδει\nξα..οι...αυτον ἐναν\nτία τοῖς ἄλλοις γιγνώσκον\nτα μόνον  ἂν αὐτῷ δικαί\nως παρ’ ὑμῶν φ[.]ροι το..ν\n....ν πῶς γὰρ δύναται"
+            },
+            {
+                "case_index": 7,
+                "id": "DCLP/61450/34/7",
+                "test_case": "<gap/>\nδυ...........σ...\nβ...........εροις ε\nπ.......αι αὐτὸν πα\nρα......ον ἀποδει\nξα..οι...αυτον ἐναν\nτία τοῖς ἄλλοις γιγνώσκον\nτα μόνον  ἂν αὐτῷ δικαί\nως παρ’ ὑμῶν φέροι το..ν\n....ν πῶς γὰρ δύνα[.]αι"
+            }
+        ]
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "61450",
+        "block_index": 35,
+        "id": "DCLP/61450/35",
+        "title": "A Roll wth Lysias, Contra Hippothersem, Contra Theomnestum and Four Other Unknown Orations",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/><gap/>ωνα.\n<gap/>υοσυν.\n<gap/>τρος του<gap/>\n<gap/> καὶ τοῖς φο\n<gap/>αι ἀγανα\n[κτ]<gap/> [π]ολλὰ ἡμαρ\n[τ]<gap/>οι μήδεν \n<gap/>ων φροντ\n<gap/> [ἀμφι]σβήτει τωι<gap/>\n<gap/>ε.τ.<gap/>\n<gap/>",
+        "test_cases": [
+            {
+                "case_index": 1,
+                "id": "DCLP/61450/35/1",
+                "test_case": "<gap/><gap/>ωνα.\n<gap/>υοσυν.\n<gap/>τρος του<gap/>\n<gap/> καὶ τοῖς φο\n<gap/>αι ἀγανα\n[..]<gap/> πολλὰ ἡμαρ\nτ<gap/>οι μήδεν \n<gap/>ων φροντ\n<gap/> ἀμφισβήτει τωι<gap/>\n<gap/>ε.τ.<gap/>\n<gap/>"
+            },
+            {
+                "case_index": 2,
+                "id": "DCLP/61450/35/2",
+                "test_case": "<gap/><gap/>ωνα.\n<gap/>υοσυν.\n<gap/>τρος του<gap/>\n<gap/> καὶ τοῖς φο\n<gap/>αι ἀγανα\nκτ<gap/> [.]ολλὰ ἡμαρ\nτ<gap/>οι μήδεν \n<gap/>ων φροντ\n<gap/> ἀμφισβήτει τωι<gap/>\n<gap/>ε.τ.<gap/>\n<gap/>"
+            },
+            {
+                "case_index": 3,
+                "id": "DCLP/61450/35/3",
+                "test_case": "<gap/><gap/>ωνα.\n<gap/>υοσυν.\n<gap/>τρος του<gap/>\n<gap/> καὶ τοῖς φο\n<gap/>αι ἀγανα\nκτ<gap/> πολλὰ ἡμαρ\n[.]<gap/>οι μήδεν \n<gap/>ων φροντ\n<gap/> ἀμφισβήτει τωι<gap/>\n<gap/>ε.τ.<gap/>\n<gap/>"
+            },
+            {
+                "case_index": 4,
+                "id": "DCLP/61450/35/4",
+                "test_case": "<gap/><gap/>ωνα.\n<gap/>υοσυν.\n<gap/>τρος του<gap/>\n<gap/> καὶ τοῖς φο\n<gap/>αι ἀγανα\nκτ<gap/> πολλὰ ἡμαρ\nτ<gap/>οι μήδεν \n<gap/>ων φροντ\n<gap/> [....]σβήτει τωι<gap/>\n<gap/>ε.τ.<gap/>\n<gap/>"
+            }
+        ]
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "61450",
+        "block_index": 36,
+        "id": "DCLP/61450/36",
+        "title": "A Roll wth Lysias, Contra Hippothersem, Contra Theomnestum and Four Other Unknown Orations",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/>\n.φητ<gap/>\n.θεντα<gap/>\n.ντ..<gap/>\n[ο]ὐκ ἐθελ...<gap/>\nεἴχετε οὐ γὰρ δ[ί]κα[ιον ] <gap/>\nμεν ὑμ[ῖ]ν ε[ι]σεν....\nὑπερ τ[ο]ύτου .η<gap/>\n..<gap/>\n<gap/>",
+        "test_cases": [
+            {
+                "case_index": 1,
+                "id": "DCLP/61450/36/1",
+                "test_case": "<gap/>\n.φητ<gap/>\n.θεντα<gap/>\n.ντ..<gap/>\n[.]ὐκ ἐθελ...<gap/>\nεἴχετε οὐ γὰρ δίκαιον  <gap/>\nμεν ὑμῖν εισεν....\nὑπερ τούτου .η<gap/>\n..<gap/>\n<gap/>"
+            },
+            {
+                "case_index": 2,
+                "id": "DCLP/61450/36/2",
+                "test_case": "<gap/>\n.φητ<gap/>\n.θεντα<gap/>\n.ντ..<gap/>\nοὐκ ἐθελ...<gap/>\nεἴχετε οὐ γὰρ δ[.]καιον  <gap/>\nμεν ὑμῖν εισεν....\nὑπερ τούτου .η<gap/>\n..<gap/>\n<gap/>"
+            },
+            {
+                "case_index": 3,
+                "id": "DCLP/61450/36/3",
+                "test_case": "<gap/>\n.φητ<gap/>\n.θεντα<gap/>\n.ντ..<gap/>\nοὐκ ἐθελ...<gap/>\nεἴχετε οὐ γὰρ δίκα[....] <gap/>\nμεν ὑμῖν εισεν....\nὑπερ τούτου .η<gap/>\n..<gap/>\n<gap/>"
+            },
+            {
+                "case_index": 4,
+                "id": "DCLP/61450/36/4",
+                "test_case": "<gap/>\n.φητ<gap/>\n.θεντα<gap/>\n.ντ..<gap/>\nοὐκ ἐθελ...<gap/>\nεἴχετε οὐ γὰρ δίκαιον  <gap/>\nμεν ὑμ[.]ν εισεν....\nὑπερ τούτου .η<gap/>\n..<gap/>\n<gap/>"
+            },
+            {
+                "case_index": 5,
+                "id": "DCLP/61450/36/5",
+                "test_case": "<gap/>\n.φητ<gap/>\n.θεντα<gap/>\n.ντ..<gap/>\nοὐκ ἐθελ...<gap/>\nεἴχετε οὐ γὰρ δίκαιον  <gap/>\nμεν ὑμῖν ε[.]σεν....\nὑπερ τούτου .η<gap/>\n..<gap/>\n<gap/>"
+            },
+            {
+                "case_index": 6,
+                "id": "DCLP/61450/36/6",
+                "test_case": "<gap/>\n.φητ<gap/>\n.θεντα<gap/>\n.ντ..<gap/>\nοὐκ ἐθελ...<gap/>\nεἴχετε οὐ γὰρ δίκαιον  <gap/>\nμεν ὑμῖν εισεν....\nὑπερ τ[.]ύτου .η<gap/>\n..<gap/>\n<gap/>"
+            }
+        ]
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "61450",
+        "block_index": 37,
+        "id": "DCLP/61450/37",
+        "title": "A Roll wth Lysias, Contra Hippothersem, Contra Theomnestum and Four Other Unknown Orations",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/><gap/>.ενος <gap/>\n<gap/>το οὗτος δὲ τ<gap/>\n<gap/> [δ]ιαγόμενος <gap/>\n<gap/> [δια]λέλυκε την<gap/>\n<gap/>ν ὁ φάσκων <gap/>\n<gap/>αιος εἶναι τῶν <gap/>\n<gap/>ν πρ[ὸ]ς [τ]ὰς ἐνιω<gap/>\n<gap/>...<gap/>\n<gap/>",
+        "test_cases": [
+            {
+                "case_index": 1,
+                "id": "DCLP/61450/37/1",
+                "test_case": "<gap/><gap/>.ενος <gap/>\n<gap/>το οὗτος δὲ τ<gap/>\n<gap/> [.]ιαγόμενος <gap/>\n<gap/> διαλέλυκε την<gap/>\n<gap/>ν ὁ φάσκων <gap/>\n<gap/>αιος εἶναι τῶν <gap/>\n<gap/>ν πρὸς τὰς ἐνιω<gap/>\n<gap/>...<gap/>\n<gap/>"
+            },
+            {
+                "case_index": 2,
+                "id": "DCLP/61450/37/2",
+                "test_case": "<gap/><gap/>.ενος <gap/>\n<gap/>το οὗτος δὲ τ<gap/>\n<gap/> διαγόμενος <gap/>\n<gap/> [...]λέλυκε την<gap/>\n<gap/>ν ὁ φάσκων <gap/>\n<gap/>αιος εἶναι τῶν <gap/>\n<gap/>ν πρὸς τὰς ἐνιω<gap/>\n<gap/>...<gap/>\n<gap/>"
+            },
+            {
+                "case_index": 3,
+                "id": "DCLP/61450/37/3",
+                "test_case": "<gap/><gap/>.ενος <gap/>\n<gap/>το οὗτος δὲ τ<gap/>\n<gap/> διαγόμενος <gap/>\n<gap/> διαλέλυκε την<gap/>\n<gap/>ν ὁ φάσκων <gap/>\n<gap/>αιος εἶναι τῶν <gap/>\n<gap/>ν πρ[.]ς τὰς ἐνιω<gap/>\n<gap/>...<gap/>\n<gap/>"
+            },
+            {
+                "case_index": 4,
+                "id": "DCLP/61450/37/4",
+                "test_case": "<gap/><gap/>.ενος <gap/>\n<gap/>το οὗτος δὲ τ<gap/>\n<gap/> διαγόμενος <gap/>\n<gap/> διαλέλυκε την<gap/>\n<gap/>ν ὁ φάσκων <gap/>\n<gap/>αιος εἶναι τῶν <gap/>\n<gap/>ν πρὸς [.]ὰς ἐνιω<gap/>\n<gap/>...<gap/>\n<gap/>"
+            }
+        ]
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "61450",
+        "block_index": 38,
+        "id": "DCLP/61450/38",
+        "title": "A Roll wth Lysias, Contra Hippothersem, Contra Theomnestum and Four Other Unknown Orations",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/><gap/>.\n<gap/>τα\n<gap/>αρ\n<gap/>θαι \n<gap/>ρα\n<gap/>ν\n<gap/>σα\n<gap/>τα\n<gap/>",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "61450",
+        "block_index": 39,
+        "id": "DCLP/61450/39",
+        "title": "A Roll wth Lysias, Contra Hippothersem, Contra Theomnestum and Four Other Unknown Orations",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/>\n...νεω<gap/>\nστρατεια<gap/>\nκαὶ ετε<gap/>\nσυνε.<gap/>\nτων .<gap/> [τε]\nλευτ<gap/>\n.ρω<gap/>\n<gap/>",
+        "test_cases": [
+            {
+                "case_index": 1,
+                "id": "DCLP/61450/39/1",
+                "test_case": "<gap/>\n...νεω<gap/>\nστρατεια<gap/>\nκαὶ ετε<gap/>\nσυνε.<gap/>\nτων .<gap/> [..]\nλευτ<gap/>\n.ρω<gap/>\n<gap/>"
+            }
+        ]
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "61450",
+        "block_index": 40,
+        "id": "DCLP/61450/40",
+        "title": "A Roll wth Lysias, Contra Hippothersem, Contra Theomnestum and Four Other Unknown Orations",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/>\n.<gap/>\nφ<gap/>\nφ<gap/>\nαυ<gap/>\nλ.<gap/>\nεκ<gap/>\nδ<gap/>\n<gap/>",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "61450",
+        "block_index": 41,
+        "id": "DCLP/61450/41",
+        "title": "A Roll wth Lysias, Contra Hippothersem, Contra Theomnestum and Four Other Unknown Orations",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/><gap/>.\n<gap/>ν καὶ\n<gap/>τας \n<gap/>ε\n<gap/>εμ\n<gap/>\n<gap/>αι\n<gap/>",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "61450",
+        "block_index": 42,
+        "id": "DCLP/61450/42",
+        "title": "A Roll wth Lysias, Contra Hippothersem, Contra Theomnestum and Four Other Unknown Orations",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/><gap/>υκα<gap/>\n<gap/>ιν γὰρ <gap/>\n<gap/>τουτ<gap/>\n<gap/>υμ<gap/>\n<gap/>σα<gap/>\n<gap/>ντε<gap/>\n<gap/>ν.<gap/>\n<gap/>",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "61450",
+        "block_index": 43,
+        "id": "DCLP/61450/43",
+        "title": "A Roll wth Lysias, Contra Hippothersem, Contra Theomnestum and Four Other Unknown Orations",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/><gap/>ρο.<gap/>\n<gap/> [β]έβαιοι π<gap/>\n<gap/> [ο]ὐκ απ<gap/>\n<gap/> [ἀμφι]ισβητ<gap/>\n<gap/> ἀποσ<gap/>\n<gap/>σα<gap/>\n<gap/>",
+        "test_cases": [
+            {
+                "case_index": 1,
+                "id": "DCLP/61450/43/1",
+                "test_case": "<gap/><gap/>ρο.<gap/>\n<gap/> [.]έβαιοι π<gap/>\n<gap/> οὐκ απ<gap/>\n<gap/> ἀμφιισβητ<gap/>\n<gap/> ἀποσ<gap/>\n<gap/>σα<gap/>\n<gap/>"
+            },
+            {
+                "case_index": 2,
+                "id": "DCLP/61450/43/2",
+                "test_case": "<gap/><gap/>ρο.<gap/>\n<gap/> βέβαιοι π<gap/>\n<gap/> [.]ὐκ απ<gap/>\n<gap/> ἀμφιισβητ<gap/>\n<gap/> ἀποσ<gap/>\n<gap/>σα<gap/>\n<gap/>"
+            },
+            {
+                "case_index": 3,
+                "id": "DCLP/61450/43/3",
+                "test_case": "<gap/><gap/>ρο.<gap/>\n<gap/> βέβαιοι π<gap/>\n<gap/> οὐκ απ<gap/>\n<gap/> [....]ισβητ<gap/>\n<gap/> ἀποσ<gap/>\n<gap/>σα<gap/>\n<gap/>"
+            }
+        ]
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "61450",
+        "block_index": 44,
+        "id": "DCLP/61450/44",
+        "title": "A Roll wth Lysias, Contra Hippothersem, Contra Theomnestum and Four Other Unknown Orations",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/><gap/><gap/>.\n<gap/>υ\n<gap/>.ου\n<gap/>\n<gap/>.\n<gap/>",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "61450",
+        "block_index": 45,
+        "id": "DCLP/61450/45",
+        "title": "A Roll wth Lysias, Contra Hippothersem, Contra Theomnestum and Four Other Unknown Orations",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/>\n.<gap/>\nσ<gap/>\nπ<gap/>\n<gap/>\nα.<gap/>\nει.<gap/>\n<gap/>",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "61450",
+        "block_index": 46,
+        "id": "DCLP/61450/46",
+        "title": "A Roll wth Lysias, Contra Hippothersem, Contra Theomnestum and Four Other Unknown Orations",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/><gap/>ε<gap/>\n<gap/>δρ<gap/>\n<gap/>πεν<gap/>\n<gap/>προσ<gap/>\n<gap/>ντα.<gap/>\n<gap/>ιω<gap/>\n<gap/>",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "61450",
+        "block_index": 47,
+        "id": "DCLP/61450/47",
+        "title": "A Roll wth Lysias, Contra Hippothersem, Contra Theomnestum and Four Other Unknown Orations",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/><gap/>τη<gap/>\n<gap/>του<gap/>\n<gap/>μα<gap/>\n<gap/>ω.<gap/>\n<gap/>θερ.<gap/>\n<gap/>ει<gap/>\n<gap/>",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "61450",
+        "block_index": 48,
+        "id": "DCLP/61450/48",
+        "title": "A Roll wth Lysias, Contra Hippothersem, Contra Theomnestum and Four Other Unknown Orations",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/>\nι<gap/>\nλ<gap/>\n.<gap/>\nκ<gap/>\nκ<gap/>\nε<gap/>\nμ<gap/>\n<gap/>",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "61450",
+        "block_index": 49,
+        "id": "DCLP/61450/49",
+        "title": "A Roll wth Lysias, Contra Hippothersem, Contra Theomnestum and Four Other Unknown Orations",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/><gap/>φο<gap/>\n<gap/>κοστ<gap/>\n<gap/>νε<gap/>\n<gap/>ημ<gap/>\n<gap/>\n<gap/>του<gap/>\n<gap/>.<gap/>\n<gap/>",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "61450",
+        "block_index": 50,
+        "id": "DCLP/61450/50",
+        "title": "A Roll wth Lysias, Contra Hippothersem, Contra Theomnestum and Four Other Unknown Orations",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/><gap/>πο.<gap/>\n<gap/>\n<gap/>τε.....<gap/>\n<gap/>τα ἐπιτήδε[ια ]<gap/>\n<gap/>υ ὡς ἄξιον ε<gap/>\n<gap/>ης φ[ω]νῆσαι<gap/>\n<gap/>",
+        "test_cases": [
+            {
+                "case_index": 1,
+                "id": "DCLP/61450/50/1",
+                "test_case": "<gap/><gap/>πο.<gap/>\n<gap/>\n<gap/>τε.....<gap/>\n<gap/>τα ἐπιτήδε[...]<gap/>\n<gap/>υ ὡς ἄξιον ε<gap/>\n<gap/>ης φωνῆσαι<gap/>\n<gap/>"
+            },
+            {
+                "case_index": 2,
+                "id": "DCLP/61450/50/2",
+                "test_case": "<gap/><gap/>πο.<gap/>\n<gap/>\n<gap/>τε.....<gap/>\n<gap/>τα ἐπιτήδεια <gap/>\n<gap/>υ ὡς ἄξιον ε<gap/>\n<gap/>ης φ[.]νῆσαι<gap/>\n<gap/>"
+            }
+        ]
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "61450",
+        "block_index": 51,
+        "id": "DCLP/61450/51",
+        "title": "A Roll wth Lysias, Contra Hippothersem, Contra Theomnestum and Four Other Unknown Orations",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/><gap/>..\n<gap/><gap/>τοτε\n<gap/>ν\n<gap/>ν\n<gap/>ωι\n<gap/>",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "61450",
+        "block_index": 52,
+        "id": "DCLP/61450/52",
+        "title": "A Roll wth Lysias, Contra Hippothersem, Contra Theomnestum and Four Other Unknown Orations",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/><gap/>ο.<gap/>\n<gap/>.ο\n<gap/>πτ.\n<gap/>ηχιο\n<gap/>.\n<gap/>αν\n<gap/>",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "61450",
+        "block_index": 53,
+        "id": "DCLP/61450/53",
+        "title": "A Roll wth Lysias, Contra Hippothersem, Contra Theomnestum and Four Other Unknown Orations",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/><gap/>ρου\n<gap/>.ε\n<gap/>ρειν\n<gap/>πι\n<gap/>ν\n<gap/>",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "61450",
+        "block_index": 54,
+        "id": "DCLP/61450/54",
+        "title": "A Roll wth Lysias, Contra Hippothersem, Contra Theomnestum and Four Other Unknown Orations",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/><gap/>ι εισε<gap/>\n<gap/>.εσηι<gap/>\n<gap/>ωστο.<gap/>\n<gap/>ι τυγχ[αν]<gap/>\n<gap/>οντ<gap/>\n<gap/>",
+        "test_cases": [
+            {
+                "case_index": 1,
+                "id": "DCLP/61450/54/1",
+                "test_case": "<gap/><gap/>ι εισε<gap/>\n<gap/>.εσηι<gap/>\n<gap/>ωστο.<gap/>\n<gap/>ι τυγχ[..]<gap/>\n<gap/>οντ<gap/>\n<gap/>"
+            }
+        ]
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "61450",
+        "block_index": 55,
+        "id": "DCLP/61450/55",
+        "title": "A Roll wth Lysias, Contra Hippothersem, Contra Theomnestum and Four Other Unknown Orations",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/><gap/> καὶ ε<gap/>\n<gap/>ν συ.<gap/>\n<gap/> [ὁμο]λογουν<gap/>\n<gap/>ιν τὸ α<gap/>\n<gap/>σεσ<gap/>\n<gap/>",
+        "test_cases": [
+            {
+                "case_index": 1,
+                "id": "DCLP/61450/55/1",
+                "test_case": "<gap/><gap/> καὶ ε<gap/>\n<gap/>ν συ.<gap/>\n<gap/> [...]λογουν<gap/>\n<gap/>ιν τὸ α<gap/>\n<gap/>σεσ<gap/>\n<gap/>"
+            }
+        ]
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "61450",
+        "block_index": 56,
+        "id": "DCLP/61450/56",
+        "title": "A Roll wth Lysias, Contra Hippothersem, Contra Theomnestum and Four Other Unknown Orations",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/><gap/>.<gap/><gap/>.ν λα.λ<gap/>\n<gap/>.ωι τῶι περυσι<gap/>\n<gap/>μενου δ.υξ.<gap/>\n<gap/>υττ<gap/>\n<gap/>",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "61450",
+        "block_index": 57,
+        "id": "DCLP/61450/57",
+        "title": "A Roll wth Lysias, Contra Hippothersem, Contra Theomnestum and Four Other Unknown Orations",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/><gap/>αι.<gap/>\n<gap/>λει τις .<gap/>\n<gap/>αθηκ<gap/>\n<gap/>μφεσ<gap/>\n<gap/>..<gap/>\n<gap/>",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "61450",
+        "block_index": 58,
+        "id": "DCLP/61450/58",
+        "title": "A Roll wth Lysias, Contra Hippothersem, Contra Theomnestum and Four Other Unknown Orations",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/><gap/>..<gap/><gap/>ιαιτα<gap/>\n<gap/> μάρτυσ[ι] <gap/>\n<gap/> [μάρτυ]ρες\n<gap/>",
+        "test_cases": [
+            {
+                "case_index": 1,
+                "id": "DCLP/61450/58/1",
+                "test_case": "<gap/><gap/>..<gap/><gap/>ιαιτα<gap/>\n<gap/> μάρτυσ[.] <gap/>\n<gap/> μάρτυρες\n<gap/>"
+            },
+            {
+                "case_index": 2,
+                "id": "DCLP/61450/58/2",
+                "test_case": "<gap/><gap/>..<gap/><gap/>ιαιτα<gap/>\n<gap/> μάρτυσι <gap/>\n<gap/> [.....]ρες\n<gap/>"
+            }
+        ]
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "61450",
+        "block_index": 59,
+        "id": "DCLP/61450/59",
+        "title": "A Roll wth Lysias, Contra Hippothersem, Contra Theomnestum and Four Other Unknown Orations",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/><gap/>.ιλα<gap/>\n<gap/> οὐ φάσκων<gap/>\n<gap/> ἐκείνης ..<gap/>\n<gap/>γον ἀλλα ν<gap/>",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "61450",
+        "block_index": 60,
+        "id": "DCLP/61450/60",
+        "title": "A Roll wth Lysias, Contra Hippothersem, Contra Theomnestum and Four Other Unknown Orations",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/><gap/>.<gap/><gap/>θων δ<gap/>\n<gap/>επεν.<gap/>\n<gap/>α<gap/>\n<gap/>",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "61450",
+        "block_index": 61,
+        "id": "DCLP/61450/61",
+        "title": "A Roll wth Lysias, Contra Hippothersem, Contra Theomnestum and Four Other Unknown Orations",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/><gap/>ισα<gap/>\n<gap/>ασε<gap/>\n<gap/>ν γα<gap/>\n<gap/>.κυ<gap/>\n<gap/>",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "61450",
+        "block_index": 62,
+        "id": "DCLP/61450/62",
+        "title": "A Roll wth Lysias, Contra Hippothersem, Contra Theomnestum and Four Other Unknown Orations",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/><gap/>ψασ<gap/>\n <gap/>ση πισ<gap/>\n<gap/>υομεν<gap/>\n<gap/>..<gap/>\n<gap/>",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "61450",
+        "block_index": 63,
+        "id": "DCLP/61450/63",
+        "title": "A Roll wth Lysias, Contra Hippothersem, Contra Theomnestum and Four Other Unknown Orations",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/><gap/> ἐργα<gap/>\n<gap/>.τειν<gap/>\n<gap/>κανε<gap/>\n<gap/>α<gap/>\n<gap/>",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "61450",
+        "block_index": 64,
+        "id": "DCLP/61450/64",
+        "title": "A Roll wth Lysias, Contra Hippothersem, Contra Theomnestum and Four Other Unknown Orations",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/><gap/>τ..ταλ<gap/>\n<gap/> [τρι]ηαρχ<gap/>\n<gap/> [πλου]σιωτα[τ]<gap/>\n<gap/>ω.<gap/>\n<gap/>",
+        "test_cases": [
+            {
+                "case_index": 1,
+                "id": "DCLP/61450/64/1",
+                "test_case": "<gap/><gap/>τ..ταλ<gap/>\n<gap/> [...]ηαρχ<gap/>\n<gap/> πλουσιωτατ<gap/>\n<gap/>ω.<gap/>\n<gap/>"
+            },
+            {
+                "case_index": 2,
+                "id": "DCLP/61450/64/2",
+                "test_case": "<gap/><gap/>τ..ταλ<gap/>\n<gap/> τριηαρχ<gap/>\n<gap/> [....]σιωτατ<gap/>\n<gap/>ω.<gap/>\n<gap/>"
+            },
+            {
+                "case_index": 3,
+                "id": "DCLP/61450/64/3",
+                "test_case": "<gap/><gap/>τ..ταλ<gap/>\n<gap/> τριηαρχ<gap/>\n<gap/> πλουσιωτα[.]<gap/>\n<gap/>ω.<gap/>\n<gap/>"
+            }
+        ]
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "61450",
+        "block_index": 65,
+        "id": "DCLP/61450/65",
+        "title": "A Roll wth Lysias, Contra Hippothersem, Contra Theomnestum and Four Other Unknown Orations",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/><gap/>αν σι\n<gap/>.τυ\n<gap/>ν αμ",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "61450",
+        "block_index": 66,
+        "id": "DCLP/61450/66",
+        "title": "A Roll wth Lysias, Contra Hippothersem, Contra Theomnestum and Four Other Unknown Orations",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/><gap/>υτον ε<gap/>\n<gap/>αι τον.<gap/>\n<gap/>ασουκ<gap/>\n<gap/>α.<gap/>\n<gap/>",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "61450",
+        "block_index": 67,
+        "id": "DCLP/61450/67",
+        "title": "A Roll wth Lysias, Contra Hippothersem, Contra Theomnestum and Four Other Unknown Orations",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/><gap/>υτωι π.<gap/>\n<gap/>ιδηξαι τ<gap/>\n<gap/>ι ἀναίσχυν[τος] <gap/>\n<gap/> [Σωσ]ιάδης κ<gap/>\n<gap/>",
+        "test_cases": [
+            {
+                "case_index": 1,
+                "id": "DCLP/61450/67/1",
+                "test_case": "<gap/><gap/>υτωι π.<gap/>\n<gap/>ιδηξαι τ<gap/>\n<gap/>ι ἀναίσχυν[...] <gap/>\n<gap/> Σωσιάδης κ<gap/>\n<gap/>"
+            },
+            {
+                "case_index": 2,
+                "id": "DCLP/61450/67/2",
+                "test_case": "<gap/><gap/>υτωι π.<gap/>\n<gap/>ιδηξαι τ<gap/>\n<gap/>ι ἀναίσχυντος <gap/>\n<gap/> [...]ιάδης κ<gap/>\n<gap/>"
+            }
+        ]
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "61450",
+        "block_index": 68,
+        "id": "DCLP/61450/68",
+        "title": "A Roll wth Lysias, Contra Hippothersem, Contra Theomnestum and Four Other Unknown Orations",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/><gap/>σιε<gap/>\n<gap/>κλ<gap/>\n<gap/>.τ<gap/>\n<gap/>ερου<gap/>\n<gap/>αφι<gap/>\n<gap/>",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "61450",
+        "block_index": 69,
+        "id": "DCLP/61450/69",
+        "title": "A Roll wth Lysias, Contra Hippothersem, Contra Theomnestum and Four Other Unknown Orations",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/><gap/>.<gap/><gap/>.ιτ<gap/>\n<gap/>τ<gap/>\n<gap/>ντ<gap/>\n<gap/>η<gap/>\n<gap/>",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "61450",
+        "block_index": 70,
+        "id": "DCLP/61450/70",
+        "title": "A Roll wth Lysias, Contra Hippothersem, Contra Theomnestum and Four Other Unknown Orations",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/>.ελλ<gap/>\n<gap/>ων χ<gap/>\n<gap/>να<gap/>\n<gap/>.<gap/>\n<gap/>",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "61450",
+        "block_index": 71,
+        "id": "DCLP/61450/71",
+        "title": "A Roll wth Lysias, Contra Hippothersem, Contra Theomnestum and Four Other Unknown Orations",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/><gap/>ω<gap/>\n<gap/>υν<gap/>\n<gap/>ν<gap/>\n<gap/>ου α<gap/>\n<gap/>β<gap/>\n<gap/>",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "61450",
+        "block_index": 72,
+        "id": "DCLP/61450/72",
+        "title": "A Roll wth Lysias, Contra Hippothersem, Contra Theomnestum and Four Other Unknown Orations",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/><gap/>ν.<gap/>\n<gap/>υτον <gap/>\n<gap/>κον<gap/>\n<gap/>απ<gap/>\n<gap/>",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "61450",
+        "block_index": 73,
+        "id": "DCLP/61450/73",
+        "title": "A Roll wth Lysias, Contra Hippothersem, Contra Theomnestum and Four Other Unknown Orations",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/>\n...<gap/>\nχρον<gap/>\nτην <gap/>\nτ.ε<gap/>\n<gap/>",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "61450",
+        "block_index": 74,
+        "id": "DCLP/61450/74",
+        "title": "A Roll wth Lysias, Contra Hippothersem, Contra Theomnestum and Four Other Unknown Orations",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/><gap/>..<gap/><gap/>.ου.<gap/>\n<gap/>ετο<gap/>\n<gap/>εριε<gap/>\n<gap/>",
+        "test_cases": []
+    }
+]

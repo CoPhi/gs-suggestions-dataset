@@ -1,0 +1,1133 @@
+[
+    {
+        "corpus_id": "DCLP",
+        "file_id": "64538",
+        "block_index": 3,
+        "id": "DCLP/64538/3",
+        "title": "Latin legal treatise on criminal law",
+        "material": "parchment",
+        "language": "la",
+        "training_text": "<gap/><gap/>ocatur ut\n<gap/>si dixissent abstine te hac pe\ntitione quinquennio post..por...[ab]\nimp no petere mag cui<gap/>\ntuit ei spem honoris re[no]vare non po\nterit ordinem. sunt et acta iudicia pub\nlica  gravis exsecutionis p provinci\nas ut in Arabia σκοωπελισμός. nam si\nquis posuerit lapides ad pra[ed]ium ali\ncuius minans punietur ne quis cum ac\n<gap/>la...<gap/>...tuere se.metallo e.\n<gap/>.υπο.genas sol..vindi.arip.\n<gap/>praesidis morib an igitur\n<gap/>.incia cuius puniat<gap/>\n<gap/>..ois...<gap/>",
+        "test_cases": [
+            {
+                "case_index": 1,
+                "id": "DCLP/64538/3/1",
+                "test_case": "<gap/><gap/>ocatur ut\n<gap/>si dixissent abstine te hac pe\ntitione quinquennio post..por...[..]\nimp no petere mag cui<gap/>\ntuit ei spem honoris renovare non po\nterit ordinem. sunt et acta iudicia pub\nlica  gravis exsecutionis p provinci\nas ut in Arabia σκοωπελισμός. nam si\nquis posuerit lapides ad praedium ali\ncuius minans punietur ne quis cum ac\n<gap/>la...<gap/>...tuere se.metallo e.\n<gap/>.υπο.genas sol..vindi.arip.\n<gap/>praesidis morib an igitur\n<gap/>.incia cuius puniat<gap/>\n<gap/>..ois...<gap/>"
+            },
+            {
+                "case_index": 2,
+                "id": "DCLP/64538/3/2",
+                "test_case": "<gap/><gap/>ocatur ut\n<gap/>si dixissent abstine te hac pe\ntitione quinquennio post..por...ab\nimp no petere mag cui<gap/>\ntuit ei spem honoris re[..]vare non po\nterit ordinem. sunt et acta iudicia pub\nlica  gravis exsecutionis p provinci\nas ut in Arabia σκοωπελισμός. nam si\nquis posuerit lapides ad praedium ali\ncuius minans punietur ne quis cum ac\n<gap/>la...<gap/>...tuere se.metallo e.\n<gap/>.υπο.genas sol..vindi.arip.\n<gap/>praesidis morib an igitur\n<gap/>.incia cuius puniat<gap/>\n<gap/>..ois...<gap/>"
+            },
+            {
+                "case_index": 3,
+                "id": "DCLP/64538/3/3",
+                "test_case": "<gap/><gap/>ocatur ut\n<gap/>si dixissent abstine te hac pe\ntitione quinquennio post..por...ab\nimp no petere mag cui<gap/>\ntuit ei spem honoris renovare non po\nterit ordinem. sunt et acta iudicia pub\nlica  gravis exsecutionis p provinci\nas ut in Arabia σκοωπελισμός. nam si\nquis posuerit lapides ad pra[..]ium ali\ncuius minans punietur ne quis cum ac\n<gap/>la...<gap/>...tuere se.metallo e.\n<gap/>.υπο.genas sol..vindi.arip.\n<gap/>praesidis morib an igitur\n<gap/>.incia cuius puniat<gap/>\n<gap/>..ois...<gap/>"
+            }
+        ]
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "64538",
+        "block_index": 4,
+        "id": "DCLP/64538/4",
+        "title": "Latin legal treatise on criminal law",
+        "material": "parchment",
+        "language": "la",
+        "training_text": "<gap/>\nsiqu<gap/>.. expa\n.r <gap/>uiare pos.....m\nd...<gap/> oripro...<gap/>\nUl.....mpob<gap/>post.\nr<gap/>s<gap/>rnum\n<gap/>postolo nam olim ka<gap/>",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "64538",
+        "block_index": 5,
+        "id": "DCLP/64538/5",
+        "title": "Latin legal treatise on criminal law",
+        "material": "parchment",
+        "language": "la",
+        "training_text": "<gap/>oncius ni<gap/><gap/>iqu<gap/><gap/>\ncuss<gap/>cu..<gap/>\nmos..<gap/>\ndic.<gap/>\net<gap/>\nh<gap/>",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "64538",
+        "block_index": 6,
+        "id": "DCLP/64538/6",
+        "title": "Latin legal treatise on criminal law",
+        "material": "parchment",
+        "language": "la",
+        "training_text": "<gap/>ne infamia n laborare nam\n<gap/>in quid iudici qui furtivus ad\n<gap/>eredd rn lice[10]<gap/>mverum ..\n<gap/><gap/>e\n<gap/>.. solu\nvestig\nvestig",
+        "test_cases": [
+            {
+                "case_index": 1,
+                "id": "DCLP/64538/6/1",
+                "test_case": "<gap/>ne infamia n laborare nam\n<gap/>in quid iudici qui furtivus ad\n<gap/>eredd rn lice[..]<gap/>mverum ..\n<gap/><gap/>e\n<gap/>.. solu\nvestig\nvestig"
+            }
+        ]
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "64538",
+        "block_index": 7,
+        "id": "DCLP/64538/7",
+        "title": "Latin legal treatise on criminal law",
+        "material": "parchment",
+        "language": "la",
+        "training_text": "<gap/><gap/> libro membranarum et<gap/>\n<gap/>  Iul opinionem nititur  id<gap/>\n<gap/>",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "64538",
+        "block_index": 8,
+        "id": "DCLP/64538/8",
+        "title": "Latin legal treatise on criminal law",
+        "material": "parchment",
+        "language": "la",
+        "training_text": "<gap/>ussit. quam sam N[er ]...o lib[ro][memb]ranarum reprobat; nec Aris[to-]<gap/><gap/>re ait quia actio de fia....<gap/>",
+        "test_cases": [
+            {
+                "case_index": 1,
+                "id": "DCLP/64538/8/1",
+                "test_case": "<gap/>ussit. quam sam N[...]...o libromembranarum reprobat; nec Aristo-<gap/><gap/>re ait quia actio de fia....<gap/>"
+            },
+            {
+                "case_index": 2,
+                "id": "DCLP/64538/8/2",
+                "test_case": "<gap/>ussit. quam sam Ner ...o lib[..]membranarum reprobat; nec Aristo-<gap/><gap/>re ait quia actio de fia....<gap/>"
+            },
+            {
+                "case_index": 3,
+                "id": "DCLP/64538/8/3",
+                "test_case": "<gap/>ussit. quam sam Ner ...o libro[....]ranarum reprobat; nec Aristo-<gap/><gap/>re ait quia actio de fia....<gap/>"
+            },
+            {
+                "case_index": 4,
+                "id": "DCLP/64538/8/4",
+                "test_case": "<gap/>ussit. quam sam Ner ...o libromembranarum reprobat; nec Aris[...]<gap/><gap/>re ait quia actio de fia....<gap/>"
+            }
+        ]
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "64976",
+        "block_index": 1,
+        "id": "DCLP/64976/1",
+        "title": "Bkt. 9 78",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/>\n.<gap/>\nουκ<gap/>\nοιπ<gap/>\nουλα.<gap/>\nουθυ.<gap/>\nουσελ<gap/>\nουζοκ<gap/>\nουκλα<gap/>\nουεμι<gap/>",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "64976",
+        "block_index": 2,
+        "id": "DCLP/64976/2",
+        "title": "Bkt. 9 78",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "σωμαρ<gap/>\nουλακ<gap/>\nουπ.<gap/>\nουν.<gap/>\nλασ<gap/>\n.<gap/> \n<gap/>",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "64623",
+        "block_index": 1,
+        "id": "DCLP/64623/1",
+        "title": "school exercise",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "εξ εξ εξ\nεξ εξ εξ εξ <gap/>",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "64595",
+        "block_index": 1,
+        "id": "DCLP/64595/1",
+        "title": "Alphabetic word list with syllabification",
+        "material": "pottery",
+        "language": "grc",
+        "training_text": "βομός\nβαβᾶς\nβίος\nγίγγας\nγάμος\nγάτος\nΓεδών\nΔαυείτ\nδρον\nδ.ρ..\n.η",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "64595",
+        "block_index": 2,
+        "id": "DCLP/64595/2",
+        "title": "Alphabetic word list with syllabification",
+        "material": "pottery",
+        "language": "grc",
+        "training_text": "Μάρκος\nΜηνᾶ\nΜηεοαος\nΜατχο",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "64129",
+        "block_index": 1,
+        "id": "DCLP/64129/1",
+        "title": "Mythological compendium, list of Zeus' mistresses",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/><gap/>...<gap/>\nρα.....ουδεμεια.<gap/>\nπρο....εα αὐτῶ<gap/>\nγεννηθείς εστ.<gap/>\nτρος Θεμιστοῖ τῇ .<gap/> [ἐξ ἧς]\nΛαπίθης [Ἱ]πποδα[μείᾳ τῇ Δανα]\nοῦ ἐξ ἧς Ὤλενος κ [Ἰσονόῃ τῇ Δανα]\nοῦ ἐξ ἧς Ὀρχομὸς κ Χρ[ύσης κ Ἰοῖ]\nτῇ Ἰνάχου ἐξ ἧς  [Ἔ]παφο[ς κ]\nἹμάνδῃ Γηγενί[ου] ἐν Ῥόδῳ γενόμ[ε]\n[νος ὄμβ]ρος ἐξ ἧς Σπαρταῖος κ Κ[ρό]\n[νιος κ Κύ]τος κ Μοψ[οπίᾳ]\n<gap/>",
+        "test_cases": [
+            {
+                "case_index": 1,
+                "id": "DCLP/64129/1/1",
+                "test_case": "<gap/><gap/>...<gap/>\nρα.....ουδεμεια.<gap/>\nπρο....εα αὐτῶ<gap/>\nγεννηθείς εστ.<gap/>\nτρος Θεμιστοῖ τῇ .<gap/> [.....]\nΛαπίθης Ἱπποδαμείᾳ τῇ Δανα\nοῦ ἐξ ἧς Ὤλενος κ Ἰσονόῃ τῇ Δανα\nοῦ ἐξ ἧς Ὀρχομὸς κ Χρύσης κ Ἰοῖ\nτῇ Ἰνάχου ἐξ ἧς  Ἔπαφος κ\nἹμάνδῃ Γηγενίου ἐν Ῥόδῳ γενόμε\nνος ὄμβρος ἐξ ἧς Σπαρταῖος κ Κρό\nνιος κ Κύτος κ Μοψοπίᾳ\n<gap/>"
+            },
+            {
+                "case_index": 2,
+                "id": "DCLP/64129/1/2",
+                "test_case": "<gap/><gap/>...<gap/>\nρα.....ουδεμεια.<gap/>\nπρο....εα αὐτῶ<gap/>\nγεννηθείς εστ.<gap/>\nτρος Θεμιστοῖ τῇ .<gap/> ἐξ ἧς\nΛαπίθης [.]πποδαμείᾳ τῇ Δανα\nοῦ ἐξ ἧς Ὤλενος κ Ἰσονόῃ τῇ Δανα\nοῦ ἐξ ἧς Ὀρχομὸς κ Χρύσης κ Ἰοῖ\nτῇ Ἰνάχου ἐξ ἧς  Ἔπαφος κ\nἹμάνδῃ Γηγενίου ἐν Ῥόδῳ γενόμε\nνος ὄμβρος ἐξ ἧς Σπαρταῖος κ Κρό\nνιος κ Κύτος κ Μοψοπίᾳ\n<gap/>"
+            },
+            {
+                "case_index": 3,
+                "id": "DCLP/64129/1/3",
+                "test_case": "<gap/><gap/>...<gap/>\nρα.....ουδεμεια.<gap/>\nπρο....εα αὐτῶ<gap/>\nγεννηθείς εστ.<gap/>\nτρος Θεμιστοῖ τῇ .<gap/> ἐξ ἧς\nΛαπίθης Ἱπποδα[............]\nοῦ ἐξ ἧς Ὤλενος κ Ἰσονόῃ τῇ Δανα\nοῦ ἐξ ἧς Ὀρχομὸς κ Χρύσης κ Ἰοῖ\nτῇ Ἰνάχου ἐξ ἧς  Ἔπαφος κ\nἹμάνδῃ Γηγενίου ἐν Ῥόδῳ γενόμε\nνος ὄμβρος ἐξ ἧς Σπαρταῖος κ Κρό\nνιος κ Κύτος κ Μοψοπίᾳ\n<gap/>"
+            },
+            {
+                "case_index": 4,
+                "id": "DCLP/64129/1/4",
+                "test_case": "<gap/><gap/>...<gap/>\nρα.....ουδεμεια.<gap/>\nπρο....εα αὐτῶ<gap/>\nγεννηθείς εστ.<gap/>\nτρος Θεμιστοῖ τῇ .<gap/> ἐξ ἧς\nΛαπίθης Ἱπποδαμείᾳ τῇ Δανα\nοῦ ἐξ ἧς Ὤλενος κ [..............]\nοῦ ἐξ ἧς Ὀρχομὸς κ Χρύσης κ Ἰοῖ\nτῇ Ἰνάχου ἐξ ἧς  Ἔπαφος κ\nἹμάνδῃ Γηγενίου ἐν Ῥόδῳ γενόμε\nνος ὄμβρος ἐξ ἧς Σπαρταῖος κ Κρό\nνιος κ Κύτος κ Μοψοπίᾳ\n<gap/>"
+            },
+            {
+                "case_index": 5,
+                "id": "DCLP/64129/1/5",
+                "test_case": "<gap/><gap/>...<gap/>\nρα.....ουδεμεια.<gap/>\nπρο....εα αὐτῶ<gap/>\nγεννηθείς εστ.<gap/>\nτρος Θεμιστοῖ τῇ .<gap/> ἐξ ἧς\nΛαπίθης Ἱπποδαμείᾳ τῇ Δανα\nοῦ ἐξ ἧς Ὤλενος κ Ἰσονόῃ τῇ Δανα\nοῦ ἐξ ἧς Ὀρχομὸς κ Χρ[..........]\nτῇ Ἰνάχου ἐξ ἧς  Ἔπαφος κ\nἹμάνδῃ Γηγενίου ἐν Ῥόδῳ γενόμε\nνος ὄμβρος ἐξ ἧς Σπαρταῖος κ Κρό\nνιος κ Κύτος κ Μοψοπίᾳ\n<gap/>"
+            },
+            {
+                "case_index": 6,
+                "id": "DCLP/64129/1/6",
+                "test_case": "<gap/><gap/>...<gap/>\nρα.....ουδεμεια.<gap/>\nπρο....εα αὐτῶ<gap/>\nγεννηθείς εστ.<gap/>\nτρος Θεμιστοῖ τῇ .<gap/> ἐξ ἧς\nΛαπίθης Ἱπποδαμείᾳ τῇ Δανα\nοῦ ἐξ ἧς Ὤλενος κ Ἰσονόῃ τῇ Δανα\nοῦ ἐξ ἧς Ὀρχομὸς κ Χρύσης κ Ἰοῖ\nτῇ Ἰνάχου ἐξ ἧς  [.]παφος κ\nἹμάνδῃ Γηγενίου ἐν Ῥόδῳ γενόμε\nνος ὄμβρος ἐξ ἧς Σπαρταῖος κ Κρό\nνιος κ Κύτος κ Μοψοπίᾳ\n<gap/>"
+            },
+            {
+                "case_index": 7,
+                "id": "DCLP/64129/1/7",
+                "test_case": "<gap/><gap/>...<gap/>\nρα.....ουδεμεια.<gap/>\nπρο....εα αὐτῶ<gap/>\nγεννηθείς εστ.<gap/>\nτρος Θεμιστοῖ τῇ .<gap/> ἐξ ἧς\nΛαπίθης Ἱπποδαμείᾳ τῇ Δανα\nοῦ ἐξ ἧς Ὤλενος κ Ἰσονόῃ τῇ Δανα\nοῦ ἐξ ἧς Ὀρχομὸς κ Χρύσης κ Ἰοῖ\nτῇ Ἰνάχου ἐξ ἧς  Ἔπαφο[...]\nἹμάνδῃ Γηγενίου ἐν Ῥόδῳ γενόμε\nνος ὄμβρος ἐξ ἧς Σπαρταῖος κ Κρό\nνιος κ Κύτος κ Μοψοπίᾳ\n<gap/>"
+            },
+            {
+                "case_index": 8,
+                "id": "DCLP/64129/1/8",
+                "test_case": "<gap/><gap/>...<gap/>\nρα.....ουδεμεια.<gap/>\nπρο....εα αὐτῶ<gap/>\nγεννηθείς εστ.<gap/>\nτρος Θεμιστοῖ τῇ .<gap/> ἐξ ἧς\nΛαπίθης Ἱπποδαμείᾳ τῇ Δανα\nοῦ ἐξ ἧς Ὤλενος κ Ἰσονόῃ τῇ Δανα\nοῦ ἐξ ἧς Ὀρχομὸς κ Χρύσης κ Ἰοῖ\nτῇ Ἰνάχου ἐξ ἧς  Ἔπαφος κ\nἹμάνδῃ Γηγενί[..] ἐν Ῥόδῳ γενόμε\nνος ὄμβρος ἐξ ἧς Σπαρταῖος κ Κρό\nνιος κ Κύτος κ Μοψοπίᾳ\n<gap/>"
+            },
+            {
+                "case_index": 9,
+                "id": "DCLP/64129/1/9",
+                "test_case": "<gap/><gap/>...<gap/>\nρα.....ουδεμεια.<gap/>\nπρο....εα αὐτῶ<gap/>\nγεννηθείς εστ.<gap/>\nτρος Θεμιστοῖ τῇ .<gap/> ἐξ ἧς\nΛαπίθης Ἱπποδαμείᾳ τῇ Δανα\nοῦ ἐξ ἧς Ὤλενος κ Ἰσονόῃ τῇ Δανα\nοῦ ἐξ ἧς Ὀρχομὸς κ Χρύσης κ Ἰοῖ\nτῇ Ἰνάχου ἐξ ἧς  Ἔπαφος κ\nἹμάνδῃ Γηγενίου ἐν Ῥόδῳ γενόμ[.]\nνος ὄμβρος ἐξ ἧς Σπαρταῖος κ Κρό\nνιος κ Κύτος κ Μοψοπίᾳ\n<gap/>"
+            },
+            {
+                "case_index": 10,
+                "id": "DCLP/64129/1/10",
+                "test_case": "<gap/><gap/>...<gap/>\nρα.....ουδεμεια.<gap/>\nπρο....εα αὐτῶ<gap/>\nγεννηθείς εστ.<gap/>\nτρος Θεμιστοῖ τῇ .<gap/> ἐξ ἧς\nΛαπίθης Ἱπποδαμείᾳ τῇ Δανα\nοῦ ἐξ ἧς Ὤλενος κ Ἰσονόῃ τῇ Δανα\nοῦ ἐξ ἧς Ὀρχομὸς κ Χρύσης κ Ἰοῖ\nτῇ Ἰνάχου ἐξ ἧς  Ἔπαφος κ\nἹμάνδῃ Γηγενίου ἐν Ῥόδῳ γενόμε\n[.......]ρος ἐξ ἧς Σπαρταῖος κ Κρό\nνιος κ Κύτος κ Μοψοπίᾳ\n<gap/>"
+            },
+            {
+                "case_index": 11,
+                "id": "DCLP/64129/1/11",
+                "test_case": "<gap/><gap/>...<gap/>\nρα.....ουδεμεια.<gap/>\nπρο....εα αὐτῶ<gap/>\nγεννηθείς εστ.<gap/>\nτρος Θεμιστοῖ τῇ .<gap/> ἐξ ἧς\nΛαπίθης Ἱπποδαμείᾳ τῇ Δανα\nοῦ ἐξ ἧς Ὤλενος κ Ἰσονόῃ τῇ Δανα\nοῦ ἐξ ἧς Ὀρχομὸς κ Χρύσης κ Ἰοῖ\nτῇ Ἰνάχου ἐξ ἧς  Ἔπαφος κ\nἹμάνδῃ Γηγενίου ἐν Ῥόδῳ γενόμε\nνος ὄμβρος ἐξ ἧς Σπαρταῖος κ Κ[..]\nνιος κ Κύτος κ Μοψοπίᾳ\n<gap/>"
+            },
+            {
+                "case_index": 12,
+                "id": "DCLP/64129/1/12",
+                "test_case": "<gap/><gap/>...<gap/>\nρα.....ουδεμεια.<gap/>\nπρο....εα αὐτῶ<gap/>\nγεννηθείς εστ.<gap/>\nτρος Θεμιστοῖ τῇ .<gap/> ἐξ ἧς\nΛαπίθης Ἱπποδαμείᾳ τῇ Δανα\nοῦ ἐξ ἧς Ὤλενος κ Ἰσονόῃ τῇ Δανα\nοῦ ἐξ ἧς Ὀρχομὸς κ Χρύσης κ Ἰοῖ\nτῇ Ἰνάχου ἐξ ἧς  Ἔπαφος κ\nἹμάνδῃ Γηγενίου ἐν Ῥόδῳ γενόμε\nνος ὄμβρος ἐξ ἧς Σπαρταῖος κ Κρό\n[.........]τος κ Μοψοπίᾳ\n<gap/>"
+            },
+            {
+                "case_index": 13,
+                "id": "DCLP/64129/1/13",
+                "test_case": "<gap/><gap/>...<gap/>\nρα.....ουδεμεια.<gap/>\nπρο....εα αὐτῶ<gap/>\nγεννηθείς εστ.<gap/>\nτρος Θεμιστοῖ τῇ .<gap/> ἐξ ἧς\nΛαπίθης Ἱπποδαμείᾳ τῇ Δανα\nοῦ ἐξ ἧς Ὤλενος κ Ἰσονόῃ τῇ Δανα\nοῦ ἐξ ἧς Ὀρχομὸς κ Χρύσης κ Ἰοῖ\nτῇ Ἰνάχου ἐξ ἧς  Ἔπαφος κ\nἹμάνδῃ Γηγενίου ἐν Ῥόδῳ γενόμε\nνος ὄμβρος ἐξ ἧς Σπαρταῖος κ Κρό\nνιος κ Κύτος κ Μοψ[....]\n<gap/>"
+            }
+        ]
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "64531",
+        "block_index": 1,
+        "id": "DCLP/64531/1",
+        "title": "Latin legal treatise by a still unidentified classical jurist",
+        "material": "parchment",
+        "language": "la",
+        "training_text": "<gap/><gap/>e<gap/><gap/>s in qua ..<gap/>ur\n[cui]uis utiliter dari qui spo\n[de]t aut stipulatur.\n[P]ropriaetatae duobus plurib\nve p vindicat con[i]unctim le\ngata si unus portionem \nsuam virilem n ceperit aut\nmorte praeventus aut p\nnis inpeditus uf asti<gap/>\nnatus ...<gap/>\n<gap/>",
+        "test_cases": [
+            {
+                "case_index": 1,
+                "id": "DCLP/64531/1/1",
+                "test_case": "<gap/><gap/>e<gap/><gap/>s in qua ..<gap/>ur\n[...]uis utiliter dari qui spo\ndet aut stipulatur.\nPropriaetatae duobus plurib\nve p vindicat coniunctim le\ngata si unus portionem \nsuam virilem n ceperit aut\nmorte praeventus aut p\nnis inpeditus uf asti<gap/>\nnatus ...<gap/>\n<gap/>"
+            },
+            {
+                "case_index": 2,
+                "id": "DCLP/64531/1/2",
+                "test_case": "<gap/><gap/>e<gap/><gap/>s in qua ..<gap/>ur\ncuiuis utiliter dari qui spo\n[..]t aut stipulatur.\nPropriaetatae duobus plurib\nve p vindicat coniunctim le\ngata si unus portionem \nsuam virilem n ceperit aut\nmorte praeventus aut p\nnis inpeditus uf asti<gap/>\nnatus ...<gap/>\n<gap/>"
+            },
+            {
+                "case_index": 3,
+                "id": "DCLP/64531/1/3",
+                "test_case": "<gap/><gap/>e<gap/><gap/>s in qua ..<gap/>ur\ncuiuis utiliter dari qui spo\ndet aut stipulatur.\n[.]ropriaetatae duobus plurib\nve p vindicat coniunctim le\ngata si unus portionem \nsuam virilem n ceperit aut\nmorte praeventus aut p\nnis inpeditus uf asti<gap/>\nnatus ...<gap/>\n<gap/>"
+            },
+            {
+                "case_index": 4,
+                "id": "DCLP/64531/1/4",
+                "test_case": "<gap/><gap/>e<gap/><gap/>s in qua ..<gap/>ur\ncuiuis utiliter dari qui spo\ndet aut stipulatur.\nPropriaetatae duobus plurib\nve p vindicat con[.]unctim le\ngata si unus portionem \nsuam virilem n ceperit aut\nmorte praeventus aut p\nnis inpeditus uf asti<gap/>\nnatus ...<gap/>\n<gap/>"
+            }
+        ]
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "64531",
+        "block_index": 2,
+        "id": "DCLP/64531/2",
+        "title": "Latin legal treatise by a still unidentified classical jurist",
+        "material": "parchment",
+        "language": "la",
+        "training_text": "<gap/>\nte<gap/>. mul alte\nferre cogetur.\nHoc loco et illud animadu[ten]\ndum e q uxor maria qu ex b\nmariti de[c]emam capiat eoru\ndem tm bonorum tertiae par\ntis uf capere n prohibetur e\n.....a qui legatam sibi quanta\n...... [p]ropriaetatis partem\n............ae partis",
+        "test_cases": [
+            {
+                "case_index": 1,
+                "id": "DCLP/64531/2/1",
+                "test_case": "<gap/>\nte<gap/>. mul alte\nferre cogetur.\nHoc loco et illud animadu[...]\ndum e q uxor maria qu ex b\nmariti decemam capiat eoru\ndem tm bonorum tertiae par\ntis uf capere n prohibetur e\n.....a qui legatam sibi quanta\n...... propriaetatis partem\n............ae partis"
+            },
+            {
+                "case_index": 2,
+                "id": "DCLP/64531/2/2",
+                "test_case": "<gap/>\nte<gap/>. mul alte\nferre cogetur.\nHoc loco et illud animaduten\ndum e q uxor maria qu ex b\nmariti de[.]emam capiat eoru\ndem tm bonorum tertiae par\ntis uf capere n prohibetur e\n.....a qui legatam sibi quanta\n...... propriaetatis partem\n............ae partis"
+            },
+            {
+                "case_index": 3,
+                "id": "DCLP/64531/2/3",
+                "test_case": "<gap/>\nte<gap/>. mul alte\nferre cogetur.\nHoc loco et illud animaduten\ndum e q uxor maria qu ex b\nmariti decemam capiat eoru\ndem tm bonorum tertiae par\ntis uf capere n prohibetur e\n.....a qui legatam sibi quanta\n...... [.]ropriaetatis partem\n............ae partis"
+            }
+        ]
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "64531",
+        "block_index": 3,
+        "id": "DCLP/64531/3",
+        "title": "Latin legal treatise by a still unidentified classical jurist",
+        "material": "parchment",
+        "language": "la",
+        "training_text": "<gap/>\netiam <gap/> [iu]\ndicium d[a]<gap/>\n<gap/>",
+        "test_cases": [
+            {
+                "case_index": 1,
+                "id": "DCLP/64531/3/1",
+                "test_case": "<gap/>\netiam <gap/> [..]\ndicium da<gap/>\n<gap/>"
+            },
+            {
+                "case_index": 2,
+                "id": "DCLP/64531/3/2",
+                "test_case": "<gap/>\netiam <gap/> iu\ndicium d[.]<gap/>\n<gap/>"
+            }
+        ]
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "64281",
+        "block_index": 1,
+        "id": "DCLP/64281/1",
+        "title": "P. Brookl. 27. School Tablet with Verse Sententia Repeated",
+        "material": "wood",
+        "language": "grc",
+        "training_text": "ᾧ μὴ δέδωκεν ἡ τύ\nχη κοιμωμένῳ\nμάτην δραμῖται κἂν\nὑπὲρ Λάδαν δράμῃ\nᾧ μὴ δέδωκεν ἡ τύχη\nκοιμωμένῳ μάτη\nν δραμῖται κἂν ὑπὲρ Λά\nδαν δράμῃ ᾧ μὴ δέδω\nκεν ἡ τύχη κοιμωμέν\nῳ μάτην δραμῖται κἂ\nν ὑπὲρ Λάδαν δράμῃ\nᾧ μὴ δέδωκεν ἡ τύ\nχη κοιμωμένῳ μά\nτην δραμῖται κἂν ὑπ\nὲρ Λάδαν δράμῃ ᾧ\nμὴ δέδωκεν ἡ τύ\nχη κοιμένῳ μ",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "64675",
+        "block_index": 1,
+        "id": "DCLP/64675/1",
+        "title": "P. Mon. Epiph. 610",
+        "material": "pottery",
+        "language": "grc",
+        "training_text": " χερουβὶν καὶ ζε\nραφὶν Μιχαὴλ κα\nὶ Γαβραὴλ πάν\nτων ἀχράν[των]\nσομνημα καὶ ...\nκης μέρος φ[υ]\nλακ<gap/>\n<gap/>",
+        "test_cases": [
+            {
+                "case_index": 1,
+                "id": "DCLP/64675/1/1",
+                "test_case": " χερουβὶν καὶ ζε\nραφὶν Μιχαὴλ κα\nὶ Γαβραὴλ πάν\nτων ἀχράν[...]\nσομνημα καὶ ...\nκης μέρος φυ\nλακ<gap/>\n<gap/>"
+            },
+            {
+                "case_index": 2,
+                "id": "DCLP/64675/1/2",
+                "test_case": " χερουβὶν καὶ ζε\nραφὶν Μιχαὴλ κα\nὶ Γαβραὴλ πάν\nτων ἀχράντων\nσομνημα καὶ ...\nκης μέρος φ[.]\nλακ<gap/>\n<gap/>"
+            }
+        ]
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "64197",
+        "block_index": 1,
+        "id": "DCLP/64197/1",
+        "title": "Mythological compendium",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "[Ἀγαμέμνω]ν καὶ Μενέλα[ο]ς <gap/>\n[Ἀχιλλεὺς] Πηλέως καὶ Θέτιδο[ς] <gap/>\n[Ὀδυσσεὺς] Λαέρτου κα[ὶ] Ἀντικλε[ίας] <gap/>\n[Διομήδης] Τυδέως καὶ Δηιπύλη[ς] <gap/>\n[Νεοπτόλεμ]ος ὁ καὶ Πύρρος\n[Αἴας] <gap/>. Ὀιλέως καὶ Ἐριόπ[ιδος] <gap/>\n[Αἴας] <gap/>. Τελαμῶνο[ς καὶ]\n[Περιβοίας]\n[Νέστωρ Νηλέ]ως καὶ Χλώριδος <gap/>\n<gap/>σω.ενει",
+        "test_cases": [
+            {
+                "case_index": 1,
+                "id": "DCLP/64197/1/1",
+                "test_case": "[........]ν καὶ Μενέλαος <gap/>\nἈχιλλεὺς Πηλέως καὶ Θέτιδος <gap/>\nὈδυσσεὺς Λαέρτου καὶ Ἀντικλείας <gap/>\nΔιομήδης Τυδέως καὶ Δηιπύλης <gap/>\nΝεοπτόλεμος ὁ καὶ Πύρρος\nΑἴας <gap/>. Ὀιλέως καὶ Ἐριόπιδος <gap/>\nΑἴας <gap/>. Τελαμῶνος καὶ\nΠεριβοίας\nΝέστωρ Νηλέως καὶ Χλώριδος <gap/>\n<gap/>σω.ενει"
+            },
+            {
+                "case_index": 2,
+                "id": "DCLP/64197/1/2",
+                "test_case": "Ἀγαμέμνων καὶ Μενέλα[.]ς <gap/>\nἈχιλλεὺς Πηλέως καὶ Θέτιδος <gap/>\nὈδυσσεὺς Λαέρτου καὶ Ἀντικλείας <gap/>\nΔιομήδης Τυδέως καὶ Δηιπύλης <gap/>\nΝεοπτόλεμος ὁ καὶ Πύρρος\nΑἴας <gap/>. Ὀιλέως καὶ Ἐριόπιδος <gap/>\nΑἴας <gap/>. Τελαμῶνος καὶ\nΠεριβοίας\nΝέστωρ Νηλέως καὶ Χλώριδος <gap/>\n<gap/>σω.ενει"
+            },
+            {
+                "case_index": 3,
+                "id": "DCLP/64197/1/3",
+                "test_case": "Ἀγαμέμνων καὶ Μενέλαος <gap/>\n[........] Πηλέως καὶ Θέτιδος <gap/>\nὈδυσσεὺς Λαέρτου καὶ Ἀντικλείας <gap/>\nΔιομήδης Τυδέως καὶ Δηιπύλης <gap/>\nΝεοπτόλεμος ὁ καὶ Πύρρος\nΑἴας <gap/>. Ὀιλέως καὶ Ἐριόπιδος <gap/>\nΑἴας <gap/>. Τελαμῶνος καὶ\nΠεριβοίας\nΝέστωρ Νηλέως καὶ Χλώριδος <gap/>\n<gap/>σω.ενει"
+            },
+            {
+                "case_index": 4,
+                "id": "DCLP/64197/1/4",
+                "test_case": "Ἀγαμέμνων καὶ Μενέλαος <gap/>\nἈχιλλεὺς Πηλέως καὶ Θέτιδο[.] <gap/>\nὈδυσσεὺς Λαέρτου καὶ Ἀντικλείας <gap/>\nΔιομήδης Τυδέως καὶ Δηιπύλης <gap/>\nΝεοπτόλεμος ὁ καὶ Πύρρος\nΑἴας <gap/>. Ὀιλέως καὶ Ἐριόπιδος <gap/>\nΑἴας <gap/>. Τελαμῶνος καὶ\nΠεριβοίας\nΝέστωρ Νηλέως καὶ Χλώριδος <gap/>\n<gap/>σω.ενει"
+            },
+            {
+                "case_index": 5,
+                "id": "DCLP/64197/1/5",
+                "test_case": "Ἀγαμέμνων καὶ Μενέλαος <gap/>\nἈχιλλεὺς Πηλέως καὶ Θέτιδος <gap/>\n[........] Λαέρτου καὶ Ἀντικλείας <gap/>\nΔιομήδης Τυδέως καὶ Δηιπύλης <gap/>\nΝεοπτόλεμος ὁ καὶ Πύρρος\nΑἴας <gap/>. Ὀιλέως καὶ Ἐριόπιδος <gap/>\nΑἴας <gap/>. Τελαμῶνος καὶ\nΠεριβοίας\nΝέστωρ Νηλέως καὶ Χλώριδος <gap/>\n<gap/>σω.ενει"
+            },
+            {
+                "case_index": 6,
+                "id": "DCLP/64197/1/6",
+                "test_case": "Ἀγαμέμνων καὶ Μενέλαος <gap/>\nἈχιλλεὺς Πηλέως καὶ Θέτιδος <gap/>\nὈδυσσεὺς Λαέρτου κα[.] Ἀντικλείας <gap/>\nΔιομήδης Τυδέως καὶ Δηιπύλης <gap/>\nΝεοπτόλεμος ὁ καὶ Πύρρος\nΑἴας <gap/>. Ὀιλέως καὶ Ἐριόπιδος <gap/>\nΑἴας <gap/>. Τελαμῶνος καὶ\nΠεριβοίας\nΝέστωρ Νηλέως καὶ Χλώριδος <gap/>\n<gap/>σω.ενει"
+            },
+            {
+                "case_index": 7,
+                "id": "DCLP/64197/1/7",
+                "test_case": "Ἀγαμέμνων καὶ Μενέλαος <gap/>\nἈχιλλεὺς Πηλέως καὶ Θέτιδος <gap/>\nὈδυσσεὺς Λαέρτου καὶ Ἀντικλε[...] <gap/>\nΔιομήδης Τυδέως καὶ Δηιπύλης <gap/>\nΝεοπτόλεμος ὁ καὶ Πύρρος\nΑἴας <gap/>. Ὀιλέως καὶ Ἐριόπιδος <gap/>\nΑἴας <gap/>. Τελαμῶνος καὶ\nΠεριβοίας\nΝέστωρ Νηλέως καὶ Χλώριδος <gap/>\n<gap/>σω.ενει"
+            },
+            {
+                "case_index": 8,
+                "id": "DCLP/64197/1/8",
+                "test_case": "Ἀγαμέμνων καὶ Μενέλαος <gap/>\nἈχιλλεὺς Πηλέως καὶ Θέτιδος <gap/>\nὈδυσσεὺς Λαέρτου καὶ Ἀντικλείας <gap/>\n[........] Τυδέως καὶ Δηιπύλης <gap/>\nΝεοπτόλεμος ὁ καὶ Πύρρος\nΑἴας <gap/>. Ὀιλέως καὶ Ἐριόπιδος <gap/>\nΑἴας <gap/>. Τελαμῶνος καὶ\nΠεριβοίας\nΝέστωρ Νηλέως καὶ Χλώριδος <gap/>\n<gap/>σω.ενει"
+            },
+            {
+                "case_index": 9,
+                "id": "DCLP/64197/1/9",
+                "test_case": "Ἀγαμέμνων καὶ Μενέλαος <gap/>\nἈχιλλεὺς Πηλέως καὶ Θέτιδος <gap/>\nὈδυσσεὺς Λαέρτου καὶ Ἀντικλείας <gap/>\nΔιομήδης Τυδέως καὶ Δηιπύλη[.] <gap/>\nΝεοπτόλεμος ὁ καὶ Πύρρος\nΑἴας <gap/>. Ὀιλέως καὶ Ἐριόπιδος <gap/>\nΑἴας <gap/>. Τελαμῶνος καὶ\nΠεριβοίας\nΝέστωρ Νηλέως καὶ Χλώριδος <gap/>\n<gap/>σω.ενει"
+            },
+            {
+                "case_index": 10,
+                "id": "DCLP/64197/1/10",
+                "test_case": "Ἀγαμέμνων καὶ Μενέλαος <gap/>\nἈχιλλεὺς Πηλέως καὶ Θέτιδος <gap/>\nὈδυσσεὺς Λαέρτου καὶ Ἀντικλείας <gap/>\nΔιομήδης Τυδέως καὶ Δηιπύλης <gap/>\n[.........]ος ὁ καὶ Πύρρος\nΑἴας <gap/>. Ὀιλέως καὶ Ἐριόπιδος <gap/>\nΑἴας <gap/>. Τελαμῶνος καὶ\nΠεριβοίας\nΝέστωρ Νηλέως καὶ Χλώριδος <gap/>\n<gap/>σω.ενει"
+            },
+            {
+                "case_index": 11,
+                "id": "DCLP/64197/1/11",
+                "test_case": "Ἀγαμέμνων καὶ Μενέλαος <gap/>\nἈχιλλεὺς Πηλέως καὶ Θέτιδος <gap/>\nὈδυσσεὺς Λαέρτου καὶ Ἀντικλείας <gap/>\nΔιομήδης Τυδέως καὶ Δηιπύλης <gap/>\nΝεοπτόλεμος ὁ καὶ Πύρρος\n[....] <gap/>. Ὀιλέως καὶ Ἐριόπιδος <gap/>\nΑἴας <gap/>. Τελαμῶνος καὶ\nΠεριβοίας\nΝέστωρ Νηλέως καὶ Χλώριδος <gap/>\n<gap/>σω.ενει"
+            },
+            {
+                "case_index": 12,
+                "id": "DCLP/64197/1/12",
+                "test_case": "Ἀγαμέμνων καὶ Μενέλαος <gap/>\nἈχιλλεὺς Πηλέως καὶ Θέτιδος <gap/>\nὈδυσσεὺς Λαέρτου καὶ Ἀντικλείας <gap/>\nΔιομήδης Τυδέως καὶ Δηιπύλης <gap/>\nΝεοπτόλεμος ὁ καὶ Πύρρος\nΑἴας <gap/>. Ὀιλέως καὶ Ἐριόπ[....] <gap/>\nΑἴας <gap/>. Τελαμῶνος καὶ\nΠεριβοίας\nΝέστωρ Νηλέως καὶ Χλώριδος <gap/>\n<gap/>σω.ενει"
+            },
+            {
+                "case_index": 13,
+                "id": "DCLP/64197/1/13",
+                "test_case": "Ἀγαμέμνων καὶ Μενέλαος <gap/>\nἈχιλλεὺς Πηλέως καὶ Θέτιδος <gap/>\nὈδυσσεὺς Λαέρτου καὶ Ἀντικλείας <gap/>\nΔιομήδης Τυδέως καὶ Δηιπύλης <gap/>\nΝεοπτόλεμος ὁ καὶ Πύρρος\nΑἴας <gap/>. Ὀιλέως καὶ Ἐριόπιδος <gap/>\n[....] <gap/>. Τελαμῶνος καὶ\nΠεριβοίας\nΝέστωρ Νηλέως καὶ Χλώριδος <gap/>\n<gap/>σω.ενει"
+            },
+            {
+                "case_index": 14,
+                "id": "DCLP/64197/1/14",
+                "test_case": "Ἀγαμέμνων καὶ Μενέλαος <gap/>\nἈχιλλεὺς Πηλέως καὶ Θέτιδος <gap/>\nὈδυσσεὺς Λαέρτου καὶ Ἀντικλείας <gap/>\nΔιομήδης Τυδέως καὶ Δηιπύλης <gap/>\nΝεοπτόλεμος ὁ καὶ Πύρρος\nΑἴας <gap/>. Ὀιλέως καὶ Ἐριόπιδος <gap/>\nΑἴας <gap/>. Τελαμῶνο[.....]\nΠεριβοίας\nΝέστωρ Νηλέως καὶ Χλώριδος <gap/>\n<gap/>σω.ενει"
+            },
+            {
+                "case_index": 15,
+                "id": "DCLP/64197/1/15",
+                "test_case": "Ἀγαμέμνων καὶ Μενέλαος <gap/>\nἈχιλλεὺς Πηλέως καὶ Θέτιδος <gap/>\nὈδυσσεὺς Λαέρτου καὶ Ἀντικλείας <gap/>\nΔιομήδης Τυδέως καὶ Δηιπύλης <gap/>\nΝεοπτόλεμος ὁ καὶ Πύρρος\nΑἴας <gap/>. Ὀιλέως καὶ Ἐριόπιδος <gap/>\nΑἴας <gap/>. Τελαμῶνος καὶ\n[.........]\nΝέστωρ Νηλέως καὶ Χλώριδος <gap/>\n<gap/>σω.ενει"
+            },
+            {
+                "case_index": 16,
+                "id": "DCLP/64197/1/16",
+                "test_case": "Ἀγαμέμνων καὶ Μενέλαος <gap/>\nἈχιλλεὺς Πηλέως καὶ Θέτιδος <gap/>\nὈδυσσεὺς Λαέρτου καὶ Ἀντικλείας <gap/>\nΔιομήδης Τυδέως καὶ Δηιπύλης <gap/>\nΝεοπτόλεμος ὁ καὶ Πύρρος\nΑἴας <gap/>. Ὀιλέως καὶ Ἐριόπιδος <gap/>\nΑἴας <gap/>. Τελαμῶνος καὶ\nΠεριβοίας\n[...........]ως καὶ Χλώριδος <gap/>\n<gap/>σω.ενει"
+            }
+        ]
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "64197",
+        "block_index": 2,
+        "id": "DCLP/64197/2",
+        "title": "Mythological compendium",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "θεῶν   \nΚρόνος Οὐρανοῦ καὶ Γῆς υἱός\nΖεύς Κρόνου καὶ Ῥέας υἱός\nΠοσιδῶν Κρόν[ο]υ καὶ Ῥέας\nἈίδης Κρόνου καὶ Ῥαίας\nΔημήτηρ Κρόνου καὶ Ῥαίας\nἭραι Κρόνου καὶ Ῥαίας, γυνὴ καὶ ἀδελ\nφὴ τοῦ Διός\nἈθηνᾶ Διὸς μ... καταπιόντος\nτὴν μηνθιν\nἙρμῆς Διὸς κα[ὶ] Μαία[ς] τῆς Ἄτλαν\nτος θυγατρὸς  .<gap/>ν ε[ἰ]ρηνι\nκὸς κῆρυξ\n<gap/>.<gap/>\n<gap/>",
+        "test_cases": [
+            {
+                "case_index": 1,
+                "id": "DCLP/64197/2/1",
+                "test_case": "θεῶν   \nΚρόνος Οὐρανοῦ καὶ Γῆς υἱός\nΖεύς Κρόνου καὶ Ῥέας υἱός\nΠοσιδῶν Κρόν[.]υ καὶ Ῥέας\nἈίδης Κρόνου καὶ Ῥαίας\nΔημήτηρ Κρόνου καὶ Ῥαίας\nἭραι Κρόνου καὶ Ῥαίας, γυνὴ καὶ ἀδελ\nφὴ τοῦ Διός\nἈθηνᾶ Διὸς μ... καταπιόντος\nτὴν μηνθιν\nἙρμῆς Διὸς καὶ Μαίας τῆς Ἄτλαν\nτος θυγατρὸς  .<gap/>ν εἰρηνι\nκὸς κῆρυξ\n<gap/>.<gap/>\n<gap/>"
+            },
+            {
+                "case_index": 2,
+                "id": "DCLP/64197/2/2",
+                "test_case": "θεῶν   \nΚρόνος Οὐρανοῦ καὶ Γῆς υἱός\nΖεύς Κρόνου καὶ Ῥέας υἱός\nΠοσιδῶν Κρόνου καὶ Ῥέας\nἈίδης Κρόνου καὶ Ῥαίας\nΔημήτηρ Κρόνου καὶ Ῥαίας\nἭραι Κρόνου καὶ Ῥαίας, γυνὴ καὶ ἀδελ\nφὴ τοῦ Διός\nἈθηνᾶ Διὸς μ... καταπιόντος\nτὴν μηνθιν\nἙρμῆς Διὸς κα[.] Μαίας τῆς Ἄτλαν\nτος θυγατρὸς  .<gap/>ν εἰρηνι\nκὸς κῆρυξ\n<gap/>.<gap/>\n<gap/>"
+            },
+            {
+                "case_index": 3,
+                "id": "DCLP/64197/2/3",
+                "test_case": "θεῶν   \nΚρόνος Οὐρανοῦ καὶ Γῆς υἱός\nΖεύς Κρόνου καὶ Ῥέας υἱός\nΠοσιδῶν Κρόνου καὶ Ῥέας\nἈίδης Κρόνου καὶ Ῥαίας\nΔημήτηρ Κρόνου καὶ Ῥαίας\nἭραι Κρόνου καὶ Ῥαίας, γυνὴ καὶ ἀδελ\nφὴ τοῦ Διός\nἈθηνᾶ Διὸς μ... καταπιόντος\nτὴν μηνθιν\nἙρμῆς Διὸς καὶ Μαία[.] τῆς Ἄτλαν\nτος θυγατρὸς  .<gap/>ν εἰρηνι\nκὸς κῆρυξ\n<gap/>.<gap/>\n<gap/>"
+            },
+            {
+                "case_index": 4,
+                "id": "DCLP/64197/2/4",
+                "test_case": "θεῶν   \nΚρόνος Οὐρανοῦ καὶ Γῆς υἱός\nΖεύς Κρόνου καὶ Ῥέας υἱός\nΠοσιδῶν Κρόνου καὶ Ῥέας\nἈίδης Κρόνου καὶ Ῥαίας\nΔημήτηρ Κρόνου καὶ Ῥαίας\nἭραι Κρόνου καὶ Ῥαίας, γυνὴ καὶ ἀδελ\nφὴ τοῦ Διός\nἈθηνᾶ Διὸς μ... καταπιόντος\nτὴν μηνθιν\nἙρμῆς Διὸς καὶ Μαίας τῆς Ἄτλαν\nτος θυγατρὸς  .<gap/>ν ε[.]ρηνι\nκὸς κῆρυξ\n<gap/>.<gap/>\n<gap/>"
+            }
+        ]
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "64891",
+        "block_index": 1,
+        "id": "DCLP/64891/1",
+        "title": "Mathematical tables + sententia",
+        "material": "wood",
+        "language": "grc",
+        "training_text": "τὸ 𐅵 ἐν ψήφων\nτῆς μιᾶς τὸ 𐅵, 𐅵 \nτῶν β, α\nτῶν γ, α 𐅵\nτῶν δ, β\nτῶν ε, β 𐅵\nτῶν ϛ, γ\nτῶν ζ, γ 𐅵\nτῶν η, δ\nτῶν θ, δ 𐅵\nτῶν ι, ε\nτῶν κ, ι\nτῶν λ, ιε",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "64891",
+        "block_index": 2,
+        "id": "DCLP/64891/2",
+        "title": "Mathematical tables + sententia",
+        "material": "wood",
+        "language": "grc",
+        "training_text": "τῶν μ, κ\nτῶν ν, κε\nτῶν ξ, λ\nτῶν ο, λε\nτῶν π, μ\nτῶν ϙ, με\nτῶν ρ, ν\nτῶν σ, ρ\nτῶν τ, ρν\nτῶν υ, σ\nτῶν φ, σν\nτῶν χ, τ\nτῶν ψ, τν\nτῶν ω, υ\nτῶν Ϡ, υν\nτῶν Α, φ\nτῶν Β, Α",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "64891",
+        "block_index": 3,
+        "id": "DCLP/64891/3",
+        "title": "Mathematical tables + sententia",
+        "material": "wood",
+        "language": "grc",
+        "training_text": "τῶν Γ, Αφ\nτῶν Δ, Β\nτῶν Ε, Βφ\nτῶν Ϛ, Γ\nτῶν Ζ, Γφ\nτῶν Η, Δ\nτῶν Θ, Δφ\nτῶν  α, Ε\nπολυπλασιασμός\nἅπαξ α, α\nβ α, β\nβ β, δ\nβ γ, ϛ",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "64891",
+        "block_index": 4,
+        "id": "DCLP/64891/4",
+        "title": "Mathematical tables + sententia",
+        "material": "wood",
+        "language": "grc",
+        "training_text": "β δ, η\n[δ] β, η",
+        "test_cases": [
+            {
+                "case_index": 1,
+                "id": "DCLP/64891/4/1",
+                "test_case": "β δ, η\n[.] β, η"
+            }
+        ]
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "64891",
+        "block_index": 5,
+        "id": "DCLP/64891/5",
+        "title": "Mathematical tables + sententia",
+        "material": "wood",
+        "language": "grc",
+        "training_text": "β ε, ι\nε β, ι\nβ ϛ, ιβ\nϛ β, ιβ\nβ ζ, ιδ\nζ β, ιδ",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "64891",
+        "block_index": 6,
+        "id": "DCLP/64891/6",
+        "title": "Mathematical tables + sententia",
+        "material": "wood",
+        "language": "grc",
+        "training_text": "β η, ιϛ\nη β, ιϛ\nβ θ, ιη\nθ β, ιη\nβ ι, κ\nι β, κ",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "64891",
+        "block_index": 7,
+        "id": "DCLP/64891/7",
+        "title": "Mathematical tables + sententia",
+        "material": "wood",
+        "language": "grc",
+        "training_text": "ἀρχὴ μεγίστη\nτοῦ φρονεῖν τὰ\nγράμματα",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "64920",
+        "block_index": 1,
+        "id": "DCLP/64920/1",
+        "title": "TM 64920",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "  ἀρχ[ὴ τῆς ἀναφορᾶς το]ῦ ἁγίου .......[διὰ τοῦ]\n Ῥωμ[αίου πάππα ἐν] ταῖς ἀποστολικαῖς δ[ιαταγαῖς ]\nἄξιον καὶ δίκαιον ἀληθῶς πρὸ πάντων ἀν[υμνεῖν σε, τὸν]\nὄντως ὄντα θν, τὸν πρὸ πάντων τῶ[ν γενητῶν]\nὄντα, ἐξ οὗ πᾶσα πατριὰ ἐν οὐνοῖς κ [ἐπὶ γῆς ὀνομάζεται,]\nτὸν μόνον ἀγένητον κ ἄν[αρχον] κ ἀβασίλευτον κ\nἀδέσποτον κ ἀνενδεῆ, [τὸν παντὸς] ἀγαθοῦ χορηγό[ν,]\nτὸν πάσης [αἰτ]ίας κ γενέ[σεως κρείττο]να, τὸν πάντοτε\nκατὰ τὰ αὐτ[ὰ] κ ὡσαύτως ἔχ[οντα  ἐ]ξ [οὗ τὰ π]άντα, καθά\nπερ ἔκ τινος [ἀ]φετηρίας, εἰς τὸ εἶναι παρῆλθεν  σὺ γὰ[ρ]\nεἶ ἡ ἄναρ[χος γ]νῶσις, ἡ ἀΐδιος ὅρασις",
+        "test_cases": [
+            {
+                "case_index": 1,
+                "id": "DCLP/64920/1/1",
+                "test_case": "  ἀρχ[.................]ῦ ἁγίου .......διὰ τοῦ\n Ῥωμαίου πάππα ἐν ταῖς ἀποστολικαῖς διαταγαῖς \nἄξιον καὶ δίκαιον ἀληθῶς πρὸ πάντων ἀνυμνεῖν σε, τὸν\nὄντως ὄντα θν, τὸν πρὸ πάντων τῶν γενητῶν\nὄντα, ἐξ οὗ πᾶσα πατριὰ ἐν οὐνοῖς κ ἐπὶ γῆς ὀνομάζεται,\nτὸν μόνον ἀγένητον κ ἄναρχον κ ἀβασίλευτον κ\nἀδέσποτον κ ἀνενδεῆ, τὸν παντὸς ἀγαθοῦ χορηγόν,\nτὸν πάσης αἰτίας κ γενέσεως κρείττονα, τὸν πάντοτε\nκατὰ τὰ αὐτὰ κ ὡσαύτως ἔχοντα  ἐξ οὗ τὰ πάντα, καθά\nπερ ἔκ τινος ἀφετηρίας, εἰς τὸ εἶναι παρῆλθεν  σὺ γὰρ\nεἶ ἡ ἄναρχος γνῶσις, ἡ ἀΐδιος ὅρασις"
+            },
+            {
+                "case_index": 2,
+                "id": "DCLP/64920/1/2",
+                "test_case": "  ἀρχὴ τῆς ἀναφορᾶς τοῦ ἁγίου .......[.......]\n Ῥωμαίου πάππα ἐν ταῖς ἀποστολικαῖς διαταγαῖς \nἄξιον καὶ δίκαιον ἀληθῶς πρὸ πάντων ἀνυμνεῖν σε, τὸν\nὄντως ὄντα θν, τὸν πρὸ πάντων τῶν γενητῶν\nὄντα, ἐξ οὗ πᾶσα πατριὰ ἐν οὐνοῖς κ ἐπὶ γῆς ὀνομάζεται,\nτὸν μόνον ἀγένητον κ ἄναρχον κ ἀβασίλευτον κ\nἀδέσποτον κ ἀνενδεῆ, τὸν παντὸς ἀγαθοῦ χορηγόν,\nτὸν πάσης αἰτίας κ γενέσεως κρείττονα, τὸν πάντοτε\nκατὰ τὰ αὐτὰ κ ὡσαύτως ἔχοντα  ἐξ οὗ τὰ πάντα, καθά\nπερ ἔκ τινος ἀφετηρίας, εἰς τὸ εἶναι παρῆλθεν  σὺ γὰρ\nεἶ ἡ ἄναρχος γνῶσις, ἡ ἀΐδιος ὅρασις"
+            },
+            {
+                "case_index": 3,
+                "id": "DCLP/64920/1/3",
+                "test_case": "  ἀρχὴ τῆς ἀναφορᾶς τοῦ ἁγίου .......διὰ τοῦ\n Ῥωμ[.............] ταῖς ἀποστολικαῖς διαταγαῖς \nἄξιον καὶ δίκαιον ἀληθῶς πρὸ πάντων ἀνυμνεῖν σε, τὸν\nὄντως ὄντα θν, τὸν πρὸ πάντων τῶν γενητῶν\nὄντα, ἐξ οὗ πᾶσα πατριὰ ἐν οὐνοῖς κ ἐπὶ γῆς ὀνομάζεται,\nτὸν μόνον ἀγένητον κ ἄναρχον κ ἀβασίλευτον κ\nἀδέσποτον κ ἀνενδεῆ, τὸν παντὸς ἀγαθοῦ χορηγόν,\nτὸν πάσης αἰτίας κ γενέσεως κρείττονα, τὸν πάντοτε\nκατὰ τὰ αὐτὰ κ ὡσαύτως ἔχοντα  ἐξ οὗ τὰ πάντα, καθά\nπερ ἔκ τινος ἀφετηρίας, εἰς τὸ εἶναι παρῆλθεν  σὺ γὰρ\nεἶ ἡ ἄναρχος γνῶσις, ἡ ἀΐδιος ὅρασις"
+            },
+            {
+                "case_index": 4,
+                "id": "DCLP/64920/1/4",
+                "test_case": "  ἀρχὴ τῆς ἀναφορᾶς τοῦ ἁγίου .......διὰ τοῦ\n Ῥωμαίου πάππα ἐν ταῖς ἀποστολικαῖς δ[.........]\nἄξιον καὶ δίκαιον ἀληθῶς πρὸ πάντων ἀνυμνεῖν σε, τὸν\nὄντως ὄντα θν, τὸν πρὸ πάντων τῶν γενητῶν\nὄντα, ἐξ οὗ πᾶσα πατριὰ ἐν οὐνοῖς κ ἐπὶ γῆς ὀνομάζεται,\nτὸν μόνον ἀγένητον κ ἄναρχον κ ἀβασίλευτον κ\nἀδέσποτον κ ἀνενδεῆ, τὸν παντὸς ἀγαθοῦ χορηγόν,\nτὸν πάσης αἰτίας κ γενέσεως κρείττονα, τὸν πάντοτε\nκατὰ τὰ αὐτὰ κ ὡσαύτως ἔχοντα  ἐξ οὗ τὰ πάντα, καθά\nπερ ἔκ τινος ἀφετηρίας, εἰς τὸ εἶναι παρῆλθεν  σὺ γὰρ\nεἶ ἡ ἄναρχος γνῶσις, ἡ ἀΐδιος ὅρασις"
+            },
+            {
+                "case_index": 5,
+                "id": "DCLP/64920/1/5",
+                "test_case": "  ἀρχὴ τῆς ἀναφορᾶς τοῦ ἁγίου .......διὰ τοῦ\n Ῥωμαίου πάππα ἐν ταῖς ἀποστολικαῖς διαταγαῖς \nἄξιον καὶ δίκαιον ἀληθῶς πρὸ πάντων ἀν[..............]\nὄντως ὄντα θν, τὸν πρὸ πάντων τῶν γενητῶν\nὄντα, ἐξ οὗ πᾶσα πατριὰ ἐν οὐνοῖς κ ἐπὶ γῆς ὀνομάζεται,\nτὸν μόνον ἀγένητον κ ἄναρχον κ ἀβασίλευτον κ\nἀδέσποτον κ ἀνενδεῆ, τὸν παντὸς ἀγαθοῦ χορηγόν,\nτὸν πάσης αἰτίας κ γενέσεως κρείττονα, τὸν πάντοτε\nκατὰ τὰ αὐτὰ κ ὡσαύτως ἔχοντα  ἐξ οὗ τὰ πάντα, καθά\nπερ ἔκ τινος ἀφετηρίας, εἰς τὸ εἶναι παρῆλθεν  σὺ γὰρ\nεἶ ἡ ἄναρχος γνῶσις, ἡ ἀΐδιος ὅρασις"
+            },
+            {
+                "case_index": 6,
+                "id": "DCLP/64920/1/6",
+                "test_case": "  ἀρχὴ τῆς ἀναφορᾶς τοῦ ἁγίου .......διὰ τοῦ\n Ῥωμαίου πάππα ἐν ταῖς ἀποστολικαῖς διαταγαῖς \nἄξιον καὶ δίκαιον ἀληθῶς πρὸ πάντων ἀνυμνεῖν σε, τὸν\nὄντως ὄντα θν, τὸν πρὸ πάντων τῶ[.........]\nὄντα, ἐξ οὗ πᾶσα πατριὰ ἐν οὐνοῖς κ ἐπὶ γῆς ὀνομάζεται,\nτὸν μόνον ἀγένητον κ ἄναρχον κ ἀβασίλευτον κ\nἀδέσποτον κ ἀνενδεῆ, τὸν παντὸς ἀγαθοῦ χορηγόν,\nτὸν πάσης αἰτίας κ γενέσεως κρείττονα, τὸν πάντοτε\nκατὰ τὰ αὐτὰ κ ὡσαύτως ἔχοντα  ἐξ οὗ τὰ πάντα, καθά\nπερ ἔκ τινος ἀφετηρίας, εἰς τὸ εἶναι παρῆλθεν  σὺ γὰρ\nεἶ ἡ ἄναρχος γνῶσις, ἡ ἀΐδιος ὅρασις"
+            },
+            {
+                "case_index": 7,
+                "id": "DCLP/64920/1/7",
+                "test_case": "  ἀρχὴ τῆς ἀναφορᾶς τοῦ ἁγίου .......διὰ τοῦ\n Ῥωμαίου πάππα ἐν ταῖς ἀποστολικαῖς διαταγαῖς \nἄξιον καὶ δίκαιον ἀληθῶς πρὸ πάντων ἀνυμνεῖν σε, τὸν\nὄντως ὄντα θν, τὸν πρὸ πάντων τῶν γενητῶν\nὄντα, ἐξ οὗ πᾶσα πατριὰ ἐν οὐνοῖς κ [...................]\nτὸν μόνον ἀγένητον κ ἄναρχον κ ἀβασίλευτον κ\nἀδέσποτον κ ἀνενδεῆ, τὸν παντὸς ἀγαθοῦ χορηγόν,\nτὸν πάσης αἰτίας κ γενέσεως κρείττονα, τὸν πάντοτε\nκατὰ τὰ αὐτὰ κ ὡσαύτως ἔχοντα  ἐξ οὗ τὰ πάντα, καθά\nπερ ἔκ τινος ἀφετηρίας, εἰς τὸ εἶναι παρῆλθεν  σὺ γὰρ\nεἶ ἡ ἄναρχος γνῶσις, ἡ ἀΐδιος ὅρασις"
+            },
+            {
+                "case_index": 8,
+                "id": "DCLP/64920/1/8",
+                "test_case": "  ἀρχὴ τῆς ἀναφορᾶς τοῦ ἁγίου .......διὰ τοῦ\n Ῥωμαίου πάππα ἐν ταῖς ἀποστολικαῖς διαταγαῖς \nἄξιον καὶ δίκαιον ἀληθῶς πρὸ πάντων ἀνυμνεῖν σε, τὸν\nὄντως ὄντα θν, τὸν πρὸ πάντων τῶν γενητῶν\nὄντα, ἐξ οὗ πᾶσα πατριὰ ἐν οὐνοῖς κ ἐπὶ γῆς ὀνομάζεται,\nτὸν μόνον ἀγένητον κ ἄν[.....] κ ἀβασίλευτον κ\nἀδέσποτον κ ἀνενδεῆ, τὸν παντὸς ἀγαθοῦ χορηγόν,\nτὸν πάσης αἰτίας κ γενέσεως κρείττονα, τὸν πάντοτε\nκατὰ τὰ αὐτὰ κ ὡσαύτως ἔχοντα  ἐξ οὗ τὰ πάντα, καθά\nπερ ἔκ τινος ἀφετηρίας, εἰς τὸ εἶναι παρῆλθεν  σὺ γὰρ\nεἶ ἡ ἄναρχος γνῶσις, ἡ ἀΐδιος ὅρασις"
+            },
+            {
+                "case_index": 9,
+                "id": "DCLP/64920/1/9",
+                "test_case": "  ἀρχὴ τῆς ἀναφορᾶς τοῦ ἁγίου .......διὰ τοῦ\n Ῥωμαίου πάππα ἐν ταῖς ἀποστολικαῖς διαταγαῖς \nἄξιον καὶ δίκαιον ἀληθῶς πρὸ πάντων ἀνυμνεῖν σε, τὸν\nὄντως ὄντα θν, τὸν πρὸ πάντων τῶν γενητῶν\nὄντα, ἐξ οὗ πᾶσα πατριὰ ἐν οὐνοῖς κ ἐπὶ γῆς ὀνομάζεται,\nτὸν μόνον ἀγένητον κ ἄναρχον κ ἀβασίλευτον κ\nἀδέσποτον κ ἀνενδεῆ, [..........] ἀγαθοῦ χορηγόν,\nτὸν πάσης αἰτίας κ γενέσεως κρείττονα, τὸν πάντοτε\nκατὰ τὰ αὐτὰ κ ὡσαύτως ἔχοντα  ἐξ οὗ τὰ πάντα, καθά\nπερ ἔκ τινος ἀφετηρίας, εἰς τὸ εἶναι παρῆλθεν  σὺ γὰρ\nεἶ ἡ ἄναρχος γνῶσις, ἡ ἀΐδιος ὅρασις"
+            },
+            {
+                "case_index": 10,
+                "id": "DCLP/64920/1/10",
+                "test_case": "  ἀρχὴ τῆς ἀναφορᾶς τοῦ ἁγίου .......διὰ τοῦ\n Ῥωμαίου πάππα ἐν ταῖς ἀποστολικαῖς διαταγαῖς \nἄξιον καὶ δίκαιον ἀληθῶς πρὸ πάντων ἀνυμνεῖν σε, τὸν\nὄντως ὄντα θν, τὸν πρὸ πάντων τῶν γενητῶν\nὄντα, ἐξ οὗ πᾶσα πατριὰ ἐν οὐνοῖς κ ἐπὶ γῆς ὀνομάζεται,\nτὸν μόνον ἀγένητον κ ἄναρχον κ ἀβασίλευτον κ\nἀδέσποτον κ ἀνενδεῆ, τὸν παντὸς ἀγαθοῦ χορηγό[..]\nτὸν πάσης αἰτίας κ γενέσεως κρείττονα, τὸν πάντοτε\nκατὰ τὰ αὐτὰ κ ὡσαύτως ἔχοντα  ἐξ οὗ τὰ πάντα, καθά\nπερ ἔκ τινος ἀφετηρίας, εἰς τὸ εἶναι παρῆλθεν  σὺ γὰρ\nεἶ ἡ ἄναρχος γνῶσις, ἡ ἀΐδιος ὅρασις"
+            },
+            {
+                "case_index": 11,
+                "id": "DCLP/64920/1/11",
+                "test_case": "  ἀρχὴ τῆς ἀναφορᾶς τοῦ ἁγίου .......διὰ τοῦ\n Ῥωμαίου πάππα ἐν ταῖς ἀποστολικαῖς διαταγαῖς \nἄξιον καὶ δίκαιον ἀληθῶς πρὸ πάντων ἀνυμνεῖν σε, τὸν\nὄντως ὄντα θν, τὸν πρὸ πάντων τῶν γενητῶν\nὄντα, ἐξ οὗ πᾶσα πατριὰ ἐν οὐνοῖς κ ἐπὶ γῆς ὀνομάζεται,\nτὸν μόνον ἀγένητον κ ἄναρχον κ ἀβασίλευτον κ\nἀδέσποτον κ ἀνενδεῆ, τὸν παντὸς ἀγαθοῦ χορηγόν,\nτὸν πάσης [...]ίας κ γενέσεως κρείττονα, τὸν πάντοτε\nκατὰ τὰ αὐτὰ κ ὡσαύτως ἔχοντα  ἐξ οὗ τὰ πάντα, καθά\nπερ ἔκ τινος ἀφετηρίας, εἰς τὸ εἶναι παρῆλθεν  σὺ γὰρ\nεἶ ἡ ἄναρχος γνῶσις, ἡ ἀΐδιος ὅρασις"
+            },
+            {
+                "case_index": 12,
+                "id": "DCLP/64920/1/12",
+                "test_case": "  ἀρχὴ τῆς ἀναφορᾶς τοῦ ἁγίου .......διὰ τοῦ\n Ῥωμαίου πάππα ἐν ταῖς ἀποστολικαῖς διαταγαῖς \nἄξιον καὶ δίκαιον ἀληθῶς πρὸ πάντων ἀνυμνεῖν σε, τὸν\nὄντως ὄντα θν, τὸν πρὸ πάντων τῶν γενητῶν\nὄντα, ἐξ οὗ πᾶσα πατριὰ ἐν οὐνοῖς κ ἐπὶ γῆς ὀνομάζεται,\nτὸν μόνον ἀγένητον κ ἄναρχον κ ἀβασίλευτον κ\nἀδέσποτον κ ἀνενδεῆ, τὸν παντὸς ἀγαθοῦ χορηγόν,\nτὸν πάσης αἰτίας κ γενέ[............]να, τὸν πάντοτε\nκατὰ τὰ αὐτὰ κ ὡσαύτως ἔχοντα  ἐξ οὗ τὰ πάντα, καθά\nπερ ἔκ τινος ἀφετηρίας, εἰς τὸ εἶναι παρῆλθεν  σὺ γὰρ\nεἶ ἡ ἄναρχος γνῶσις, ἡ ἀΐδιος ὅρασις"
+            },
+            {
+                "case_index": 13,
+                "id": "DCLP/64920/1/13",
+                "test_case": "  ἀρχὴ τῆς ἀναφορᾶς τοῦ ἁγίου .......διὰ τοῦ\n Ῥωμαίου πάππα ἐν ταῖς ἀποστολικαῖς διαταγαῖς \nἄξιον καὶ δίκαιον ἀληθῶς πρὸ πάντων ἀνυμνεῖν σε, τὸν\nὄντως ὄντα θν, τὸν πρὸ πάντων τῶν γενητῶν\nὄντα, ἐξ οὗ πᾶσα πατριὰ ἐν οὐνοῖς κ ἐπὶ γῆς ὀνομάζεται,\nτὸν μόνον ἀγένητον κ ἄναρχον κ ἀβασίλευτον κ\nἀδέσποτον κ ἀνενδεῆ, τὸν παντὸς ἀγαθοῦ χορηγόν,\nτὸν πάσης αἰτίας κ γενέσεως κρείττονα, τὸν πάντοτε\nκατὰ τὰ αὐτ[.] κ ὡσαύτως ἔχοντα  ἐξ οὗ τὰ πάντα, καθά\nπερ ἔκ τινος ἀφετηρίας, εἰς τὸ εἶναι παρῆλθεν  σὺ γὰρ\nεἶ ἡ ἄναρχος γνῶσις, ἡ ἀΐδιος ὅρασις"
+            },
+            {
+                "case_index": 14,
+                "id": "DCLP/64920/1/14",
+                "test_case": "  ἀρχὴ τῆς ἀναφορᾶς τοῦ ἁγίου .......διὰ τοῦ\n Ῥωμαίου πάππα ἐν ταῖς ἀποστολικαῖς διαταγαῖς \nἄξιον καὶ δίκαιον ἀληθῶς πρὸ πάντων ἀνυμνεῖν σε, τὸν\nὄντως ὄντα θν, τὸν πρὸ πάντων τῶν γενητῶν\nὄντα, ἐξ οὗ πᾶσα πατριὰ ἐν οὐνοῖς κ ἐπὶ γῆς ὀνομάζεται,\nτὸν μόνον ἀγένητον κ ἄναρχον κ ἀβασίλευτον κ\nἀδέσποτον κ ἀνενδεῆ, τὸν παντὸς ἀγαθοῦ χορηγόν,\nτὸν πάσης αἰτίας κ γενέσεως κρείττονα, τὸν πάντοτε\nκατὰ τὰ αὐτὰ κ ὡσαύτως ἔχ[.......]ξ οὗ τὰ πάντα, καθά\nπερ ἔκ τινος ἀφετηρίας, εἰς τὸ εἶναι παρῆλθεν  σὺ γὰρ\nεἶ ἡ ἄναρχος γνῶσις, ἡ ἀΐδιος ὅρασις"
+            },
+            {
+                "case_index": 15,
+                "id": "DCLP/64920/1/15",
+                "test_case": "  ἀρχὴ τῆς ἀναφορᾶς τοῦ ἁγίου .......διὰ τοῦ\n Ῥωμαίου πάππα ἐν ταῖς ἀποστολικαῖς διαταγαῖς \nἄξιον καὶ δίκαιον ἀληθῶς πρὸ πάντων ἀνυμνεῖν σε, τὸν\nὄντως ὄντα θν, τὸν πρὸ πάντων τῶν γενητῶν\nὄντα, ἐξ οὗ πᾶσα πατριὰ ἐν οὐνοῖς κ ἐπὶ γῆς ὀνομάζεται,\nτὸν μόνον ἀγένητον κ ἄναρχον κ ἀβασίλευτον κ\nἀδέσποτον κ ἀνενδεῆ, τὸν παντὸς ἀγαθοῦ χορηγόν,\nτὸν πάσης αἰτίας κ γενέσεως κρείττονα, τὸν πάντοτε\nκατὰ τὰ αὐτὰ κ ὡσαύτως ἔχοντα  ἐξ [.......]άντα, καθά\nπερ ἔκ τινος ἀφετηρίας, εἰς τὸ εἶναι παρῆλθεν  σὺ γὰρ\nεἶ ἡ ἄναρχος γνῶσις, ἡ ἀΐδιος ὅρασις"
+            },
+            {
+                "case_index": 16,
+                "id": "DCLP/64920/1/16",
+                "test_case": "  ἀρχὴ τῆς ἀναφορᾶς τοῦ ἁγίου .......διὰ τοῦ\n Ῥωμαίου πάππα ἐν ταῖς ἀποστολικαῖς διαταγαῖς \nἄξιον καὶ δίκαιον ἀληθῶς πρὸ πάντων ἀνυμνεῖν σε, τὸν\nὄντως ὄντα θν, τὸν πρὸ πάντων τῶν γενητῶν\nὄντα, ἐξ οὗ πᾶσα πατριὰ ἐν οὐνοῖς κ ἐπὶ γῆς ὀνομάζεται,\nτὸν μόνον ἀγένητον κ ἄναρχον κ ἀβασίλευτον κ\nἀδέσποτον κ ἀνενδεῆ, τὸν παντὸς ἀγαθοῦ χορηγόν,\nτὸν πάσης αἰτίας κ γενέσεως κρείττονα, τὸν πάντοτε\nκατὰ τὰ αὐτὰ κ ὡσαύτως ἔχοντα  ἐξ οὗ τὰ πάντα, καθά\nπερ ἔκ τινος [.]φετηρίας, εἰς τὸ εἶναι παρῆλθεν  σὺ γὰρ\nεἶ ἡ ἄναρχος γνῶσις, ἡ ἀΐδιος ὅρασις"
+            },
+            {
+                "case_index": 17,
+                "id": "DCLP/64920/1/17",
+                "test_case": "  ἀρχὴ τῆς ἀναφορᾶς τοῦ ἁγίου .......διὰ τοῦ\n Ῥωμαίου πάππα ἐν ταῖς ἀποστολικαῖς διαταγαῖς \nἄξιον καὶ δίκαιον ἀληθῶς πρὸ πάντων ἀνυμνεῖν σε, τὸν\nὄντως ὄντα θν, τὸν πρὸ πάντων τῶν γενητῶν\nὄντα, ἐξ οὗ πᾶσα πατριὰ ἐν οὐνοῖς κ ἐπὶ γῆς ὀνομάζεται,\nτὸν μόνον ἀγένητον κ ἄναρχον κ ἀβασίλευτον κ\nἀδέσποτον κ ἀνενδεῆ, τὸν παντὸς ἀγαθοῦ χορηγόν,\nτὸν πάσης αἰτίας κ γενέσεως κρείττονα, τὸν πάντοτε\nκατὰ τὰ αὐτὰ κ ὡσαύτως ἔχοντα  ἐξ οὗ τὰ πάντα, καθά\nπερ ἔκ τινος ἀφετηρίας, εἰς τὸ εἶναι παρῆλθεν  σὺ γὰ[.]\nεἶ ἡ ἄναρχος γνῶσις, ἡ ἀΐδιος ὅρασις"
+            },
+            {
+                "case_index": 18,
+                "id": "DCLP/64920/1/18",
+                "test_case": "  ἀρχὴ τῆς ἀναφορᾶς τοῦ ἁγίου .......διὰ τοῦ\n Ῥωμαίου πάππα ἐν ταῖς ἀποστολικαῖς διαταγαῖς \nἄξιον καὶ δίκαιον ἀληθῶς πρὸ πάντων ἀνυμνεῖν σε, τὸν\nὄντως ὄντα θν, τὸν πρὸ πάντων τῶν γενητῶν\nὄντα, ἐξ οὗ πᾶσα πατριὰ ἐν οὐνοῖς κ ἐπὶ γῆς ὀνομάζεται,\nτὸν μόνον ἀγένητον κ ἄναρχον κ ἀβασίλευτον κ\nἀδέσποτον κ ἀνενδεῆ, τὸν παντὸς ἀγαθοῦ χορηγόν,\nτὸν πάσης αἰτίας κ γενέσεως κρείττονα, τὸν πάντοτε\nκατὰ τὰ αὐτὰ κ ὡσαύτως ἔχοντα  ἐξ οὗ τὰ πάντα, καθά\nπερ ἔκ τινος ἀφετηρίας, εἰς τὸ εἶναι παρῆλθεν  σὺ γὰρ\nεἶ ἡ ἄναρ[.....]νῶσις, ἡ ἀΐδιος ὅρασις"
+            }
+        ]
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "64524",
+        "block_index": 1,
+        "id": "DCLP/64524/1",
+        "title": "Mpern. S. 3 57",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/><gap/> . <gap/> .. <gap/>\n ἀπεργαζ<gap/>\nφλεγμονὴ προηγεῖται .. <gap/>\nοις χρῆσθαι \nἐκ τῶν κε ... α . <gap/>\n<gap/>\n<gap/>",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "64524",
+        "block_index": 2,
+        "id": "DCLP/64524/2",
+        "title": "Mpern. S. 3 57",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/><gap/> .. σπακη <gap/>\n<gap/>  δει \n<gap/> .. δων συνκεκριμένων\n  τῆς ἀναπνοῆς \n<gap/> .. τοῦ τραχήλου\n νεύρω[ν] <gap/>\n ἀγγεῖα \n<gap/> δες. αἱ δὲ \n<gap/> . <gap/>\n<gap/>",
+        "test_cases": [
+            {
+                "case_index": 1,
+                "id": "DCLP/64524/2/1",
+                "test_case": "<gap/><gap/> .. σπακη <gap/>\n<gap/>  δει \n<gap/> .. δων συνκεκριμένων\n  τῆς ἀναπνοῆς \n<gap/> .. τοῦ τραχήλου\n νεύρω[.] <gap/>\n ἀγγεῖα \n<gap/> δες. αἱ δὲ \n<gap/> . <gap/>\n<gap/>"
+            }
+        ]
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "64524",
+        "block_index": 3,
+        "id": "DCLP/64524/3",
+        "title": "Mpern. S. 3 57",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/>\n δεῖ . <gap/>\n[τ]οὺς μύας \n<gap/> ἀγγίστρων. τὸ δὲ μετ .<gap/>\n θεραπεία \n<gap/> . ὄπισθεν τῶν ὤντων .<gap/>\n<gap/>  ἔσθ’ ὅτε ἐπιλύσεις  <gap/>\n διοσκούρους αὐτ[ὰς] <gap/>\n<gap/>  <gap/>\n<gap/> <gap/>\n<gap/>",
+        "test_cases": [
+            {
+                "case_index": 1,
+                "id": "DCLP/64524/3/1",
+                "test_case": "<gap/>\n δεῖ . <gap/>\n[.]οὺς μύας \n<gap/> ἀγγίστρων. τὸ δὲ μετ .<gap/>\n θεραπεία \n<gap/> . ὄπισθεν τῶν ὤντων .<gap/>\n<gap/>  ἔσθ’ ὅτε ἐπιλύσεις  <gap/>\n διοσκούρους αὐτὰς <gap/>\n<gap/>  <gap/>\n<gap/> <gap/>\n<gap/>"
+            },
+            {
+                "case_index": 2,
+                "id": "DCLP/64524/3/2",
+                "test_case": "<gap/>\n δεῖ . <gap/>\nτοὺς μύας \n<gap/> ἀγγίστρων. τὸ δὲ μετ .<gap/>\n θεραπεία \n<gap/> . ὄπισθεν τῶν ὤντων .<gap/>\n<gap/>  ἔσθ’ ὅτε ἐπιλύσεις  <gap/>\n διοσκούρους αὐτ[..] <gap/>\n<gap/>  <gap/>\n<gap/> <gap/>\n<gap/>"
+            }
+        ]
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "64524",
+        "block_index": 4,
+        "id": "DCLP/64524/4",
+        "title": "Mpern. S. 3 57",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/><gap/> .\n<gap/> \n<gap/>  μνηματος .. <gap/>\n<gap/> \n τὴν τυγχάν[ουσαν] <gap/>\n<gap/> κειμένου πρὸς τήν <gap/>\n<gap/> ...  τραχήλου <gap/>\n<gap/>  <gap/>\n<gap/>\n<gap/> ",
+        "test_cases": [
+            {
+                "case_index": 1,
+                "id": "DCLP/64524/4/1",
+                "test_case": "<gap/><gap/> .\n<gap/> \n<gap/>  μνηματος .. <gap/>\n<gap/> \n τὴν τυγχάν[.....] <gap/>\n<gap/> κειμένου πρὸς τήν <gap/>\n<gap/> ...  τραχήλου <gap/>\n<gap/>  <gap/>\n<gap/>\n<gap/> "
+            }
+        ]
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "64077",
+        "block_index": 1,
+        "id": "DCLP/64077/1",
+        "title": "P. Koeln. 7 292",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/><gap/>νην ἀρτη\n[ρίαν] <gap/>αγίνεσθαι <gap/>\n<gap/>α δὲ τῶν <gap/>\n[None]κέλη φε[ρ]\n<gap/>. ε διὰ τῆς <gap/>\n<gap/>ν κειμε[ν]\n<gap/>πιτετ<gap/>\n<gap/>αι τοὺς α<gap/>\n<gap/>ν διω<gap/>\n<gap/>. των\n<gap/>ιαγα\n<gap/>",
+        "test_cases": [
+            {
+                "case_index": 1,
+                "id": "DCLP/64077/1/1",
+                "test_case": "<gap/><gap/>νην ἀρτη\n[....] <gap/>αγίνεσθαι <gap/>\n<gap/>α δὲ τῶν <gap/>\nNoneκέλη φερ\n<gap/>. ε διὰ τῆς <gap/>\n<gap/>ν κειμεν\n<gap/>πιτετ<gap/>\n<gap/>αι τοὺς α<gap/>\n<gap/>ν διω<gap/>\n<gap/>. των\n<gap/>ιαγα\n<gap/>"
+            },
+            {
+                "case_index": 2,
+                "id": "DCLP/64077/1/2",
+                "test_case": "<gap/><gap/>νην ἀρτη\nρίαν <gap/>αγίνεσθαι <gap/>\n<gap/>α δὲ τῶν <gap/>\n[....]κέλη φερ\n<gap/>. ε διὰ τῆς <gap/>\n<gap/>ν κειμεν\n<gap/>πιτετ<gap/>\n<gap/>αι τοὺς α<gap/>\n<gap/>ν διω<gap/>\n<gap/>. των\n<gap/>ιαγα\n<gap/>"
+            },
+            {
+                "case_index": 3,
+                "id": "DCLP/64077/1/3",
+                "test_case": "<gap/><gap/>νην ἀρτη\nρίαν <gap/>αγίνεσθαι <gap/>\n<gap/>α δὲ τῶν <gap/>\nNoneκέλη φε[.]\n<gap/>. ε διὰ τῆς <gap/>\n<gap/>ν κειμεν\n<gap/>πιτετ<gap/>\n<gap/>αι τοὺς α<gap/>\n<gap/>ν διω<gap/>\n<gap/>. των\n<gap/>ιαγα\n<gap/>"
+            },
+            {
+                "case_index": 4,
+                "id": "DCLP/64077/1/4",
+                "test_case": "<gap/><gap/>νην ἀρτη\nρίαν <gap/>αγίνεσθαι <gap/>\n<gap/>α δὲ τῶν <gap/>\nNoneκέλη φερ\n<gap/>. ε διὰ τῆς <gap/>\n<gap/>ν κειμε[.]\n<gap/>πιτετ<gap/>\n<gap/>αι τοὺς α<gap/>\n<gap/>ν διω<gap/>\n<gap/>. των\n<gap/>ιαγα\n<gap/>"
+            }
+        ]
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "64077",
+        "block_index": 2,
+        "id": "DCLP/64077/2",
+        "title": "P. Koeln. 7 292",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "ἅλας\nπεπτικό",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "64671",
+        "block_index": 1,
+        "id": "DCLP/64671/1",
+        "title": "Unidentified Christian ostracon",
+        "material": "pottery",
+        "language": "grc",
+        "training_text": "ετεν ἁγίας κα<gap/>\nτὸν ε..νοντο.<gap/>\nπ.ανε.θ.τηρας<gap/>\n.ν ἀγαθέ.να.τ<gap/>\n[σ]πέρμα Ἀβ[ραάμ]\n<gap/>.<gap/> ",
+        "test_cases": [
+            {
+                "case_index": 1,
+                "id": "DCLP/64671/1/1",
+                "test_case": "ετεν ἁγίας κα<gap/>\nτὸν ε..νοντο.<gap/>\nπ.ανε.θ.τηρας<gap/>\n.ν ἀγαθέ.να.τ<gap/>\n[.]πέρμα Ἀβραάμ\n<gap/>.<gap/> "
+            },
+            {
+                "case_index": 2,
+                "id": "DCLP/64671/1/2",
+                "test_case": "ετεν ἁγίας κα<gap/>\nτὸν ε..νοντο.<gap/>\nπ.ανε.θ.τηρας<gap/>\n.ν ἀγαθέ.να.τ<gap/>\nσπέρμα Ἀβ[....]\n<gap/>.<gap/> "
+            }
+        ]
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "64128",
+        "block_index": 1,
+        "id": "DCLP/64128/1",
+        "title": "Charm",
+        "material": "ostracon",
+        "language": "grc",
+        "training_text": "<gap/><gap/>ως ζῴδια\nοοοοοο εεεεεε\nγυνή παιδίν",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "64144",
+        "block_index": 1,
+        "id": "DCLP/64144/1",
+        "title": "Illustrated Verses on the Labors of Hercules P. Oxy. 22 2331",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/>κ.\n<gap/>δαι\n<gap/>.αι\n<gap/>υσιν\n<gap/> \n<gap/>ανακτω\n<gap/>παι\n<gap/>",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "64144",
+        "block_index": 2,
+        "id": "DCLP/64144/2",
+        "title": "Illustrated Verses on the Labors of Hercules P. Oxy. 22 2331",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "\nἀλλ’ αὐτὸς ἔρχεται \n, ἄστομος, δεινός, ἄγροικος\n.\n  μηδὲν ὅλως τρέσας λαλήσω\n‘  Ζηνὸς  Ὀλυμπίου, φράσον μοι,\n πρῶτον   ,,\n   πρῶτον .’",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "64144",
+        "block_index": 3,
+        "id": "DCLP/64144/3",
+        "title": "Illustrated Verses on the Labors of Hercules P. Oxy. 22 2331",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "‘ἐγὸ πρῶτον Νεμᾳη λέοντα [μάρψας]\nκρατεραῖς χέρεσί μου ταύταις  \n‘     \nπροσπνίξας  νευρὸν ",
+        "test_cases": [
+            {
+                "case_index": 1,
+                "id": "DCLP/64144/3/1",
+                "test_case": "‘ἐγὸ πρῶτον Νεμᾳη λέοντα [......]\nκρατεραῖς χέρεσί μου ταύταις  \n‘     \nπροσπνίξας  νευρὸν "
+            }
+        ]
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "64568",
+        "block_index": 1,
+        "id": "DCLP/64568/1",
+        "title": "Anthology of gnomic trimeters",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/><gap/>ος βίος\n<gap/>ν αὔριον\n<gap/> [ἄν]θρωποι βίον\n<gap/> \n<gap/>.μας ποιεῖν",
+        "test_cases": [
+            {
+                "case_index": 1,
+                "id": "DCLP/64568/1/1",
+                "test_case": "<gap/><gap/>ος βίος\n<gap/>ν αὔριον\n<gap/> [..]θρωποι βίον\n<gap/> \n<gap/>.μας ποιεῖν"
+            }
+        ]
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "64568",
+        "block_index": 2,
+        "id": "DCLP/64568/2",
+        "title": "Anthology of gnomic trimeters",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/>\n..\n..ις μονάζει  <gap/>\n. μεριμν[ῶν] <gap/>\n. γῆμ[αι] <gap/>\n[γ]αμων μερίμ[νας] <gap/>",
+        "test_cases": [
+            {
+                "case_index": 1,
+                "id": "DCLP/64568/2/1",
+                "test_case": "<gap/>\n..\n..ις μονάζει  <gap/>\n. μεριμν[..] <gap/>\n. γῆμαι <gap/>\nγαμων μερίμνας <gap/>"
+            },
+            {
+                "case_index": 2,
+                "id": "DCLP/64568/2/2",
+                "test_case": "<gap/>\n..\n..ις μονάζει  <gap/>\n. μεριμνῶν <gap/>\n. γῆμ[..] <gap/>\nγαμων μερίμνας <gap/>"
+            },
+            {
+                "case_index": 3,
+                "id": "DCLP/64568/2/3",
+                "test_case": "<gap/>\n..\n..ις μονάζει  <gap/>\n. μεριμνῶν <gap/>\n. γῆμαι <gap/>\n[.]αμων μερίμνας <gap/>"
+            },
+            {
+                "case_index": 4,
+                "id": "DCLP/64568/2/4",
+                "test_case": "<gap/>\n..\n..ις μονάζει  <gap/>\n. μεριμνῶν <gap/>\n. γῆμαι <gap/>\nγαμων μερίμ[...] <gap/>"
+            }
+        ]
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "64915",
+        "block_index": 1,
+        "id": "DCLP/64915/1",
+        "title": "Writing exercise: words",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "<gap/>ημων ἀντιλήμπτωρ\n<gap/>. ημων ἀντιλήμπτωρ\n<gap/>. ημων ἀντιλήμπτ[ωρ]",
+        "test_cases": [
+            {
+                "case_index": 1,
+                "id": "DCLP/64915/1/1",
+                "test_case": "<gap/>ημων ἀντιλήμπτωρ\n<gap/>. ημων ἀντιλήμπτωρ\n<gap/>. ημων ἀντιλήμπτ[..]"
+            }
+        ]
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "64915",
+        "block_index": 2,
+        "id": "DCLP/64915/2",
+        "title": "Writing exercise: words",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "τουτ<gap/>\nτουτουτουτουτουτου\nτουτουτουτουτου",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "64985",
+        "block_index": 1,
+        "id": "DCLP/64985/1",
+        "title": "Latin legal treatise by a still unidentified classical jurist, with Greek marginalia",
+        "material": "parchment",
+        "language": "la",
+        "training_text": "<gap/>\np<gap/>\nten....<gap/>\nerat  q  ab in[testato]\ndere<gap/>\nn adli<gap/>\ns..ae e.<gap/> [paga]\nnor fict[io- ] <gap/>\ntuent  pater  ma[ter] <gap/>\navia  nep[os] <gap/>\nsoror  ee<gap/>\nneptis  u<gap/>\n..tue‾.‾<gap/>\n<gap/>.<gap/>\n<gap/>",
+        "test_cases": [
+            {
+                "case_index": 1,
+                "id": "DCLP/64985/1/1",
+                "test_case": "<gap/>\np<gap/>\nten....<gap/>\nerat  q  ab in[.......]\ndere<gap/>\nn adli<gap/>\ns..ae e.<gap/> paga\nnor fictio-  <gap/>\ntuent  pater  mater <gap/>\navia  nepos <gap/>\nsoror  ee<gap/>\nneptis  u<gap/>\n..tue‾.‾<gap/>\n<gap/>.<gap/>\n<gap/>"
+            },
+            {
+                "case_index": 2,
+                "id": "DCLP/64985/1/2",
+                "test_case": "<gap/>\np<gap/>\nten....<gap/>\nerat  q  ab intestato\ndere<gap/>\nn adli<gap/>\ns..ae e.<gap/> [....]\nnor fictio-  <gap/>\ntuent  pater  mater <gap/>\navia  nepos <gap/>\nsoror  ee<gap/>\nneptis  u<gap/>\n..tue‾.‾<gap/>\n<gap/>.<gap/>\n<gap/>"
+            },
+            {
+                "case_index": 3,
+                "id": "DCLP/64985/1/3",
+                "test_case": "<gap/>\np<gap/>\nten....<gap/>\nerat  q  ab intestato\ndere<gap/>\nn adli<gap/>\ns..ae e.<gap/> paga\nnor fict[....] <gap/>\ntuent  pater  mater <gap/>\navia  nepos <gap/>\nsoror  ee<gap/>\nneptis  u<gap/>\n..tue‾.‾<gap/>\n<gap/>.<gap/>\n<gap/>"
+            },
+            {
+                "case_index": 4,
+                "id": "DCLP/64985/1/4",
+                "test_case": "<gap/>\np<gap/>\nten....<gap/>\nerat  q  ab intestato\ndere<gap/>\nn adli<gap/>\ns..ae e.<gap/> paga\nnor fictio-  <gap/>\ntuent  pater  ma[...] <gap/>\navia  nepos <gap/>\nsoror  ee<gap/>\nneptis  u<gap/>\n..tue‾.‾<gap/>\n<gap/>.<gap/>\n<gap/>"
+            },
+            {
+                "case_index": 5,
+                "id": "DCLP/64985/1/5",
+                "test_case": "<gap/>\np<gap/>\nten....<gap/>\nerat  q  ab intestato\ndere<gap/>\nn adli<gap/>\ns..ae e.<gap/> paga\nnor fictio-  <gap/>\ntuent  pater  mater <gap/>\navia  nep[..] <gap/>\nsoror  ee<gap/>\nneptis  u<gap/>\n..tue‾.‾<gap/>\n<gap/>.<gap/>\n<gap/>"
+            }
+        ]
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "64985",
+        "block_index": 2,
+        "id": "DCLP/64985/2",
+        "title": "Latin legal treatise by a still unidentified classical jurist, with Greek marginalia",
+        "material": "parchment",
+        "language": "la",
+        "training_text": "σημ τὸ  ὡρ\nr  εἰ γὰρ στρα\nτιῶτ ἦσαν,\nδύναντ κι\nνεῖν κ εἰ μὴ\nπεριέχον\nτ τοῖς ι",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "64985",
+        "block_index": 3,
+        "id": "DCLP/64985/3",
+        "title": "Latin legal treatise by a still unidentified classical jurist, with Greek marginalia",
+        "material": "parchment",
+        "language": "la",
+        "training_text": "<gap/><gap/>[de inoffici]oso\n<gap/>....te\n<gap/>m  puto i\n<gap/>[i]ntesta\n<gap/>sisse\n<gap/>.f....\n<gap/>.s  cog.\n<gap/>at  pagan..\n<gap/>.p .r..\n<gap/>his psonis\n<gap/>m  ad suc\n[cessionem ]<gap/>[admi]ttun[tur]<gap/>",
+        "test_cases": [
+            {
+                "case_index": 1,
+                "id": "DCLP/64985/3/1",
+                "test_case": "<gap/><gap/>[...........]oso\n<gap/>....te\n<gap/>m  puto i\n<gap/>intesta\n<gap/>sisse\n<gap/>.f....\n<gap/>.s  cog.\n<gap/>at  pagan..\n<gap/>.p .r..\n<gap/>his psonis\n<gap/>m  ad suc\ncessionem <gap/>admittuntur<gap/>"
+            },
+            {
+                "case_index": 2,
+                "id": "DCLP/64985/3/2",
+                "test_case": "<gap/><gap/>de inofficioso\n<gap/>....te\n<gap/>m  puto i\n<gap/>[.]ntesta\n<gap/>sisse\n<gap/>.f....\n<gap/>.s  cog.\n<gap/>at  pagan..\n<gap/>.p .r..\n<gap/>his psonis\n<gap/>m  ad suc\ncessionem <gap/>admittuntur<gap/>"
+            },
+            {
+                "case_index": 3,
+                "id": "DCLP/64985/3/3",
+                "test_case": "<gap/><gap/>de inofficioso\n<gap/>....te\n<gap/>m  puto i\n<gap/>intesta\n<gap/>sisse\n<gap/>.f....\n<gap/>.s  cog.\n<gap/>at  pagan..\n<gap/>.p .r..\n<gap/>his psonis\n<gap/>m  ad suc\n[..........]<gap/>admittuntur<gap/>"
+            },
+            {
+                "case_index": 4,
+                "id": "DCLP/64985/3/4",
+                "test_case": "<gap/><gap/>de inofficioso\n<gap/>....te\n<gap/>m  puto i\n<gap/>intesta\n<gap/>sisse\n<gap/>.f....\n<gap/>.s  cog.\n<gap/>at  pagan..\n<gap/>.p .r..\n<gap/>his psonis\n<gap/>m  ad suc\ncessionem <gap/>[....]ttuntur<gap/>"
+            },
+            {
+                "case_index": 5,
+                "id": "DCLP/64985/3/5",
+                "test_case": "<gap/><gap/>de inofficioso\n<gap/>....te\n<gap/>m  puto i\n<gap/>intesta\n<gap/>sisse\n<gap/>.f....\n<gap/>.s  cog.\n<gap/>at  pagan..\n<gap/>.p .r..\n<gap/>his psonis\n<gap/>m  ad suc\ncessionem <gap/>admittun[...]<gap/>"
+            }
+        ]
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "64304",
+        "block_index": 1,
+        "id": "DCLP/64304/1",
+        "title": "P. Koeln. 6 246",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "ἄνθρωπος ὢν λογίζου τὰ ἀνθρώπων πάθη\nκαὶ μὴ πρὸ καιροῦ τὴν τύχην προλάμβανε, ἀεὶ γὰρ\nτελεῖ καὶ ὁ καιρός, ἀποτελεῖ . υ ὁ χρόνος. \nβατῆρες εἰσιν, κλίμακες πολλαὶ σφόδραι τούτου[ς]\nκαθεξῆς καθ' ἕνα προσβαίνων ανεσρεισον\nθέλει μὲν η ... α . σ ὑστερας .... δια . υθου\nπλειειν, ὅταν δὲ ἀήταις καὶ τρικυμίαις πέ\nσῃ . σρ . ν κόπτου  δοῦναι θέλοντι καὶ λαβεῖν\nκαιρὸς καλὸς καὶ τῷ πεοντι καὶ μένοντι συμ\nφέρειν, κἂν εἰς τόπον εἰς ἄλλον",
+        "test_cases": [
+            {
+                "case_index": 1,
+                "id": "DCLP/64304/1/1",
+                "test_case": "ἄνθρωπος ὢν λογίζου τὰ ἀνθρώπων πάθη\nκαὶ μὴ πρὸ καιροῦ τὴν τύχην προλάμβανε, ἀεὶ γὰρ\nτελεῖ καὶ ὁ καιρός, ἀποτελεῖ . υ ὁ χρόνος. \nβατῆρες εἰσιν, κλίμακες πολλαὶ σφόδραι τούτου[.]\nκαθεξῆς καθ' ἕνα προσβαίνων ανεσρεισον\nθέλει μὲν η ... α . σ ὑστερας .... δια . υθου\nπλειειν, ὅταν δὲ ἀήταις καὶ τρικυμίαις πέ\nσῃ . σρ . ν κόπτου  δοῦναι θέλοντι καὶ λαβεῖν\nκαιρὸς καλὸς καὶ τῷ πεοντι καὶ μένοντι συμ\nφέρειν, κἂν εἰς τόπον εἰς ἄλλον"
+            }
+        ]
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "64225",
+        "block_index": 1,
+        "id": "DCLP/64225/1",
+        "title": "Epitaph of Anubion, son of Chaeremon, age twenty",
+        "material": "wood",
+        "language": "grc",
+        "training_text": "τὸν σοφὸν εἰν ἀγορῇ Χαιρήμονος υἷά ποτ’ ἐσθλὸν\nεὐγενέων ἀνδρῶν αἶμα λαχόντα βλέπεις. \nοὔνομα μέν με γονῆες Ἀνουβίωνα κάλεσκον,\nτοῖς δὲ χρόνοις τέθνηκ’ εἰκοσιενναέτης. \nὥστε, φιλ’, ἤν με θέλῃς στεφάνοισί ποτ' εὐκλέα θέσθαι,\nγεινώσκων τάβλαν τήνδε, φίλε, πρόσαγε",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "64533",
+        "block_index": 1,
+        "id": "DCLP/64533/1",
+        "title": "Medical Prescription or List of Aromatised Wines",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": "μυρσινᾶτον <gap/>\nστυρακᾶτ <gap/>\nκονδῖτον <gap/>\nἀψινθᾶτ <gap/>\nοἰνόμελει <gap/>\nκαρυοφυλλᾶτ <gap/>\nκιτρᾶτον <gap/>",
+        "test_cases": []
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "64598",
+        "block_index": 1,
+        "id": "DCLP/64598/1",
+        "title": "TM 64598",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": " σύμφυ[τον]\nαὔτη ἡ βοτάνη τριβομ[ένη λεία]\nθεραπεύει πᾶσαν [αἱμορραγίαν]\nκαὶ τραύματα κ[αὶ νεύρων δια]\nκοπὰς κολλ[ᾷ· αἵματος δὲ ἀναγω]\nγὰς θεραπεύ[ει]  <gap/>\n......... <gap/>\n<gap/>περι<gap/>\n<gap/>",
+        "test_cases": [
+            {
+                "case_index": 1,
+                "id": "DCLP/64598/1/1",
+                "test_case": " σύμφυ[...]\nαὔτη ἡ βοτάνη τριβομένη λεία\nθεραπεύει πᾶσαν αἱμορραγίαν\nκαὶ τραύματα καὶ νεύρων δια\nκοπὰς κολλᾷ· αἵματος δὲ ἀναγω\nγὰς θεραπεύει  <gap/>\n......... <gap/>\n<gap/>περι<gap/>\n<gap/>"
+            },
+            {
+                "case_index": 2,
+                "id": "DCLP/64598/1/2",
+                "test_case": " σύμφυτον\nαὔτη ἡ βοτάνη τριβομ[........]\nθεραπεύει πᾶσαν αἱμορραγίαν\nκαὶ τραύματα καὶ νεύρων δια\nκοπὰς κολλᾷ· αἵματος δὲ ἀναγω\nγὰς θεραπεύει  <gap/>\n......... <gap/>\n<gap/>περι<gap/>\n<gap/>"
+            },
+            {
+                "case_index": 3,
+                "id": "DCLP/64598/1/3",
+                "test_case": " σύμφυτον\nαὔτη ἡ βοτάνη τριβομένη λεία\nθεραπεύει πᾶσαν [...........]\nκαὶ τραύματα καὶ νεύρων δια\nκοπὰς κολλᾷ· αἵματος δὲ ἀναγω\nγὰς θεραπεύει  <gap/>\n......... <gap/>\n<gap/>περι<gap/>\n<gap/>"
+            },
+            {
+                "case_index": 4,
+                "id": "DCLP/64598/1/4",
+                "test_case": " σύμφυτον\nαὔτη ἡ βοτάνη τριβομένη λεία\nθεραπεύει πᾶσαν αἱμορραγίαν\nκαὶ τραύματα κ[.............]\nκοπὰς κολλᾷ· αἵματος δὲ ἀναγω\nγὰς θεραπεύει  <gap/>\n......... <gap/>\n<gap/>περι<gap/>\n<gap/>"
+            },
+            {
+                "case_index": 5,
+                "id": "DCLP/64598/1/5",
+                "test_case": " σύμφυτον\nαὔτη ἡ βοτάνη τριβομένη λεία\nθεραπεύει πᾶσαν αἱμορραγίαν\nκαὶ τραύματα καὶ νεύρων δια\nκοπὰς κολλ[...................]\nγὰς θεραπεύει  <gap/>\n......... <gap/>\n<gap/>περι<gap/>\n<gap/>"
+            },
+            {
+                "case_index": 6,
+                "id": "DCLP/64598/1/6",
+                "test_case": " σύμφυτον\nαὔτη ἡ βοτάνη τριβομένη λεία\nθεραπεύει πᾶσαν αἱμορραγίαν\nκαὶ τραύματα καὶ νεύρων δια\nκοπὰς κολλᾷ· αἵματος δὲ ἀναγω\nγὰς θεραπεύ[..]  <gap/>\n......... <gap/>\n<gap/>περι<gap/>\n<gap/>"
+            }
+        ]
+    },
+    {
+        "corpus_id": "DCLP",
+        "file_id": "64598",
+        "block_index": 2,
+        "id": "DCLP/64598/2",
+        "title": "TM 64598",
+        "material": "papyrus",
+        "language": "grc",
+        "training_text": " φλόμμος\nα.... τῆς βοτάνης τὸν χυλὸν\nκαὶ σάμψουχον καὶ μυελὸν ἐλά\nφει καὶ χαλβάνην καὶ  καὶ\n[τερ]εβηνθίνην καὶ ῥητίνην\n[καὶ ἔλα]ιον παλαιόν ποιεῖ φά[ρμακον]· θεραπεύει\n[δὲ τοὺς ἀνθ]ρώπους βλαβέντας\n[ὑπὸ ].......των καὶ παντοίων\n<gap/> [θερα]πεύει ",
+        "test_cases": [
+            {
+                "case_index": 1,
+                "id": "DCLP/64598/2/1",
+                "test_case": " φλόμμος\nα.... τῆς βοτάνης τὸν χυλὸν\nκαὶ σάμψουχον καὶ μυελὸν ἐλά\nφει καὶ χαλβάνην καὶ  καὶ\n[...]εβηνθίνην καὶ ῥητίνην\nκαὶ ἔλαιον παλαιόν ποιεῖ φάρμακον· θεραπεύει\nδὲ τοὺς ἀνθρώπους βλαβέντας\nὑπὸ .......των καὶ παντοίων\n<gap/> θεραπεύει "
+            },
+            {
+                "case_index": 2,
+                "id": "DCLP/64598/2/2",
+                "test_case": " φλόμμος\nα.... τῆς βοτάνης τὸν χυλὸν\nκαὶ σάμψουχον καὶ μυελὸν ἐλά\nφει καὶ χαλβάνην καὶ  καὶ\nτερεβηνθίνην καὶ ῥητίνην\n[.......]ιον παλαιόν ποιεῖ φάρμακον· θεραπεύει\nδὲ τοὺς ἀνθρώπους βλαβέντας\nὑπὸ .......των καὶ παντοίων\n<gap/> θεραπεύει "
+            },
+            {
+                "case_index": 3,
+                "id": "DCLP/64598/2/3",
+                "test_case": " φλόμμος\nα.... τῆς βοτάνης τὸν χυλὸν\nκαὶ σάμψουχον καὶ μυελὸν ἐλά\nφει καὶ χαλβάνην καὶ  καὶ\nτερεβηνθίνην καὶ ῥητίνην\nκαὶ ἔλαιον παλαιόν ποιεῖ φά[......]· θεραπεύει\nδὲ τοὺς ἀνθρώπους βλαβέντας\nὑπὸ .......των καὶ παντοίων\n<gap/> θεραπεύει "
+            },
+            {
+                "case_index": 4,
+                "id": "DCLP/64598/2/4",
+                "test_case": " φλόμμος\nα.... τῆς βοτάνης τὸν χυλὸν\nκαὶ σάμψουχον καὶ μυελὸν ἐλά\nφει καὶ χαλβάνην καὶ  καὶ\nτερεβηνθίνην καὶ ῥητίνην\nκαὶ ἔλαιον παλαιόν ποιεῖ φάρμακον· θεραπεύει\n[...........]ρώπους βλαβέντας\nὑπὸ .......των καὶ παντοίων\n<gap/> θεραπεύει "
+            },
+            {
+                "case_index": 5,
+                "id": "DCLP/64598/2/5",
+                "test_case": " φλόμμος\nα.... τῆς βοτάνης τὸν χυλὸν\nκαὶ σάμψουχον καὶ μυελὸν ἐλά\nφει καὶ χαλβάνην καὶ  καὶ\nτερεβηνθίνην καὶ ῥητίνην\nκαὶ ἔλαιον παλαιόν ποιεῖ φάρμακον· θεραπεύει\nδὲ τοὺς ἀνθρώπους βλαβέντας\n[....].......των καὶ παντοίων\n<gap/> θεραπεύει "
+            },
+            {
+                "case_index": 6,
+                "id": "DCLP/64598/2/6",
+                "test_case": " φλόμμος\nα.... τῆς βοτάνης τὸν χυλὸν\nκαὶ σάμψουχον καὶ μυελὸν ἐλά\nφει καὶ χαλβάνην καὶ  καὶ\nτερεβηνθίνην καὶ ῥητίνην\nκαὶ ἔλαιον παλαιόν ποιεῖ φάρμακον· θεραπεύει\nδὲ τοὺς ἀνθρώπους βλαβέντας\nὑπὸ .......των καὶ παντοίων\n<gap/> [....]πεύει "
+            }
+        ]
+    }
+]
