@@ -13,7 +13,6 @@ PATHS = [
 LIM=50  # MAX MB per file
 INDENT=0 #indentazione 
 
-
 def write_to_multiple_files(output, base_filename, max_size_mb=LIM):
     """
          Funzione usata per splittare il risultato della conversione dei documenti in più file se si supera una certa dimensione in MB (specificata da LIM)
@@ -48,11 +47,15 @@ def write_to_multiple_files(output, base_filename, max_size_mb=LIM):
         with open(f"data/{base_filename}_{file_index}.json", 'w') as current_file:
             json.dump(arr_objs, current_file, ensure_ascii=False, indent=INDENT)
 
-
-for path in PATHS:
-    output = []
-    with os.popen(f'python convert.py {path}', 'r') as pipe:
-        for line in pipe:
-            output.append(line.strip())
+def main (): 
+    for path in PATHS:
+        output = []
+        with os.popen(f'python convert.py {path}', 'r') as pipe:
+            for line in pipe:
+                output.append(line.strip())
  
     write_to_multiple_files(output, Path(path).name)
+
+
+if __name__ == "__main__":
+    main()
