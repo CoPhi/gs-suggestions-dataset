@@ -1,17 +1,17 @@
 from pathlib import Path
 import json
-from collections import Counter, defaultdict
+import random 
 from sklearn.model_selection import train_test_split
 
 from nltk.util import bigrams, trigrams
 from nltk.tokenize.punkt import PunktLanguageVars
-from nltk.lm.api import Smoothing
-from nltk.probability import FreqDist, KneserNeyProbDist,  ConditionalFreqDist
+from nltk.probability import FreqDist, KneserNeyProbDist
+from collections import defaultdict
 
 class TrigramModel:
     def __init__(self, data_path="data/"):
         """
-        Modello N-gram.
+        Modello N-gram (N=3).
         
         Args:
             data_path (str): Percorso alla cartella contenente i file JSON.
@@ -21,12 +21,10 @@ class TrigramModel:
         self.train_tokens = []
         self.dev_tokens = []
         self.test_tokens = []
-        self.bigram_fdist = FreqDist()
         self.trigram_fdist = FreqDist()
-        self.cfdist =  ConditionalFreqDist()
         self.probabilities = None
         
-    def tokenizer(self) -> list :
+    def tokenizer(self) -> list:
         """
         Estrae i token da tutti i file JSON nella cartella specificata.
         
@@ -62,48 +60,70 @@ class TrigramModel:
         """
         Costruisce le distribuzioni di frequenza dei trigrammi sul training set.
         """
-        self.bigram_fdist.update(bigrams(self.train_tokens))
         self.trigram_fdist.update(trigrams(self.train_tokens))
-        self.cfdist.update(((w1, w2), w3) for w1, w2, w3 in trigrams(self.train_tokens)) #w1, w2 è il contesto (condizione)
 
     def calculate_probabilities(self) -> None:
         """
         Calcola le distribuzioni di probabilità condizionali per ogni trigramma
         Si usa la seguente distribuzione di probabilità di NLTK: KneserNeyProbDist 
         """
-        self.probabilities = KneserNeyProbDist (self.trigram_fdist)
-            
+        
+        self.probabilities = KneserNeyProbDist(self.trigram_fdist)
 
     def get_next_word_distribution(self, context):
         """
-        Restituisce la distribuzione di probabilità della parola successiva a un trigramma.
-        Args: trigram (tuple):  contesto 
+        Restituisce la distribuzione di probabilità della parola successiva a un bigramma.
+        Usiamo la distribuzione di probabilità dei trigrammi per calcolarla. 
+        Args: 
         Returns: dict -> Probabilità condizionali delle parole successive.
+        
         """
         
-        return self.probabilities[context]
+        prob = defaultdict (dict)
+        b1, b2 = context
+        
+        for (t1, t2, t3) in self.probabilities.samples(): 
+            if t1 == b1 and t2 == b2:
+                prob.update({
+                    t3 : self.probabilities.prob((t1, t2, t3))
+                })
+        
+        return prob
+        
+        
+        
+            
+    
+    def generate_next_word(self, context):
+        """
+        Genera la parola successiva dato un bigramma.
+        """
+        next_word_dist = self.get_next_word_distribution(context)
+        
+        # Seleziona una parola casuale basata sulla distribuzione di probabilità
+        next_word = random.choices(list(next_word_dist.keys()), weights=next_word_dist.values())[0]
+        
+        return next_word
 
     
     def train(self):
         """
         Pipeline per addestrare il modello: tokenizzazione, divisione dati, 
-        conteggio n-grammi e calcolo delle probabilità.
+        conteggio n-grammi e calcolo delle probabilità. 
         """
         tokens = self.tokenizer()
         self.split_data(tokens)
         self.build_ngram_fdist()
         self.calculate_probabilities()
+        
+    
 
 
 if __name__ == "__main__":
     model = TrigramModel(data_path="data/")
     model.train()
     
-    # Esempio: distribuzione per un bigramma specifico
-    """
-    bigram = ('<gap/>','[')
-    print(f"Distribuzione di probabilità per il bigramma {bigram}:")
-    print(model.get_next_word_distribution(bigram))
-    """
+    print (model.generate_next_word(('<gap/>','[')))
     
-    print (model.probabilities.prob(('<gap/>', '[', '...')))
+    
+    
