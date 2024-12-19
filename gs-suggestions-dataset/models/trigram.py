@@ -1,129 +1,154 @@
 from pathlib import Path
 import json
-import random 
+import pickle
+import argparse
 from sklearn.model_selection import train_test_split
 
-from nltk.util import bigrams, trigrams
-from nltk.tokenize.punkt import PunktLanguageVars
-from nltk.probability import FreqDist, KneserNeyProbDist
-from collections import defaultdict
+from nltk.util import trigrams
+from nltk.lm.models import MLE
+from nltk.lm.preprocessing import padded_everygram_pipeline, pad_both_ends
+
 
 class TrigramModel:
     def __init__(self, data_path="data/"):
         """
         Modello N-gram (N=3).
-        
+
         Args:
             data_path (str): Percorso alla cartella contenente i file JSON.
-            smoothing_k (int): Valore di k per lo Add-k smoothing.
         """
         self.data_path = Path(data_path)
-        self.train_tokens = []
-        self.dev_tokens = []
-        self.test_tokens = []
-        self.trigram_fdist = FreqDist()
-        self.probabilities = None
-        
-    def tokenizer(self) -> list:
+        self.lm = MLE(order=3)
+        self.tokenized_sentences = []
+        self.train_sentences = []
+        self.dev_sentences = []
+        self.test_sentences = []
+
+    def tokenize(self) -> None:
         """
-        Estrae i token da tutti i file JSON nella cartella specificata.
-        
-        Returns:
-            list: Una lista di token estratti dai file JSON.
+        Estrae le frasi di addestramento da tutti i file JSON nella cartella specificata.
         """
-        tokens = []
-        tokenizer = PunktLanguageVars()
-        
+
         for file_path in self.data_path.glob("*.json"):
+            print(f"Processing file: {file_path}")
             with open(file_path, "r") as f:
                 data = json.load(f)
                 for obj in data:
-                    tokens.extend([
-                        token.replace(",", "") 
-                        for token in tokenizer.word_tokenize(obj["training_text"])
-                    ])
-        
-        return tokens
+                    self.tokenized_sentences.extend(
+                        [list(pad_both_ends(obj["training_text"], n=2))]
+                    )
 
-    def split_data(self, tokens) -> None:
+    def split_data(self) -> None:
         """
         Divide i token in train, dev e test set.
-        
+
         Args:
             tokens (list): Lista di token.
         """
-        train_tokens, temp_tokens = train_test_split(tokens, test_size=0.1, random_state=42)
-        self.dev_tokens, self.test_tokens = train_test_split(temp_tokens, test_size=0.5, random_state=42)
-        self.train_tokens = train_tokens
+        self.train_sentences, temp_sentences = train_test_split(
+            self.tokenized_sentences, test_size=0.1, random_state=42
+        )
+        self.dev_sentences, self.test_sentences = train_test_split(
+            temp_sentences, test_size=0.5, random_state=42
+        )
 
-    def build_ngram_fdist(self):
+    def train(self) -> None:
         """
-        Costruisce le distribuzioni di frequenza dei trigrammi sul training set.
+        Pipeline per addestrare il modello: tokenizzazione, divisione dati e fit
+        Allena il modello sui dati di training
         """
-        self.trigram_fdist.update(trigrams(self.train_tokens))
 
-    def calculate_probabilities(self) -> None:
-        """
-        Calcola le distribuzioni di probabilità condizionali per ogni trigramma
-        Si usa la seguente distribuzione di probabilità di NLTK: KneserNeyProbDist 
-        """
-        
-        self.probabilities = KneserNeyProbDist(self.trigram_fdist)
+        print("Starting tokenization...")
+        self.tokenize()
+        print("Tokenization complete. Starting data split...")
+        self.split_data()
+        print("Data split complete. Preparing training data...")
 
-    def get_next_word_distribution(self, context):
-        """
-        Restituisce la distribuzione di probabilità della parola successiva a un bigramma.
-        Usiamo la distribuzione di probabilità dei trigrammi per calcolarla. 
-        Args: 
-        Returns: dict -> Probabilità condizionali delle parole successive.
-        
-        """
-        
-        prob = defaultdict (dict)
-        b1, b2 = context
-        
-        for (t1, t2, t3) in self.probabilities.samples(): 
-            if t1 == b1 and t2 == b2:
-                prob.update({
-                    t3 : self.probabilities.prob((t1, t2, t3))
-                })
-        
-        return prob
-        
-        
-        
-            
-    
-    def generate_next_word(self, context):
-        """
-        Genera la parola successiva dato un bigramma.
-        """
-        next_word_dist = self.get_next_word_distribution(context)
-        
-        # Seleziona una parola casuale basata sulla distribuzione di probabilità
-        next_word = random.choices(list(next_word_dist.keys()), weights=next_word_dist.values())[0]
-        
-        return next_word
+        train_data, vocab = padded_everygram_pipeline(
+            order=3, text=self.train_sentences
+        )
 
-    
-    def train(self):
+        print("Training data prepared. Starting model fit...")
+        self.lm.fit(train_data, vocab)
+        print("Model tranining complete. Saving model...")
+        self.save_model("trigram_model.pkl")
+        print("Model saved.")
+
+    def save_model(self, model_path="models/trigram_lm.pkl") -> None:
         """
-        Pipeline per addestrare il modello: tokenizzazione, divisione dati, 
-        conteggio n-grammi e calcolo delle probabilità. 
+        Salva il modello addestrato su disco.
+
+        Args:
+            model_path (str): Percorso per salvare il modello.
         """
-        tokens = self.tokenizer()
-        self.split_data(tokens)
-        self.build_ngram_fdist()
-        self.calculate_probabilities()
-        
-    
+        with open(model_path, "wb") as f:
+            pickle.dump(self.lm, f)
+
+    def load_model(self, filepath: str) -> None:
+        """
+        Carica il modello addestrato.
+
+        Args:
+            model_path (str): Percorso da cui caricare il modello.
+        """
+        with open(filepath, "rb") as f:
+            self.lm = pickle.load(f)
+
+    def generate_words(self, context, num_words):
+        """
+        Genera un numero di parole dato un contesto.
+        """
+
+        return self.lm.generate(num_words=num_words, text_seed=list(context))
+
+    def evaluate(self, text):
+        """
+        Funzione di valutazione del modello.
+        Usiamo la perplessità sui dati di test (self.test_tokens) per ottenere una metrica di valutazione
+        """
+
+        return self.lm.perplexity(text_ngrams=trigrams(text))
 
 
 if __name__ == "__main__":
-    model = TrigramModel(data_path="data/")
-    model.train()
-    
-    print (model.generate_next_word(('<gap/>','[')))
-    
-    
-    
+    """
+    Questo script permette di addestrare un modello trigramma o generare parole utilizzando un modello pre-addestrato.
+    Modalità di utilizzo:
+    1. Addestramento del modello:
+        Esegui lo script con l'argomento "train" per addestrare il modello sui dati presenti nella cartella specificata (data/).
+        Esempio: python trigram_lm.py train
+    2. Generazione di parole:
+        Esegui lo script con l'argomento "infer" per generare parole utilizzando un modello pre-addestrato.
+        È necessario specificare il contesto e il numero di parole da generare.
+        Esempio: python trigram_lm.py infer --context "parole di esempio" --num_words 5
+    Argomenti:
+    - mode: Modalità di esecuzione dello script ("train" per addestrare, "infer" per generare parole).
+    - context: Contesto per la generazione di parole (richiesto in modalità "infer").
+    - num_words: Numero di parole da generare (richiesto in modalità "infer").
+    """
+    parser = argparse.ArgumentParser(
+        description="Train or infer using the trigram model."
+    )
+    parser.add_argument(
+        "mode", choices=["train", "infer"], help="Mode to run: train or infer"
+    )
+    parser.add_argument(
+        "--context", type=str, help="Context for word generation (for infer mode)"
+    )
+    parser.add_argument(
+        "--num_words", type=int, help="Number of words to generate (for infer mode)"
+    )
+    args = parser.parse_args()
+
+    model = TrigramModel()
+
+    if args.mode == "train":
+        model.train()
+    elif args.mode == "infer":
+        model.load_model("trigram_model.pkl")
+        if args.context and args.num_words:
+            context = args.context.split()
+            generated_words = model.generate_words(context, args.num_words)
+            print("Generated words:", " ".join(generated_words))
+        else:
+            print("Please provide context and num_words for inference.")
