@@ -2,8 +2,8 @@ from pathlib import Path
 import json
 import pickle
 import argparse
-from sklearn.model_selection import train_test_split
 
+from sklearn.model_selection import train_test_split
 from nltk.util import trigrams
 from nltk.lm.models import MLE
 from nltk.lm.preprocessing import padded_everygram_pipeline, pad_both_ends
@@ -41,9 +41,6 @@ class TrigramModel:
     def split_data(self) -> None:
         """
         Divide i token in train, dev e test set.
-
-        Args:
-            tokens (list): Lista di token.
         """
         self.train_sentences, temp_sentences = train_test_split(
             self.tokenized_sentences, test_size=0.1, random_state=42
@@ -63,7 +60,7 @@ class TrigramModel:
         print("Tokenization complete. Starting data split...")
         self.split_data()
         print("Data split complete. Preparing training data...")
-
+        
         train_data, vocab = padded_everygram_pipeline(
             order=3, text=self.train_sentences
         )
@@ -71,10 +68,10 @@ class TrigramModel:
         print("Training data prepared. Starting model fit...")
         self.lm.fit(train_data, vocab)
         print("Model tranining complete. Saving model...")
-        self.save_model("trigram_model.pkl")
+        self.save_model()
         print("Model saved.")
 
-    def save_model(self, model_path="models/trigram_lm.pkl") -> None:
+    def save_model(self, model_path="trigram_lm.pkl") -> None:
         """
         Salva il modello addestrato su disco.
 
@@ -82,7 +79,7 @@ class TrigramModel:
             model_path (str): Percorso per salvare il modello.
         """
         with open(model_path, "wb") as f:
-            pickle.dump(self.lm, f)
+            pickle.dump(self, f)
 
     def load_model(self, filepath: str) -> None:
         """
@@ -92,7 +89,8 @@ class TrigramModel:
             model_path (str): Percorso da cui caricare il modello.
         """
         with open(filepath, "rb") as f:
-            self.lm = pickle.load(f)
+            loaded_model = pickle.load(f)
+            self.__dict__.update(loaded_model.__dict__) #assegno correttamente l'oggetto
 
     def generate_words(self, context, num_words):
         """
@@ -101,13 +99,13 @@ class TrigramModel:
 
         return self.lm.generate(num_words=num_words, text_seed=list(context))
 
-    def evaluate(self, text):
+    def evaluate(self):
         """
         Funzione di valutazione del modello.
-        Usiamo la perplessità sui dati di test (self.test_tokens) per ottenere una metrica di valutazione
+        Usiamo la perplessità sui dati di test (self.test_sentences) per ottenere una metrica di valutazione
         """
-
-        return self.lm.perplexity(text_ngrams=trigrams(text))
+        
+        return self.lm.perplexity(text_ngrams=self.test_sentences)
 
 
 if __name__ == "__main__":
@@ -150,5 +148,7 @@ if __name__ == "__main__":
             context = args.context.split()
             generated_words = model.generate_words(context, args.num_words)
             print("Generated words:", " ".join(generated_words))
+            print ("Model perplexity (PP):", model.evaluate())
         else:
             print("Please provide context and num_words for inference.")
+ 
