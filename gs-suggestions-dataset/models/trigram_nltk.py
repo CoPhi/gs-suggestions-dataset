@@ -34,9 +34,10 @@ class TrigramModel:
             with open(file_path, "r") as f:
                 data = json.load(f)
                 for obj in data:
-                    self.tokenized_sentences.extend(
-                        [list(pad_both_ends(obj["training_text"], n=2))]
-                    )
+                    if obj['language'] == 'grc':    
+                        self.tokenized_sentences.extend(
+                            [list(pad_both_ends(obj["training_text"], n=2))]
+                        )
 
     def split_data(self) -> None:
         """
