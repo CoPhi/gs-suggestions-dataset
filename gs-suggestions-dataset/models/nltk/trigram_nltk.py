@@ -2,10 +2,15 @@ from pathlib import Path
 import json
 import pickle
 import argparse
+import numpy as np
 
 from sklearn.model_selection import train_test_split
-from nltk.lm.models import KneserNeyInterpolated
-from nltk.lm.preprocessing import padded_everygram_pipeline, pad_both_ends
+from nltk.lm.models import Laplace
+from nltk.lm.preprocessing import (
+    padded_everygram_pipeline,
+    pad_both_ends,
+    padded_everygrams,
+)
 
 
 class TrigramModel:
@@ -17,7 +22,7 @@ class TrigramModel:
             data_path (str): Percorso alla cartella contenente i file JSON.
         """
         self.data_path = Path(data_path)
-        self.lm = KneserNeyInterpolated(order=3)
+        self.lm = Laplace(order=3)
         self.tokenized_sentences = []
         self.train_sentences = []
         self.dev_sentences = []
@@ -34,7 +39,7 @@ class TrigramModel:
             with open(file_path, "r") as f:
                 data = json.load(f)
                 for obj in data:
-                    if obj['language'] == 'grc':    
+                    if obj["language"] == "grc":
                         self.tokenized_sentences.extend(
                             [list(pad_both_ends(obj["training_text"], n=2))]
                         )
@@ -44,10 +49,10 @@ class TrigramModel:
         Divide i token in train, dev e test set.
         """
         self.train_sentences, temp_sentences = train_test_split(
-            self.tokenized_sentences, test_size=0.1, random_state=42
+            self.tokenized_sentences, test_size=0.1
         )
         self.dev_sentences, self.test_sentences = train_test_split(
-            temp_sentences, test_size=0.5, random_state=42
+            temp_sentences, test_size=0.5
         )
 
     def train(self) -> None:
@@ -61,7 +66,7 @@ class TrigramModel:
         print("Tokenization complete. Starting data split...")
         self.split_data()
         print("Data split complete. Preparing training data...")
-        
+
         if not self.train_sentences:
             raise ValueError("Train sentences are empty. Cannot train model.")
 
@@ -106,46 +111,51 @@ class TrigramModel:
     def evaluate(self):
         """
         Funzione di valutazione del modello.
-        Usiamo la perplessità sui dati di test (self.test_sentences) per ottenere una metrica di valutazione.
+        Calcola la perplessità sui dati di test o su un campione del test set.
+
+        Returns:
+            float: Perplessità.
         """
-        if not self.test_sentences:
-            raise ValueError("Test sentences are empty. Cannot evaluate model.")
+        test_ngrams = list(padded_everygrams(order=3, sentence=self.test_sentences))
+        if not self.lm.vocab:
+            raise ValueError("Il modello non è stato addestrato correttamente.")
+        try:
+            return self.lm.perplexity(test_ngrams)
+        except ZeroDivisionError:
+            raise RuntimeError(
+                "Errore nel calcolo della perplessità. Verifica i dati di test e di addestramento."
+            )
 
-        test_ngrams, _ = padded_everygram_pipeline(
-            order=3, text=self.test_sentences
-        )
-
-        model_perplexity = 0
-        for test in test_ngrams:
-            model_perplexity +=self.lm.perplexity(test)
-            
-        return model_perplexity / len(self.test_sentences)
 
 if __name__ == "__main__":
     """
     Questo script permette di addestrare un modello trigramma o generare parole utilizzando un modello pre-addestrato.
     Modalità di utilizzo:
-    
+
         1. Addestramento del modello:
             Esegui lo script con l'argomento "train" per addestrare il modello sui dati presenti nella cartella specificata (data/).
             Esempio: python trigram_lm.py train
-            
-        2. Generazione di parole:
+
+        2. Valutazione del modello:
+            Esegui lo script con l'argomento "eval" per calcolare la perplessità del modello sui dati di test.
+            Esempio: python trigram_lm.py eval
+
+        3. Generazione di parole:
             Esegui lo script con l'argomento "infer" per generare parole utilizzando un modello pre-addestrato.
             È necessario specificare il contesto e il numero di parole da generare.
             Esempio: python trigram_lm.py infer --context "parole di esempio" --num_words 5
-            
+
     Argomenti:
-        
+
         - mode: Modalità di esecuzione dello script ("train" per addestrare, "infer" per generare parole).
         - context: Contesto per la generazione di parole (richiesto in modalità "infer").
-        - num_words: Numero di parole da generare (richiesto in modalità "infer").    
+        - num_words: Numero di parole da generare (richiesto in modalità "infer").
     """
     parser = argparse.ArgumentParser(
         description="Train or infer using the trigram model."
     )
     parser.add_argument(
-        "mode", choices=["train", "infer"], help="Mode to run: train or infer"
+        "mode", choices=["train", "infer", "eval"], help="Mode to run: train or infer"
     )
     parser.add_argument(
         "--context", type=str, help="Context for word generation (for infer mode)"
@@ -165,6 +175,8 @@ if __name__ == "__main__":
             context = args.context.split()
             generated_words = model.generate_words(context, args.num_words)
             print("Generated words:", " ".join(generated_words))
-            print("Model perplexity (PP):", model.evaluate())
         else:
             print("Please provide context and num_words for inference.")
+    elif args.mode == "eval":
+        model.load_model("trigram_lm.pkl")
+        print("Perplexity:", model.evaluate())

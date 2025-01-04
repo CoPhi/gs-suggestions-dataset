@@ -2,14 +2,16 @@ from pathlib import Path
 import json
 import spacy
 
+from spacy.tokens import DocBin
+
 spacy.prefer_gpu()
 class TrigramModel:
     def __init__(self, data_path="data/"):
         
         #Qui definisco le proprietà del modello 
         self.data_path = Path(data_path)
-        self.docs = [] # List[Doc]
-        self.nlp = spacy.load("grc_perseus_trf") #LM per il greco antico
+        self.nlp = spacy.load("el_core_news_sm") #LM per il greco antico
+        self.doc_bin = DocBin() # DocBin per la serializzazione dei documenti
         pass
     
       
@@ -17,11 +19,10 @@ class TrigramModel:
         """
         Converte i dati presenti nei file JSON in oggetti spaCy Doc.
 
-        Questo metodo elabora i dati di testo e li restituisce come un oggetto spaCy Doc,
-        che può essere utilizzato per ulteriori attività di elaborazione del linguaggio naturale.
+        Questo metodo elabora i dati di testo e li serializza in un oggetto DocBin,
+        che può essere utilizzato per allenare il modello.
 
-        Ritorna:
-            spacy.tokens.Doc: Il testo elaborato come oggetto spaCy Doc.
+
         """
         
         for file_path in self.data_path.glob("*.json"):
@@ -30,11 +31,13 @@ class TrigramModel:
                 data = json.load(f)
                 for obj in data:
                     if obj['language'] == 'grc': 
-                        self.docs.append(self.nlp(obj["training_text"]))
+                        self.doc_bin.add(self.nlp(obj["training_text"]))
+                        
+        self.doc_bin.to_disk("training.spacy")
+        print("Data serialized successfully.")
         
 if __name__ == "__main__":
     
     model = TrigramModel()
     model.load_doc()
-    for doc in model.docs:
-        print(doc.text)
+    
