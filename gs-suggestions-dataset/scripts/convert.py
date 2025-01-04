@@ -90,6 +90,7 @@ def read_file(file_path):
 
 # XML functions
 
+
 def idno(doc):
     """
     extract the idno from the teiHeader/fileDesc/publicationStmt/idno[@type='filename']

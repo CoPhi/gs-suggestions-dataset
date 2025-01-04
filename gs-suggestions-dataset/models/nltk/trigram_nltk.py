@@ -2,7 +2,6 @@ from pathlib import Path
 import json
 import pickle
 import argparse
-import numpy as np
 
 from sklearn.model_selection import train_test_split
 from nltk.lm.models import Laplace
@@ -155,7 +154,9 @@ if __name__ == "__main__":
         description="Train or infer using the trigram model."
     )
     parser.add_argument(
-        "mode", choices=["train", "infer", "eval"], help="Mode to run: train or infer"
+        "mode",
+        choices=["train", "infer", "eval"],
+        help="Mode to run: train, infer or eval",
     )
     parser.add_argument(
         "--context", type=str, help="Context for word generation (for infer mode)"
@@ -174,7 +175,7 @@ if __name__ == "__main__":
         if args.context and args.num_words:
             context = args.context.split()
             generated_words = model.generate_words(context, args.num_words)
-            print("Generated words:", " ".join(generated_words))
+            print("Generated words:", ", ".join(generated_words))
         else:
             print("Please provide context and num_words for inference.")
     elif args.mode == "eval":
