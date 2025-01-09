@@ -4,7 +4,9 @@ import pickle
 import argparse
 
 from sklearn.model_selection import train_test_split
-from nltk.lm.models import Laplace
+
+from nltk.tokenize import word_tokenize
+from nltk.lm.models import KneserNeyInterpolated
 from nltk.lm.preprocessing import (
     padded_everygram_pipeline,
     pad_both_ends,
@@ -21,7 +23,7 @@ class BigramModel:
             data_path (str): Percorso alla cartella contenente i file JSON.
         """
         self.data_path = Path(data_path)
-        self.lm = Laplace(order=2)
+        self.lm = KneserNeyInterpolated(order=2)
         self.tokenized_sentences = []
         self.train_sentences = []
         self.dev_sentences = []
@@ -40,7 +42,7 @@ class BigramModel:
                 for obj in data:
                     if obj["language"] == "grc":
                         self.tokenized_sentences.extend(
-                            [list(pad_both_ends(obj["training_text"], n=2))]
+                            [list(pad_both_ends(word_tokenize(obj["training_text"]), n=2))]
                         )
 
     def split_data(self) -> None:

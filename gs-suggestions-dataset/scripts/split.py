@@ -2,12 +2,10 @@ import os
 import json
 from pathlib import Path
 
-PATHS = [
+CORPUS_PATHS = [
     "/home/gabriele/cltk_data/grc/corpora/idp.data/DCLP/",
     "/home/gabriele/cltk_data/grc/corpora/idp.data/DDB_EpiDoc_XML/",
-    "/home/gabriele/cltk_data/grc/corpora/First1KGreek/",
-    "/home/gabriele/cltk_data/grc/corpora/canonical-greekL/",
-    "/home/gabriele/cltk_data/grc/corpora/LSJLogeion/",
+    "/home/gabriele/cltk_data/grc/corpora/edhEpidocDump_/"
 ]
 
 LIM = 50  # MAX MB per file
@@ -49,13 +47,12 @@ def write_to_multiple_files(output, base_filename, max_size_mb=LIM):
 
 
 def main():
-    for path in PATHS:
+    for path in CORPUS_PATHS:
         output = []
-        with os.popen(f"python convert.py {path}", "r") as pipe:
+        with os.popen(f"python scripts/convert.py {path}", "r") as pipe:
             for line in pipe:
                 output.append(line.strip())
-
-    write_to_multiple_files(output, Path(path).name)
+        write_to_multiple_files(output, Path(path).name)
 
 
 if __name__ == "__main__":
