@@ -6,7 +6,7 @@ import argparse
 from sklearn.model_selection import train_test_split
 
 from nltk.tokenize import word_tokenize
-from nltk.lm.models import KneserNeyInterpolated
+from nltk.lm.models import MLE
 from nltk.lm.preprocessing import (
     padded_everygram_pipeline,
     pad_both_ends,
@@ -23,7 +23,7 @@ class BigramModel:
             data_path (str): Percorso alla cartella contenente i file JSON.
         """
         self.data_path = Path(data_path)
-        self.lm = KneserNeyInterpolated(order=2)
+        self.lm = MLE(order=2)
         self.tokenized_sentences = []
         self.train_sentences = []
         self.dev_sentences = []
