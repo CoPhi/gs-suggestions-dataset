@@ -4,6 +4,7 @@ import pickle
 import argparse
 
 from sklearn.model_selection import train_test_split
+from nltk.tokenize import word_tokenize
 from nltk.lm.models import MLE
 from nltk.lm.preprocessing import (
     padded_everygram_pipeline,
@@ -40,7 +41,7 @@ class TrigramModel:
                 for obj in data:
                     if obj["language"] == "grc":
                         self.tokenized_sentences.extend(
-                            [list(pad_both_ends(obj["training_text"], n=2))]
+                            [list(pad_both_ends(word_tokenize(obj["training_text"]), n=2))]
                         )
 
     def split_data(self) -> None:

@@ -130,7 +130,7 @@ class BigramModel:
 
 if __name__ == "__main__":
     """
-    Questo script permette di addestrare un modello trigramma o generare parole utilizzando un modello pre-addestrato.
+    Questo script permette di addestrare un modello bigramma o generare parole utilizzando un modello pre-addestrato.
     Modalità di utilizzo:
 
         1. Addestramento del modello:
@@ -153,7 +153,7 @@ if __name__ == "__main__":
         - num_words: Numero di parole da generare (richiesto in modalità "infer").
     """
     parser = argparse.ArgumentParser(
-        description="Train or infer using the trigram model."
+        description="Train or infer using the bigram model."
     )
     parser.add_argument(
         "mode",
