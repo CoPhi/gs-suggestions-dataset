@@ -2,10 +2,12 @@ from pathlib import Path
 import json
 import pickle
 import argparse
+import numpy as np
 
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import train_test_split, KFold
+
 from nltk.tokenize import word_tokenize
-from nltk.lm.models import MLE
+from nltk.lm.models import Lidstone
 from nltk.lm.preprocessing import (
     padded_everygram_pipeline,
     pad_both_ends,
@@ -22,11 +24,10 @@ class TrigramModel:
             data_path (str): Percorso alla cartella contenente i file JSON.
         """
         self.data_path = Path(data_path)
-        self.lm = MLE(order=3)
         self.tokenized_sentences = []
         self.train_sentences = []
-        self.dev_sentences = []
         self.test_sentences = []
+        self.lm = None
 
     def tokenize(self) -> None:
         """
@@ -41,82 +42,124 @@ class TrigramModel:
                 for obj in data:
                     if obj["language"] == "grc":
                         self.tokenized_sentences.extend(
-                            [list(pad_both_ends(word_tokenize(obj["training_text"]), n=2))]
+                            [
+                                list(
+                                    pad_both_ends(
+                                        word_tokenize(obj["training_text"]), n=2
+                                    )
+                                )
+                            ]
                         )
 
     def split_data(self) -> None:
         """
         Divide i token in train, dev e test set.
+        Utilizza KFold per creare i set di validazione.
         """
-        self.train_sentences, temp_sentences = train_test_split(
+        if not self.tokenized_sentences:
+            raise ValueError("Tokenized sentences are empty. Cannot split data.")
+
+        self.train_sentences, self.test_sentences = train_test_split(
             self.tokenized_sentences, test_size=0.1
         )
-        self.dev_sentences, self.test_sentences = train_test_split(
-            temp_sentences, test_size=0.5
-        )
 
-    def train(self) -> None:
-        """
-        Pipeline per addestrare il modello: tokenizzazione, divisione dati e fit
-        Allena il modello sui dati di training
-        """
+        self.kfold = KFold(n_splits=5, shuffle=False)
 
-        print("Starting tokenization...")
+    def train_lm(self, gamma, train_sentences) -> None:
+        """
+        Addestra il modello sulle frasi di addestramento.
+        """
+        train_ngrams, vocab = padded_everygram_pipeline(order=3, text=train_sentences)
+        self.lm = Lidstone(order=3, gamma=gamma)
+        self.lm.fit(train_ngrams, vocab)
+
+    def select_best_lm(self):
+        """
+        Seleziona il miglior modello utilizzando Kfold e ottimizza il parametro gamma.
+        """
+        best_perplexity = float("inf")
+        best_lm = None
+
+        for gamma in np.linspace(1, 1000000, 5):
+            print(f"Testing gamma: {gamma}")
+            fold_perplexities = []
+
+            for train_index, val_index in self.kfold.split(self.train_sentences):
+
+                self.train_lm(
+                    gamma=gamma,
+                    train_sentences=[self.train_sentences[i] for i in train_index],
+                )
+                val_fold_ngrams = list(
+                    padded_everygrams(
+                        order=3, sentence=[self.train_sentences[i] for i in val_index]
+                    )
+                )
+
+                perplexity = self.lm.perplexity(val_fold_ngrams)
+                fold_perplexities.append(perplexity)
+                print(f"Perplexity for current fold with gamma {gamma}: {perplexity}")
+
+            avg_perplexity = sum(fold_perplexities) / len(fold_perplexities)
+            print(f"Average perplexity for gamma {gamma}: {avg_perplexity}")
+
+            if avg_perplexity < best_perplexity:
+                best_perplexity = avg_perplexity
+                best_lm = self.lm
+
+        self.lm = best_lm
+        print(f"Best model selected with better perplexity: {best_perplexity}")
+        self.save_lm()
+
+    def pipeline_train(self) -> None:
         self.tokenize()
         print("Tokenization complete. Starting data split...")
         self.split_data()
-        print("Data split complete. Preparing training data...")
+        print("Data split complete. Starting model selection...")
+        self.select_best_lm()
 
-        if not self.train_sentences:
-            raise ValueError("Train sentences are empty. Cannot train model.")
-
-        train_data, vocab = padded_everygram_pipeline(
-            order=3, text=self.train_sentences
-        )
-
-        print("Training data prepared. Starting model fit...")
-        self.lm.fit(train_data, vocab)
-        print("Model tranining complete. Saving model...")
-        self.save_model()
-        print("Model saved.")
-
-    def save_model(self, model_path="trigram_lm.pkl") -> None:
+    def save_lm(self, model_path="trigram_lm.pkl") -> None:
         """
-        Salva il modello addestrato su disco.
+        Salva il modello linguistico su disco.
 
         Args:
             model_path (str): Percorso per salvare il modello.
         """
         with open(model_path, "wb") as f:
-            pickle.dump(self, f)
+            pickle.dump(self.lm, f)
+            print("Language model saved.")
 
-    def load_model(self, filepath: str) -> None:
+    def load_lm(self, model_path="trigram_lm.pkl") -> None:
         """
-        Carica il modello addestrato.
+        Carica solo il modello linguistico da disco.
 
         Args:
             model_path (str): Percorso da cui caricare il modello.
         """
-        with open(filepath, "rb") as f:
-            loaded_model = pickle.load(f)
-            self.__dict__.update(loaded_model.__dict__)
+        with open(model_path, "rb") as f:
+            self.lm = pickle.load(f)
+            print("Language model loaded.")
 
     def generate_words(self, context, num_words):
         """
         Genera un numero di parole dato un contesto.
         """
+        if not self.lm:
+            raise ValueError("Il modello non è stato caricato correttamente.")
 
         return self.lm.generate(num_words=num_words, text_seed=list(context))
 
     def evaluate(self):
         """
         Funzione di valutazione del modello.
-        Calcola la perplessità sui dati di test o su un campione del test set.
+        Calcola la perplessità su dei dati di valutazione o sul test set.
 
         Returns:
             float: Perplessità.
         """
+
         test_ngrams = list(padded_everygrams(order=3, sentence=self.test_sentences))
+
         if not self.lm.vocab:
             raise ValueError("Il modello non è stato addestrato correttamente.")
         try:
@@ -170,9 +213,9 @@ if __name__ == "__main__":
     model = TrigramModel()
 
     if args.mode == "train":
-        model.train()
+        model.pipeline_train()
     elif args.mode == "infer":
-        model.load_model("trigram_lm.pkl")
+        model.load_lm("trigram_lm.pkl")
         if args.context and args.num_words:
             context = args.context.split()
             generated_words = model.generate_words(context, args.num_words)
@@ -180,5 +223,6 @@ if __name__ == "__main__":
         else:
             print("Please provide context and num_words for inference.")
     elif args.mode == "eval":
-        model.load_model("trigram_lm.pkl")
+        model.load_lm("trigram_lm.pkl")
         print("Perplexity:", model.evaluate())
+    
