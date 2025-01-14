@@ -2,6 +2,7 @@ from pathlib import Path
 import json
 import pickle
 import argparse
+import re
 import numpy as np
 
 from sklearn.model_selection import train_test_split, KFold
@@ -35,6 +36,9 @@ class BigramModel:
         Inserisce i tag <s> e </s> all'inizio e alla fine di ogni frase.
         """
 
+        invalid_token_pattern = re.compile(r"(<|>|]|\[|gap)")
+
+
         for file_path in self.data_path.glob("*.json"):
             print(f"Processing file: {file_path}")
             with open(file_path, "r") as f:
@@ -45,7 +49,14 @@ class BigramModel:
                             [
                                 list(
                                     pad_both_ends(
-                                        word_tokenize(obj["training_text"]), n=2
+                                        [
+                                            token
+                                            for token in word_tokenize(
+                                                obj["training_text"]
+                                            )
+                                            if not invalid_token_pattern.search(token)
+                                        ],
+                                        n=2,
                                     )
                                 )
                             ]
@@ -77,9 +88,9 @@ class BigramModel:
         """
         Seleziona il miglior modello utilizzando Kfold e ottimizza il parametro gamma.
         """
+        """
         best_perplexity = float("inf")
         best_lm = None
-
         for gamma in np.linspace(1, 1000000, 5):
             print(f"Testing gamma: {gamma}")
             fold_perplexities = []
@@ -109,6 +120,8 @@ class BigramModel:
 
         self.lm = best_lm
         print(f"Best model selected with better perplexity: {best_perplexity}")
+        """
+        self.train_lm(1, self.train_sentences)
         self.save_lm()
 
     def pipeline_train(self) -> None:
@@ -149,7 +162,7 @@ class BigramModel:
 
         return self.lm.generate(num_words=num_words, text_seed=list(context))
 
-    def evaluate(self):
+    def evaluate(self) -> float:
         """
         Funzione di valutazione del modello.
         Calcola la perplessità su dei dati di valutazione o sul test set.
@@ -169,6 +182,17 @@ class BigramModel:
                 "Errore nel calcolo della perplessità. Verifica i dati di test e di addestramento."
             )
 
+    def accuracy (self) -> float:
+        """
+        Calcola l'accuratezza del modello.
+        L'accuratezza viene calcolata come il rapporto tra il numero di parole (token) predette correttamente e il numero totale di predizioni sui casi di test. 
+        
+
+        Returns:
+            float: L'accuratezza del modello come numero in virgola mobile.
+        """
+        
+        
 
 if __name__ == "__main__":
     """
@@ -225,4 +249,3 @@ if __name__ == "__main__":
     elif args.mode == "eval":
         model.load_lm("bigram_lm.pkl")
         print("Perplexity:", model.evaluate())
-    

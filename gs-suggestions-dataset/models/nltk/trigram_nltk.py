@@ -2,6 +2,7 @@ from pathlib import Path
 import json
 import pickle
 import argparse
+import re
 import numpy as np
 
 from sklearn.model_selection import train_test_split, KFold
@@ -34,6 +35,8 @@ class TrigramModel:
         Estrae le frasi di addestramento da tutti i file JSON nella cartella specificata.
         Inserisce i tag <s> e </s> all'inizio e alla fine di ogni frase.
         """
+        
+        invalid_token_pattern = re.compile(r"(<|>|]|\[|gap)")
 
         for file_path in self.data_path.glob("*.json"):
             print(f"Processing file: {file_path}")
@@ -45,7 +48,14 @@ class TrigramModel:
                             [
                                 list(
                                     pad_both_ends(
-                                        word_tokenize(obj["training_text"]), n=2
+                                        [
+                                            token
+                                            for token in word_tokenize(
+                                                obj["training_text"]
+                                            )
+                                            if not invalid_token_pattern.search(token)
+                                        ],
+                                        n=2
                                     )
                                 )
                             ]
@@ -76,6 +86,7 @@ class TrigramModel:
     def select_best_lm(self):
         """
         Seleziona il miglior modello utilizzando Kfold e ottimizza il parametro gamma.
+        """
         """
         best_perplexity = float("inf")
         best_lm = None
@@ -109,6 +120,8 @@ class TrigramModel:
 
         self.lm = best_lm
         print(f"Best model selected with better perplexity: {best_perplexity}")
+        """
+        self.train_lm(1, self.train_sentences)
         self.save_lm()
 
     def pipeline_train(self) -> None:
