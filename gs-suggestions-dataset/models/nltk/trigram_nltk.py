@@ -7,7 +7,7 @@ import numpy as np
 
 from sklearn.model_selection import train_test_split, KFold
 
-from nltk.tokenize import word_tokenize
+from nltk.lm.vocabulary import Vocabulary
 from nltk.lm.models import Lidstone
 from nltk.lm.preprocessing import (
     padded_everygram_pipeline,
@@ -41,7 +41,6 @@ class TrigramModel:
                 data = json.load(f)
                 self.ab = tuple([obj for obj in data])
 
-
     def split_ab(self) -> None:
         """
         Divide gli anonymous block in set di addestramento, validazione e test
@@ -53,16 +52,11 @@ class TrigramModel:
 
         self.kfold = KFold(n_splits=5, shuffle=False)
 
-    def train_lm(self) -> None:
-        """
-        Addestra il modello sulle frasi di addestramento prelevate dall'insieme train_ab.
-        Le frasi subiscono un controllo per rimuovere token non validi nella fase di addestramento.
-        """
-
+    def get_train_sentences(self, ab) -> list:
         invalid_token_pattern = re.compile(r"(<|>|]|\[|g|a|p)")
         train_sentences = []
 
-        for obj in self.train_ab:
+        for obj in ab:
             if obj["training_text"] and obj["language"] == "grc":
                 train_sentences.extend(
                     [
@@ -78,49 +72,88 @@ class TrigramModel:
                         )
                     ]
                 )
+        return train_sentences
 
-        train_ngrams, vocab = padded_everygram_pipeline(order=3, text=train_sentences)
-        self.lm.fit(train_ngrams, vocab)
-        
+    def get_test_sentences(self) -> list:
+        invalid_token_pattern = re.compile(r"(<|>|]|\[|g|a|p)")
+        test_sentences = []
+
+        for obj in self.test_ab:
+            if obj["training_text"] and obj["language"] == "grc":
+                test_sentences.extend(
+                    [
+                        list(
+                            pad_both_ends(
+                                [
+                                    token
+                                    for token in obj["training_text"]
+                                    if not invalid_token_pattern.search(token)
+                                ],
+                                n=2,
+                            )
+                        )
+                    ]
+                )
+        return test_sentences
+
+    def filter_vocab(self, vocab, min_freq):
+        """
+        Filtra il vocabolario rimuovendo i token con frequenza inferiore a min_freq.
+
+        Args:
+            vocab (Vocabulary): Il vocabolario da filtrare.
+            min_freq (int): La frequenza minima richiesta per mantenere un token nel vocabolario.
+
+        Returns:
+            Vocabulary: Il vocabolario filtrato.
+        """
+        return Vocabulary(vocab.counts, unk_cutoff=min_freq)
+
+    def train_lm(self, ab, gamma) -> None:
+        """
+        Addestra il modello sulle frasi di addestramento prelevate dall'insieme train_ab.
+        Le frasi subiscono un controllo per rimuovere token non validi nella fase di addestramento.
+        """
+
+        self.lm = Lidstone(order=3, gamma=gamma)
+        train_ngrams, vocab = padded_everygram_pipeline(
+            order=3, text=self.get_train_sentences(ab)
+        )
+        self.lm.fit(train_ngrams, self.filter_vocab(Vocabulary(vocab), min_freq=5))
+
     def select_best_lm(self):
         """
         Seleziona il miglior modello utilizzando Kfold e ottimizza il parametro gamma.
         """
-        """
-        best_perplexity = float("inf")
+        best_accuracy = 0
         best_lm = None
-
-        for gamma in np.linspace(1, 1000000, 5):
+        for gamma in [10, 100, 1000, 10000, 100000]:
             print(f"Testing gamma: {gamma}")
-            fold_perplexities = []
 
-            for train_index, val_index in self.kfold.split(self.train_sentences):
+            for train_ab_index, val_ab_index in self.kfold.split(self.train_ab):
 
                 self.train_lm(
                     gamma=gamma,
-                    train_sentences=[self.train_sentences[i] for i in train_index],
+                    ab=[self.train_ab[i] for i in train_ab_index],
                 )
+
                 val_fold_ngrams = list(
                     padded_everygrams(
-                        order=3, sentence=[self.train_sentences[i] for i in val_index]
+                        order=2,
+                        sentence=self.get_train_sentences(
+                            [self.train_ab[i] for i in val_ab_index]
+                        ),
                     )
                 )
 
-                perplexity = self.lm.perplexity(val_fold_ngrams)
-                fold_perplexities.append(perplexity)
-                print(f"Perplexity for current fold with gamma {gamma}: {perplexity}")
-
-            avg_perplexity = sum(fold_perplexities) / len(fold_perplexities)
-            print(f"Average perplexity for gamma {gamma}: {avg_perplexity}")
-
-            if avg_perplexity < best_perplexity:
-                best_perplexity = avg_perplexity
-                best_lm = self.lm
+                acc = self.accuracy([self.train_ab[i] for i in val_ab_index])
+                if acc > best_accuracy:
+                    best_accuracy = acc
+                    best_lm = self.lm
 
         self.lm = best_lm
-        print(f"Best model selected with better perplexity: {best_perplexity}")
-        """
-        self.train_lm()
+        print(f"Best model selected with better accuracy: {best_accuracy}")
+
         self.save_lm()
 
     def pipeline_train(self) -> None:
@@ -150,7 +183,7 @@ class TrigramModel:
         """
         with open(model_path, "rb") as f:
             model = pickle.load(f)
-            self.__dict__.update(model.__dict__) 
+            self.__dict__.update(model.__dict__)
             print("Language model loaded.")
 
     def generate_words(self, context, num_words):
@@ -170,27 +203,10 @@ class TrigramModel:
         Returns:
             float: Perplessità.
         """
-        invalid_token_pattern = re.compile(r"(<|>|]|\[|g|a|p)")
-        test_sentences = []
 
-        for obj in self.test_ab:
-            if obj["training_text"] and obj["language"] == "grc":
-                test_sentences.extend(
-                    [
-                        list(
-                            pad_both_ends(
-                                [
-                                    token
-                                    for token in obj["training_text"]
-                                    if not invalid_token_pattern.search(token)
-                                ],
-                                n=2,
-                            )
-                        )
-                    ]
-                )
-
-        test_ngrams = list(padded_everygrams(order=3, sentence=test_sentences))
+        test_ngrams = list(
+            padded_everygrams(order=3, sentence=self.get_test_sentences())
+        )
 
         if not self.lm.vocab:
             raise ValueError("Il modello non è stato addestrato correttamente.")
@@ -200,8 +216,8 @@ class TrigramModel:
             raise RuntimeError(
                 "Errore nel calcolo della perplessità. Verifica i dati di test e di addestramento."
             )
-            
-    def accuracy(self) -> float:
+
+    def accuracy(self, abs) -> float:
         """
         Calcola l'accuratezza del modello sui casi di test forniti dal test_ab.
         L'accuratezza viene calcolata come il rapporto tra il numero di predizioni corrette e il numero totale di predizioni sul test set.
@@ -212,11 +228,13 @@ class TrigramModel:
         correct_predictions = 0
         total_predictions = 0
 
-        for ab in self.test_ab:
+        for ab in abs:
             if ab["language"] == "grc":
                 restored = re.findall(
                     r"\[([^\]]+)\]", ab["training_text"]
                 )  # restauri dentro il training_text
+                if not restored:
+                    continue
                 for i, obj in enumerate(ab["test_cases"]):
                     test_case = obj["test_case"]
                     lacuna = (
@@ -224,15 +242,15 @@ class TrigramModel:
                         if re.search(r"\[([^\]]+)\]", test_case)
                         else ""
                     )
-                    context = test_case.split("[")[0]  # contesto fino alla parola da predire
+                    context = test_case.split("[")[
+                        0
+                    ]  # contesto fino alla parola da predire
                     if self.generate_words(context, len(lacuna)) == restored[i]:
                         correct_predictions += 1
 
                     total_predictions += 1
 
         return correct_predictions / total_predictions
-
-
 
 
 if __name__ == "__main__":
@@ -290,5 +308,4 @@ if __name__ == "__main__":
     elif args.mode == "eval":
         model.load_lm("trigram_lm.pkl")
         print("Perplexity:", model.evaluate())
-        print ("Accuracy:", model.accuracy(), '%')
-    
+        print("Accuracy:", model.accuracy(model.test_ab), "%")

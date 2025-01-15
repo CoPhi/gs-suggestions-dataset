@@ -7,7 +7,7 @@ import numpy as np
 
 from sklearn.model_selection import train_test_split, KFold
 
-from nltk.tokenize import word_tokenize
+from nltk.lm import Vocabulary
 from nltk.lm.models import Lidstone
 from nltk.lm.preprocessing import (
     padded_everygram_pipeline,
@@ -27,7 +27,7 @@ class BigramModel:
         self.data_path = Path(data_path)
         self.ab = None  # insieme degli Anonymous Block "ab" (oggetti MAAT)
         self.train_ab = None
-        self.test_ab = None  
+        self.test_ab = None
 
     def get_ab(self) -> None:
         """
@@ -48,9 +48,24 @@ class BigramModel:
             raise ValueError("AB set empty. Cannot split data.")
 
         self.train_ab, self.test_ab = train_test_split(self.ab, test_size=0.1)
-        self.kfold = KFold(n_splits=9, shuffle=True) #uso il 10% del dataset per il dev set
-        
-    def get_train_sentences(self, ab) -> list : 
+        self.kfold = KFold(
+            n_splits=9, shuffle=True
+        )  # uso il 10% del dataset per il dev set
+
+    def get_train_sentences(self, ab) -> list:
+        """
+        Estrae e processa le frasi di addestramento da una lista di blocchi anonimi fornita.
+
+        Questo metodo filtra e processa il 'training_text' da ciascun oggetto nella lista di input 'ab'.
+        Include solo i testi in cui la 'language' è 'grc' ed esclude i token che corrispondono al 
+        pattern dei token non validi. Le frasi risultanti sono imbottite su entrambi i lati con un token di padding.
+
+        Args:
+            ab (list): Una lista di oggetti, ciascuno contenente le chiavi 'training_text' e 'language'.
+
+        Returns:
+            list: Una lista di frasi di addestramento processate e imbottite.
+        """
         invalid_token_pattern = re.compile(r"(<|>|]|\[|g|a|p)")
         train_sentences = []
 
@@ -71,8 +86,20 @@ class BigramModel:
                     ]
                 )
         return train_sentences
-    
-    def get_test_sentences(self) -> list :
+
+    def get_test_sentences(self) -> list:
+        """
+        Estrae e processa le frasi di test dall'insieme dei blocchi anonimi di test test_ab.
+
+        Questo metodo filtra e processa il testo di addestramento dagli oggetti 
+        nell'attributo test_ab dove la lingua è "grc". Rimuove i token che corrispondono 
+        al pattern invalid_token_pattern e aggiunge padding alle frasi su entrambi i lati 
+        con un numero specificato di token di padding.
+
+        Returns:
+            list: Una lista di frasi di test processate, dove ogni frase è una lista 
+            di token con padding su entrambi i lati.
+        """
         invalid_token_pattern = re.compile(r"(<|>|]|\[|g|a|p)")
         test_sentences = []
 
@@ -93,56 +120,68 @@ class BigramModel:
                     ]
                 )
         return test_sentences
-        
 
-    def train_lm(self, ab, gamma):
+    def filter_vocab(self, vocab, min_freq):
+        """
+        Filtra il vocabolario rimuovendo i token con frequenza inferiore a min_freq.
+
+        Args:
+            vocab (Vocabulary): Il vocabolario da filtrare.
+            min_freq (int): La frequenza minima richiesta per mantenere un token nel vocabolario.
+
+        Returns:
+            Vocabulary: Il vocabolario filtrato.
+        """
+        return Vocabulary(vocab.counts, unk_cutoff=min_freq)
+
+    def train_lm(self, gamma, ab):
         """
         Addestra il modello sulle frasi di addestramento prelevate dall'insieme train_ab.
         Le frasi subiscono un controllo per rimuovere token non validi nella fase di addestramento.
+
+        Args:
+            gamma (float): Il parametro di smoothing per il modello Lidstone.
+            ab (list): L'insieme di anonymous block per l'addestramento.
         """
-        
         self.lm = Lidstone(order=2, gamma=gamma)
-        train_ngrams, vocab = padded_everygram_pipeline(order=2, text=self.get_train_sentences(ab))
-        self.lm.fit(train_ngrams, vocab)
+        train_ngrams, vocab = padded_everygram_pipeline(
+            order=2, text=self.get_train_sentences(ab)
+        )
+        self.lm.fit(train_ngrams, self.filter_vocab(Vocabulary(vocab), min_freq=5))
 
     def select_best_lm(self):
         """
-        Seleziona il miglior modello utilizzando Kfold e ottimizza il parametro gamma.
+        Seleziona il miglior modello, secondo la metrica dell'accuratezza, utilizzando Kfold e ottimizzando il parametro gamma.
         """
-        best_perplexity = float("inf")
+        best_accuracy = 0
         best_lm = None
         for gamma in [10, 100, 1000, 10000, 100000]:
             print(f"Testing gamma: {gamma}")
-            fold_perplexities = []
 
             for train_ab_index, val_ab_index in self.kfold.split(self.train_ab):
-                
+
                 self.train_lm(
                     gamma=gamma,
                     ab=[self.train_ab[i] for i in train_ab_index],
                 )
-                
+
                 val_fold_ngrams = list(
                     padded_everygrams(
-                        order=2, sentence=self.get_train_sentences([self.train_ab[i] for i in val_ab_index])
+                        order=2,
+                        sentence=self.get_train_sentences(
+                            [self.train_ab[i] for i in val_ab_index]
+                        ),
                     )
                 )
 
-                print(self.accuracy([self.train_ab[i] for i in val_ab_index]))
-                perplexity = self.lm.perplexity(val_fold_ngrams)
-                fold_perplexities.append(perplexity)
-                print(f"Perplexity for current fold with gamma {gamma}: {perplexity}")
-
-            avg_perplexity = sum(fold_perplexities) / len(fold_perplexities)
-            print(f"Average perplexity for gamma {gamma}: {avg_perplexity}")
-
-            if avg_perplexity < best_perplexity:
-                best_perplexity = avg_perplexity
-                best_lm = self.lm
+                acc = self.accuracy([self.train_ab[i] for i in val_ab_index])
+                if acc > best_accuracy:
+                    best_accuracy = acc
+                    best_lm = self.lm
 
         self.lm = best_lm
-        print(f"Best model selected with better perplexity: {best_perplexity}")
-    
+        print(f"Best model selected with better accuracy: {best_accuracy}")
+
         self.save_lm()
 
     def pipeline_train(self) -> None:
@@ -192,7 +231,9 @@ class BigramModel:
         Returns:
             float: Perplessità.
         """
-        test_ngrams = list(padded_everygrams(order=2, sentence=self.get_test_sentences()))
+        test_ngrams = list(
+            padded_everygrams(order=2, sentence=self.get_test_sentences())
+        )
 
         if not self.lm.vocab:
             raise ValueError("Il modello non è stato addestrato correttamente.")
@@ -219,7 +260,7 @@ class BigramModel:
                 restored = re.findall(
                     r"\[([^\]]+)\]", ab["training_text"]
                 )  # restauri dentro il training_text
-                if not restored: 
+                if not restored:
                     continue
                 for i, obj in enumerate(ab["test_cases"]):
                     test_case = obj["test_case"]
@@ -228,13 +269,13 @@ class BigramModel:
                         if re.search(r"\[([^\]]+)\]", test_case)
                         else ""
                     )
-                    context = test_case.split("[")[0]  # contesto fino alla parola da predire
+                    context = test_case.split("[")[
+                        0
+                    ]  # contesto fino alla parola da predire
                     if self.generate_words(context, len(lacuna)) == restored[i]:
                         correct_predictions += 1
 
                     total_predictions += 1
-                    
-        print (correct_predictions, total_predictions)
 
         return correct_predictions / total_predictions
 
@@ -294,4 +335,4 @@ if __name__ == "__main__":
     elif args.mode == "eval":
         model.load_lm("bigram_lm.pkl")
         print("Perplexity:", model.evaluate())
-        print("Accuracy:", model.accuracy(model.test_ab), '%')
+        print("Accuracy:", model.accuracy(model.test_ab), "%")
