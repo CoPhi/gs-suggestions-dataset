@@ -25,64 +25,63 @@ class TrigramModel:
             data_path (str): Percorso alla cartella contenente i file JSON.
         """
         self.data_path = Path(data_path)
-        self.tokenized_sentences = []
-        self.train_sentences = []
-        self.test_sentences = []
-        self.lm = None
+        self.ab = None  # insieme degli Anonymous Block "ab" (oggetti MAAT)
+        self.train_ab = None
+        self.test_ab = None
+        self.lm = Lidstone(order=3, gamma=100000)
 
-    def tokenize(self) -> None:
+    def get_ab(self) -> None:
         """
-        Estrae le frasi di addestramento da tutti i file JSON nella cartella specificata.
-        Inserisce i tag <s> e </s> all'inizio e alla fine di ogni frase.
+        Estrae gli anonymous block da tutti i file JSON nella cartella specificata.
         """
-        
-        invalid_token_pattern = re.compile(r"(<|>|]|\[|gap)")
 
         for file_path in self.data_path.glob("*.json"):
             print(f"Processing file: {file_path}")
             with open(file_path, "r") as f:
                 data = json.load(f)
-                for obj in data:
-                    if obj["language"] == "grc":
-                        self.tokenized_sentences.extend(
-                            [
-                                list(
-                                    pad_both_ends(
-                                        [
-                                            token
-                                            for token in word_tokenize(
-                                                obj["training_text"]
-                                            )
-                                            if not invalid_token_pattern.search(token)
-                                        ],
-                                        n=2
-                                    )
-                                )
-                            ]
-                        )
+                self.ab = tuple([obj for obj in data])
 
-    def split_data(self) -> None:
-        """
-        Divide i token in train, dev e test set.
-        Utilizza KFold per creare i set di validazione.
-        """
-        if not self.tokenized_sentences:
-            raise ValueError("Tokenized sentences are empty. Cannot split data.")
 
-        self.train_sentences, self.test_sentences = train_test_split(
-            self.tokenized_sentences, test_size=0.1
-        )
+    def split_ab(self) -> None:
+        """
+        Divide gli anonymous block in set di addestramento, validazione e test
+        """
+        if not self.ab:
+            raise ValueError("AB set empty. Cannot split data.")
+
+        self.train_ab, self.test_ab = train_test_split(self.ab, test_size=0.1)
 
         self.kfold = KFold(n_splits=5, shuffle=False)
 
-    def train_lm(self, gamma, train_sentences) -> None:
+    def train_lm(self) -> None:
         """
-        Addestra il modello sulle frasi di addestramento.
+        Addestra il modello sulle frasi di addestramento prelevate dall'insieme train_ab.
+        Le frasi subiscono un controllo per rimuovere token non validi nella fase di addestramento.
         """
-        train_ngrams, vocab = padded_everygram_pipeline(order=3, text=train_sentences)
-        self.lm = Lidstone(order=3, gamma=gamma)
-        self.lm.fit(train_ngrams, vocab)
 
+        invalid_token_pattern = re.compile(r"(<|>|]|\[|g|a|p)")
+        train_sentences = []
+
+        for obj in self.train_ab:
+            if obj["training_text"] and obj["language"] == "grc":
+                train_sentences.extend(
+                    [
+                        list(
+                            pad_both_ends(
+                                [
+                                    token
+                                    for token in obj["training_text"]
+                                    if not invalid_token_pattern.search(token)
+                                ],
+                                n=2,
+                            )
+                        )
+                    ]
+                )
+
+        train_ngrams, vocab = padded_everygram_pipeline(order=3, text=train_sentences)
+        self.lm.fit(train_ngrams, vocab)
+        
     def select_best_lm(self):
         """
         Seleziona il miglior modello utilizzando Kfold e ottimizza il parametro gamma.
@@ -121,13 +120,13 @@ class TrigramModel:
         self.lm = best_lm
         print(f"Best model selected with better perplexity: {best_perplexity}")
         """
-        self.train_lm(1, self.train_sentences)
+        self.train_lm()
         self.save_lm()
 
     def pipeline_train(self) -> None:
-        self.tokenize()
+        self.get_ab()
         print("Tokenization complete. Starting data split...")
-        self.split_data()
+        self.split_ab()
         print("Data split complete. Starting model selection...")
         self.select_best_lm()
 
@@ -139,7 +138,7 @@ class TrigramModel:
             model_path (str): Percorso per salvare il modello.
         """
         with open(model_path, "wb") as f:
-            pickle.dump(self.lm, f)
+            pickle.dump(self, f)
             print("Language model saved.")
 
     def load_lm(self, model_path="trigram_lm.pkl") -> None:
@@ -150,7 +149,8 @@ class TrigramModel:
             model_path (str): Percorso da cui caricare il modello.
         """
         with open(model_path, "rb") as f:
-            self.lm = pickle.load(f)
+            model = pickle.load(f)
+            self.__dict__.update(model.__dict__) 
             print("Language model loaded.")
 
     def generate_words(self, context, num_words):
@@ -170,8 +170,27 @@ class TrigramModel:
         Returns:
             float: Perplessità.
         """
+        invalid_token_pattern = re.compile(r"(<|>|]|\[|g|a|p)")
+        test_sentences = []
 
-        test_ngrams = list(padded_everygrams(order=3, sentence=self.test_sentences))
+        for obj in self.test_ab:
+            if obj["training_text"] and obj["language"] == "grc":
+                test_sentences.extend(
+                    [
+                        list(
+                            pad_both_ends(
+                                [
+                                    token
+                                    for token in obj["training_text"]
+                                    if not invalid_token_pattern.search(token)
+                                ],
+                                n=2,
+                            )
+                        )
+                    ]
+                )
+
+        test_ngrams = list(padded_everygrams(order=3, sentence=test_sentences))
 
         if not self.lm.vocab:
             raise ValueError("Il modello non è stato addestrato correttamente.")
@@ -181,6 +200,39 @@ class TrigramModel:
             raise RuntimeError(
                 "Errore nel calcolo della perplessità. Verifica i dati di test e di addestramento."
             )
+            
+    def accuracy(self) -> float:
+        """
+        Calcola l'accuratezza del modello sui casi di test forniti dal test_ab.
+        L'accuratezza viene calcolata come il rapporto tra il numero di predizioni corrette e il numero totale di predizioni sul test set.
+
+        Returns:
+            float: L'accuratezza del modello come numero in virgola mobile.
+        """
+        correct_predictions = 0
+        total_predictions = 0
+
+        for ab in self.test_ab:
+            if ab["language"] == "grc":
+                restored = re.findall(
+                    r"\[([^\]]+)\]", ab["training_text"]
+                )  # restauri dentro il training_text
+                for i, obj in enumerate(ab["test_cases"]):
+                    test_case = obj["test_case"]
+                    lacuna = (
+                        re.search(r"\[([^\]]+)\]", test_case).group(1)
+                        if re.search(r"\[([^\]]+)\]", test_case)
+                        else ""
+                    )
+                    context = test_case.split("[")[0]  # contesto fino alla parola da predire
+                    if self.generate_words(context, len(lacuna)) == restored[i]:
+                        correct_predictions += 1
+
+                    total_predictions += 1
+
+        return correct_predictions / total_predictions
+
+
 
 
 if __name__ == "__main__":
@@ -238,4 +290,5 @@ if __name__ == "__main__":
     elif args.mode == "eval":
         model.load_lm("trigram_lm.pkl")
         print("Perplexity:", model.evaluate())
+        print ("Accuracy:", model.accuracy(), '%')
     
