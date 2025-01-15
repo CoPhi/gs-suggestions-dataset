@@ -14,56 +14,47 @@ class TrigramModel:
         self.nlp = spacy.load(
             "grc_perseus_lg"
         )  # LM per il greco antico: la uso per tokenizzare i testi del dataset
-        self.db = DocBin()  # DocBin per la serializzazione dei documenti
-        self.dataset = []  # Lista di documenti tokenizzati
-        self.train_data = []
-        self.test_data = []
-        self.dev_data = []
+        self.docs = DocBin()  # DocBin per la serializzazione dei documenti
+        
+        def get_abs(self):
+            pass
 
-    def tokenize(self):
-        """
-        Tokenizza il testo presente nei dataset in singoli token usando spaCy.
-        """
+        def split_ab(self) -> None:
+            pass
 
-        for file_path in self.data_path.glob("*.json"):
-            print(f"Processing file: {file_path}")
-            with open(file_path, "r") as f:
-                data = json.load(f)
-                for obj in data:
-                    if obj["language"] == "grc":
-                        #self.dataset.append(self.nlp(obj["training_text"]))
-                        for token in self.nlp(obj["training_text"]): 
-                            print ('token : ', token.text)
-                            
+        def get_train_sentences(self, ab) -> list:
+            pass
 
-        print(self.dataset)
+        def get_test_sentences(self) -> list:
+            pass
 
-    def split_data(self) -> None:
-        """
-        Splits the dataset into training and testing sets.
+        def filter_vocab(self, vocab, min_freq):
+            pass
 
-        This method does not take any parameters and does not return any values.
-        It modifies the dataset attribute of the class instance by splitting it
-        into training and testing subsets.
-        """
+        def train_lm(self, gamma, ab):
+            pass
 
-        if not self.dataset:
-            raise ValueError("Dataset is empty. Cannot split data.")
+        def select_best_lm(self):
+            pass
 
-        self.train_data, temp_data = train_test_split(self.dataset, test_size=0.1)
-        self.dev_data, self.test_data = train_test_split(temp_data, test_size=0.5)
+        def pipeline_train(self) -> None:
+            pass
 
-        for doc in self.train_data:
-            self.db.add(doc)
+        def save_lm(self, model_path="bigram_lm.pkl") -> None:
+            pass
 
-        self.db.to_disk(
-            "./train.spacy"
-        )  # salvo i dati di training in un file binario (.spacy)
+        def load_lm(self, model_path="bigram_lm.pkl") -> None:
+            pass
 
-    def pipeline(self):
-        self.tokenize()
-        self.split_data()
+        def generate_words(self, context, num_words):
+            pass
 
+        def evaluate(self) -> float:
+            pass
+
+        def accuracy(self, abs) -> float:
+            pass
+            
 
 if __name__ == "__main__":
 

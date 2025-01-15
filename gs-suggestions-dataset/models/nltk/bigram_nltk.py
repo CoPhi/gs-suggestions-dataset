@@ -216,10 +216,17 @@ class BigramModel:
 
     def generate_words(self, context, num_words):
         """
-        Genera un numero di parole dato un contesto.
+        Genera parole utilizzando il modello linguistico addestrato.
+
+        Args:
+            context (str): Il contesto per la generazione delle parole.
+            num_words (int): Il numero di parole da generare.
+
+        Returns:
+            list: Una lista di parole generate.
         """
         if not self.lm:
-            raise ValueError("Model not loaded. Cannot generate words.")
+            raise ValueError("Modello non caricato. Impossibile generare parole.")
 
         return self.lm.generate(num_words=num_words, text_seed=list(context))
 
@@ -246,11 +253,13 @@ class BigramModel:
 
     def accuracy(self, abs) -> float:
         """
-        Calcola l'accuratezza del modello sui casi di test forniti dal test_ab.
-        L'accuratezza viene calcolata come il rapporto tra il numero di predizioni corrette e il numero totale di predizioni sul test set.
+        Calcola l'accuratezza del modello sui dati forniti (abs).
+
+        Args:
+            abs (list): Lista di anonymous block per il calcolo dell'accuratezza.
 
         Returns:
-            float: L'accuratezza del modello come numero in virgola mobile.
+            float: Accuratezza del modello.
         """
         correct_predictions = 0
         total_predictions = 0
@@ -272,7 +281,8 @@ class BigramModel:
                     context = test_case.split("[")[
                         0
                     ]  # contesto fino alla parola da predire
-                    if self.generate_words(context, len(lacuna)) == restored[i]:
+                    prediction = self.generate_words(context, len(lacuna))
+                    if  "".join(prediction) == restored[i]:
                         correct_predictions += 1
 
                     total_predictions += 1
