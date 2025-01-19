@@ -4,10 +4,12 @@ import pickle
 import argparse
 import re
 import numpy as np
+import unicodedata
 
 from sklearn.model_selection import train_test_split, KFold
 
 from nltk import ngrams
+from nltk.tokenize import word_tokenize
 from nltk.lm import Vocabulary
 from nltk.lm.models import MLE
 from nltk.lm.preprocessing import (
@@ -54,12 +56,49 @@ class BigramModel:
             n_splits=9, shuffle=True
         )  # uso il 10% del dataset per il dev set
 
+    def contains_lacunae(self, token: str) -> bool:
+
+        if token == ".":
+            return False
+
+        if "." in token and not token.isalpha():
+            return True
+        
+        if re.compile(r"(<|>|]|\[|gap|/)").search(token): 
+            return True
+        
+        return False
+
+    def clean_lacunae(self, token: str) -> str:
+        if "." in token and not token.isalpha():
+            return token.replace(".", "")  # Rimuovo i puntini
+        if re.compile(r"(<|>|]|\[|gap|/)").search(token):
+            return re.sub(r"(<|>|]|\[|gap|/)", "", token)  # Rimuovo i caratteri specificati
+        
+        return token
+        
+    def greek_case_folding(self, text):
+        return unicodedata.normalize("NFC", unicodedata.normalize("NFD", text).lower())
+
+    def clean_text(self, text: str) -> str:
+
+        cleaned_tokens = []
+        for token in word_tokenize(text=self.greek_case_folding(text)):
+            if self.contains_lacunae(token):
+                cleaned_token = self.clean_lacunae(token)
+                cleaned_tokens.append(cleaned_token)
+            else:
+                cleaned_tokens.append(token)
+
+        cleaned_text = " ".join(cleaned_tokens)
+        return cleaned_text
+
     def get_train_sentences(self, ab) -> list:
         """
         Estrae e processa le frasi di addestramento da una lista di blocchi anonimi fornita.
 
         Questo metodo filtra e processa il 'training_text' da ciascun oggetto nella lista di input 'ab'.
-        Include solo i testi in cui la 'language' è 'grc' ed esclude i token che corrispondono al 
+        Include solo i testi in cui la 'language' è 'grc' ed esclude i token che corrispondono al
         pattern dei token non validi. Le frasi risultanti sono imbottite su entrambi i lati con un token di padding.
 
         Args:
@@ -68,7 +107,6 @@ class BigramModel:
         Returns:
             list: Una lista di frasi di addestramento processate e imbottite.
         """
-        invalid_token_pattern = re.compile(r"(<|>|]|\[|g|a|p)")
         train_sentences = []
 
         for obj in ab:
@@ -79,8 +117,7 @@ class BigramModel:
                             pad_both_ends(
                                 [
                                     token
-                                    for token in obj["training_text"]
-                                    if not invalid_token_pattern.search(token)
+                                    for token in word_tokenize(self.clean_text(obj["training_text"]))
                                 ],
                                 n=2,
                             )
@@ -93,16 +130,15 @@ class BigramModel:
         """
         Estrae e processa le frasi di test dall'insieme dei blocchi anonimi di test test_ab.
 
-        Questo metodo filtra e processa il testo di addestramento dagli oggetti 
-        nell'attributo test_ab dove la lingua è "grc". Rimuove i token che corrispondono 
-        al pattern invalid_token_pattern e aggiunge padding alle frasi su entrambi i lati 
+        Questo metodo filtra e processa il testo di addestramento dagli oggetti
+        nell'attributo test_ab dove la lingua è "grc". Rimuove i token che corrispondono
+        al pattern invalid_token_pattern e aggiunge padding alle frasi su entrambi i lati
         con un numero specificato di token di padding.
 
         Returns:
-            list: Una lista di frasi di test processate, dove ogni frase è una lista 
+            list: Una lista di frasi di test processate, dove ogni frase è una lista
             di token con padding su entrambi i lati.
         """
-        invalid_token_pattern = re.compile(r"(<|>|]|\[|g|a|p)")
         test_sentences = []
 
         for obj in self.test_ab:
@@ -113,8 +149,7 @@ class BigramModel:
                             pad_both_ends(
                                 [
                                     token
-                                    for token in obj["training_text"]
-                                    if not invalid_token_pattern.search(token)
+                                    for token in word_tokenize(self.clean_text(obj["training_text"]))
                                 ],
                                 n=2,
                             )
@@ -148,7 +183,7 @@ class BigramModel:
         train_ngrams, vocab = padded_everygram_pipeline(
             order=2, text=self.get_train_sentences(ab)
         )
-        self.lm.fit(train_ngrams, self.filter_vocab(Vocabulary(vocab), min_freq=2))
+        self.lm.fit(train_ngrams, vocab)
 
     def select_best_lm(self):
         """
@@ -215,9 +250,10 @@ class BigramModel:
     def generate_words(self, context, num_words):
         """
         Genera parole utilizzando il modello linguistico addestrato.
+        Prende l'ultima parola del contesto per generare la parola prossima 
 
         Args:
-            context (str): Il contesto per la generazione delle parole.
+            context (str): Il contesto per la generazione delle parole (Iterabile di stringhe).
             num_words (int): Il numero di parole da generare.
 
         Returns:
@@ -226,7 +262,7 @@ class BigramModel:
         if not self.lm:
             raise ValueError("Modello non caricato. Impossibile generare parole.")
 
-        return self.lm.generate(num_words=num_words, text_seed=list(context))
+        return self.lm.generate(num_words=num_words, text_seed=list(context)) #modificare in context[-1] (ultima parola)
 
     def evaluate(self) -> float:
         """
@@ -271,19 +307,40 @@ class BigramModel:
                     continue
                 for i, obj in enumerate(ab["test_cases"]):
                     test_case = obj["test_case"]
+                    """
                     lacuna = (
                         re.search(r"\[([^\]]+)\]", test_case).group(1)
                         if re.search(r"\[([^\]]+)\]", test_case)
                         else ""
-                    )
+                    )"""
                     context = test_case.split("[")[
                         0
-                    ]  # contesto fino alla parola da predire
-                    prediction = self.generate_words(context, len(lacuna))
-                    if  "".join(prediction) == restored[i]:
-                        correct_predictions += 1
-
+                    ]
+                    
+                    if len([e for e in restored[i].split(' ') if e != '']) == 1:    
+                        cleaned_context = [e for e in self.clean_text(context).split(' ') if e != '']
+                        seed = cleaned_context[-1] if cleaned_context else None  # prendo l'ultima parola
+                        if seed:     
+                            token = self.lm.generate(text_seed=seed, num_words=1)
+                            if token == restored[i]:
+                                correct_predictions += 1
+                    else:  
+                        prediction = []
+                        cleaned_context = [e for e in self.clean_text(context).split(' ') if e != '']
+                        seed = cleaned_context[-1] if cleaned_context else None  # prendo l'ultima parola
+                        if seed:     
+                            for _ in range(len([e for e in restored[i].split(' ') if e != ''])): 
+                                token = self.lm.generate(text_seed=seed, num_words=1)
+                                seed = token
+                                prediction.append(token) 
+                                 
+                        if prediction == restored[i]:
+                            correct_predictions += 1
+                        
                     total_predictions += 1
+                    
+                print (correct_predictions, '/', total_predictions)
+                
 
         return correct_predictions / total_predictions
 

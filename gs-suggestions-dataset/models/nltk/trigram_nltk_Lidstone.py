@@ -65,7 +65,7 @@ class TrigramModel:
         Returns:
             list: Una lista di frasi di addestramento processate e imbottite.
         """
-        invalid_token_pattern = re.compile(r"(<|>|]|\[|gap)")
+        invalid_token_pattern = re.compile(r"[<>[\]gap\b]")
         train_sentences = []
 
         for obj in ab:
@@ -100,7 +100,7 @@ class TrigramModel:
             list: Una lista di frasi di test processate, dove ogni frase è una lista 
             di token con padding su entrambi i lati.
         """
-        invalid_token_pattern = re.compile(r"(<|>|]|\[|gap)")
+        invalid_token_pattern = re.compile(r"[<>[\]gap\b]")
         test_sentences = []
 
         for obj in self.test_ab:
@@ -177,6 +177,7 @@ class TrigramModel:
 
         self.lm = best_lm
         print(f"Best model selected with better accuracy: {best_accuracy}")
+        print ("Model gamma: ", best_lm.gamma)
 
         self.save_lm()
 

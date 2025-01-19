@@ -4,9 +4,11 @@ import pickle
 import argparse
 import re
 import numpy as np
+import unicodedata
 
 from sklearn.model_selection import train_test_split, KFold
 
+from nltk.tokenize import word_tokenize
 from nltk.util import ngrams
 from nltk.lm import Vocabulary
 from nltk.lm.models import Lidstone
@@ -14,6 +16,7 @@ from nltk.lm.preprocessing import (
     padded_everygram_pipeline,
     pad_both_ends,
     padded_everygrams,
+    flatten,
 )
 
 
@@ -52,13 +55,46 @@ class BigramModel:
         self.kfold = KFold(
             n_splits=9, shuffle=True
         )  # uso il 10% del dataset per il dev set
+        
+    def contains_lacunae(self, token: str) -> bool: 
+    
+        if token == '.': 
+            return False
+    
+        if "." in token and not token.isalpha():
+        # Identifica sequenze di puntini come lacune
+        # Se c'è una parte vuota (o solo puntini), considerala lacuna
+            return True
+        return False   
+
+    def clean_lacunae(self, token: str) -> str:
+        # Rimuovi i puntini
+        return token.replace('.', '')
+    
+    def greek_case_folding(self, text):
+        return unicodedata.normalize("NFC",  unicodedata.normalize("NFD", text).lower())
+
+    def clean_text(self, text: str) -> str:
+        
+        cleaned_tokens = []
+        for token in word_tokenize(text=self.greek_case_folding(text)):
+            if self.contains_lacunae(token):
+                cleaned_token = self.clean_lacunae(token)
+                cleaned_tokens.append(cleaned_token)
+            else:
+                cleaned_tokens.append(token)
+        
+        cleaned_text = ' '.join(cleaned_tokens)
+        return cleaned_text
+    
+    
 
     def get_train_sentences(self, ab) -> list:
         """
         Estrae e processa le frasi di addestramento da una lista di blocchi anonimi fornita.
 
         Questo metodo filtra e processa il 'training_text' da ciascun oggetto nella lista di input 'ab'.
-        Include solo i testi in cui la 'language' è 'grc' ed esclude i token che corrispondono al 
+        Include solo i testi in cui la 'language' è 'grc' ed esclude i token che corrispondono al
         pattern dei token non validi. Le frasi risultanti sono imbottite su entrambi i lati con un token di padding.
 
         Args:
@@ -67,7 +103,7 @@ class BigramModel:
         Returns:
             list: Una lista di frasi di addestramento processate e imbottite.
         """
-        invalid_token_pattern = re.compile(r"(<|>|]|\[|g|a|p)")
+        invalid_token_pattern = re.compile(r"[<>[\]gap\b]")
         train_sentences = []
 
         for obj in ab:
@@ -78,7 +114,7 @@ class BigramModel:
                             pad_both_ends(
                                 [
                                     token
-                                    for token in obj["training_text"]
+                                    for token in word_tokenize(self.clean_text(obj["training_text"]))
                                     if not invalid_token_pattern.search(token)
                                 ],
                                 n=2,
@@ -92,16 +128,16 @@ class BigramModel:
         """
         Estrae e processa le frasi di test dall'insieme dei blocchi anonimi di test test_ab.
 
-        Questo metodo filtra e processa il testo di addestramento dagli oggetti 
-        nell'attributo test_ab dove la lingua è "grc". Rimuove i token che corrispondono 
-        al pattern invalid_token_pattern e aggiunge padding alle frasi su entrambi i lati 
+        Questo metodo filtra e processa il testo di addestramento dagli oggetti
+        nell'attributo test_ab dove la lingua è "grc". Rimuove i token che corrispondono
+        al pattern invalid_token_pattern e aggiunge padding alle frasi su entrambi i lati
         con un numero specificato di token di padding.
 
         Returns:
-            list: Una lista di frasi di test processate, dove ogni frase è una lista 
+            list: Una lista di frasi di test processate, dove ogni frase è una lista
             di token con padding su entrambi i lati.
         """
-        invalid_token_pattern = re.compile(r"(<|>|]|\[|g|a|p)")
+        invalid_token_pattern = re.compile(r"[<>[\]gap\b]")
         test_sentences = []
 
         for obj in self.test_ab:
@@ -112,7 +148,7 @@ class BigramModel:
                             pad_both_ends(
                                 [
                                     token
-                                    for token in obj["training_text"]
+                                    for token in word_tokenize(self.clean_text(obj["training_text"]))
                                     if not invalid_token_pattern.search(token)
                                 ],
                                 n=2,
@@ -148,7 +184,7 @@ class BigramModel:
         train_ngrams, vocab = padded_everygram_pipeline(
             order=2, text=self.get_train_sentences(ab)
         )
-        self.lm.fit(train_ngrams, self.filter_vocab(Vocabulary(vocab), min_freq=2))
+        self.lm.fit(train_ngrams, vocab)
 
     def select_best_lm(self):
         """
@@ -182,6 +218,7 @@ class BigramModel:
 
         self.lm = best_lm
         print(f"Best model selected with better accuracy: {best_accuracy}")
+        print ("Model gamma: ", best_lm.gamma)
 
         self.save_lm()
 
@@ -242,11 +279,13 @@ class BigramModel:
         test_ngrams = []
         for sentence in self.get_test_sentences():
             test_ngrams.append(list(ngrams(sentence, 2)))
+            
+        print (test_ngrams)
 
         if not self.lm.vocab:
             raise ValueError("Il modello non è stato addestrato correttamente.")
         try:
-            return self.lm.perplexity(test_ngrams)
+            return self.lm.perplexity(list(flatten(test_ngrams)))
         except ZeroDivisionError:
             raise RuntimeError(
                 "Errore nel calcolo della perplessità. Verifica i dati di test e di addestramento."
@@ -279,11 +318,12 @@ class BigramModel:
                         if re.search(r"\[([^\]]+)\]", test_case)
                         else ""
                     )
+                    print (lacuna)
                     context = test_case.split("[")[
                         0
                     ]  # contesto fino alla parola da predire
-                    prediction = self.generate_words(context, len(lacuna))
-                    if  "".join(prediction) == restored[i]:
+                    prediction = self.generate_words(context, 1)
+                    if "".join(prediction) == restored[i]:
                         correct_predictions += 1
 
                     total_predictions += 1
