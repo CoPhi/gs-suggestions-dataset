@@ -27,7 +27,7 @@ class TrigramModel:
             data_path (str): Percorso alla cartella contenente i file JSON.
         """
         self.data_path = Path(data_path)
-        self.ab = None  # insieme degli Anonymous Block "ab" (oggetti MAAT)
+        self.ab = []  # insieme degli Anonymous Block "ab" (oggetti MAAT)
         self.train_ab = None
         self.test_ab = None
 
@@ -40,7 +40,7 @@ class TrigramModel:
             print(f"Processing file: {file_path}")
             with open(file_path, "r") as f:
                 data = json.load(f)
-                self.ab = tuple([obj for obj in data])
+                self.ab.extend([obj for obj in data])
 
     def split_ab(self) -> None:
         """
@@ -53,6 +53,15 @@ class TrigramModel:
         self.kfold = KFold(n_splits=5, shuffle=False)
 
     def contains_lacunae(self, token: str) -> bool:
+        """
+        Verifica se un dato token contiene lacune (gap o parti mancanti).
+
+        Args:
+            token (str): Il token da verificare.
+
+        Returns:
+            bool: True se il token contiene lacune, False altrimenti.
+        """
 
         if token == ".":
             return False
@@ -66,6 +75,25 @@ class TrigramModel:
         return False
 
     def clean_lacunae(self, token: str) -> str:
+        """
+        Pulisce il token dato rimuovendo specifici caratteri indesiderati.
+
+        Args:
+            token (str): Il token da pulire.
+
+        Returns:
+            str: Il token pulito.
+
+        La funzione esegue i seguenti passaggi di pulizia:
+        1. Se il token contiene un punto (.) e non è interamente alfabetico, rimuove tutti i punti.
+        2. Se il token contiene uno qualsiasi dei caratteri '<', '>', ']', '[', 'gap', o '/', li rimuove.
+
+        Esempi:
+            >>> clean_lacunae("γέ.δουσιν")
+            'γέδουσιν'
+            >>> clean_lacunae("<")
+            ''
+        """
         if "." in token and not token.isalpha():
             return token.replace(".", "")  # Rimuovo i puntini
         if re.compile(r"(<|>|]|\[|gap|/)").search(token):
@@ -76,9 +104,30 @@ class TrigramModel:
         return token
 
     def greek_case_folding(self, text):
+        """
+        Esegue il case folding per il greco sul testo di input.
+
+        Questa funzione normalizza il testo di input utilizzando la Form C di Normalizzazione Unicode (NFC)
+        dopo averlo convertito in minuscolo utilizzando la Form D di Normalizzazione Unicode (NFD).
+
+        Args:
+            text (str): Il testo di input da normalizzare.
+
+        Returns:
+            str: Il testo normalizzato.
+        """
         return unicodedata.normalize("NFC", unicodedata.normalize("NFD", text).lower())
 
     def clean_text(self, text: str) -> str:
+        """
+        Pulisce il testo di input eseguendo il case folding per il greco, la tokenizzazione e la gestione delle lacune.
+
+        Args:
+            text (str): Il testo di input da pulire.
+
+        Returns:
+            str: Il testo pulito con i token uniti da spazi.
+        """
 
         cleaned_tokens = []
         for token in word_tokenize(text=self.greek_case_folding(text)):
@@ -105,7 +154,6 @@ class TrigramModel:
         Returns:
             list: Una lista di frasi di addestramento processate e imbottite.
         """
-        invalid_token_pattern = re.compile(r"[<>[\]gap\b]")
         train_sentences = []
 
         for obj in ab:
@@ -141,7 +189,6 @@ class TrigramModel:
             list: Una lista di frasi di test processate, dove ogni frase è una lista
             di token con padding su entrambi i lati.
         """
-        invalid_token_pattern = re.compile(r"[<>[\]gap\b]")
         test_sentences = []
 
         for obj in self.test_ab:

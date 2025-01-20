@@ -15,7 +15,6 @@ from nltk.lm.models import Lidstone
 from nltk.lm.preprocessing import (
     padded_everygram_pipeline,
     pad_both_ends,
-    padded_everygrams,
     flatten,
 )
 
@@ -29,7 +28,7 @@ class BigramModel:
             data_path (str): Percorso alla cartella contenente i file JSON.
         """
         self.data_path = Path(data_path)
-        self.ab = None  # insieme degli Anonymous Block "ab" (oggetti MAAT)
+        self.ab = []  # insieme degli Anonymous Block "ab" (oggetti MAAT)
         self.train_ab = None
         self.test_ab = None
 
@@ -42,7 +41,7 @@ class BigramModel:
             print(f"Processing file: {file_path}")
             with open(file_path, "r") as f:
                 data = json.load(f)
-                self.ab = tuple([obj for obj in data])
+                self.ab.extend([obj for obj in data])
 
     def split_ab(self) -> None:
         """
@@ -50,18 +49,26 @@ class BigramModel:
         """
         if not self.ab:
             raise ValueError("AB set empty. Cannot split data.")
-
-        self.train_ab, self.test_ab = train_test_split(self.ab, test_size=0.1)
+        self.train_ab, self.test_ab = train_test_split(self.ab, test_size=0.1, random_state=42)
         self.kfold = KFold(
             n_splits=9, shuffle=True
         )  # uso il 10% del dataset per il dev set
 
     def contains_lacunae(self, token: str) -> bool:
+        """
+        Verifica se un dato token contiene lacune (gap o parti mancanti).
+
+        Args:
+            token (str): Il token da verificare.
+
+        Returns:
+            bool: True se il token contiene lacune, False altrimenti.
+        """
 
         if token == ".":
             return False
 
-        if "." in token and not token.isalpha():
+        if "." in token and not token.isalpha(): 
             return True
 
         if re.compile(r"(<|>|]|\[|gap|/)").search(token):
@@ -70,6 +77,25 @@ class BigramModel:
         return False
 
     def clean_lacunae(self, token: str) -> str:
+        """
+        Pulisce il token dato rimuovendo specifici caratteri indesiderati.
+
+        Args:
+            token (str): Il token da pulire.
+
+        Returns:
+            str: Il token pulito.
+
+        La funzione esegue i seguenti passaggi di pulizia:
+        1. Se il token contiene un punto (.) e non è interamente alfabetico, rimuove tutti i punti.
+        2. Se il token contiene uno qualsiasi dei caratteri '<', '>', ']', '[', 'gap', o '/', li rimuove.
+
+        Esempi:
+            >>> clean_lacunae("γέ.δουσιν")
+            'γέδουσιν'
+            >>> clean_lacunae("<")
+            ''
+        """
         if "." in token and not token.isalpha():
             return token.replace(".", "")  # Rimuovo i puntini
         if re.compile(r"(<|>|]|\[|gap|/)").search(token):
@@ -80,9 +106,30 @@ class BigramModel:
         return token
 
     def greek_case_folding(self, text):
+        """
+        Esegue il case folding per il greco sul testo di input.
+
+        Questa funzione normalizza il testo di input utilizzando la Form C di Normalizzazione Unicode (NFC)
+        dopo averlo convertito in minuscolo utilizzando la Form D di Normalizzazione Unicode (NFD).
+
+        Args:
+            text (str): Il testo di input da normalizzare.
+
+        Returns:
+            str: Il testo normalizzato.
+        """
         return unicodedata.normalize("NFC", unicodedata.normalize("NFD", text).lower())
 
     def clean_text(self, text: str) -> str:
+        """
+        Pulisce il testo di input eseguendo il case folding per il greco, la tokenizzazione e la gestione delle lacune.
+
+        Args:
+            text (str): Il testo di input da pulire.
+
+        Returns:
+            str: Il testo pulito con i token uniti da spazi.
+        """
 
         cleaned_tokens = []
         for token in word_tokenize(text=self.greek_case_folding(text)):
@@ -271,26 +318,40 @@ class BigramModel:
         Returns:
             list: Una lista di parole generate.
         """
-        if not self.lm:
+        if self.lm is None:
             raise ValueError("Modello non caricato. Impossibile generare parole.")
 
         return self.lm.generate(
-            num_words=num_words, text_seed=list(context)
-        )  # modificare in context[-1] (ultima parola)
+            num_words=num_words, text_seed=[context[-1]]
+        )  #ultima parola
 
     def evaluate(self) -> float:
         """
         Funzione di valutazione del modello.
-        Calcola la perplessità su dei dati di valutazione o sul test set.
+        Calcola la perplessità sul test set.
 
         Returns:
             float: Perplessità.
         """
+        if not hasattr(self, 'lm') or self.lm is None:
+            raise ValueError("Modello non caricato. Impossibile effettuare la valutazione.")
+
         test_ngrams = []
         for sentence in self.get_test_sentences():
-            test_ngrams.append(list(ngrams(sentence, 2, pad_left=True, pad_right=True, left_pad_symbol='<s>', right_pad_symbol='</s>')))
+            test_ngrams.append(
+                list(
+                    ngrams(
+                        sentence,
+                        2,
+                        pad_left=True,
+                        pad_right=True,
+                        left_pad_symbol="<s>",
+                        right_pad_symbol="</s>",
+                    )
+                )
+            )
 
-        if not self.lm.vocab:
+        if not self.lm.vocab or self.lm.vocab is None:
             raise ValueError("Il modello non è stato addestrato correttamente.")
         try:
             return self.lm.perplexity(list(flatten(test_ngrams)))
@@ -360,7 +421,7 @@ class BigramModel:
                                 seed = token
                                 prediction.append(token)
 
-                        if " ".join(prediction) == restored[i]:
+                        if " ".join(prediction).strip() == restored[i].strip():
                             correct_predictions += 1
 
                     total_predictions += 1
