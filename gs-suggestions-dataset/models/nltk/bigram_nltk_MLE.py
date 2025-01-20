@@ -63,20 +63,22 @@ class BigramModel:
 
         if "." in token and not token.isalpha():
             return True
-        
-        if re.compile(r"(<|>|]|\[|gap|/)").search(token): 
+
+        if re.compile(r"(<|>|]|\[|gap|/)").search(token):
             return True
-        
+
         return False
 
     def clean_lacunae(self, token: str) -> str:
         if "." in token and not token.isalpha():
             return token.replace(".", "")  # Rimuovo i puntini
         if re.compile(r"(<|>|]|\[|gap|/)").search(token):
-            return re.sub(r"(<|>|]|\[|gap|/)", "", token)  # Rimuovo i caratteri specificati
-        
+            return re.sub(
+                r"(<|>|]|\[|gap|/)", "", token
+            )  # Rimuovo i caratteri specificati
+
         return token
-        
+
     def greek_case_folding(self, text):
         return unicodedata.normalize("NFC", unicodedata.normalize("NFD", text).lower())
 
@@ -117,7 +119,9 @@ class BigramModel:
                             pad_both_ends(
                                 [
                                     token
-                                    for token in word_tokenize(self.clean_text(obj["training_text"]))
+                                    for token in word_tokenize(
+                                        self.clean_text(obj["training_text"])
+                                    )
                                 ],
                                 n=2,
                             )
@@ -149,7 +153,9 @@ class BigramModel:
                             pad_both_ends(
                                 [
                                     token
-                                    for token in word_tokenize(self.clean_text(obj["training_text"]))
+                                    for token in word_tokenize(
+                                        self.clean_text(obj["training_text"])
+                                    )
                                 ],
                                 n=2,
                             )
@@ -250,7 +256,7 @@ class BigramModel:
     def generate_words(self, context, num_words):
         """
         Genera parole utilizzando il modello linguistico addestrato.
-        Prende l'ultima parola del contesto per generare la parola prossima 
+        Prende l'ultima parola del contesto per generare la parola prossima
 
         Args:
             context (str): Il contesto per la generazione delle parole (Iterabile di stringhe).
@@ -262,7 +268,9 @@ class BigramModel:
         if not self.lm:
             raise ValueError("Modello non caricato. Impossibile generare parole.")
 
-        return self.lm.generate(num_words=num_words, text_seed=list(context)) #modificare in context[-1] (ultima parola)
+        return self.lm.generate(
+            num_words=num_words, text_seed=list(context)
+        )  # modificare in context[-1] (ultima parola)
 
     def evaluate(self) -> float:
         """
@@ -274,7 +282,7 @@ class BigramModel:
         """
         test_ngrams = []
         for sentence in self.get_test_sentences():
-            test_ngrams.append(list(ngrams(sentence, 2)))
+            test_ngrams.append(list(ngrams(sentence, 2, pad_left=True, pad_right=True, left_pad_symbol='<s>', right_pad_symbol='</s>')))
 
         if not self.lm.vocab:
             raise ValueError("Il modello non è stato addestrato correttamente.")
@@ -313,34 +321,41 @@ class BigramModel:
                         if re.search(r"\[([^\]]+)\]", test_case)
                         else ""
                     )"""
-                    context = test_case.split("[")[
-                        0
-                    ]
-                    
-                    if len([e for e in restored[i].split(' ') if e != '']) == 1:    
-                        cleaned_context = [e for e in self.clean_text(context).split(' ') if e != '']
-                        seed = cleaned_context[-1] if cleaned_context else None  # prendo l'ultima parola
-                        if seed:     
+                    context = test_case.split("[")[0]
+
+                    if len([e for e in restored[i].split(" ") if e != ""]) == 1:
+                        # Una sola parola da predire
+                        cleaned_context = [
+                            e for e in self.clean_text(context).split(" ") if e != ""
+                        ]
+                        seed = (
+                            cleaned_context[-1] if cleaned_context else None
+                        )  # prendo l'ultima parola
+                        if seed:
                             token = self.lm.generate(text_seed=seed, num_words=1)
-                            if token == restored[i]:
+                            if token == self.greek_case_folding(restored[i]):
                                 correct_predictions += 1
-                    else:  
+                    else:
+                        # più parole da predire
                         prediction = []
-                        cleaned_context = [e for e in self.clean_text(context).split(' ') if e != '']
-                        seed = cleaned_context[-1] if cleaned_context else None  # prendo l'ultima parola
-                        if seed:     
-                            for _ in range(len([e for e in restored[i].split(' ') if e != ''])): 
+                        cleaned_context = [
+                            e for e in self.clean_text(context).split(" ") if e != ""
+                        ]
+                        seed = (
+                            cleaned_context[-1] if cleaned_context else None
+                        )  # prendo l'ultima parola
+                        if seed:
+                            for _ in range(
+                                len([e for e in restored[i].split(" ") if e != ""])
+                            ):
                                 token = self.lm.generate(text_seed=seed, num_words=1)
                                 seed = token
-                                prediction.append(token) 
-                                 
-                        if prediction == restored[i]:
+                                prediction.append(token)
+
+                        if " ".join(prediction) == self.greek_case_folding(restored[i]):
                             correct_predictions += 1
-                        
+
                     total_predictions += 1
-                    
-                print (correct_predictions, '/', total_predictions)
-                
 
         return correct_predictions / total_predictions
 
