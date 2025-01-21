@@ -1,21 +1,19 @@
 from pathlib import Path
 import json
-import pickle
+import joblib
 import argparse
 import re
-import numpy as np
 import unicodedata
 
 from sklearn.model_selection import train_test_split, KFold
-
 from nltk.tokenize import word_tokenize
 from nltk.util import ngrams
 from nltk.lm import Vocabulary
+from collections import Counter
 from nltk.lm.models import Lidstone
 from nltk.lm.preprocessing import (
     padded_everygram_pipeline,
     pad_both_ends,
-    flatten,
 )
 
 
@@ -49,7 +47,9 @@ class BigramModel:
         """
         if not self.ab:
             raise ValueError("AB set empty. Cannot split data.")
-        self.train_ab, self.test_ab = train_test_split(self.ab, test_size=0.1, random_state=42)
+        self.train_ab, self.test_ab = train_test_split(
+            self.ab, test_size=0.1, random_state=42
+        )
         self.kfold = KFold(
             n_splits=9, shuffle=True
         )  # uso il 10% del dataset per il dev set
@@ -68,7 +68,7 @@ class BigramModel:
         if token == ".":
             return False
 
-        if "." in token and not token.isalpha(): 
+        if "." in token and not token.isalpha():
             return True
 
         if re.compile(r"(<|>|]|\[|gap|/)").search(token):
@@ -211,7 +211,7 @@ class BigramModel:
                 )
         return test_sentences
 
-    def filter_vocab(self, vocab, min_freq):
+    def filter_vocab(self, vocab_tokens, min_freq):
         """
         Filtra il vocabolario rimuovendo i token con frequenza inferiore a min_freq.
 
@@ -222,7 +222,10 @@ class BigramModel:
         Returns:
             Vocabulary: Il vocabolario filtrato.
         """
-        return Vocabulary(vocab.counts, unk_cutoff=min_freq)
+        token_counts = Counter(vocab_tokens)
+        return Vocabulary(
+            [token for token, freq in token_counts.items() if freq >= min_freq]
+        )
 
     def train_lm(self, gamma, ab):
         """
@@ -234,10 +237,10 @@ class BigramModel:
             ab (list): L'insieme di anonymous block per l'addestramento.
         """
         self.lm = Lidstone(order=2, gamma=gamma)
-        train_ngrams, vocab = padded_everygram_pipeline(
+        train_ngrams, vocab_tokens = padded_everygram_pipeline(
             order=2, text=self.get_train_sentences(ab)
         )
-        self.lm.fit(train_ngrams, vocab)
+        self.lm.fit(train_ngrams, self.filter_vocab(vocab_tokens, min_freq=2))
 
     def select_best_lm(self):
         """
@@ -282,20 +285,24 @@ class BigramModel:
         print("Tokenization complete. Starting data split...")
         self.split_ab()
         print("Data split complete. Starting model selection...")
-        self.select_best_lm()
+        # self.select_best_lm()
+        self.train_lm(gamma=1000, ab=self.train_ab)
+        self.save_lm()
 
-    def save_lm(self, model_path="bigram_lm_Lidstone.pkl") -> None:
+    def save_lm(self, model_path="bigram_lm_Lidstone.joblib") -> None:
         """
         Salva il modello linguistico su disco.
 
         Args:
             model_path (str): Percorso per salvare il modello.
         """
+        self.train_ab = None
+        self.ab = None
         with open(model_path, "wb") as f:
-            pickle.dump(self, f)
+            joblib.dump(self, f, compress=3)
             print("Language model saved.")
 
-    def load_lm(self, model_path="bigram_lm_Lidstone.pkl") -> None:
+    def load_lm(self, model_path="bigram_lm_Lidstone.joblib") -> None:
         """
         Carica solo il modello linguistico da disco.
 
@@ -303,7 +310,7 @@ class BigramModel:
             model_path (str): Percorso da cui caricare il modello.
         """
         with open(model_path, "rb") as f:
-            model = pickle.load(f)
+            model = joblib.load(f)
             self.__dict__.update(model.__dict__)
             print("Language model loaded.")
 
@@ -323,7 +330,7 @@ class BigramModel:
 
         return self.lm.generate(
             num_words=num_words, text_seed=[context[-1]]
-        )  #ultima parola
+        )  # ultima parola
 
     def evaluate(self) -> float:
         """
@@ -333,12 +340,14 @@ class BigramModel:
         Returns:
             float: Perplessità.
         """
-        if not hasattr(self, 'lm') or self.lm is None:
-            raise ValueError("Modello non caricato. Impossibile effettuare la valutazione.")
+        if not hasattr(self, "lm") or self.lm is None:
+            raise ValueError(
+                "Modello non caricato. Impossibile effettuare la valutazione."
+            )
 
         test_ngrams = []
         for sentence in self.get_test_sentences():
-            test_ngrams.append(
+            test_ngrams.extend(
                 list(
                     ngrams(
                         sentence,
@@ -351,10 +360,12 @@ class BigramModel:
                 )
             )
 
+        print(test_ngrams)
+
         if not self.lm.vocab or self.lm.vocab is None:
             raise ValueError("Il modello non è stato addestrato correttamente.")
         try:
-            return self.lm.perplexity(list(flatten(test_ngrams)))
+            return self.lm.perplexity(test_ngrams)
         except ZeroDivisionError:
             raise RuntimeError(
                 "Errore nel calcolo della perplessità. Verifica i dati di test e di addestramento."
@@ -401,8 +412,11 @@ class BigramModel:
                             cleaned_context[-1] if cleaned_context else None
                         )  # prendo l'ultima parola
                         if seed:
-                            token = self.lm.generate(text_seed=seed, num_words=1)
-                            if token == restored[i]:
+                            token = self.lm.generate(text_seed=[seed], num_words=1)
+
+                            print(token)
+                            print(self.greek_case_folding(restored[i]))
+                            if token == self.greek_case_folding(restored[i]):
                                 correct_predictions += 1
                     else:
                         # più parole da predire
@@ -417,14 +431,18 @@ class BigramModel:
                             for _ in range(
                                 len([e for e in restored[i].split(" ") if e != ""])
                             ):
-                                token = self.lm.generate(text_seed=seed, num_words=1)
+                                token = self.lm.generate(text_seed=[seed], num_words=1)
                                 seed = token
                                 prediction.append(token)
 
-                        if " ".join(prediction).strip() == restored[i].strip():
+                        print(" ".join(prediction))
+                        print(self.greek_case_folding(restored[i]))
+
+                        if " ".join(prediction) == self.greek_case_folding(restored[i]):
                             correct_predictions += 1
 
                     total_predictions += 1
+                    print(correct_predictions, "/", total_predictions)
 
         return correct_predictions / total_predictions
 
@@ -474,7 +492,7 @@ if __name__ == "__main__":
     if args.mode == "train":
         model.pipeline_train()
     elif args.mode == "infer":
-        model.load_lm("bigram_lm_Lidstone.pkl")
+        model.load_lm("bigram_lm_Lidstone.joblib")
         if args.context and args.num_words:
             context = args.context.split()
             generated_words = model.generate_words(context, args.num_words)
@@ -482,6 +500,6 @@ if __name__ == "__main__":
         else:
             print("Please provide context and num_words for inference.")
     elif args.mode == "eval":
-        model.load_lm("bigram_lm_Lidstone.pkl")
+        model.load_lm("bigram_lm_Lidstone.joblib")
         print("Perplexity:", model.evaluate())
         print("Accuracy:", model.accuracy(model.test_ab), "%")

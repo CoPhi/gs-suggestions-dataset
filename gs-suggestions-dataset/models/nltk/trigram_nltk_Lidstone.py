@@ -1,12 +1,13 @@
 from pathlib import Path
 import json
-import pickle
+import joblib
 import argparse
 import re
 import unicodedata
 
 from sklearn.model_selection import train_test_split, KFold
 
+from collections import Counter
 from nltk import ngrams
 from nltk.tokenize import word_tokenize
 from nltk.lm.vocabulary import Vocabulary
@@ -14,7 +15,6 @@ from nltk.lm.models import Lidstone
 from nltk.lm.preprocessing import (
     padded_everygram_pipeline,
     pad_both_ends,
-    flatten,
 )
 
 
@@ -210,7 +210,7 @@ class TrigramModel:
                 )
         return test_sentences
 
-    def filter_vocab(self, vocab, min_freq):
+    def filter_vocab(self, vocab_tokens, min_freq):
         """
         Filtra il vocabolario rimuovendo i token con frequenza inferiore a min_freq.
 
@@ -221,7 +221,10 @@ class TrigramModel:
         Returns:
             Vocabulary: Il vocabolario filtrato.
         """
-        return Vocabulary(vocab.counts, unk_cutoff=min_freq)
+        token_counts = Counter(vocab_tokens)
+        return Vocabulary(
+            [token for token, freq in token_counts.items() if freq >= min_freq]
+        )
 
     def train_lm(self, ab, gamma) -> None:
         """
@@ -229,11 +232,11 @@ class TrigramModel:
         Le frasi subiscono un controllo per rimuovere token non validi nella fase di addestramento.
         """
         self.lm = Lidstone(order=3, gamma=gamma)
-        train_ngrams, vocab = padded_everygram_pipeline(
+        train_ngrams, vocab_tokens = padded_everygram_pipeline(
             order=3, text=self.get_train_sentences(ab)
         )
 
-        self.lm.fit(train_ngrams, self.filter_vocab(Vocabulary(vocab), min_freq=2))
+        self.lm.fit(train_ngrams, self.filter_vocab(vocab_tokens, min_freq=2))
 
     def select_best_lm(self):
         """
@@ -274,7 +277,8 @@ class TrigramModel:
         print("Tokenization complete. Starting data split...")
         self.split_ab()
         print("Data split complete. Starting model selection...")
-        self.select_best_lm()
+        self.train_lm(self.train_ab, gamma=1)
+        self.save_lm()
 
     def save_lm(self, model_path="trigram_lm_Lidstone.pkl") -> None:
         """
@@ -283,9 +287,10 @@ class TrigramModel:
         Args:
             model_path (str): Percorso per salvare il modello.
         """
-        with open(model_path, "wb") as f:
-            pickle.dump(self, f)
-            print("Language model saved.")
+        self.train_ab=None
+        self.ab=None
+        joblib.dump(self, model_path, compress=3)
+        print("Language model saved.")
 
     def load_lm(self, model_path="trigram_lm_Lidstone.pkl") -> None:
         """
@@ -295,7 +300,7 @@ class TrigramModel:
             model_path (str): Percorso da cui caricare il modello.
         """
         with open(model_path, "rb") as f:
-            model = pickle.load(f)
+            model = joblib.load(f)
             self.__dict__.update(model.__dict__)
             print("Language model loaded.")
 
@@ -325,7 +330,7 @@ class TrigramModel:
         """
         test_ngrams = []
         for sentence in self.get_test_sentences():
-            test_ngrams.append(
+            test_ngrams.extend(
                 list(
                     ngrams(
                         sentence,
@@ -341,7 +346,7 @@ class TrigramModel:
         if not self.lm.vocab:
             raise ValueError("Il modello non è stato addestrato correttamente.")
         try:
-            return self.lm.perplexity(list(flatten(test_ngrams)))
+            return self.lm.perplexity(test_ngrams)
         except ZeroDivisionError:
             raise RuntimeError(
                 "Errore nel calcolo della perplessità. Verifica i dati di test e di addestramento."
@@ -410,7 +415,7 @@ class TrigramModel:
                                 len([e for e in restored[i].split(" ") if e != ""])
                             ):
                                 token = self.lm.generate(text_seed=seed, num_words=1)
-                                seed = list(seed[-1:])
+                                seed = seed[-1:]
                                 seed.append(token)
                                 prediction.append(token)
 
@@ -420,6 +425,7 @@ class TrigramModel:
                                 correct_predictions += 1
 
                             total_predictions += 1
+                            print(correct_predictions, "/", total_predictions)
 
         return correct_predictions / total_predictions
 
