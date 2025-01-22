@@ -393,6 +393,7 @@ class BigramModel:
                     continue
                 for i, obj in enumerate(ab["test_cases"]):
                     test_case = obj["test_case"]
+                    alternatives = obj["alternatives"]
                     """
                     lacuna = (
                         re.search(r"\[([^\]]+)\]", test_case).group(1)
@@ -413,10 +414,7 @@ class BigramModel:
                         )  # prendo l'ultima parola
                         if seed:
                             token = self.lm.generate(text_seed=[seed], num_words=1)
-
-                            print(token)
-                            print(self.greek_case_folding(restored[i]))
-                            if token == self.greek_case_folding(restored[i]):
+                            if (token == self.greek_case_folding(restored[i])) or (alternatives and token in alternatives):
                                 correct_predictions += 1
                     else:
                         # più parole da predire
@@ -438,13 +436,13 @@ class BigramModel:
                         print(" ".join(prediction))
                         print(self.greek_case_folding(restored[i]))
 
-                        if " ".join(prediction) == self.greek_case_folding(restored[i]):
+                        if (" ".join(prediction) == self.greek_case_folding(restored[i])) or (alternatives and  " ".join(prediction) in alternatives):
                             correct_predictions += 1
 
                     total_predictions += 1
                     print(correct_predictions, "/", total_predictions)
 
-        return correct_predictions / total_predictions
+        return (correct_predictions / total_predictions) * 100
 
 
 if __name__ == "__main__":

@@ -377,6 +377,9 @@ class TrigramModel:
                     continue
                 for i, obj in enumerate(ab["test_cases"]):
                     test_case = obj["test_case"]
+                    alternatives = obj["alternatives"]
+                    if len(alternatives) > 1: 
+                        print (len(alternatives))                   
                     """
                     lacuna = (
                         word_tokenize(re.search(r"\[([^\]]+)\]", test_case).group(1))
@@ -388,7 +391,7 @@ class TrigramModel:
                         0
                     ]  # contesto fino alla parola da predire
 
-                    if len([e for e in restored[i].split(" ") if e != ""]) == 1:
+                    if i < len(restored) and len([e for e in restored[i].split(" ") if e != ""]) == 1:
                         # Una sola parola da predire
                         cleaned_context = [
                             e for e in self.clean_text(context).split(" ") if e != ""
@@ -398,11 +401,9 @@ class TrigramModel:
                         )  # prendo gli ultimi due token
                         if seed:
                             token = self.lm.generate(text_seed=seed, num_words=1)
-                            if token == self.greek_case_folding(restored[i]):
+                            if (token == self.greek_case_folding(restored[i])) or (alternatives and token in alternatives):
                                 correct_predictions += 1
-
-                            total_predictions += 1
-                    else:
+                    elif i < len(restored):
                         # più parole da predire
                         prediction = []
                         cleaned_context = [
@@ -419,16 +420,12 @@ class TrigramModel:
                                 seed = seed[-1:]
                                 seed.append(token)
                                 prediction.append(token)
-
-                            if " ".join(prediction) == self.greek_case_folding(
-                                restored[i]
-                            ):
+                            if (" ".join(prediction) == self.greek_case_folding(restored[i])) or (alternatives and  " ".join(prediction) in alternatives):
                                 correct_predictions += 1
+                    total_predictions += 1
+                    #print(correct_predictions, "/", total_predictions)
 
-                            total_predictions += 1
-                            print(correct_predictions, "/", total_predictions)
-
-        return correct_predictions / total_predictions
+        return (correct_predictions / total_predictions) * 100
 
 
 if __name__ == "__main__":
