@@ -1,6 +1,6 @@
 from pathlib import Path
 import json
-import joblib
+import pickle
 import argparse
 import re
 import unicodedata
@@ -287,10 +287,11 @@ class TrigramModel:
         Args:
             model_path (str): Percorso per salvare il modello.
         """
-        self.train_ab=None
-        self.ab=None
-        joblib.dump(self, model_path, compress=3)
-        print("Language model saved.")
+        model_data = {"lm":self.lm,"test_ab":self.test_ab}
+
+        with open (model_path, "wb") as f:
+            pickle.dump(model_data, f)
+            print("Language model saved.")
 
     def load_lm(self, model_path="trigram_lm_Lidstone.pkl") -> None:
         """
@@ -300,9 +301,11 @@ class TrigramModel:
             model_path (str): Percorso da cui caricare il modello.
         """
         with open(model_path, "rb") as f:
-            model = joblib.load(f)
-            self.__dict__.update(model.__dict__)
+            model_data = pickle.load(f)
+            self.lm = model_data["lm"]
+            self.test_ab = model_data["test_ab"]
             print("Language model loaded.")
+
 
     def generate_words(self, context, num_words):
         """
@@ -367,62 +370,29 @@ class TrigramModel:
 
         for ab in abs:
             if ab["language"] == "grc":
-                restored = re.findall(
-                    r"\[([^\]]+)\]", ab["training_text"]
-                )  # restauri dentro il training_text
-                if not restored:
-                    continue
-                for i, obj in enumerate(ab["test_cases"]):
+                for obj in ab["test_cases"]:
                     test_case = obj["test_case"]
                     alternatives = obj["alternatives"]
-                    """
-                    lacuna = (
-                        word_tokenize(re.search(r"\[([^\]]+)\]", test_case).group(1))
-                        if re.search(r"\[([^\]]+)\]", test_case)
-                        else ""
-                    )"""
-
-                    context = test_case.split("[")[
+                    
+                    if not alternatives: 
+                        continue
+                     
+                    for alt in alternatives:
+                        alt_words = word_tokenize(self.clean_text(alt))
+                        context = word_tokenize(self.clean_text(test_case.split("[")[
                         0
-                    ]  # contesto fino alla parola da predire
-
-                    print(restored[i])
-
-                    if len([e for e in restored[i].split(" ") if e != ""]) == 1:
-                        # Una sola parola da predire
-                        cleaned_context = [
-                            e for e in self.clean_text(context).split(" ") if e != ""
-                        ]
-                        seed = (
-                            cleaned_context[-2:] if len(cleaned_context) >= 2 else None
-                        )  # prendo gli ultimi due token
-                        if seed:
-                            token = self.lm.generate(text_seed=seed, num_words=1)
-                            if (token == self.greek_case_folding(restored[i])) or (alternatives and token in alternatives):
-                                correct_predictions += 1
-                    else:
-                        # più parole da predire
+                        ]))  # contesto fino alla parola da predire
                         prediction = []
-                        cleaned_context = [
-                            e for e in self.clean_text(context).split(" ") if e != ""
-                        ]
-                        seed = (
-                            cleaned_context[-2:] if len(cleaned_context) >= 2 else None
-                        )  # prendo l'ultimo bigramma
-                        if seed:
-                            for _ in range(
-                                len([e for e in restored[i].split(" ") if e != ""])
-                            ):
-                                token = self.lm.generate(text_seed=seed, num_words=1)
-                                seed = seed[-1:]
-                                seed.append(token)
-                                prediction.append(token)
-
-                            if (" ".join(prediction) == self.greek_case_folding(restored[i])) or (alternatives and  " ".join(prediction) in alternatives):
-                                correct_predictions += 1
-
+                        for _ in range(len(alt_words)):
+                            token = self.lm.generate(text_seed=context[-2:], num_words=1)
+                            prediction.append(token)
+                            context.append(token)
+                            
+                        if " ".join(prediction) == " ".join(alt_words):
+                            correct_predictions += 1
+                            break; # se una delle alternative è corretta, passa al prossimo test case 
+                    
                     total_predictions += 1
-                    print(correct_predictions, "/", total_predictions)
 
         return (correct_predictions / total_predictions) * 100
 

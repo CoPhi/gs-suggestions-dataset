@@ -1,6 +1,6 @@
 from pathlib import Path
 import json
-import joblib
+import pickle
 import argparse
 import re
 import unicodedata
@@ -285,20 +285,20 @@ class BigramModel:
         print("Training complete. Saving the model...")
         self.save_lm()
 
-    def save_lm(self, model_path="bigram_lm_MLE.joblib") -> None:
+    def save_lm(self, model_path="bigram_lm_MLE.pkl") -> None:
         """
         Salva il modello linguistico su disco.
 
         Args:
             model_path (str): Percorso per salvare il modello.
         """
-        self.ab = None
-        self.train_ab = None
+        model_data = {"lm":self.lm,"test_ab":self.test_ab}
 
-        joblib.dump(self, model_path, compress=3)
-        print("Language model saved.")
+        with open (model_path, "wb") as f:
+            pickle.dump(model_data, f)
+            print("Language model saved.")
 
-    def load_lm(self, model_path="bigram_lm_MLE.joblib") -> None:
+    def load_lm(self, model_path="bigram_lm_MLE.pkl") -> None:
         """
         Carica solo il modello linguistico da disco.
 
@@ -306,8 +306,9 @@ class BigramModel:
             model_path (str): Percorso da cui caricare il modello.
         """
         with open(model_path, "rb") as f:
-            model = joblib.load(f)
-            self.__dict__.update(model.__dict__)
+            model_data = pickle.load(f)
+            self.lm = model_data["lm"]
+            self.test_ab = model_data["test_ab"]
             print("Language model loaded.")
 
     def generate_words(self, context, num_words):
@@ -376,56 +377,29 @@ class BigramModel:
 
         for ab in abs:
             if ab["language"] == "grc":
-                restored = re.findall(
-                    r"\[([^\]]+)\]", ab["training_text"]
-                )  # restauri dentro il training_text
-                if not restored:
-                    continue
-                for i, obj in enumerate(ab["test_cases"]):
+                for obj in ab["test_cases"]:
                     test_case = obj["test_case"]
                     alternatives = obj["alternatives"]
-                    """
-                    lacuna = (
-                        re.search(r"\[([^\]]+)\]", test_case).group(1)
-                        if re.search(r"\[([^\]]+)\]", test_case)
-                        else ""
-                    )"""
-                    context = test_case.split("[")[0]
-
-                    if i < len(restored) and len([e for e in restored[i].split(" ") if e != ""]) == 1:
-                        # Una sola parola da predire
-                        cleaned_context = [
-                            e for e in self.clean_text(context).split(" ") if e != ""
-                        ]
-                        seed = (
-                            cleaned_context[-1] if cleaned_context else None
-                        )  # prendo l'ultima parola
-                        if seed:
-                            token = self.lm.generate(text_seed=[seed], num_words=1)
-                            if (token == self.greek_case_folding(restored[i])) or (alternatives and token in alternatives):
-                                correct_predictions += 1
-                    elif i < len(restored):
-                        # più parole da predire
+                    
+                    if not alternatives: 
+                        continue
+                     
+                    for alt in alternatives:
+                        alt_words = word_tokenize(self.clean_text(alt))
+                        context = word_tokenize(self.clean_text(test_case.split("[")[
+                        0
+                        ]))  # contesto fino alla parola da predire
                         prediction = []
-                        cleaned_context = [
-                            e for e in self.clean_text(context).split(" ") if e != ""
-                        ]
-                        seed = (
-                            cleaned_context[-1] if cleaned_context else None
-                        )  # prendo l'ultima parola
-                        if seed:
-                            for _ in range(
-                                len([e for e in restored[i].split(" ") if e != ""])
-                            ):
-                                token = self.lm.generate(text_seed=[seed], num_words=1)
-                                seed = token
-                                prediction.append(token)
-
-                        if (" ".join(prediction) == self.greek_case_folding(restored[i])) or (alternatives and  " ".join(prediction) in alternatives):
+                        for _ in range(len(alt_words)):
+                            token = self.lm.generate(text_seed=context[-1:], num_words=1)
+                            prediction.append(token)
+                            context.append(token)
+                            
+                        if " ".join(prediction) == " ".join(alt_words):
                             correct_predictions += 1
-
+                            break; # se una delle alternative è corretta, passa al prossimo test case 
+                    
                     total_predictions += 1
-                    print(correct_predictions, "/", total_predictions)
 
         return (correct_predictions / total_predictions) * 100
 
@@ -475,7 +449,7 @@ if __name__ == "__main__":
     if args.mode == "train":
         model.pipeline_train()
     elif args.mode == "infer":
-        model.load_lm("bigram_lm_MLE.joblib")
+        model.load_lm("bigram_lm_MLE.pkl")
         if args.context and args.num_words:
             context = args.context.split()
             generated_words = model.generate_words(context, args.num_words)
@@ -483,6 +457,6 @@ if __name__ == "__main__":
         else:
             print("Please provide context and num_words for inference.")
     elif args.mode == "eval":
-        model.load_lm("bigram_lm_MLE.joblib")
+        model.load_lm("bigram_lm_MLE.pkl")
         print("Perplexity:", model.evaluate())
         print("Accuracy:", model.accuracy(model.test_ab), "%")
