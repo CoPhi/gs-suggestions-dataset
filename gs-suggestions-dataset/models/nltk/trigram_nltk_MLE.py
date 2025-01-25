@@ -287,10 +287,10 @@ class TrigramModel:
         Args:
             model_path (str): Percorso per salvare il modello.
         """
-        
-        model_data = {"lm":self.lm,"test_ab":self.test_ab}
 
-        with open (model_path, "wb") as f:
+        model_data = {"lm": self.lm, "test_ab": self.test_ab}
+
+        with open(model_path, "wb") as f:
             pickle.dump(model_data, f)
             print("Language model saved.")
 
@@ -322,7 +322,7 @@ class TrigramModel:
             raise ValueError("Il modello non è stato caricato correttamente.")
 
         return self.lm.generate(
-            num_words=num_words, text_seed=list(context)
+            num_words=num_words, text_seed=[self.greek_case_folding(token) for token in context]
         )  # modificare in context[-1] (ultima parola)
 
     def evaluate(self):
@@ -375,25 +375,28 @@ class TrigramModel:
                 for obj in ab["test_cases"]:
                     test_case = obj["test_case"]
                     alternatives = obj["alternatives"]
-                    
-                    if not alternatives: 
+
+                    if not alternatives:
                         continue
-                     
+
                     for alt in alternatives:
                         alt_words = word_tokenize(self.clean_text(alt))
-                        context = word_tokenize(self.clean_text(test_case.split("[")[
-                        0
-                        ]))  # contesto fino alla parola da predire
+                        context = word_tokenize(
+                            self.clean_text(test_case.split("[")[0])
+                        )  # contesto fino alla parola da predire
                         prediction = []
                         for _ in range(len(alt_words)):
-                            token = self.lm.generate(text_seed=context[-2:], num_words=1)
+                            token = self.lm.generate(
+                                text_seed=context, num_words=1
+                            )
                             prediction.append(token)
                             context.append(token)
-                            
+
                         if " ".join(prediction) == " ".join(alt_words):
                             correct_predictions += 1
-                            break; # se una delle alternative è corretta, passa al prossimo test case 
-                    
+                            break
+                            # se una delle alternative è corretta, passa al prossimo test case
+
                     total_predictions += 1
 
         return (correct_predictions / total_predictions) * 100
