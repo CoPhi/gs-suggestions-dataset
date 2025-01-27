@@ -7,6 +7,7 @@ import unicodedata
 
 from sklearn.model_selection import train_test_split, KFold
 from nltk.tokenize import word_tokenize
+from cltk.sentence.grc import GreekRegexSentenceTokenizer
 from nltk.util import ngrams
 from nltk.lm import Vocabulary
 from collections import Counter
@@ -29,6 +30,7 @@ class BigramModel:
         self.ab = []  # insieme degli Anonymous Block "ab" (oggetti MAAT)
         self.train_ab = None
         self.test_ab = None
+        self.sentence_tokenizer = GreekRegexSentenceTokenizer()
 
     def get_ab(self) -> None:
         """
@@ -135,7 +137,8 @@ class BigramModel:
         for token in word_tokenize(text=self.greek_case_folding(text)):
             if self.contains_lacunae(token):
                 cleaned_token = self.clean_lacunae(token)
-                cleaned_tokens.append(cleaned_token)
+                if cleaned_token: 
+                    cleaned_tokens.append(cleaned_token)
             else:
                 cleaned_tokens.append(token)
 
@@ -162,17 +165,10 @@ class BigramModel:
             if obj["training_text"] and obj["language"] == "grc":
                 train_sentences.extend(
                     [
-                        list(
-                            pad_both_ends(
-                                [
-                                    token
-                                    for token in word_tokenize(
-                                        self.clean_text(obj["training_text"])
-                                    )
-                                ],
-                                n=2,
+                        list(pad_both_ends(word_tokenize(sent), n=2))
+                        for sent in self.sentence_tokenizer.tokenize(
+                            self.clean_text(obj["training_text"])
                             )
-                        )
                     ]
                 )
         return train_sentences
@@ -196,17 +192,10 @@ class BigramModel:
             if obj["training_text"] and obj["language"] == "grc":
                 test_sentences.extend(
                     [
-                        list(
-                            pad_both_ends(
-                                [
-                                    token
-                                    for token in word_tokenize(
-                                        self.clean_text(obj["training_text"])
-                                    )
-                                ],
-                                n=2,
+                        list(pad_both_ends(word_tokenize(sent), n=2))
+                        for sent in self.sentence_tokenizer.tokenize(
+                            self.clean_text(obj["training_text"])
                             )
-                        )
                     ]
                 )
         return test_sentences
@@ -330,7 +319,7 @@ class BigramModel:
             raise ValueError("Modello non caricato. Impossibile generare parole.")
 
         return self.lm.generate(
-            num_words=num_words, text_seed=context[-1:]
+            num_words=num_words, text_seed=word_tokenize(self.clean_text(context))
         )  # ultima parola
 
     def evaluate(self) -> float:
@@ -398,18 +387,18 @@ class BigramModel:
                         0
                         ]))  # contesto fino alla parola da predire
                         prediction = []
-                        for _ in range(len(alt_words)):
-                            token = self.lm.generate(text_seed=context[-1:], num_words=1)
+                        while len(prediction) < len(alt_words):
+                            token = self.lm.generate(text_seed=context, num_words=1)
                             prediction.append(token)
                             context.append(token)
-                            
+
                         if " ".join(prediction) == " ".join(alt_words):
                             correct_predictions += 1
                             break; # se una delle alternative è corretta, passa al prossimo test case 
                     
                     total_predictions += 1
 
-        return (correct_predictions / total_predictions) * 100
+        return round((correct_predictions / total_predictions) * 100, 2)
 
 
 if __name__ == "__main__":

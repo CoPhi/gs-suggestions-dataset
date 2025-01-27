@@ -8,6 +8,7 @@ import unicodedata
 from sklearn.model_selection import train_test_split, KFold
 
 from collections import Counter
+from cltk.sentence.grc import GreekRegexSentenceTokenizer
 from nltk import ngrams
 from nltk.tokenize import word_tokenize
 from nltk.lm.vocabulary import Vocabulary
@@ -31,6 +32,7 @@ class TrigramModel:
         self.train_ab = None
         self.test_ab = None
         self.lm = MLE(3)
+        self.sentence_tokenizer = GreekRegexSentenceTokenizer()
 
     def get_ab(self) -> None:
         """
@@ -134,7 +136,8 @@ class TrigramModel:
         for token in word_tokenize(text=self.greek_case_folding(text)):
             if self.contains_lacunae(token):
                 cleaned_token = self.clean_lacunae(token)
-                cleaned_tokens.append(cleaned_token)
+                if cleaned_token:
+                    cleaned_tokens.append(cleaned_token)
             else:
                 cleaned_tokens.append(token)
 
@@ -161,16 +164,9 @@ class TrigramModel:
             if obj["training_text"] and obj["language"] == "grc":
                 train_sentences.extend(
                     [
-                        list(
-                            pad_both_ends(
-                                [
-                                    token
-                                    for token in word_tokenize(
-                                        self.clean_text(obj["training_text"])
-                                    )
-                                ],
-                                n=2,
-                            )
+                        list(pad_both_ends(word_tokenize(sent), n=2))
+                        for sent in self.sentence_tokenizer.tokenize(
+                            self.clean_text(obj["training_text"])
                         )
                     ]
                 )
@@ -196,16 +192,9 @@ class TrigramModel:
             if obj["training_text"] and obj["language"] == "grc":
                 test_sentences.extend(
                     [
-                        list(
-                            pad_both_ends(
-                                [
-                                    token
-                                    for token in word_tokenize(
-                                        self.clean_text(obj["training_text"])
-                                    )
-                                ],
-                                n=2,
-                            )
+                        list(pad_both_ends(word_tokenize(sent), n=2))
+                        for sent in self.sentence_tokenizer.tokenize(
+                            self.clean_text(obj["training_text"])
                         )
                     ]
                 )
@@ -322,8 +311,9 @@ class TrigramModel:
             raise ValueError("Il modello non è stato caricato correttamente.")
 
         return self.lm.generate(
-            num_words=num_words, text_seed=[self.greek_case_folding(token) for token in context]
-        )  # modificare in context[-1] (ultima parola)
+            num_words=num_words,
+            text_seed=word_tokenize(self.clean_text(context)),
+        )
 
     def evaluate(self):
         """
@@ -384,22 +374,21 @@ class TrigramModel:
                         context = word_tokenize(
                             self.clean_text(test_case.split("[")[0])
                         )  # contesto fino alla parola da predire
+
                         prediction = []
-                        for _ in range(len(alt_words)):
-                            token = self.lm.generate(
-                                text_seed=context, num_words=1
-                            )
+                        while len(prediction) < len(alt_words):
+                            token = self.lm.generate(text_seed=context, num_words=1)
                             prediction.append(token)
                             context.append(token)
 
                         if " ".join(prediction) == " ".join(alt_words):
                             correct_predictions += 1
-                            break
-                            # se una delle alternative è corretta, passa al prossimo test case
+                            break  # se una delle alternative è corretta, passa al prossimo test case
 
                     total_predictions += 1
+                    print(correct_predictions, "/", total_predictions)
 
-        return (correct_predictions / total_predictions) * 100
+        return round((correct_predictions / total_predictions) * 100, 2)
 
 
 if __name__ == "__main__":

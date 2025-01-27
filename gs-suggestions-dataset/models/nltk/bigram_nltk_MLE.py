@@ -10,6 +10,7 @@ from sklearn.model_selection import train_test_split, KFold
 from collections import Counter
 from nltk import ngrams
 from nltk.tokenize import word_tokenize
+from cltk.sentence.grc import GreekRegexSentenceTokenizer
 from nltk.lm import Vocabulary
 from nltk.lm.models import MLE
 from nltk.lm.preprocessing import (
@@ -32,6 +33,7 @@ class BigramModel:
         self.train_ab = None
         self.test_ab = None
         self.lm = MLE(2)
+        self.sentence_tokenizer = GreekRegexSentenceTokenizer()
 
     def get_ab(self) -> None:
         """
@@ -139,7 +141,8 @@ class BigramModel:
         for token in word_tokenize(text=self.greek_case_folding(text)):
             if self.contains_lacunae(token):
                 cleaned_token = self.clean_lacunae(token)
-                cleaned_tokens.append(cleaned_token)
+                if cleaned_token:
+                    cleaned_tokens.append(cleaned_token)
             else:
                 cleaned_tokens.append(token)
 
@@ -327,7 +330,7 @@ class BigramModel:
             raise ValueError("Modello non caricato. Impossibile generare parole.")
 
         return self.lm.generate(
-            num_words=num_words, text_seed=list(context)
+            num_words=num_words, text_seed=word_tokenize(self.clean_text(context))
         )  # modificare in context[-1] (ultima parola)
 
     def evaluate(self) -> float:
@@ -390,18 +393,18 @@ class BigramModel:
                         0
                         ]))  # contesto fino alla parola da predire
                         prediction = []
-                        for _ in range(len(alt_words)):
-                            token = self.lm.generate(text_seed=context[-1:], num_words=1)
+                        while len(prediction) < len(alt_words):
+                            token = self.lm.generate(text_seed=context, num_words=1)
                             prediction.append(token)
                             context.append(token)
-                            
+
                         if " ".join(prediction) == " ".join(alt_words):
                             correct_predictions += 1
                             break; # se una delle alternative è corretta, passa al prossimo test case 
                     
                     total_predictions += 1
 
-        return (correct_predictions / total_predictions) * 100
+        return round((correct_predictions / total_predictions) * 100, 2)
 
 
 if __name__ == "__main__":

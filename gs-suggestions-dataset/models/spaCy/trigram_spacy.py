@@ -23,16 +23,16 @@ class TrigramModel:
             "grc_proiel_trf"
         )  # LM per il greco antico: la uso per tokenizzare i testi del dataset
         self.docs = DocBin()  # DocBin per la serializzazione dei documenti
-        self.ab = None
+        self.ab = []  # insieme degli Anonymous Block "ab" (oggetti MAAT)
         self.train_ab = None
         self.test_ab = None
         
     def get_abs(self):
         for file_path in self.data_path.glob("*.json"):
             print(f"Processing file: {file_path}")
-        with open(file_path, "r") as f:
-            data = json.load(f)
-            self.ab = tuple([obj for obj in data])
+            with open(file_path, "r") as f:
+                data = json.load(f)
+                self.ab.extend([obj for obj in data])
         
     def split_ab(self) -> None:
         """
@@ -40,40 +40,96 @@ class TrigramModel:
         """
         if not self.ab:
             raise ValueError("AB set empty. Cannot split data.")
+
         self.train_ab, self.test_ab = train_test_split(self.ab, test_size=0.1)
-        self.kfold = KFold(
-            n_splits=9, shuffle=True
-        )  # uso il 10% del dataset per il dev set
-        
+        self.kfold = KFold(n_splits=5, shuffle=True)
+ 
     def contains_lacunae(self, token: str) -> bool: 
-    
-        if token == '.': 
+        """
+            Verifica se un dato token contiene lacune (gap o parti mancanti).
+
+            Args:
+                token (str): Il token da verificare.
+
+            Returns:
+                bool: True se il token contiene lacune, False altrimenti.
+            """
+
+        if token == ".":
             return False
-    
+
         if "." in token and not token.isalpha():
-        # Identifica sequenze di puntini come lacune
-        # Se c'è una parte vuota (o solo puntini), considerala lacuna
             return True
-        return False   
-    
+
+        if re.compile(r"(<|>|]|\[|gap|/)").search(token):
+            return True
+
+        return False
+
     def greek_case_folding(self, text):
+        """
+        Esegue il case folding per il greco sul testo di input.
+
+        Questa funzione normalizza il testo di input utilizzando la Form C di Normalizzazione Unicode (NFC)
+        dopo averlo convertito in minuscolo utilizzando la Form D di Normalizzazione Unicode (NFD).
+
+        Args:
+            text (str): Il testo di input da normalizzare.
+
+        Returns:
+            str: Il testo normalizzato.
+        """
         return unicodedata.normalize("NFC",  unicodedata.normalize("NFD", text).lower())
 
     def clean_lacunae(self, token: str) -> str:
-        # Rimuovi i puntini
-        return token.replace('.', '')
+        """
+        Pulisce il token dato rimuovendo specifici caratteri indesiderati.
 
+        Args:
+            token (str): Il token da pulire.
+
+        Returns:
+            str: Il token pulito.
+
+        La funzione esegue i seguenti passaggi di pulizia:
+        1. Se il token contiene un punto (.) e non è interamente alfabetico, rimuove tutti i punti.
+        2. Se il token contiene uno qualsiasi dei caratteri '<', '>', ']', '[', 'gap', o '/', li rimuove.
+
+        Esempi:
+            >>> clean_lacunae("γέ.δουσιν")
+            'γέδουσιν'
+            >>> clean_lacunae("<")
+            ''
+        """
+        if "." in token and not token.isalpha():
+            return token.replace(".", "")  # Rimuovo i puntini
+        if re.compile(r"(<|>|]|\[|gap|/)").search(token):
+            return re.sub(
+                r"(<|>|]|\[|gap|/)", "", token
+            )  # Rimuovo i caratteri specificati
+
+        return token
+    
     def clean_text(self, text: str) -> str:
-        
+        """
+        Pulisce il testo di input eseguendo il case folding per il greco, la tokenizzazione e la gestione delle lacune.
+
+        Args:
+            text (str): Il testo di input da pulire.
+
+        Returns:
+            str: Il testo pulito con i token uniti da spazi.
+        """
+
         cleaned_tokens = []
-        for token in self.nlp(self.greek_case_folding(text=text)):
-            if self.contains_lacunae(token.text):
-                cleaned_token = self.clean_lacunae(token.text)
+        for token in word_tokenize(text=self.greek_case_folding(text)):
+            if self.contains_lacunae(token):
+                cleaned_token = self.clean_lacunae(token)
                 cleaned_tokens.append(cleaned_token)
             else:
-                cleaned_tokens.append(token.text)
-        
-        cleaned_text = ' '.join(cleaned_tokens)
+                cleaned_tokens.append(token)
+
+        cleaned_text = " ".join(cleaned_tokens)
         return cleaned_text
 
     def get_train_sentences(self, ab) -> list:

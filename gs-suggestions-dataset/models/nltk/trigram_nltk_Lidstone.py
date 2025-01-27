@@ -8,6 +8,7 @@ import unicodedata
 from sklearn.model_selection import train_test_split, KFold
 
 from collections import Counter
+from cltk.sentence.grc import GreekRegexSentenceTokenizer
 from nltk import ngrams
 from nltk.tokenize import word_tokenize
 from nltk.lm.vocabulary import Vocabulary
@@ -30,6 +31,7 @@ class TrigramModel:
         self.ab = []  # insieme degli Anonymous Block "ab" (oggetti MAAT)
         self.train_ab = None
         self.test_ab = None
+        self.sentence_tokenizer = GreekRegexSentenceTokenizer()
 
     def get_ab(self) -> None:
         """
@@ -133,7 +135,8 @@ class TrigramModel:
         for token in word_tokenize(text=self.greek_case_folding(text)):
             if self.contains_lacunae(token):
                 cleaned_token = self.clean_lacunae(token)
-                cleaned_tokens.append(cleaned_token)
+                if cleaned_token:
+                    cleaned_tokens.append(cleaned_token)
             else:
                 cleaned_tokens.append(token)
 
@@ -160,16 +163,9 @@ class TrigramModel:
             if obj["training_text"] and obj["language"] == "grc":
                 train_sentences.extend(
                     [
-                        list(
-                            pad_both_ends(
-                                [
-                                    token
-                                    for token in word_tokenize(
-                                        self.clean_text(obj["training_text"])
-                                    )
-                                ],
-                                n=2,
-                            )
+                        list(pad_both_ends(word_tokenize(sent), n=2))
+                        for sent in self.sentence_tokenizer.tokenize(
+                            self.clean_text(obj["training_text"])
                         )
                     ]
                 )
@@ -195,16 +191,9 @@ class TrigramModel:
             if obj["training_text"] and obj["language"] == "grc":
                 test_sentences.extend(
                     [
-                        list(
-                            pad_both_ends(
-                                [
-                                    token
-                                    for token in word_tokenize(
-                                        self.clean_text(obj["training_text"])
-                                    )
-                                ],
-                                n=2,
-                            )
+                        list(pad_both_ends(word_tokenize(sent), n=2))
+                        for sent in self.sentence_tokenizer.tokenize(
+                            self.clean_text(obj["training_text"])
                         )
                     ]
                 )
@@ -287,9 +276,9 @@ class TrigramModel:
         Args:
             model_path (str): Percorso per salvare il modello.
         """
-        model_data = {"lm":self.lm,"test_ab":self.test_ab}
+        model_data = {"lm": self.lm, "test_ab": self.test_ab}
 
-        with open (model_path, "wb") as f:
+        with open(model_path, "wb") as f:
             pickle.dump(model_data, f)
             print("Language model saved.")
 
@@ -306,7 +295,6 @@ class TrigramModel:
             self.test_ab = model_data["test_ab"]
             print("Language model loaded.")
 
-
     def generate_words(self, context, num_words):
         """
         Genera parole utilizzando il modello linguistico addestrato.
@@ -321,7 +309,9 @@ class TrigramModel:
         if not self.lm:
             raise ValueError("Il modello non è stato caricato correttamente.")
 
-        return self.lm.generate(num_words=num_words, text_seed=list(context))
+        return self.lm.generate(
+            num_words=num_words, text_seed=word_tokenize(self.clean_text(context))
+        )
 
     def evaluate(self):
         """
@@ -373,28 +363,31 @@ class TrigramModel:
                 for obj in ab["test_cases"]:
                     test_case = obj["test_case"]
                     alternatives = obj["alternatives"]
-                    
-                    if not alternatives: 
+
+                    if not alternatives:
                         continue
-                     
+
                     for alt in alternatives:
                         alt_words = word_tokenize(self.clean_text(alt))
-                        context = word_tokenize(self.clean_text(test_case.split("[")[
-                        0
-                        ]))  # contesto fino alla parola da predire
+                        context = word_tokenize(
+                            self.clean_text(test_case.split("[")[0])
+                        )  # contesto fino alla parola da predire
+
                         prediction = []
-                        for _ in range(len(alt_words)):
-                            token = self.lm.generate(text_seed=context[-2:], num_words=1)
+                        while len(prediction) < len(alt_words):
+                            token = self.lm.generate(text_seed=context, num_words=1)
                             prediction.append(token)
                             context.append(token)
-                            
+
                         if " ".join(prediction) == " ".join(alt_words):
                             correct_predictions += 1
-                            break; # se una delle alternative è corretta, passa al prossimo test case 
-                    
-                    total_predictions += 1
+                            break
+                            # se una delle alternative è corretta, passa al prossimo test case
 
-        return (correct_predictions / total_predictions) * 100
+                    total_predictions += 1
+                    print(correct_predictions, "/", total_predictions)
+
+        return round((correct_predictions / total_predictions) * 100, 2)
 
 
 if __name__ == "__main__":
@@ -415,8 +408,7 @@ if __name__ == "__main__":
             È necessario specificare il contesto e il numero di parole da generare.
             Esempio: python trigram_lm.py infer --context "parole di esempio" --num_words 5
 
-    Argomenti:
-
+    Argomenti: 
         - mode: Modalità di esecuzione dello script ("train" per addestrare, "infer" per generare parole).
         - context: Contesto per la generazione di parole (richiesto in modalità "infer").
         - num_words: Numero di parole da generare (richiesto in modalità "infer").
