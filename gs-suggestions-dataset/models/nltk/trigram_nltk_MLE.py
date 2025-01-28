@@ -16,6 +16,7 @@ from nltk.lm.models import MLE
 from nltk.lm.preprocessing import (
     padded_everygram_pipeline,
     pad_both_ends,
+    flatten,
 )
 
 
@@ -164,7 +165,7 @@ class TrigramModel:
             if obj["training_text"] and obj["language"] == "grc":
                 train_sentences.extend(
                     [
-                        list(pad_both_ends(word_tokenize(sent), n=2))
+                        word_tokenize(sent)
                         for sent in self.sentence_tokenizer.tokenize(
                             self.clean_text(obj["training_text"])
                         )
@@ -192,7 +193,7 @@ class TrigramModel:
             if obj["training_text"] and obj["language"] == "grc":
                 test_sentences.extend(
                     [
-                        list(pad_both_ends(word_tokenize(sent), n=2))
+                        word_tokenize(sent)
                         for sent in self.sentence_tokenizer.tokenize(
                             self.clean_text(obj["training_text"])
                         )
@@ -369,11 +370,23 @@ class TrigramModel:
                     if not alternatives:
                         continue
 
+                    context = list(
+                        flatten(
+                        [
+                            list(
+                                pad_both_ends(
+                                    word_tokenize(sent),
+                                    n=3,
+                                )
+                            )
+                            for sent in self.sentence_tokenizer.tokenize(
+                                self.clean_text(test_case.split("[")[0])
+                            )
+                        ]
+                    ))[:-2]
+                    
                     for alt in alternatives:
                         alt_words = word_tokenize(self.clean_text(alt))
-                        context = word_tokenize(
-                            self.clean_text(test_case.split("[")[0])
-                        )  # contesto fino alla parola da predire
 
                         prediction = []
                         while len(prediction) < len(alt_words):
@@ -383,7 +396,8 @@ class TrigramModel:
 
                         if " ".join(prediction) == " ".join(alt_words):
                             correct_predictions += 1
-                            break  # se una delle alternative è corretta, passa al prossimo test case
+                            break 
+                            # se una delle alternative è corretta, passa al prossimo test case
 
                     total_predictions += 1
                     print(correct_predictions, "/", total_predictions)

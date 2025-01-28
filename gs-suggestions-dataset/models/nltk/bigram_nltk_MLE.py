@@ -168,17 +168,11 @@ class BigramModel:
             if obj["training_text"] and obj["language"] == "grc":
                 train_sentences.extend(
                     [
-                        list(
-                            pad_both_ends(
-                                [
-                                    token
-                                    for token in word_tokenize(
-                                        self.clean_text(obj["training_text"])
-                                    )
-                                ],
-                                n=2,
+                        word_tokenize(sent)
+                        for sent in self.sentence_tokenizer.tokenize(
+                            self.clean_text(obj["training_text"])
                             )
-                        )
+                    
                     ]
                 )
         return train_sentences
@@ -202,17 +196,11 @@ class BigramModel:
             if obj["training_text"] and obj["language"] == "grc":
                 test_sentences.extend(
                     [
-                        list(
-                            pad_both_ends(
-                                [
-                                    token
-                                    for token in word_tokenize(
-                                        self.clean_text(obj["training_text"])
-                                    )
-                                ],
-                                n=2,
+                        word_tokenize(sent)
+                        for sent in self.sentence_tokenizer.tokenize(
+                            self.clean_text(obj["training_text"])
                             )
-                        )
+                    
                     ]
                 )
         return test_sentences
@@ -386,12 +374,25 @@ class BigramModel:
                     
                     if not alternatives: 
                         continue
-                     
+                    
+                    context = list(
+                            flatten(
+                            [
+                                list(
+                                    pad_both_ends(
+                                        word_tokenize(sent),
+                                        n=2,
+                                    )
+                                )
+                                for sent in self.sentence_tokenizer.tokenize(
+                                    self.clean_text(test_case.split("[")[0])
+                                )
+                            ]
+                        ))[:-2] 
+                    
                     for alt in alternatives:
                         alt_words = word_tokenize(self.clean_text(alt))
-                        context = word_tokenize(self.clean_text(test_case.split("[")[
-                        0
-                        ]))  # contesto fino alla parola da predire
+                        
                         prediction = []
                         while len(prediction) < len(alt_words):
                             token = self.lm.generate(text_seed=context, num_words=1)
