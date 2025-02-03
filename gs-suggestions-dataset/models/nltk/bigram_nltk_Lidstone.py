@@ -375,41 +375,46 @@ class BigramModel:
 
         for ab in abs:
             if ab["language"] == "grc":
-                for obj in ab["test_cases"]:
+                restored = re.findall(r"\[(.*?)\]", ab["training_text"])
+                if not restored:
+                    continue
+                
+                for i, obj in enumerate(ab["test_cases"]):
+                    if i >= len(restored):
+                        break
+                    
                     test_case = obj["test_case"]
-                    alternatives = obj["alternatives"]
-                    
-                    if not alternatives: 
-                        continue
-                    
-                    context = list(
-                            flatten(
-                            [
-                                list(
-                                    pad_both_ends(
-                                        word_tokenize(sent),
-                                        n=2,
-                                    )
-                                )
-                                for sent in self.sentence_tokenizer.tokenize(
-                                    self.clean_text(test_case.split("[")[0])
-                                )
-                            ]
-                        ))[:-2] 
-                    
-                    for alt in alternatives:
-                        alt_words = word_tokenize(self.clean_text(alt))
-                        prediction = []
-                        while len(prediction) < len(alt_words):
-                            token = self.lm.generate(text_seed=context, num_words=1)
-                            prediction.append(token)
-                            context.append(token)
+                    restored_words = word_tokenize(restored[i].strip())
 
-                        if " ".join(prediction) == " ".join(alt_words):
-                            correct_predictions += 1
-                            break  # se la predizione è uguale con l'alternativa, si passa al prossimo test case 
+                    context = list(
+                        flatten(
+                        [
+                            list(
+                                pad_both_ends(
+                                    word_tokenize(sent),
+                                    n=2,
+                                )
+                            )
+                            for sent in self.sentence_tokenizer.tokenize(
+                                self.clean_text(test_case.split("[")[0])
+                            )
+                        ]
+                    ))[:-1]
                     
+                    
+                    prediction = []
+                    while len(prediction) < len(restored_words):
+                        token = self.lm.generate(text_seed=context, num_words=1)
+                        prediction.append(token)
+                        context.append(token)
+
+
+                    if prediction == restored_words:
+                        correct_predictions += 1
+                        
                     total_predictions += 1
+                
+                print(correct_predictions, "/", total_predictions)
 
         return round((correct_predictions / total_predictions) * 100, 2)
 

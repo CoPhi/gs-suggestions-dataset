@@ -361,12 +361,16 @@ class TrigramModel:
 
         for ab in abs:
             if ab["language"] == "grc":
-                for obj in ab["test_cases"]:
+                restored = re.findall(r"\[(.*?)\]", ab["training_text"])
+                if not restored:
+                    continue
+                
+                for i, obj in enumerate(ab["test_cases"]):
+                    if i >= len(restored):
+                        break
+                    
                     test_case = obj["test_case"]
-                    alternatives = obj["alternatives"]
-
-                    if not alternatives:
-                        continue
+                    restored_words = word_tokenize(restored[i].strip())
 
                     context = list(
                         flatten(
@@ -383,22 +387,20 @@ class TrigramModel:
                         ]
                     ))[:-2]
                     
-                    for alt in alternatives:
-                        alt_words = word_tokenize(self.clean_text(alt))
+                    
+                    prediction = []
+                    while len(prediction) < len(restored_words):
+                        token = self.lm.generate(text_seed=context, num_words=1)
+                        prediction.append(token)
+                        context.append(token)
 
-                        prediction = []
-                        while len(prediction) < len(alt_words):
-                            token = self.lm.generate(text_seed=context, num_words=1)
-                            prediction.append(token)
-                            context.append(token)
 
-                        if " ".join(prediction) == " ".join(alt_words):
-                            correct_predictions += 1
-                            break
-                            # se una delle alternative è corretta, passa al prossimo test case
-
+                    if prediction == restored_words:
+                        correct_predictions += 1
+                        
                     total_predictions += 1
-                    print(correct_predictions, "/", total_predictions)
+                
+                print(correct_predictions, "/", total_predictions)
 
         return round((correct_predictions / total_predictions) * 100, 2)
 

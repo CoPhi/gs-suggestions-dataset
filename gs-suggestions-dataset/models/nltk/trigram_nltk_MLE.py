@@ -4,13 +4,13 @@ import pickle
 import argparse
 import re
 import unicodedata
-
 from sklearn.model_selection import train_test_split, KFold
 
 from collections import Counter
 from cltk.sentence.grc import GreekRegexSentenceTokenizer
+from cltk.tokenizers.processes import GreekTokenizationProcess
 from nltk import ngrams
-from nltk.tokenize import word_tokenize
+from nltk.tokenize import word_tokenize, sent_tokenize
 from nltk.lm.vocabulary import Vocabulary
 from nltk.lm.models import MLE
 from nltk.lm.preprocessing import (
@@ -33,7 +33,7 @@ class TrigramModel:
         self.train_ab = None
         self.test_ab = None
         self.lm = MLE(3)
-        self.sentence_tokenizer = GreekRegexSentenceTokenizer()
+        # self.sentence_tokenizer = GreekRegexSentenceTokenizer()
 
     def get_ab(self) -> None:
         """
@@ -54,7 +54,7 @@ class TrigramModel:
             raise ValueError("AB set empty. Cannot split data.")
 
         self.train_ab, self.test_ab = train_test_split(self.ab, test_size=0.1)
-        self.kfold = KFold(n_splits=5, shuffle=True)
+        self.kfold = KFold(n_splits=9, shuffle=True)
 
     def contains_lacunae(self, token: str) -> bool:
         """
@@ -122,6 +122,24 @@ class TrigramModel:
         """
         return unicodedata.normalize("NFC", unicodedata.normalize("NFD", text).lower())
 
+    def contain_gaps(self, text: str) -> bool:
+        """
+        Predicato che verifica se il testo di input contiene delle lacune (<gap/>).
+        """
+        return bool(re.search(r"<gap\s*/?>", text) or re.search(r"\.\.+", text))
+
+    def remove_brackets(self, text: str) -> str:
+        """
+        Rimuove le parentesi quadre dal testo di input.
+
+        Args:
+            text (str): Il testo di input da pulire.
+
+        Returns:
+            str: Il testo pulito senza parentesi quadre.
+        """
+        return text.replace("[", "").replace("]", "")
+
     def clean_text(self, text: str) -> str:
         """
         Pulisce il testo di input eseguendo il case folding per il greco, la tokenizzazione e la gestione delle lacune.
@@ -134,7 +152,7 @@ class TrigramModel:
         """
 
         cleaned_tokens = []
-        for token in word_tokenize(text=self.greek_case_folding(text)):
+        for token in word_tokenize(self.greek_case_folding(text), language="greek"):
             if self.contains_lacunae(token):
                 cleaned_token = self.clean_lacunae(token)
                 if cleaned_token:
@@ -143,15 +161,16 @@ class TrigramModel:
                 cleaned_tokens.append(token)
 
         cleaned_text = " ".join(cleaned_tokens)
-        return cleaned_text
+        return cleaned_text.strip()
 
     def get_train_sentences(self, ab) -> list:
         """
         Estrae e processa le frasi di addestramento da una lista di blocchi anonimi fornita.
 
         Questo metodo filtra e processa il 'training_text' da ciascun oggetto nella lista di input 'ab'.
-        Include solo i testi in cui la 'language' è 'grc' ed esclude i token che corrispondono al
-        pattern dei token non validi. Le frasi risultanti sono imbottite su entrambi i lati con un token di padding.
+        Include solo i testi in cui la 'language' è 'grc'.
+        Se la frase di addestramento non contiene lacune, gli vengono applicate tecniche di text augmentation.
+        Le frasi vengono quindi tokenizzate e aggiunte alla lista di frasi di addestramento.
 
         Args:
             ab (list): Una lista di oggetti, ciascuno contenente le chiavi 'training_text' e 'language'.
@@ -160,17 +179,21 @@ class TrigramModel:
             list: Una lista di frasi di addestramento processate e imbottite.
         """
         train_sentences = []
-
-        for obj in ab:
+        i = 0
+        for idx, obj in enumerate(ab):
             if obj["training_text"] and obj["language"] == "grc":
                 train_sentences.extend(
                     [
-                        word_tokenize(sent)
-                        for sent in self.sentence_tokenizer.tokenize(
-                            self.clean_text(obj["training_text"])
+                        word_tokenize(sent, language="greek")
+                        for sent in sent_tokenize(
+                            self.clean_text(obj["training_text"]), language="greek"
                         )
+                        if sent
                     ]
                 )
+            i += 1
+            progress = ((idx + 1) / len(ab)) * 100
+            print(f"Blocco esaminato: {i}, Progress: {progress:.2f}%")
 
         return train_sentences
 
@@ -193,10 +216,11 @@ class TrigramModel:
             if obj["training_text"] and obj["language"] == "grc":
                 test_sentences.extend(
                     [
-                        word_tokenize(sent)
-                        for sent in self.sentence_tokenizer.tokenize(
-                            self.clean_text(obj["training_text"])
+                        word_tokenize(sent, language="greek")
+                        for sent in sent_tokenize(
+                            self.clean_text(obj["training_text"]), language="greek"
                         )
+                        if sent
                     ]
                 )
         return test_sentences
@@ -313,7 +337,7 @@ class TrigramModel:
 
         return self.lm.generate(
             num_words=num_words,
-            text_seed=word_tokenize(self.clean_text(context)),
+            text_seed=word_tokenize(self.clean_text(context), language="greek"),
         )
 
     def evaluate(self):
@@ -348,12 +372,13 @@ class TrigramModel:
                 "Errore nel calcolo della perplessità. Verifica i dati di test e di addestramento."
             )
 
-    def accuracy(self, abs) -> float:
+    def accuracy(self, abs, batch_size=10) -> float:
         """
-        Calcola l'accuratezza del modello sui dati forniti (abs).
+        Calcola l'accuratezza del modello sui dati forniti (abs) in batch.
 
         Args:
             abs (list): Lista di anonymous block per il calcolo dell'accuratezza.
+            batch_size (int): Dimensione del batch per il calcolo dell'accuratezza.
 
         Returns:
             float: Accuratezza del modello.
@@ -361,46 +386,57 @@ class TrigramModel:
         correct_predictions = 0
         total_predictions = 0
 
-        for ab in abs:
-            if ab["language"] == "grc":
-                for obj in ab["test_cases"]:
-                    test_case = obj["test_case"]
-                    alternatives = obj["alternatives"]
+        for start in range(0, len(abs), batch_size):
+            batch = abs[start : start + batch_size]  # batch di blocchi anonimi
+            for ab in batch:
+                if ab["language"] == "grc":
+                    restored = re.findall(r"\[(.*?)\]", ab["training_text"])
+                    if not restored:
+                        continue  # non ci sono blocchi da predire
 
-                    if not alternatives:
-                        continue
+                    for i, obj in enumerate(ab["test_cases"]):
+                        if i >= len(restored):
+                            break
 
-                    context = list(
-                        flatten(
-                        [
-                            list(
-                                pad_both_ends(
-                                    word_tokenize(sent),
-                                    n=3,
-                                )
+                        test_case = obj["test_case"]
+                        restored_words = word_tokenize(
+                            self.clean_text(restored[i].strip()), language="greek"
+                        )
+
+                        context = list(
+                            flatten(
+                                [
+                                    list(
+                                        pad_both_ends(
+                                            word_tokenize(sent, language="greek"),
+                                            n=3,
+                                        )
+                                    )
+                                    for sent in sent_tokenize(
+                                        self.clean_text(test_case.split("[")[0]),
+                                        language="greek"
+                                    )
+                                ]
                             )
-                            for sent in self.sentence_tokenizer.tokenize(
-                                self.clean_text(test_case.split("[")[0])
-                            )
-                        ]
-                    ))[:-2]
-                    
-                    for alt in alternatives:
-                        alt_words = word_tokenize(self.clean_text(alt))
+                        )[:-2]
 
-                        prediction = []
-                        while len(prediction) < len(alt_words):
+                        prediction = (
+                            []
+                        )  # salvo le predizioni del modello in una lista per effettuare un confronto accurato con le gold label
+                        while len(prediction) < len(restored_words):
                             token = self.lm.generate(text_seed=context, num_words=1)
                             prediction.append(token)
                             context.append(token)
 
-                        if " ".join(prediction) == " ".join(alt_words):
+                        if prediction == restored_words:
                             correct_predictions += 1
-                            break 
-                            # se una delle alternative è corretta, passa al prossimo test case
 
-                    total_predictions += 1
-                    print(correct_predictions, "/", total_predictions)
+                        total_predictions += 1
+                        print(correct_predictions, "/", total_predictions)
+
+            print(
+                f"Processed batch {start // batch_size + 1}/{(len(abs) + batch_size - 1) // batch_size}"
+            )
 
         return round((correct_predictions / total_predictions) * 100, 2)
 
