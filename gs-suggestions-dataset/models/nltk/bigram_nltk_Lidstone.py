@@ -7,16 +7,16 @@ import unicodedata
 
 from sklearn.model_selection import train_test_split, KFold
 from nltk.tokenize import word_tokenize
+
 from cltk.sentence.grc import GreekRegexSentenceTokenizer
+from cltk.tokenizers.processes import GreekTokenizationProcess
+from cltk.core.data_types import Doc
+
 from nltk.util import ngrams
 from nltk.lm import Vocabulary
 from collections import Counter
 from nltk.lm.models import Lidstone
-from nltk.lm.preprocessing import (
-    padded_everygram_pipeline,
-    pad_both_ends,
-    flatten
-)
+from nltk.lm.preprocessing import padded_everygram_pipeline, pad_both_ends, flatten
 
 
 class BigramModel:
@@ -32,6 +32,7 @@ class BigramModel:
         self.train_ab = None
         self.test_ab = None
         self.sentence_tokenizer = GreekRegexSentenceTokenizer()
+        self.tokenizer = GreekTokenizationProcess()
 
     def get_ab(self) -> None:
         """
@@ -123,6 +124,24 @@ class BigramModel:
         """
         return unicodedata.normalize("NFC", unicodedata.normalize("NFD", text).lower())
 
+    def contain_gaps(self, text: str) -> bool:
+        """
+        Predicato che verifica se il testo di input contiene delle lacune (<gap/>).
+        """
+        return bool(re.search(r"<gap\s*/?>", text) or re.search(r"\.\.+", text))
+
+    def remove_brackets(self, text: str) -> str:
+        """
+        Rimuove le parentesi quadre dal testo di input.
+
+        Args:
+            text (str): Il testo di input da pulire.
+
+        Returns:
+            str: Il testo pulito senza parentesi quadre.
+        """
+        return re.sub(r"\[(.*?)\]", r" \1 ", text.replace("\n", ""))
+
     def clean_text(self, text: str) -> str:
         """
         Pulisce il testo di input eseguendo il case folding per il greco, la tokenizzazione e la gestione delle lacune.
@@ -135,16 +154,18 @@ class BigramModel:
         """
 
         cleaned_tokens = []
-        for token in word_tokenize(text=self.greek_case_folding(text)):
+        for token in self.tokenizer.run(
+            input_doc=Doc(raw=self.remove_brackets(text))
+        ).tokens:
             if self.contains_lacunae(token):
                 cleaned_token = self.clean_lacunae(token)
-                if cleaned_token: 
+                if cleaned_token:
                     cleaned_tokens.append(cleaned_token)
             else:
                 cleaned_tokens.append(token)
 
         cleaned_text = " ".join(cleaned_tokens)
-        return cleaned_text
+        return cleaned_text.strip()
 
     def get_train_sentences(self, ab) -> list:
         """
@@ -161,18 +182,19 @@ class BigramModel:
             list: Una lista di frasi di addestramento processate e imbottite.
         """
         train_sentences = []
-
-        for obj in ab:
+        i = 0
+        for idx, obj in enumerate(ab):
             if obj["training_text"] and obj["language"] == "grc":
-                train_sentences.extend(
-                    [
-                        word_tokenize(sent)
-                        for sent in self.sentence_tokenizer.tokenize(
-                            self.clean_text(obj["training_text"])
-                            )
-                    ]
-                )
-        return train_sentences
+                for sent in self.sentence_tokenizer.tokenize(
+                    text=self.clean_text(obj["training_text"])
+                ):
+                    if sent:
+                        train_sentences.append(
+                            self.tokenizer.run(input_doc=Doc(raw=sent)).tokens
+                        )
+            i += 1
+            progress = ((idx + 1) / len(ab)) * 100
+            print(f"Blocco esaminato: {i}, Progress: {progress:.2f}%")
 
     def get_test_sentences(self) -> list:
         """
@@ -191,14 +213,14 @@ class BigramModel:
 
         for obj in self.test_ab:
             if obj["training_text"] and obj["language"] == "grc":
-                test_sentences.extend(
-                    [
-                        word_tokenize(sent)
-                        for sent in self.sentence_tokenizer.tokenize(
-                            self.clean_text(obj["training_text"])
-                            )
-                    ]
-                )
+                for sent in self.sentence_tokenizer.tokenize(
+                    text=self.clean_text(obj["training_text"])
+                ):
+                    if sent:
+                        test_sentences.append(
+                            self.tokenizer.run(input_doc=Doc(raw=sent)).tokens
+                        )
+
         return test_sentences
 
     def filter_vocab(self, vocab_tokens, min_freq):
@@ -286,9 +308,9 @@ class BigramModel:
         Args:
             model_path (str): Percorso per salvare il modello.
         """
-        model_data = {"lm":self.lm,"test_ab":self.test_ab}
+        model_data = {"lm": self.lm, "test_ab": self.test_ab}
 
-        with open (model_path, "wb") as f:
+        with open(model_path, "wb") as f:
             pickle.dump(model_data, f)
             print("Language model saved.")
 
@@ -320,7 +342,10 @@ class BigramModel:
             raise ValueError("Modello non caricato. Impossibile generare parole.")
 
         return self.lm.generate(
-            num_words=num_words, text_seed=word_tokenize(self.clean_text(context))
+            num_words=num_words,
+            text_seed=self.tokenizer.run(
+                input_doc=Doc(raw=self.clean_text(context))
+            ).tokens,
         )  # ultima parola
 
     def evaluate(self) -> float:
@@ -360,7 +385,7 @@ class BigramModel:
                 "Errore nel calcolo della perplessità. Verifica i dati di test e di addestramento."
             )
 
-    def accuracy(self, abs) -> float:
+    def accuracy(self, abs, batch_size=10) -> float:
         """
         Calcola l'accuratezza del modello sui dati forniti (abs).
 
@@ -373,48 +398,54 @@ class BigramModel:
         correct_predictions = 0
         total_predictions = 0
 
-        for ab in abs:
-            if ab["language"] == "grc":
-                restored = re.findall(r"\[(.*?)\]", ab["training_text"])
-                if not restored:
-                    continue
-                
-                for i, obj in enumerate(ab["test_cases"]):
-                    if i >= len(restored):
-                        break
-                    
-                    test_case = obj["test_case"]
-                    restored_words = word_tokenize(restored[i].strip())
+        for start in range(0, len(abs), batch_size):
+            batch = abs[start : start + batch_size]  # batch di blocchi anonimi
+            for ab in batch:
+                if ab["language"] == "grc":
+                    restored = re.findall(r"\[(.*?)\]", ab["training_text"])
+                    if not restored:
+                        continue  # non ci sono blocchi da predire
 
-                    context = list(
-                        flatten(
-                        [
-                            list(
-                                pad_both_ends(
-                                    word_tokenize(sent),
-                                    n=2,
-                                )
+                    for i, obj in enumerate(ab["test_cases"]):
+                        if i >= len(restored):
+                            break
+
+                        test_case = obj["test_case"]
+                        restored_words = self.tokenizer.run(
+                            input_doc=Doc(raw=self.clean_text(restored[i]))
+                        ).tokens
+
+                        context = list(
+                            flatten(
+                                [
+                                    list(
+                                        pad_both_ends(
+                                            self.tokenizer.run(
+                                                input_doc=Doc(raw=sent)
+                                            ).tokens,
+                                            n=2,
+                                        )
+                                    )
+                                    for sent in self.sentence_tokenizer.tokenize(
+                                        self.clean_text(test_case.split("[")[0])
+                                    )
+                                ]
                             )
-                            for sent in self.sentence_tokenizer.tokenize(
-                                self.clean_text(test_case.split("[")[0])
-                            )
-                        ]
-                    ))[:-1]
-                    
-                    
-                    prediction = []
-                    while len(prediction) < len(restored_words):
-                        token = self.lm.generate(text_seed=context, num_words=1)
-                        prediction.append(token)
-                        context.append(token)
+                        )[:-2]
 
+                        prediction = (
+                            []
+                        )  # salvo le predizioni del modello in una lista per effettuare un confronto accurato con le gold label
+                        while len(prediction) < len(restored_words):
+                            token = self.lm.generate(text_seed=context, num_words=1)
+                            prediction.append(token)
+                            context.append(token)
 
-                    if prediction == restored_words:
-                        correct_predictions += 1
-                        
-                    total_predictions += 1
-                
-                print(correct_predictions, "/", total_predictions)
+                        if prediction == restored_words:
+                            correct_predictions += 1
+
+                        total_predictions += 1
+                        print(correct_predictions, "/", total_predictions)
 
         return round((correct_predictions / total_predictions) * 100, 2)
 

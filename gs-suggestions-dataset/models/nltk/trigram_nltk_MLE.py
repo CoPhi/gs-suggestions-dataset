@@ -4,13 +4,16 @@ import pickle
 import argparse
 import re
 import unicodedata
+
 from sklearn.model_selection import train_test_split, KFold
 
 from collections import Counter
+
 from cltk.sentence.grc import GreekRegexSentenceTokenizer
 from cltk.tokenizers.processes import GreekTokenizationProcess
+from cltk.core.data_types import Doc
+
 from nltk import ngrams
-from nltk.tokenize import word_tokenize, sent_tokenize
 from nltk.lm.vocabulary import Vocabulary
 from nltk.lm.models import MLE
 from nltk.lm.preprocessing import (
@@ -33,7 +36,8 @@ class TrigramModel:
         self.train_ab = None
         self.test_ab = None
         self.lm = MLE(3)
-        # self.sentence_tokenizer = GreekRegexSentenceTokenizer()
+        self.sentence_tokenizer = GreekRegexSentenceTokenizer()
+        self.tokenizer = GreekTokenizationProcess()
 
     def get_ab(self) -> None:
         """
@@ -138,7 +142,7 @@ class TrigramModel:
         Returns:
             str: Il testo pulito senza parentesi quadre.
         """
-        return text.replace("[", "").replace("]", "")
+        return re.sub(r"\[(.*?)\]", r" \1 ", text.replace("\n", ""))
 
     def clean_text(self, text: str) -> str:
         """
@@ -152,7 +156,9 @@ class TrigramModel:
         """
 
         cleaned_tokens = []
-        for token in word_tokenize(self.greek_case_folding(text), language="greek"):
+        for token in self.tokenizer.run(
+            input_doc=Doc(raw=self.remove_brackets(text))
+        ).tokens:
             if self.contains_lacunae(token):
                 cleaned_token = self.clean_lacunae(token)
                 if cleaned_token:
@@ -182,15 +188,13 @@ class TrigramModel:
         i = 0
         for idx, obj in enumerate(ab):
             if obj["training_text"] and obj["language"] == "grc":
-                train_sentences.extend(
-                    [
-                        word_tokenize(sent, language="greek")
-                        for sent in sent_tokenize(
-                            self.clean_text(obj["training_text"]), language="greek"
+                for sent in self.sentence_tokenizer.tokenize(
+                    text=self.clean_text(obj["training_text"])
+                ):
+                    if sent:
+                        train_sentences.append(
+                            self.tokenizer.run(input_doc=Doc(raw=sent)).tokens
                         )
-                        if sent
-                    ]
-                )
             i += 1
             progress = ((idx + 1) / len(ab)) * 100
             print(f"Blocco esaminato: {i}, Progress: {progress:.2f}%")
@@ -214,15 +218,14 @@ class TrigramModel:
 
         for obj in self.test_ab:
             if obj["training_text"] and obj["language"] == "grc":
-                test_sentences.extend(
-                    [
-                        word_tokenize(sent, language="greek")
-                        for sent in sent_tokenize(
-                            self.clean_text(obj["training_text"]), language="greek"
+                for sent in self.sentence_tokenizer.tokenize(
+                    text=self.clean_text(obj["training_text"])
+                ):
+                    if sent:
+                        test_sentences.append(
+                            self.tokenizer.run(input_doc=Doc(raw=sent)).tokens
                         )
-                        if sent
-                    ]
-                )
+
         return test_sentences
 
     def filter_vocab(self, vocab_tokens, min_freq):
@@ -337,7 +340,9 @@ class TrigramModel:
 
         return self.lm.generate(
             num_words=num_words,
-            text_seed=word_tokenize(self.clean_text(context), language="greek"),
+            text_seed=self.tokenizer.run(
+                input_doc=Doc(raw=self.clean_text(context))
+            ).tokens,
         )
 
     def evaluate(self):
@@ -399,22 +404,23 @@ class TrigramModel:
                             break
 
                         test_case = obj["test_case"]
-                        restored_words = word_tokenize(
-                            self.clean_text(restored[i].strip()), language="greek"
-                        )
+                        restored_words = self.tokenizer.run(
+                            input_doc=Doc(raw=self.clean_text(restored[i]))
+                        ).tokens
 
                         context = list(
                             flatten(
                                 [
                                     list(
                                         pad_both_ends(
-                                            word_tokenize(sent, language="greek"),
+                                            self.tokenizer.run(
+                                                input_doc=Doc(raw=sent)
+                                            ).tokens,
                                             n=3,
                                         )
                                     )
-                                    for sent in sent_tokenize(
-                                        self.clean_text(test_case.split("[")[0]),
-                                        language="greek"
+                                    for sent in self.sentence_tokenizer.tokenize(
+                                        self.clean_text(test_case.split("[")[0])
                                     )
                                 ]
                             )
@@ -433,10 +439,6 @@ class TrigramModel:
 
                         total_predictions += 1
                         print(correct_predictions, "/", total_predictions)
-
-            print(
-                f"Processed batch {start // batch_size + 1}/{(len(abs) + batch_size - 1) // batch_size}"
-            )
 
         return round((correct_predictions / total_predictions) * 100, 2)
 
