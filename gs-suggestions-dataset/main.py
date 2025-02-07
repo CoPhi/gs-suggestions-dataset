@@ -3,6 +3,16 @@ from pydantic import BaseModel
 
 from models.nltk.trigram_nltk_MLE import TrigramModel
 
+""""
+    For test 
+    
+    uvicorn nome_file_api:app --reload (avvio server fastAPI)
+    curl -X POST "http://127.0.0.1:8000/restore" \
+    -H "Content-Type: application/json" \
+    -d '{"context": "Questo è un esempio di", "num_words": 3}' (test richiesta all'API)
+
+"""
+
 app = FastAPI()
 
 model = TrigramModel(data_path="data/")
@@ -22,7 +32,7 @@ class RestoreRequest(BaseModel):
 class RestoreResponse(BaseModel):
     restored_text: str
 
-@app.post("/restore", response_model=RestoreResponse)
+@app.get("/restore", response_model=RestoreResponse)
 def restore(request: RestoreRequest):
     try: 
         restored = model.generate_words(context=request.context, num_words=request.num_words)

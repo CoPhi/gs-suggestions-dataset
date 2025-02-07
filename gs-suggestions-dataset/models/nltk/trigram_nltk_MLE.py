@@ -3,7 +3,7 @@ import json
 import pickle
 import argparse
 import re
-import unicodedata
+from tqdm import tqdm
 
 from sklearn.model_selection import train_test_split, KFold
 
@@ -12,6 +12,7 @@ from collections import Counter
 from cltk.sentence.grc import GreekRegexSentenceTokenizer
 from cltk.tokenizers.processes import GreekTokenizationProcess
 from cltk.core.data_types import Doc
+from cltk.alphabet.grc.grc import filter_non_greek, normalize_grc
 
 from nltk import ngrams
 from nltk.lm.vocabulary import Vocabulary
@@ -43,12 +44,15 @@ class TrigramModel:
         """
         Estrae gli anonymous block da tutti i file JSON nella cartella specificata.
         """
-
-        for file_path in self.data_path.glob("*.json"):
-            print(f"Processing file: {file_path}")
+        for file_path in tqdm(
+            list(self.data_path.glob("*.json")),
+            desc="Processing MAAT corpus",
+            unit="file",
+            leave=False,
+        ):
             with open(file_path, "r") as f:
                 data = json.load(f)
-                self.ab.extend([obj for obj in data])
+                self.ab.extend(data)
 
     def split_ab(self) -> None:
         """
@@ -93,7 +97,7 @@ class TrigramModel:
             str: Il token pulito.
 
         La funzione esegue i seguenti passaggi di pulizia:
-        1. Se il token contiene un punto (.) e non è interamente alfabetico, rimuove tutti i punti.
+        1. Se il token contiene un punto (.) e non è interamente alfabetico, lo conto come parola (token) sconosciuta.
         2. Se il token contiene uno qualsiasi dei caratteri '<', '>', ']', '[', 'gap', o '/', li rimuove.
 
         Esempi:
@@ -103,10 +107,10 @@ class TrigramModel:
             ''
         """
         if "." in token and not token.isalpha():
-            return token.replace(".", "")  # Rimuovo i puntini
-        if re.compile(r"(<|>|]|\[|gap|/)").search(token):
+            return "<UNK>"  # Rimpiazzo con token sconosciuto
+        if re.compile(r"(<|>|]|\[|gap|/|.|,)").search(token):
             return re.sub(
-                r"(<|>|]|\[|gap|/)", "", token
+                r"(<|>|]|\[|gap|/|.|,)", "", token
             )  # Rimuovo i caratteri specificati
 
         return token
@@ -124,7 +128,7 @@ class TrigramModel:
         Returns:
             str: Il testo normalizzato.
         """
-        return unicodedata.normalize("NFC", unicodedata.normalize("NFD", text).lower())
+        return normalize_grc(text)
 
     def contain_gaps(self, text: str) -> bool:
         """
@@ -142,7 +146,19 @@ class TrigramModel:
         Returns:
             str: Il testo pulito senza parentesi quadre.
         """
-        return re.sub(r"\[(.*?)\]", r" \1 ", text.replace("\n", ""))
+        return re.sub(r"\[(.*?)\]", r"\1", text.replace("\n", ""))
+
+    def remove_punctuation(self, text: str) -> str:
+        """
+        Rimuove la punteggiatura da una stringa di testo.
+
+        Args:
+            text (str): La stringa di testo da cui rimuovere la punteggiatura.
+
+        Returns:
+            str: La stringa di testo senza punteggiatura.
+        """
+        return re.sub(r"[·.,;:!?]", "", text)
 
     def clean_text(self, text: str) -> str:
         """
@@ -154,20 +170,13 @@ class TrigramModel:
         Returns:
             str: Il testo pulito con i token uniti da spazi.
         """
-
-        cleaned_tokens = []
-        for token in self.tokenizer.run(
-            input_doc=Doc(raw=self.remove_brackets(text))
-        ).tokens:
-            if self.contains_lacunae(token):
-                cleaned_token = self.clean_lacunae(token)
-                if cleaned_token:
-                    cleaned_tokens.append(cleaned_token)
-            else:
-                cleaned_tokens.append(token)
-
-        cleaned_text = " ".join(cleaned_tokens)
-        return cleaned_text.strip()
+        text = self.remove_brackets(self.remove_punctuation(text))
+        tokens = self.tokenizer.run(input_doc=Doc(raw=text)).tokens
+        cleaned_tokens = [
+            self.clean_lacunae(token) if self.contains_lacunae(token) else token
+            for token in tokens
+        ]
+        return filter_non_greek(" ".join(filter(None, cleaned_tokens)).strip())
 
     def get_train_sentences(self, ab) -> list:
         """
@@ -185,8 +194,7 @@ class TrigramModel:
             list: Una lista di frasi di addestramento processate e imbottite.
         """
         train_sentences = []
-        i = 0
-        for idx, obj in enumerate(ab):
+        for obj in tqdm(ab, desc="Processing training blocks", unit="ab", leave=False):
             if obj["training_text"] and obj["language"] == "grc":
                 for sent in self.sentence_tokenizer.tokenize(
                     text=self.clean_text(obj["training_text"])
@@ -195,9 +203,6 @@ class TrigramModel:
                         train_sentences.append(
                             self.tokenizer.run(input_doc=Doc(raw=sent)).tokens
                         )
-            i += 1
-            progress = ((idx + 1) / len(ab)) * 100
-            print(f"Blocco esaminato: {i}, Progress: {progress:.2f}%")
 
         return train_sentences
 
@@ -290,9 +295,7 @@ class TrigramModel:
 
     def pipeline_train(self) -> None:
         self.get_ab()
-        print("Tokenization complete. Starting data split...")
         self.split_ab()
-        print("Data split complete. start training the model...")
         # self.select_best_lm()
         self.train_lm(self.train_ab)
         self.save_lm()
@@ -342,7 +345,7 @@ class TrigramModel:
             num_words=num_words,
             text_seed=self.tokenizer.run(
                 input_doc=Doc(raw=self.clean_text(context))
-            ).tokens,
+            ).tokens[-2:],
         )
 
     def evaluate(self):
@@ -353,6 +356,7 @@ class TrigramModel:
         Returns:
             float: Perplessità.
         """
+
         test_ngrams = []
         for sentence in self.get_test_sentences():
             test_ngrams.extend(
@@ -377,12 +381,13 @@ class TrigramModel:
                 "Errore nel calcolo della perplessità. Verifica i dati di test e di addestramento."
             )
 
-    def accuracy(self, abs, batch_size=10) -> float:
+    def accuracy(self, abs, k=10, batch_size=10) -> float:
         """
         Calcola l'accuratezza del modello sui dati forniti (abs) in batch.
 
         Args:
             abs (list): Lista di anonymous block per il calcolo dell'accuratezza.
+            k (int) : numero di predizioni con cui si fa il confronto con la gold label
             batch_size (int): Dimensione del batch per il calcolo dell'accuratezza.
 
         Returns:
@@ -391,21 +396,38 @@ class TrigramModel:
         correct_predictions = 0
         total_predictions = 0
 
-        for start in range(0, len(abs), batch_size):
+        for start in tqdm(
+            range(0, len(abs), batch_size),
+            desc="Calcolo accuracy",
+            unit="ab",
+            leave=False,
+        ):
             batch = abs[start : start + batch_size]  # batch di blocchi anonimi
             for ab in batch:
                 if ab["language"] == "grc":
-                    restored = re.findall(r"\[(.*?)\]", ab["training_text"])
-                    if not restored:
+                    supplements = list(
+                        map(
+                            str.strip,
+                            [
+                                re.sub(r"[\[\]]", "", suppl)
+                                for suppl in re.findall(
+                                    r"\w*\[[^\]]+\]\w*",
+                                    re.sub(r"<gap/>", " ", ab["training_text"]),
+                                )
+                            ],
+                        )
+                    )
+                    if not supplements:
                         continue  # non ci sono blocchi da predire
 
                     for i, obj in enumerate(ab["test_cases"]):
-                        if i >= len(restored):
+                        if i >= len(supplements):
                             break
 
                         test_case = obj["test_case"]
-                        restored_words = self.tokenizer.run(
-                            input_doc=Doc(raw=self.clean_text(restored[i]))
+
+                        supplement_words = self.tokenizer.run(
+                            input_doc=Doc(raw=self.clean_text(supplements[i]))
                         ).tokens
 
                         context = list(
@@ -420,25 +442,42 @@ class TrigramModel:
                                         )
                                     )
                                     for sent in self.sentence_tokenizer.tokenize(
-                                        self.clean_text(test_case.split("[")[0])
+                                        self.clean_text(
+                                            re.sub(r"[^\s]+\[", "[", test_case).split(
+                                                "["
+                                            )[0]
+                                        )
                                     )
                                 ]
                             )
                         )[:-2]
 
-                        prediction = (
-                            []
-                        )  # salvo le predizioni del modello in una lista per effettuare un confronto accurato con le gold label
-                        while len(prediction) < len(restored_words):
-                            token = self.lm.generate(text_seed=context, num_words=1)
-                            prediction.append(token)
-                            context.append(token)
+                        predictions = []  # qui salvo le k predizioni del modello
 
-                        if prediction == restored_words:
+                        dist_words_context = sorted(
+                            self.lm.context_counts(
+                                self.lm.vocab.lookup(context[-1:])
+                            ).items(),
+                            key=lambda x: x[1],
+                            reverse=True,
+                        )  # distribuzione di frequenze per le parole, dato il contesto
+
+                        for word, _ in dist_words_context[:k]:
+                            temp_context = context + [word]  # contesto adattato
+                            current_prediction = [word]
+                            while len(current_prediction) < len(supplement_words):
+                                token = self.lm.generate(
+                                    text_seed=temp_context[-2:], num_words=1
+                                )
+                                current_prediction.append(token)
+                                context.append(token)
+
+                            predictions.append(current_prediction)
+
+                        if supplement_words in predictions:
                             correct_predictions += 1
 
                         total_predictions += 1
-                        print(correct_predictions, "/", total_predictions)
 
         return round((correct_predictions / total_predictions) * 100, 2)
 

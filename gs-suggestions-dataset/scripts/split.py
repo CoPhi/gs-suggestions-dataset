@@ -3,9 +3,7 @@ import json
 from pathlib import Path
 
 CORPUS_PATHS = [
-    "/home/gabriele/cltk_data/grc/corpora/idp.data/DCLP/",
-    "/home/gabriele/cltk_data/grc/corpora/idp.data/DDB_EpiDoc_XML/",
-    "/home/gabriele/cltk_data/grc/corpora/edhEpidocDump_/"
+    "/home/gabriele/cltk_data/grc/corpora/First1KGreek/data/",
 ]
 
 LIM = 50  # MAX MB per file

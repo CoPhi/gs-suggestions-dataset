@@ -1,0 +1,16 @@
+# Cache di Python
+*.pyc
+*.pyo
+*.pyd
+__pycac
+
+# File e directory generati da pip e Poetry
+poetry.lock
+.cache/
+**/__pycache__/
+
+# Configurazioni locali
+*.env
+.env.*
+.idea/
+.vscode/
