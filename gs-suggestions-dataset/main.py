@@ -1,7 +1,8 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 
-from models.nltk.trigram_nltk_MLE import TrigramModel
+from models.infer import generate_words
+from models.training import load_lm
 
 """"
     For test 
@@ -14,12 +15,10 @@ from models.nltk.trigram_nltk_MLE import TrigramModel
 """
 
 app = FastAPI()
-
-model = TrigramModel(data_path="data/")
 model_path = "trigram_lm_MLE.pkl"
 try:
-    model.load_lm(model_path)
-    print("Modello trigramma caricato con successo.")
+    lm, _ = load_lm(model_path)
+    print("Modello caricato con successo.")
 except Exception as e:
     print(f"Errore durante il caricamento del modello: {e}")
     model = None
@@ -35,7 +34,7 @@ class RestoreResponse(BaseModel):
 @app.get("/restore", response_model=RestoreResponse)
 def restore(request: RestoreRequest):
     try: 
-        restored = model.generate_words(context=request.context, num_words=request.num_words)
+        restored = generate_words(lm = lm, context=request.context, num_words=request.num_words)
         return {"restored_text": " ".join(restored)}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
