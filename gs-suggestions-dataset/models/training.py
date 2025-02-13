@@ -10,9 +10,16 @@ from nltk.lm.preprocessing import (
     padded_everygram_pipeline,
 )
 
-from config.settings import DATA_PATH, TEST_SIZE, N, sentence_tokenizer, tokenizer
+from config.settings import (
+    DATA_PATH,
+    TEST_SIZE,
+    LM_TYPE,
+    N,
+    GAMMA,
+    sentence_tokenizer,
+    tokenizer,
+)
 from utils.preprocess import clean_text
-
 
 def load_abs() -> list:
     """
@@ -36,16 +43,17 @@ def load_abs() -> list:
     return abs
 
 
-def split_abs(abs: list) -> tuple:
+def split_abs(abs: list, test_size=TEST_SIZE) -> tuple:
     """
     Divide una lista di anonymous block in due sottoinsiemi per l'addestramento e il test.
     Args:
         abs (list): Lista di anonymous block da dividere.
+        test_size (float, opzionale): Dimensione del test set
     Returns:
         tuple: Una tupla contenente due liste, la prima per l'addestramento e la seconda per il test.
     """
 
-    train_abs, test_abs = train_test_split(abs, test_size=TEST_SIZE)
+    train_abs, test_abs = train_test_split(abs, test_size=test_size)
     return train_abs, test_abs
 
 
@@ -83,52 +91,91 @@ def filter_vocab(vocab_tokens, min_freq: int):
         Vocabulary: Il vocabolario filtrato.
     """
     token_counts = Counter(vocab_tokens)
-    return Vocabulary(
-        [token for token, freq in token_counts.items() if freq >= min_freq]
-    )
+    vocab = Vocabulary(unk_label="UNK")
+    vocab.update([token for token, freq in token_counts.items() if freq >= min_freq])
+    return vocab
 
 
-def train_lm(train_abs: list) -> LanguageModel:
+def train_lm(train_abs: list, lm_type=LM_TYPE, gamma=GAMMA, n=N) -> LanguageModel:
     """
-    Addestra il modello sulle frasi di addestramento prelevate dall'insieme train_ab.
-    Le frasi subiscono un controllo per rimuovere token non validi nella fase di addestramento.
-    """
+    Addestra un modello di linguaggio sulle frasi di addestramento fornite.
 
-    lm = MLE(N)
+    Args:
+        train_abs (list): Lista di frasi di addestramento.
+        lm_type (str, opzionale): Tipo di modello di linguaggio da addestrare ('MLE' o altro). Default è LM_TYPE.
+        gamma (float, opzionale): Parametro di smoothing per il modello Lidstone. Default è GAMMA.
+        n (int, opzionale): Ordine degli n-grammi. Default è N.
+
+    Returns:
+        LanguageModel: Modello di linguaggio addestrato.
+    """
+    if lm_type == "MLE":
+        lm = MLE(n)
+    else:
+        lm = Lidstone(gamma, n)
 
     train_ngrams, vocab_tokens = padded_everygram_pipeline(
-        order=N, text=get_sentences(train_abs)
+        order=n, text=get_sentences(train_abs)
     )
 
-    lm.fit(train_ngrams, filter_vocab(vocab_tokens, 2))
+    lm.vocab = Vocabulary(unk_label="UNK")
+    lm.fit(train_ngrams, vocab_tokens)
     return lm
 
 
-def pipeline_train():
-    train_abs, test_abs = split_abs(load_abs())
-    save_lm(lm=train_lm(train_abs), test_abs=test_abs)
-
-
-def save_lm(lm: LanguageModel, test_abs: list, model_path="trigram_lm_MLE.pkl") -> None:
+def pipeline_train(lm_type=LM_TYPE, gamma=GAMMA, n=N, test_size=TEST_SIZE):
     """
-    Salva il modello linguistico su disco.
+    Esegue il processo di addestramento del modello.
 
+    La funzione esegue i seguenti passaggi:
+    1. Carica i dati dalla lista degli anonymous blocks.
+    2. Divide i dati in set di addestramento e di test.
+    3. Addestra il modello di linguaggio (LM) utilizzando il set di addestramento.
+    4. Salva il modello addestrato e il set di test.
+
+    Returns:
+        None
+    """
+    train_abs, test_abs = split_abs(abs=load_abs(), test_size=test_size)
+    lm = train_lm(train_abs, lm_type=lm_type, gamma=gamma, n=n)
+    save_lm(
+        lm=lm, test_abs=test_abs
+    )
+    return lm, test_abs
+
+
+def save_lm(lm: LanguageModel, test_abs: list, n=N, lm_type=LM_TYPE) -> None:
+    """
+    Salva un modello di linguaggio (LanguageModel) su disco come file pickle.
     Args:
-        model_path (str): Percorso per salvare il modello.
+        lm (LanguageModel): Il modello di linguaggio da salvare.
+        test_abs (list): Una lista di anonymous blocks di test.
+        n (int, opzionale): Dimensione degli ngrammi del modello. Default è N.
+        lm_type (str, opzionale): Il tipo di modello linguistico da salvare su disco. Default è `LM_TYPE`.
+    Returns:
+        None: Questa funzione non ritorna nulla.
     """
+
     model_data = {"lm": lm, "test_ab": test_abs}
-    with open(model_path, "wb") as f:
+    with open(f"{lm_type}_{n}.pkl", "wb") as f:
         pickle.dump(model_data, f)
         print("Language model saved.")
 
 
-def load_lm(model_path="trigram_lm_MLE.pkl") -> None:
+def load_lm(n=N, lm_type=LM_TYPE) -> None:
     """
-    Carica il modello linguistico da disco.
+    Carica un modello linguistico da un file pickle.
     Args:
-        model_path (str): Percorso da cui caricare il modello.
+        n (int, optional): Dimensione degli ngrammi del modello. Default è `N`.
+        lm_type (str, optional): Il tipo di modello linguistico da caricare. Default è `LM_TYPE`.
+    Returns:
+        tuple: Una tupla contenente il modello linguistico (lm) e i dati test_ab se il caricamento ha successo, altrimenti `None`.
+    Raises:
+        FileNotFoundError: Se il file pickle specificato non esiste.
+        pickle.UnpicklingError: Se c'è un errore durante l'unpickling del file.
     """
-    with open(model_path, "rb") as f:
+
+    with open(f"{lm_type}_{n}.pkl", "rb") as f:
         model_data = pickle.load(f)
         lm = model_data["lm"]
         test_ab = model_data["test_ab"]

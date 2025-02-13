@@ -8,16 +8,21 @@ from utils.preprocess import clean_text
 from models.training import load_lm
 
 
-def generate_words(lm: LanguageModel, context: str, num_words: int):
+def generate_words(lm: LanguageModel, context: str, num_words: int, n=N):
     """
-    Genera parole utilizzando il modello linguistico addestrato.
+    Genera una sequenza di parole utilizzando un modello di linguaggio.
 
     Args:
-        context (str): Il contesto per la generazione delle parole.
+        lm (LanguageModel): Il modello di linguaggio da utilizzare per generare le parole.
+        context (str): Il contesto testuale da utilizzare come seme per la generazione.
         num_words (int): Il numero di parole da generare.
+        n (int, opzionale): Dimensione degli ngrammi del modello, default N (settings.py).
 
     Returns:
-        list: Una lista di parole generate.
+        List[str]: Una lista di parole generate dal modello di linguaggio.
+
+    Raises:
+        ValueError: Se il modello di linguaggio non è stato caricato correttamente.
     """
     if not lm:
         raise ValueError("Il modello non è stato caricato correttamente.")
@@ -25,7 +30,7 @@ def generate_words(lm: LanguageModel, context: str, num_words: int):
     return lm.generate(
         num_words=num_words,
         text_seed=tokenizer.run(input_doc=Doc(raw=clean_text(context))).tokens[
-            -(N - 1) :
+            (1-n):
         ],
     )
 
