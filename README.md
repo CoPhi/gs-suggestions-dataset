@@ -10,11 +10,15 @@ I dati provengono dal [MAAT Corpus](https://zenodo.org/records/12553283), e il m
 Questo progetto utilizza `Poetry`. 
 Per installare le dipendenze, eseguire: 
 
-    poetry install
+```sh
+$ poetry install
+```
 
 Per utilizzare la shell creata dall'ambiente virtuale: 
 
-    poetry shell
+```sh
+$ poetry shell
+```
 
 ## Dataset
 
