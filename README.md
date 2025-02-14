@@ -1,11 +1,25 @@
 # gs-suggestions-dataset
 
-Repository per la raccolta dati. 
-Questo progetto utilizza Poetry. 
-Per prima cosa occorre installare le dipendenze del progetto con il comando: 
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.12553283.svg)](https://doi.org/10.5281/zenodo.12553283)
+
+Questo progetto sviluppa un sistema di autosuggerimento per la ricostruzione di lacune nei testi in greco antico.  
+I dati provengono dal [MAAT Corpus](https://zenodo.org/records/12553283), e il modello utilizza le librerie `nltk` e `cltk` per l'elaborazione del linguaggio naturale.  
+
+## Installazione
+
+Questo progetto utilizza `Poetry`. 
+Per installare le dipendenze, eseguire: 
 
     poetry install
 
-Per utilizzare la shell creata dall'ambiente virtuale eseguire: 
+Per utilizzare la shell creata dall'ambiente virtuale: 
 
     poetry shell
+
+## Dataset
+
+Il dataset è basato sul [MAAT Corpus](https://zenodo.org/records/12553283) ed è stato arricchito con i testi dei [primi 1000 anni del greco antico](https://github.com/OpenGreekAndLatin/First1KGreek). 
+
+## Utilizzo 
+
+Per le istruzioni dettagliate sull'uso del dataset e del modello, consultare i file README inclusi nel package `gs-suggestions-dataset`
