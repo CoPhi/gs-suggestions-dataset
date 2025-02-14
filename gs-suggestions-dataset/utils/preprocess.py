@@ -4,7 +4,7 @@ from cltk.alphabet.grc.grc import normalize_grc
 from config.settings import tokenizer
 
 LACUNAE_REGEX = re.compile(r"(<|>|]|\[|gap|/|--{2,})")
-PUNCTUATION_REGEX = re.compile(r"[·,;:!?']")
+PUNCTUATION_REGEX = re.compile(r"[.·,;:!?']")
 BRACKETS_REGEX = re.compile(r"\[(.*?)\]")
 UNMATCHED_BRACKETS_REGEX = re.compile(r"[\[\]]")
 
@@ -37,12 +37,19 @@ def clean_lacunae(token: str) -> str:
         ''
     """
 
-    if "." in token and all(
-        char.isalpha() for char in token.replace(".", "")
-    ):  # gestione casi di lettere mancanti dentro la parola
-        return "UNK"  # Rimpiazzo con token sconosciuto
+    if "." in token and all(char.isalpha() for char in token.replace(".", "")):
+        if token.endswith(".") and all(char == "." for char in token):
+            return ""
+        elif token.endswith(".") and all(
+            char.isalpha() for char in token.replace(".", "")
+        ):
+            return token
+        elif all(char.isalpha() for char in token.replace(".", "")):
+            return "UNK"  # Sostituisce parole con punti interni con UNK
+
     if LACUNAE_REGEX.search(token):  # gestione tag gap o trattini multipli
         return re.sub(LACUNAE_REGEX, "", token)  # Rimuovo i caratteri specificati
+
     return token
 
 
@@ -173,8 +180,7 @@ def clean_supplements(training_text: str) -> list[list[str]]:
     )  # lista dei supplementi a cui affianco un numero di occorrenze (da incrementare)
     suppl_tokens = []
     for suppl in supplements:
-        # Trova tutte le occorrenze del supplemento nel testo
-        matches = list(re.finditer(re.escape(suppl), training_text))
+        matches = list(re.finditer(re.escape(suppl), training_text)) # Occorrenze del supplemento nel testo
         if not matches:
             suppl_tokens.append([])
             continue
@@ -205,15 +211,42 @@ def clean_supplements(training_text: str) -> list[list[str]]:
 
         suppl_tokens.append(
             [
-                greek_case_folding(token)
+                token
                 for token in tokenizer.run(
                     input_doc=Doc(raw=clean_text(extended_supplement))
                 ).tokens
-                if token != "UNK"
             ]
         )
 
     return suppl_tokens
+
+
+def clean_text_from_gaps(text: str):
+    """
+    Pulisce il testo dalle lacune, lasciando invariata la punteggiatura.
+    Viene usato questo metodo per pulire i testi di addestramento, per poi suddividerlo in frasi.
+
+    Args:
+        text (str): testo di addestramento
+
+    Returns:
+        clean_text (str): testo pulito dalle lacune
+    """
+    text = filter_dash(remove_brackets(remove_lb(text)))
+
+    tokens = tokenizer.run(input_doc=Doc(raw=text)).tokens
+    cleaned_tokens = [
+        clean_lacunae(token) if contains_lacunae(token) else token for token in tokens
+    ]
+    return " ".join(
+        filter(
+            None,
+            [
+                greek_case_folding(token) if token != "UNK" else token
+                for token in cleaned_tokens
+            ],
+        )
+    ).strip()
 
 
 def clean_text(text: str) -> str:

@@ -19,7 +19,8 @@ from config.settings import (
     sentence_tokenizer,
     tokenizer,
 )
-from utils.preprocess import clean_text
+from utils.preprocess import clean_text_from_gaps, remove_punctuation
+
 
 def load_abs() -> list:
     """
@@ -72,37 +73,27 @@ def get_sentences(abs: list) -> list:
     for obj in tqdm(abs, desc="Processing anonymous blocks", unit="ab", leave=False):
         if obj["training_text"] and obj["language"] == "grc":
             for sent in sentence_tokenizer.tokenize(
-                text=clean_text(obj["training_text"])
+                text=clean_text_from_gaps(obj["training_text"])
             ):
                 if sent:
-                    sentences.append(tokenizer.run(input_doc=Doc(raw=sent)).tokens)
+                    sentences.append(
+                        tokenizer.run(
+                            input_doc=Doc(raw=remove_punctuation(sent))
+                        ).tokens
+                    )
     return sentences
 
 
-def filter_vocab(vocab_tokens, min_freq: int):
-    """
-    Filtra il vocabolario rimuovendo i token con frequenza inferiore a min_freq.
-
-    Args:
-        vocab (Vocabulary): Il vocabolario da filtrare.
-        min_freq (int): La frequenza minima richiesta per mantenere un token nel vocabolario.
-
-    Returns:
-        Vocabulary: Il vocabolario filtrato.
-    """
-    token_counts = Counter(vocab_tokens)
-    vocab = Vocabulary(unk_label="UNK")
-    vocab.update([token for token, freq in token_counts.items() if freq >= min_freq])
-    return vocab
-
-
-def train_lm(train_abs: list, lm_type=LM_TYPE, gamma=GAMMA, n=N) -> LanguageModel:
+def train_lm(
+    train_abs: list, lm_type=LM_TYPE, min_freq=2, gamma=GAMMA, n=N
+) -> LanguageModel:
     """
     Addestra un modello di linguaggio sulle frasi di addestramento fornite.
 
     Args:
         train_abs (list): Lista di frasi di addestramento.
         lm_type (str, opzionale): Tipo di modello di linguaggio da addestrare ('MLE' o altro). Default è LM_TYPE.
+        min_freq (int, opzionale): filtro per la minima frequenza per gli elementi nel vocabolario del modello, se un token ha una frequenza assoluta minore viene contata come sconosciuta (`UNK`)
         gamma (float, opzionale): Parametro di smoothing per il modello Lidstone. Default è GAMMA.
         n (int, opzionale): Ordine degli n-grammi. Default è N.
 
@@ -118,8 +109,13 @@ def train_lm(train_abs: list, lm_type=LM_TYPE, gamma=GAMMA, n=N) -> LanguageMode
         order=n, text=get_sentences(train_abs)
     )
 
+    token_counts = Counter(vocab_tokens)
     lm.vocab = Vocabulary(unk_label="UNK")
-    lm.fit(train_ngrams, vocab_tokens)
+
+    lm.fit(
+        train_ngrams,
+        [token for token, freq in token_counts.items() if freq >= min_freq],
+    )
     return lm
 
 
@@ -138,9 +134,7 @@ def pipeline_train(lm_type=LM_TYPE, gamma=GAMMA, n=N, test_size=TEST_SIZE):
     """
     train_abs, test_abs = split_abs(abs=load_abs(), test_size=test_size)
     lm = train_lm(train_abs, lm_type=lm_type, gamma=gamma, n=n)
-    save_lm(
-        lm=lm, test_abs=test_abs
-    )
+    save_lm(lm=lm, test_abs=test_abs)
     return lm, test_abs
 
 

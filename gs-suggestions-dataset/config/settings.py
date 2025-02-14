@@ -12,7 +12,7 @@ tokenizer = GreekTokenizationProcess()
 
 LM_TYPE = 'MLE' #Tipo di Language Model
 GAMMA = 1 #k-smoothing
-K_PRED = 10  # Numero delle predizioni che il modello deve fare nella funzione di accuracy (da poi confrontare con la gold label)
+K_PRED = 20  # Numero delle predizioni che il modello deve fare nella funzione di accuracy (da poi confrontare con la gold label)
 BATCH_SIZE = 10  # Dimensione del batch
 DATA_PATH = Path("data/") #Percorso al dataset
 TEST_SIZE = 0.10  # Percentuale di dati di test

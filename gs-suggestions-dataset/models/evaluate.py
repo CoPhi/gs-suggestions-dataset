@@ -12,7 +12,7 @@ from nltk.lm.preprocessing import (
     flatten,
 )
 
-from utils.preprocess import clean_text, clean_supplements
+from utils.preprocess import clean_text_from_gaps, remove_punctuation, clean_supplements
 from models.training import get_sentences, load_lm
 from config.settings import (
     tokenizer,
@@ -37,6 +37,7 @@ def print_LIDSTONE_params_to_csv(params: dict) -> None:
     df = pd.DataFrame([params])
     df.to_csv("LIDSTONE_results.csv", mode="a", header=not file_exists, index=False)
 
+
 def get_dist_words_context(lm: LanguageModel, context: str, n=N):
     """
     Genera la distribuzione di frequenze delle parole per un dato contesto.
@@ -59,11 +60,13 @@ def get_dist_words_context(lm: LanguageModel, context: str, n=N):
     return []  # Se nessun contesto ha una distribuzione valida, restituisci lista vuota
 
 
-def get_predictions (lm : LanguageModel, context : list[str], suppl_words:list[str],  n=N, k_pred=K_PRED):
+def get_predictions(
+    lm: LanguageModel, context: list[str], suppl_words: list[str], n=N, k_pred=K_PRED
+):
     """
     Genera previsioni di completamento del testo basate su un modello di linguaggio.
 
-    Il metodo utilizza un contesto dato per ottenere una distribuzione di frequenza delle parole 
+    Il metodo utilizza un contesto dato per ottenere una distribuzione di frequenza delle parole
     e genera previsioni per completare il testo in base alle parole più probabili.
 
     :param lm: Istanza del modello di linguaggio (`LanguageModel`).
@@ -73,14 +76,14 @@ def get_predictions (lm : LanguageModel, context : list[str], suppl_words:list[s
     :param k_pred: Numero massimo di previsioni da generare (default: `K_PRED`).
 
     :return: Lista di previsioni, dove ogni previsione è una lista di parole generate.
-    
+
     Il metodo segue questi passi:
     1. Recupera la distribuzione delle parole in base al contesto usando `get_dist_words_context`.
     2. Seleziona le `k_pred` parole più probabili.
     3. Per ogni parola, estende il contesto e genera parole successive fino alla lunghezza di `suppl_words`.
     4. Restituisce una lista di liste, dove ogni lista rappresenta una sequenza generata.
     """
-    predictions = [] #k predizioni
+    predictions = []  # k predizioni
     dist_words_context = get_dist_words_context(lm, context, n)
     for word, _ in dist_words_context[:k_pred]:
         curr_context = context + [word]  # contesto adattato
@@ -94,9 +97,8 @@ def get_predictions (lm : LanguageModel, context : list[str], suppl_words:list[s
             curr_context.append(token)
 
         predictions.append(curr_pred)
-    
+
     return predictions
-    
 
 
 def perplexity(lm: LanguageModel, test_abs: list, n=N) -> float:
@@ -172,7 +174,9 @@ def accuracy(
         batch = test_abs[start : start + batch_size]  # batch di blocchi anonimi
         for ab in batch:
             if ab["language"] == "grc":
-                supplements = clean_supplements(ab['training_text']) #supplements puliti
+                supplements = clean_supplements(
+                    ab["training_text"]
+                )  # supplements puliti
                 if not supplements:
                     continue  # non ci sono blocchi da predire
 
@@ -187,12 +191,14 @@ def accuracy(
                             [
                                 list(
                                     pad_both_ends(
-                                        tokenizer.run(input_doc=Doc(raw=sent)).tokens,
+                                        tokenizer.run(
+                                            input_doc=Doc(raw=remove_punctuation(sent))
+                                        ).tokens,
                                         n=n,
                                     )
                                 )
                                 for sent in sentence_tokenizer.tokenize(
-                                    clean_text(
+                                    clean_text_from_gaps(
                                         re.sub(r"[^\s]+\[", "[", test_case).split("[")[
                                             0
                                         ]
@@ -200,9 +206,13 @@ def accuracy(
                                 )
                             ]
                         )
-                    )[: (1 - n)] #prendo il contesto a sinistra della parentesi dal test_case
+                    )[
+                        : (1 - n)
+                    ]  # prendo il contesto a sinistra della parentesi dal test_case
 
-                    predictions = get_predictions(lm, context, supplements[i], n, k_pred)
+                    predictions = get_predictions(
+                        lm, context, supplements[i], n, k_pred
+                    )
 
                     if supplements[i] in predictions:
                         correct_predictions += 1
