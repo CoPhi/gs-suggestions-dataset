@@ -1,6 +1,7 @@
 from matplotlib import pyplot as plt
 import pandas as pd
 
+from config.settings import LM_TYPE
 
 def read_data(csv_filename: str) -> pd.DataFrame: 
     return pd.read_csv(csv_filename)
@@ -23,3 +24,6 @@ def create_table(csv_filename: str, output_filename: str = "tabella.png") -> Non
         else:
             cell.set_facecolor('#f1f1f2')
     plt.savefig(output_filename, dpi=300, bbox_inches="tight")
+
+if __name__ == '__main__': 
+    create_table(f'{LM_TYPE}_results.csv')

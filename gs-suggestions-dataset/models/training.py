@@ -6,9 +6,7 @@ from sklearn.model_selection import train_test_split, KFold
 from cltk.core.data_types import Doc
 from nltk.lm.models import MLE, Lidstone, LanguageModel
 from nltk.lm.vocabulary import Vocabulary
-from nltk.lm.preprocessing import (
-    padded_everygram_pipeline,
-)
+from nltk.lm.preprocessing import padded_everygram_pipeline
 
 from config.settings import (
     DATA_PATH,
@@ -91,7 +89,7 @@ def train_lm(
     Addestra un modello di linguaggio sulle frasi di addestramento fornite.
 
     Args:
-        train_abs (list): Lista di frasi di addestramento.
+        train_abs (list): Lista di blocchi anonimi di addestramento.
         lm_type (str, opzionale): Tipo di modello di linguaggio da addestrare ('MLE' o altro). Default è LM_TYPE.
         min_freq (int, opzionale): filtro per la minima frequenza per gli elementi nel vocabolario del modello, se un token ha una frequenza assoluta minore viene contata come sconosciuta (`UNK`)
         gamma (float, opzionale): Parametro di smoothing per il modello Lidstone. Default è GAMMA.
@@ -109,8 +107,8 @@ def train_lm(
         order=n, text=get_sentences(train_abs)
     )
 
-    token_counts = Counter(vocab_tokens)
     lm.vocab = Vocabulary(unk_label="UNK")
+    token_counts = Counter(vocab_tokens)
 
     lm.fit(
         train_ngrams,
@@ -130,7 +128,7 @@ def pipeline_train(lm_type=LM_TYPE, gamma=GAMMA, n=N, test_size=TEST_SIZE):
     4. Salva il modello addestrato e il set di test.
 
     Returns:
-        None
+        tuple: Una tupla contenente il modello linguistico (lm) ed il test set
     """
     train_abs, test_abs = split_abs(abs=load_abs(), test_size=test_size)
     lm = train_lm(train_abs, lm_type=lm_type, gamma=gamma, n=n)

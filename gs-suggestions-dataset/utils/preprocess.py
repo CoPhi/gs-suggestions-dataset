@@ -6,16 +6,21 @@ from config.settings import tokenizer
 LACUNAE_REGEX = re.compile(r"(<|>|]|\[|gap|/|--{2,})")
 PUNCTUATION_REGEX = re.compile(r"[.·,;:!?']")
 BRACKETS_REGEX = re.compile(r"\[(.*?)\]")
-UNMATCHED_BRACKETS_REGEX = re.compile(r"[\[\]]")
-
+UNMATCHED_BRACKETS_REGEX = re.compile(r"[\[\]]") 
 
 def contains_lacunae(token: str) -> bool:
     """
     Verifica se un dato token contiene lacune (gap o parti mancanti).
     """
+    
+    if token.endswith(".") and all(
+            char.isalpha() for char in token.replace(".", "")
+        ):
+        return False
+    
     return (
-        token == "."
-        or ("." in token and not token.isalpha())
+        (len(token) > 1 and all(char == "." for char in token))
+        or all(char.isalpha() for char in token.replace(".", ""))
         or bool(LACUNAE_REGEX.search(token))
     )
 
@@ -35,17 +40,14 @@ def clean_lacunae(token: str) -> str:
         'UNK'
         >>> clean_lacunae("<")
         ''
+        >>> clean_lacunae("....")
+        'UNK'
+        >>> clean_lacunae("γέδουσιν.")
+        'γέδουσιν.'
     """
 
-    if "." in token and all(char.isalpha() for char in token.replace(".", "")):
-        if token.endswith(".") and all(char == "." for char in token):
-            return ""
-        elif token.endswith(".") and all(
-            char.isalpha() for char in token.replace(".", "")
-        ):
-            return token
-        elif all(char.isalpha() for char in token.replace(".", "")):
-            return "UNK"  # Sostituisce parole con punti interni con UNK
+    if "." in token and len(token) > 1: #gestione punti (lacune)
+        return "UNK"
 
     if LACUNAE_REGEX.search(token):  # gestione tag gap o trattini multipli
         return re.sub(LACUNAE_REGEX, "", token)  # Rimuovo i caratteri specificati
@@ -53,7 +55,7 @@ def clean_lacunae(token: str) -> str:
     return token
 
 
-def greek_case_folding(text):
+def greek_case_folding(text : str) -> str:
     """
     Applica il case folding greco al testo fornito.
 
@@ -68,18 +70,18 @@ def greek_case_folding(text):
 
 def remove_brackets(text: str) -> str:
     """
-    Rimuove le parentesi quadre dal testo di input.
-    - Se la parentesi è parte di una coppia corretta [contenuto], rimuove solo le parentesi mantenendo il contenuto.
-    - Se è una parentesi aperta `[` o chiusa `]` isolata, la rimuove completamente.
-
+    Rimuove le parentesi quadre mantenendo il contenuto interno.
+    Se le parentesi sono isolate, le rimuove completamente.
+    
     Args:
-        text (str): Il testo di input da pulire.
+        text (str): Il testo da processare.
+
     Returns:
-        str: Il testo pulito senza parentesi quadre.
+        str: Testo senza parentesi quadre.
     """
-    text = BRACKETS_REGEX.sub(r"\1", text.replace("\n", " "))
+    text = BRACKETS_REGEX.sub(r"\1", remove_lb(text))
     text = UNMATCHED_BRACKETS_REGEX.sub("", text)
-    return text
+    return text.strip()
 
 
 def remove_lb(text: str) -> str:
@@ -112,50 +114,44 @@ def filter_dash(text: str) -> str:
     return text.replace("-", "")
 
 
-def get_idx_supplement_from_suppl_list(
-    suppl_list: list[tuple[str, int]], supplement: str
+def get_idx_supplement_from_suppl_dict(
+    suppl_dict: dict, supplement: str
 ) -> int:
     """
-    Restituisce il numero di occorrenze di un supplemento nella lista suppl_list, dando un supplemento in input
+    Restituisce il numero di occorrenze di un supplemento nella lista suppl_dict, dando un supplemento in input
 
     Args:
-        suppl_list (list[str]): Lista di tuple (supplemento, numero di occorrenze)
+        suppl_dict (dict): Dizionario { supplemento : numero di occorrenze } 
         supplement (str): supplemento (stringa tra parentesi quadrate `[]`)
     """
-    for idx, (suppl, num_occ) in enumerate(suppl_list):
-        if suppl == supplement:
-            return num_occ
-
-    return -1
+    return suppl_dict.get(supplement, -1)
 
 
-def update_num_occ_supplement_from_suppl_list(
-    suppl_list: list[tuple[str, int]], supplement: str
+def update_num_occ_supplement_from_suppl_dict(
+    suppl_dict: dict, supplement: str
 ) -> None:
     """
-    Aggiorna il numero di occorrenze di un supplemento nella lista suppl_list, dando un supplemento in input
+    Aggiorna il numero di occorrenze di un supplemento nella lista suppl_dict, dando un supplemento in input
 
     Args:
-        suppl_list (list[str]): Lista di tuple (supplemento, numero di occorrenze)
-        supplement (str): supplemento (stringa tra parentesi quadrate `[]`)
+        suppl_dict (list[str]): Lista di tuple (supplemento, numero di occorrenze)
+        supplement (str): supplemento (sottostringa presente nel testo di addestramento tra parentesi quadrate `[supplemento]`)
     """
-    for idx, (suppl, num_occ) in enumerate(suppl_list):
-        if suppl == supplement:
-            suppl_list[idx] = (suppl, num_occ + 1)
-            return
+    if supplement in suppl_dict:
+        suppl_dict[supplement] += 1
 
 
-def get_supplement_list(supplements: list[str]) -> list[tuple[str, int]]:
+def get_supplement_dict(supplements: list[str]) -> dict:
     """
-    Restituisce una lista di tuple con i supplementi trovati nel testo e il numero di occorrenze settato a 0.
+    Restituisce un dizionario con i supplementi trovati nel testo e il numero di occorrenze settato a 0.
 
     Args:
         supplements (list[str]): Lista di supplementi.
 
     Returns:
-        list[tuple[str, int]]: Lista di tuple (supplemento, 0).
+        dict: Lista di tuple (supplemento, 0).
     """
-    return [(supplement, 0) for supplement in list(dict.fromkeys(supplements))]
+    return {supplement: 0 for supplement in supplements}
 
 
 def clean_supplements(training_text: str) -> list[list[str]]:
@@ -175,10 +171,11 @@ def clean_supplements(training_text: str) -> list[list[str]]:
         ValueError: Se il testo fornito non è una stringa valida.
     """
     supplements = re.findall(r"(\[[^\]]+\])", training_text)  # supplementi da pulire
-    suppl_list = get_supplement_list(
+    suppl_dict = get_supplement_dict(
         supplements
-    )  # lista dei supplementi a cui affianco un numero di occorrenze (da incrementare)
+    )  # dizionario dei supplementi a cui affianco un numero di occorrenze (da incrementare)
     suppl_tokens = []
+    
     for suppl in supplements:
         matches = list(re.finditer(re.escape(suppl), training_text)) # Occorrenze del supplemento nel testo
         if not matches:
@@ -186,11 +183,11 @@ def clean_supplements(training_text: str) -> list[list[str]]:
             continue
 
         if len(matches) > 1:
-            idx = get_idx_supplement_from_suppl_list(suppl_list, matches[0].group(0))
+            idx = get_idx_supplement_from_suppl_dict(suppl_dict, matches[0].group(0))
             if idx != -1:
                 match = matches[idx]
-                update_num_occ_supplement_from_suppl_list(
-                    suppl_list, matches[0].group(0)
+                update_num_occ_supplement_from_suppl_dict(
+                    suppl_dict, matches[0].group(0)
                 )
         else:
             match = matches[0]  # Prendi la prima (unica) occorrenza trovata
@@ -232,7 +229,7 @@ def clean_text_from_gaps(text: str):
     Returns:
         clean_text (str): testo pulito dalle lacune
     """
-    text = filter_dash(remove_brackets(remove_lb(text)))
+    text = filter_dash(remove_brackets(text))
 
     tokens = tokenizer.run(input_doc=Doc(raw=text)).tokens
     cleaned_tokens = [
@@ -257,7 +254,7 @@ def clean_text(text: str) -> str:
     Returns:
         str: Il testo pulito con i token uniti da spazi.
     """
-    text = filter_dash(remove_brackets(remove_punctuation(remove_lb(text))))
+    text = filter_dash(remove_punctuation(remove_brackets(text)))
     tokens = tokenizer.run(input_doc=Doc(raw=text)).tokens
     cleaned_tokens = [
         clean_lacunae(token) if contains_lacunae(token) else token for token in tokens
