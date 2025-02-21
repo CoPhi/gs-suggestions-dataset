@@ -1,25 +1,24 @@
 import argparse
 
-from cltk.core.data_types import Doc
 from nltk.lm.models import LanguageModel
 
-from config.settings import tokenizer, N
-from utils.preprocess import clean_text
+from models.evaluate import get_context, get_K_predictions
+from config.settings import tokenizer, N, K_PRED
 from models.training import load_lm
 
-
-def generate_words(lm: LanguageModel, context: str, num_words: int, n=N):
+def generate_words(lm: LanguageModel, context: str, num_words: int, n=N, k_pred=K_PRED):
     """
-    Genera una sequenza di parole utilizzando un modello di linguaggio.
+    Genera k-predizioni utilizzando un modello di linguaggio.
 
     Args:
         lm (LanguageModel): Il modello di linguaggio da utilizzare per generare le parole.
         context (str): Il contesto testuale da utilizzare come seme per la generazione.
         num_words (int): Il numero di parole da generare.
         n (int, opzionale): Dimensione degli ngrammi del modello, default N (settings.py).
+        k_pred (int, opzionale): Il numero di parole da predire, default K_PRED (settings.py).  
 
     Returns:
-        List[str]: Una lista di parole generate dal modello di linguaggio.
+        List[list[str]]: Una lista di parole generate dal modello di linguaggio.
 
     Raises:
         ValueError: Se il modello di linguaggio non è stato caricato correttamente.
@@ -27,12 +26,7 @@ def generate_words(lm: LanguageModel, context: str, num_words: int, n=N):
     if not lm:
         raise ValueError("Il modello non è stato caricato correttamente.")
 
-    return lm.generate(
-        num_words=num_words,
-        text_seed=tokenizer.run(input_doc=Doc(raw=clean_text(context))).tokens[
-            (1-n):
-        ],
-    )
+    return get_K_predictions (lm, get_context(context, n=n), num_words, n, k_pred)
 
 
 if __name__ == "__main__":
@@ -50,4 +44,4 @@ if __name__ == "__main__":
     args = parser.parse_args()  # Analizza gli argomenti passati
 
     words = generate_words(lm, args.context, args.num_words)
-    print (" ".join(words))
+    print (words)

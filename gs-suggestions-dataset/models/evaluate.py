@@ -1,13 +1,9 @@
 import re
-import os
-import pandas as pd
 from tqdm import tqdm
 
 from cltk.core.data_types import Doc
 from nltk.lm.models import LanguageModel
 from nltk.lm.preprocessing import pad_both_ends, flatten, padded_everygram_pipeline
-
-from concurrent.futures import ProcessPoolExecutor, as_completed
 
 from tests.params import (
     get_best_params_LIDSTONE,
@@ -26,7 +22,7 @@ from config.settings import (
     N,
     LM_TYPE,
     GAMMA,
-    TEST_SIZE,
+    TEST_SIZE, 
 )
 
 def generate_without_padding(context: list[str], lm: LanguageModel, n: int) -> str:
@@ -46,6 +42,8 @@ def generate_without_padding(context: list[str], lm: LanguageModel, n: int) -> s
     word = lm.generate(text_seed=context[(1 - n) :], num_words=1)
     if word == "<s>":
         return generate_without_padding(context + [word], lm, n)
+    if word == "</s>" or word == 'UNK':
+        return
 
     return word
 
@@ -62,60 +60,77 @@ def get_dist_freq_words_from_context(
     :param n: Dimensione del modello (numero di parole nel contesto)
     :return: Lista ordinata di tuple (parola, frequenza)
     """
-    for i in range(
-        n - 1, 0, -1
-    ):  # Cerchiamo la distribuzione di frequenza scalando la dimensione del contesto da n-1 a 1
-        dist_freq = sorted(
-            lm.context_counts(lm.vocab.lookup(context[-(i):])).items(),
-            key=lambda x: x[1],
-            reverse=True,
-        )
-        if dist_freq:  # Se troviamo una distribuzione non vuota, restituiamola
-            return dist_freq
-
-    return []  # Se nessun contesto ha una distribuzione valida, restituisci lista vuota
+    return sorted(
+         lm.context_counts(lm.vocab.lookup(context[-(n-1):])).items(),
+         key=lambda x: x[1],
+         reverse=True,
+     )
 
 
-def get_k_words_from_context(lm: LanguageModel, context: list[str], n=N,  k=K_PRED) -> list:
+"""
+    def get_k_words_from_context(lm: LanguageModel, context: list[str], n=N,  k=K_PRED) -> list:
+        
+        Restituisce le prime k parole più probabili da una distribuzione di frequenza di parole,
+        filtrando le parole per '</s>' e '<s>'.
+
+        Args:
+            lm (LanguageModel): Modello di linguaggio utilizzato per ottenere la distribuzione di frequenza delle parole.
+            context (list[str]): Contesto di parole utilizzato per generare la distribuzione di frequenza.
+            n (int, opzionale): Numero di parole nel contesto da considerare. Default è N.
+            list: Lista delle prime k parole più probabili, escluse '</s>' e '<s>'.
+
+        Returns:
+            list: Lista di parole
+        
+        words = []
+        while len(words) < k:   
+            
+            dist_freq = get_dist_freq_words_from_context(lm, context, n)
+            if not dist_freq:
+                break 
+                
+            for word, _ in  dist_freq:
+                if word not in ["</s>", "<s>"] and word not in words:
+                    words.append(word)
+                if len(words) == k:
+                    break
+            
+            if len(words) < k:
+                n-=1 #Prendo le parole restanti dalle distribuzioni con contesto meno grande
+        
+        return words
+"""
+
+def get_next_word_from_dist_freqs(lm: LanguageModel, context: list[str], words: list[str], n=N) -> str:
     """
-    Restituisce le prime k parole più probabili da una distribuzione di frequenza di parole,
-    filtrando le parole per '</s>' e '<s>'.
+    Restituisce la prossima parola più probabile da una distribuzione di frequenza sulle parole dato un contesto, filtrando se essa non è già presente nella lista di parole words.
+    Words contiene una lista di parole che sono già state viste e non devono essere considerate.
 
     Args:
         lm (LanguageModel): Modello di linguaggio utilizzato per ottenere la distribuzione di frequenza delle parole.
         context (list[str]): Contesto di parole utilizzato per generare la distribuzione di frequenza.
+        words (list[str]): Lista di parole già generate.
         n (int, opzionale): Numero di parole nel contesto da considerare. Default è N.
-        list: Lista delle prime k parole più probabili, escluse '</s>' e '<s>'.
 
     Returns:
-        list: Lista di parole
+        str: La prossima parola più probabile che non è già presente nella lista di parole words.
     """
-    words = []
-    while len(words) < k:   
-        
-        dist_freq = get_dist_freq_words_from_context(lm, context, n)
-        if not dist_freq:
-            break 
+    while n > 0:
+        dist_freq_words_from_context = get_dist_freq_words_from_context(lm, context, n)
+        for word, _ in dist_freq_words_from_context:
+            if word not in ["</s>", "<s>", 'UNK'] and word not in words:
+                return word
+        n -= 1
+
+    return None  # Caso in cui non trovo parole nuove nelle distribuzioni di frequenze del contesto
             
-        for word, _ in  dist_freq:
-            if word not in ["</s>", "<s>"] and word not in words:
-                words.append(word)
-            if len(words) == k:
-                break
-        
-        if len(words) < k:
-            n-=1 #Prendo le parole restanti dalle distribuzioni con contesto meno grande
-    
-    return words
-
-
-def get_predictions(
-    lm: LanguageModel, context: list[str], suppl_words: list[str], n=N, k_pred=K_PRED
+def get_K_predictions(
+    lm: LanguageModel, context: list[str], len_suppl_words: int, n=N, k_pred=K_PRED
 ):
     """
     Genera previsioni di completamento del testo basate su un modello di linguaggio.
 
-    Il metodo utilizza un contesto dato per ottenere una distribuzione di frequenza delle parole
+    Il metodo utilizza un contesto dato per ottenere le k parole più probabili, dopodiché estende il contesto
     e genera previsioni per completare il testo in base alle parole più probabili.
 
     :param lm: Istanza del modello di linguaggio (`LanguageModel`).
@@ -127,38 +142,63 @@ def get_predictions(
     :return: Lista di previsioni, dove ogni previsione è una lista di parole generate.
 
     Il metodo segue questi passi:
-    1. Recupera la distribuzione delle parole in base al contesto usando `get_dist_freq_words_from_context`.
-    2. Seleziona le `k_pred` parole più probabili.
-    3. Per ogni parola, estende il contesto e genera parole successive fino alla lunghezza di `suppl_words`.
-    4. Restituisce una lista di liste, dove ogni lista rappresenta una sequenza generata.
+    1. Recupera le k parole più probabili, attraverso `get_k_words_from_context`.
+    2. Per ogni parola, estende il contesto e genera parole successive fino alla lunghezza di `suppl_words`.
+    3. Restituisce una lista di liste, dove ogni lista rappresenta una sequenza generata.
     """
     predictions = []
-    for word in get_k_words_from_context(
-        lm, context, n=n, k=k_pred
-    ):  # Prendo le prime k parole più probabili
+    dist_words = []  # Parole trovate nella distribuzione
+    max_iterations = k_pred * 2 # Limite massimo di iterazioni
+    iterations = 0
+
+    while len(predictions) < k_pred:
+        iterations += 1
+        word = get_next_word_from_dist_freqs(lm, context, dist_words, n)
         
-        curr_context = context + [word]
+        if word is None:
+            break 
+        
+        dist_words.append(word)
+        
+        if len_suppl_words == 1:
+            predictions.append([word])
+            continue
+
         curr_pred = [word]
+        generated_sequence = generate_sequence(context + [word], lm, n, len_suppl_words - 1)
+        curr_pred.extend(generated_sequence)
 
-        if len(suppl_words) - 1 == 0:
+        if len(curr_pred) == len_suppl_words:
             predictions.append(curr_pred)
-        else:
-            generated_sequence = []
-            while len(generated_sequence) < len(suppl_words) - 1:
-                next_token = generate_without_padding(curr_context, lm, n)
-                if next_token is None:
-                    break
-
-                generated_sequence.append(next_token)
-                curr_context.append(
-                    next_token
-                )  # Aggiungo l'ultimo token generato al contesto
-
-            curr_pred.extend(generated_sequence)
-            predictions.append(curr_pred)
-
+            
+        if iterations >= max_iterations: # Se non riesco a generare k-predizioni di lunghezza corretta, esco
+            break
+        
     return predictions
 
+
+def generate_sequence(context: list[str], lm: LanguageModel, n: int, length: int) -> list[str]:
+    """
+    Genera una sequenza di token di una lunghezza specificata a partire da un contesto dato.
+
+    Args:
+        context (list[str]): Contesto iniziale per la generazione.
+        lm (LanguageModel): Modello di linguaggio utilizzato per la generazione.
+        n (int): Dimensione del modello di n-grammi.
+        length (int): Lunghezza desiderata della sequenza generata.
+
+    Returns:
+        list[str]: Sequenza di token generata.
+    """
+    generated_sequence = []
+    while len(generated_sequence) < length:
+        next_token = generate_without_padding(context, lm, n)
+        if next_token is None:
+            break
+        generated_sequence.append(next_token)
+        context.append(next_token)
+        
+    return generated_sequence     
 
 def perplexity(lm: LanguageModel, test_abs: list, n=N) -> float:
     """
@@ -188,15 +228,43 @@ def perplexity(lm: LanguageModel, test_abs: list, n=N) -> float:
             "Errore nel calcolo della perplessità. Verifica i dati di test e di addestramento."
         )
 
+def get_context (text: str, n=N) -> list[str]: 
+    """
+        Ritorna una lista di token da passare al modello liguistico per l'inferenza
+        Args: 
+            text (str): Testo da tokenizzare
+        Returns:
+            list[str]: Lista di token, rappresenta il contesto da cui partire per l'inferenza del modello
+    """
+    return list(
+        flatten(
+                list(
+                    pad_both_ends(
+                        tokenizer.run(
+                            input_doc=Doc(raw=remove_punctuation(sent))
+                        ).tokens,
+                        n=n,
+                    )
+                )
+                for sent in sentence_tokenizer.tokenize(
+                    clean_text_from_gaps(text)
+                    )
+                )
+        )[: (1 - n)]
 
-def get_context_from_test_case(test_case: str, n=N) -> str:
+
+def get_context_from_test_case(test_case: str, n=N) -> list[str]:
     """
     Forma il contesto da cui il modello linguistico fa partire la generazione della predizione.
     Prende la sottostringa del test_case che parte dall'inizio e finisce con '[', la divide in frasi e le tokenizza, pulendone lacune e punteggiatura. (Contesto a sinistra)
+    Questo metodo viene usato per generare il contesto dal test_case da cui partire per la generazione della predizione nel metodo `accuracy()`.
 
     Args:
         test_case (str) : caso di test del blocco anonimo, in cui è presente un supplemento da generare `[...]`
         n (optional, int): ordine degli ngrammi del modello
+        
+    Returns: 
+        list[str]: contesto da cui partire per generare la predizione
     """
     return list(
         flatten(
@@ -216,77 +284,7 @@ def get_context_from_test_case(test_case: str, n=N) -> str:
                 )
             ]
         )
-    )[: (1 - n)]
-
-
-def process_batch(lm: LanguageModel, batch: list, n: int, k_pred: int):
-
-    correct_predictions = 0
-    total_predictions = 0
-
-    for ab in batch:
-        if ab["language"] != "grc":
-            continue
-
-        supplements = clean_supplements(ab["training_text"])
-        if not supplements:
-            continue
-
-        for i, obj in enumerate(ab["test_cases"]):
-            if i >= len(supplements):
-                break
-
-            test_case = obj["test_case"]
-            context = get_context_from_test_case(test_case, n)
-
-            try:
-                predictions = get_predictions(lm, context, supplements[i], n, k_pred)
-                if supplements[i] in predictions:
-                    correct_predictions += 1
-            except Exception as e:
-                print(f"Errore nella predizione: {e}")
-
-            total_predictions += 1
-
-    return correct_predictions, total_predictions
-
-
-def process_batch_wrapper(args):
-    """Funzione wrapper per rendere il multiprocessing compatibile con pickle."""
-    lm, batch, n, k_pred = args
-    return process_batch(lm, batch, n, k_pred)
-
-
-def accuracy_parallel(lm, test_abs, batch_size=BATCH_SIZE, n=N, k_pred=K_PRED):
-    correct_predictions = 0
-    total_predictions = 0
-
-    batches = [
-        (lm, test_abs[i : i + batch_size], n, k_pred)
-        for i in range(0, len(test_abs), batch_size)
-    ]
-
-    with ProcessPoolExecutor() as executor:
-        futures = [executor.submit(process_batch_wrapper, batch) for batch in batches]
-
-        for future in tqdm(
-            as_completed(futures),
-            total=len(futures),
-            desc="Calcolo accuracy",
-            unit="ab",
-            leave=False,
-            disable=True,
-        ):
-            batch_correct, batch_total = future.result()
-            correct_predictions += batch_correct
-            total_predictions += batch_total
-
-    return (
-        round((correct_predictions / total_predictions) * 100, 2)
-        if total_predictions
-        else 0.0
-    )
-
+    )[: (1 - n)]    
 
 def accuracy(
     lm: LanguageModel, test_abs: list, batch_size=BATCH_SIZE, n=N, k_pred=K_PRED
@@ -330,8 +328,8 @@ def accuracy(
 
                     test_case = obj["test_case"]
                     context = get_context_from_test_case(test_case, n)
-                    predictions = get_predictions(
-                        lm, context, supplements[i], n, k_pred
+                    predictions = get_K_predictions(
+                        lm, context, len(supplements[i]), n, k_pred
                     )
 
                     if supplements[i] in predictions:
