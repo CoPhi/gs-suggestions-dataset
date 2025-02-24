@@ -1,5 +1,8 @@
 import re
 from tqdm import tqdm
+import os
+from concurrent.futures import ProcessPoolExecutor, as_completed
+from memory_profiler import profile
 
 from cltk.core.data_types import Doc
 from nltk.lm.models import LanguageModel
@@ -11,6 +14,7 @@ from tests.params import (
     print_LIDSTONE_params_to_csv,
     print_MLE_params_to_csv,
 )
+
 from utils.preprocess import clean_text_from_gaps, remove_punctuation, clean_supplements
 from models.training import get_sentences, load_abs, load_lm, train_lm
 from sklearn.model_selection import KFold
@@ -65,41 +69,6 @@ def get_dist_freq_words_from_context(
          key=lambda x: x[1],
          reverse=True,
      )
-
-
-"""
-    def get_k_words_from_context(lm: LanguageModel, context: list[str], n=N,  k=K_PRED) -> list:
-        
-        Restituisce le prime k parole più probabili da una distribuzione di frequenza di parole,
-        filtrando le parole per '</s>' e '<s>'.
-
-        Args:
-            lm (LanguageModel): Modello di linguaggio utilizzato per ottenere la distribuzione di frequenza delle parole.
-            context (list[str]): Contesto di parole utilizzato per generare la distribuzione di frequenza.
-            n (int, opzionale): Numero di parole nel contesto da considerare. Default è N.
-            list: Lista delle prime k parole più probabili, escluse '</s>' e '<s>'.
-
-        Returns:
-            list: Lista di parole
-        
-        words = []
-        while len(words) < k:   
-            
-            dist_freq = get_dist_freq_words_from_context(lm, context, n)
-            if not dist_freq:
-                break 
-                
-            for word, _ in  dist_freq:
-                if word not in ["</s>", "<s>"] and word not in words:
-                    words.append(word)
-                if len(words) == k:
-                    break
-            
-            if len(words) < k:
-                n-=1 #Prendo le parole restanti dalle distribuzioni con contesto meno grande
-        
-        return words
-"""
 
 def get_next_word_from_dist_freqs(lm: LanguageModel, context: list[str], words: list[str], n=N) -> str:
     """
@@ -228,7 +197,7 @@ def perplexity(lm: LanguageModel, test_abs: list, n=N) -> float:
             "Errore nel calcolo della perplessità. Verifica i dati di test e di addestramento."
         )
 
-def get_context (text: str, n=N) -> list[str]: 
+def get_context(text: str, n=N) -> list[str]: 
     """
         Ritorna una lista di token da passare al modello liguistico per l'inferenza
         Args: 
@@ -284,7 +253,7 @@ def get_context_from_test_case(test_case: str, n=N) -> list[str]:
                 )
             ]
         )
-    )[: (1 - n)]    
+    )[: (1 - n)]   
 
 def accuracy(
     lm: LanguageModel, test_abs: list, batch_size=BATCH_SIZE, n=N, k_pred=K_PRED

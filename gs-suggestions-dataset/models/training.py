@@ -1,6 +1,7 @@
 from collections import Counter
 import json
 import pickle
+import gc
 from tqdm import tqdm
 from sklearn.model_selection import train_test_split, KFold
 from cltk.core.data_types import Doc
@@ -28,7 +29,7 @@ def load_abs() -> list:
     Returns:
         list: Una lista contenente gli anonymous block (abs) caricati dai file JSON.
     """
-    abs = []
+    dataset = []
     for file_path in tqdm(
         list(DATA_PATH.glob("*.json")),
         desc="Processing MAAT corpus",
@@ -36,10 +37,10 @@ def load_abs() -> list:
         leave=False,
     ):
         with open(file_path, "r") as f:
-            data = json.load(f)
-            abs.extend(data)
+            abs = json.load(f)
+            dataset.extend([ab for ab in abs if ab["language"] == "grc"]) #prendo i blocchi anonimi con lingua greca
 
-    return abs
+    return dataset
 
 
 def split_abs(abs: list, test_size=TEST_SIZE) -> tuple:
@@ -114,6 +115,11 @@ def train_lm(
         train_ngrams,
         [token for token, freq in token_counts.items() if freq >= min_freq],
     )
+    
+    #Rilascio la oggetti che non mi servono più per liberare memoria
+    del train_abs, train_ngrams, vocab_tokens, token_counts
+    gc.collect()
+    
     return lm
 
 

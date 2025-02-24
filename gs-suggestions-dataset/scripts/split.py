@@ -4,6 +4,7 @@ from pathlib import Path
 
 CORPUS_PATHS = [
     "/home/gabriele/cltk_data/grc/corpora/First1KGreek/data/",
+    "/home/gabriele/cltk_data/grc/corpora/PerseusDL/canonical-greekL/data/",
 ]
 
 LIM = 50  # MAX MB per file

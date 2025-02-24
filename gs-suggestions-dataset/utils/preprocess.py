@@ -86,7 +86,7 @@ def remove_brackets(text: str) -> str:
 
 def remove_lb(text: str) -> str:
     """
-    Rimuove i caratteri di nuova riga sostituendoli con spazi.
+    Rimuove i caratteri di nuova riga da un testo sostituendoli con spazi.
     Args:
         text (str): Il testo di input da pulire.
     Returns:
