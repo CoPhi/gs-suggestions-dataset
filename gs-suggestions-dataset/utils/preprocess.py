@@ -13,14 +13,14 @@ def contains_lacunae(token: str) -> bool:
     Verifica se un dato token contiene lacune (gap o parti mancanti).
     """
     
-    if token.endswith(".") and all(
-            char.isalpha() for char in token.replace(".", "")
-        ):
+    if token.endswith(".") and all(char.isalpha() for char in token[:-1]):
         return False
     
+    if token == '<UNK>':
+        return True
+    
     return (
-        (len(token) > 1 and all(char == "." for char in token))
-        or all(char.isalpha() for char in token.replace(".", ""))
+        "." in token and len(token) > 1 
         or bool(LACUNAE_REGEX.search(token))
     )
 
@@ -37,22 +37,22 @@ def clean_lacunae(token: str) -> str:
     2. Se il token contiene uno qualsiasi dei caratteri '<', '>', ']', '[', 'gap', o '/', li rimuove.
     Esempi:
         >>> clean_lacunae("γέ.δουσιν")
-        'UNK'
+        '<UNK>'
         >>> clean_lacunae("<")
         ''
         >>> clean_lacunae("....")
-        'UNK'
+        '<UNK>'
         >>> clean_lacunae("γέδουσιν.")
         'γέδουσιν.'
     """
-
-    if "." in token and len(token) > 1: #gestione punti (lacune)
-        return "UNK"
+    
+    if token == '<UNK>':
+        return token
 
     if LACUNAE_REGEX.search(token):  # gestione tag gap o trattini multipli
         return re.sub(LACUNAE_REGEX, "", token)  # Rimuovo i caratteri specificati
 
-    return token
+    return "<UNK>"
 
 
 def greek_case_folding(text : str) -> str:
@@ -209,14 +209,19 @@ def clean_supplements(training_text: str) -> list[list[str]]:
         suppl_tokens.append(
             [
                 token
-                for token in tokenizer.run(
-                    input_doc=Doc(raw=clean_text(extended_supplement))
-                ).tokens
+                for token in get_tokens_from_clean_text(
+                    clean_text(extended_supplement)
+                )
             ]
         )
 
     return suppl_tokens
 
+def get_tokens_from_clean_text (text: str) -> list[str]:
+    """
+    Estrae i token da un testo pulito tramite i metodi `clean_text()` o `clean_text_from_gaps()`.
+    """
+    return text.split()
 
 def clean_text_from_gaps(text: str):
     """
@@ -229,21 +234,27 @@ def clean_text_from_gaps(text: str):
     Returns:
         clean_text (str): testo pulito dalle lacune
     """
-    text = filter_dash(remove_brackets(text))
+    text = filter_dash(
+        remove_brackets(
+            re.sub(r"\.\s*<gap/>\s*\.", ".", text) #Rimuovo i gap di lunghezza sconosciuta che rappresentano frasi
+            )
+        )
 
     tokens = tokenizer.run(input_doc=Doc(raw=text)).tokens
-    cleaned_tokens = [
-        clean_lacunae(token) if contains_lacunae(token) else token for token in tokens
-    ]
-    return " ".join(
+    cleaned_tokens = list(
         filter(
             None,
             [
-                greek_case_folding(token) if token != "UNK" else token
-                for token in cleaned_tokens
+                (
+                    clean_lacunae(token)
+                    if contains_lacunae(token)
+                    else greek_case_folding(token)
+                )
+                for token in tokens
             ],
         )
-    ).strip()
+    )
+    return " ".join(cleaned_tokens).strip()
 
 
 def clean_text(text: str) -> str:
@@ -254,17 +265,27 @@ def clean_text(text: str) -> str:
     Returns:
         str: Il testo pulito con i token uniti da spazi.
     """
-    text = filter_dash(remove_punctuation(remove_brackets(text)))
+    text = filter_dash(
+        remove_punctuation(
+            remove_brackets(
+                re.sub(r"\.\s*<gap/>\s*\.", ".", text) #Rimuovo i gap di lunghezza sconosciuta che rappresentano frasi
+                )
+            )
+        )
+    
     tokens = tokenizer.run(input_doc=Doc(raw=text)).tokens
-    cleaned_tokens = [
-        clean_lacunae(token) if contains_lacunae(token) else token for token in tokens
-    ]
-    return " ".join(
+    cleaned_tokens = list(
         filter(
             None,
             [
-                greek_case_folding(token) if token != "UNK" else token
-                for token in cleaned_tokens
+                (
+                    clean_lacunae(token)
+                    if contains_lacunae(token)
+                    else greek_case_folding(token)
+                )
+                for token in tokens
             ],
         )
-    ).strip()
+    )
+    return " ".join(cleaned_tokens).strip()
+    

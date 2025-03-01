@@ -1,10 +1,6 @@
 import re
 from tqdm import tqdm
-import os
-from concurrent.futures import ProcessPoolExecutor, as_completed
-from memory_profiler import profile
 
-from cltk.core.data_types import Doc
 from nltk.lm.models import LanguageModel
 from nltk.lm.preprocessing import pad_both_ends, flatten, padded_everygram_pipeline
 
@@ -15,11 +11,10 @@ from tests.params import (
     print_MLE_params_to_csv,
 )
 
-from utils.preprocess import clean_text_from_gaps, remove_punctuation, clean_supplements
+from utils.preprocess import clean_text_from_gaps, remove_punctuation, clean_supplements, get_tokens_from_clean_text
 from models.training import get_sentences, load_abs, load_lm, train_lm
 from sklearn.model_selection import KFold
 from config.settings import (
-    tokenizer,
     sentence_tokenizer,
     K_PRED,
     BATCH_SIZE,
@@ -46,11 +41,33 @@ def generate_without_padding(context: list[str], lm: LanguageModel, n: int) -> s
     word = lm.generate(text_seed=context[(1 - n) :], num_words=1)
     if word == "<s>":
         return generate_without_padding(context + [word], lm, n)
-    if word == "</s>" or word == 'UNK':
+    if word == "</s>" or word == '<UNK>':
         return
 
     return word
 
+def generate_sequence(context: list[str], lm: LanguageModel, n: int, length: int) -> list[str]:
+    """
+    Genera una sequenza di token di una lunghezza specificata a partire da un contesto dato.
+
+    Args:
+        context (list[str]): Contesto iniziale per la generazione.
+        lm (LanguageModel): Modello di linguaggio utilizzato per la generazione.
+        n (int): Dimensione del modello di n-grammi.
+        length (int): Lunghezza desiderata della sequenza generata.
+
+    Returns:
+        list[str]: Sequenza di token generata.
+    """
+    generated_sequence = []
+    while len(generated_sequence) < length:
+        next_token = generate_without_padding(context, lm, n)
+        if next_token is None:
+            break
+        generated_sequence.append(next_token)
+        context.append(next_token)
+        
+    return generated_sequence     
 
 def get_dist_freq_words_from_context(
     lm: LanguageModel, context: list[str], n=N
@@ -87,7 +104,7 @@ def get_next_word_from_dist_freqs(lm: LanguageModel, context: list[str], words: 
     while n > 0:
         dist_freq_words_from_context = get_dist_freq_words_from_context(lm, context, n)
         for word, _ in dist_freq_words_from_context:
-            if word not in ["</s>", "<s>", 'UNK'] and word not in words:
+            if word not in ["</s>", "<s>", '<UNK>'] and word not in words:
                 return word
         n -= 1
 
@@ -127,47 +144,26 @@ def get_K_predictions(
         if word is None:
             break 
         
-        dist_words.append(word)
+        dist_words.append(word) #la inserisco nella lista delle parole trovate per non considerarla più nella generazioni successive
         
         if len_suppl_words == 1:
-            predictions.append([word])
-            continue
+            if [word] not in predictions:
+                predictions.append([word])
+                continue
 
         curr_pred = [word]
         generated_sequence = generate_sequence(context + [word], lm, n, len_suppl_words - 1)
         curr_pred.extend(generated_sequence)
 
         if len(curr_pred) == len_suppl_words:
-            predictions.append(curr_pred)
+            if curr_pred not in predictions:    
+                predictions.append(curr_pred)
+                continue
             
         if iterations >= max_iterations: # Se non riesco a generare k-predizioni di lunghezza corretta, esco
             break
         
     return predictions
-
-
-def generate_sequence(context: list[str], lm: LanguageModel, n: int, length: int) -> list[str]:
-    """
-    Genera una sequenza di token di una lunghezza specificata a partire da un contesto dato.
-
-    Args:
-        context (list[str]): Contesto iniziale per la generazione.
-        lm (LanguageModel): Modello di linguaggio utilizzato per la generazione.
-        n (int): Dimensione del modello di n-grammi.
-        length (int): Lunghezza desiderata della sequenza generata.
-
-    Returns:
-        list[str]: Sequenza di token generata.
-    """
-    generated_sequence = []
-    while len(generated_sequence) < length:
-        next_token = generate_without_padding(context, lm, n)
-        if next_token is None:
-            break
-        generated_sequence.append(next_token)
-        context.append(next_token)
-        
-    return generated_sequence     
 
 def perplexity(lm: LanguageModel, test_abs: list, n=N) -> float:
     """
@@ -209,9 +205,11 @@ def get_context(text: str, n=N) -> list[str]:
         flatten(
                 list(
                     pad_both_ends(
-                        tokenizer.run(
-                            input_doc=Doc(raw=remove_punctuation(sent))
-                        ).tokens,
+                        get_tokens_from_clean_text(
+                            remove_punctuation(
+                                sent
+                                )
+                        ),
                         n=n,
                     )
                 )
@@ -240,15 +238,17 @@ def get_context_from_test_case(test_case: str, n=N) -> list[str]:
             [
                 list(
                     pad_both_ends(
-                        tokenizer.run(
-                            input_doc=Doc(raw=remove_punctuation(sent))
-                        ).tokens,
+                        get_tokens_from_clean_text(
+                            remove_punctuation(
+                                sent
+                                )
+                        ),
                         n=n,
                     )
                 )
                 for sent in sentence_tokenizer.tokenize(
                     clean_text_from_gaps(
-                        re.sub(r"[^\s]+\[", "[", test_case).split("[")[0]
+                        re.sub(r"[^\s]+\[", "[", test_case).split("[")[0] #Si prende il contesto a sinistra della parentesi `[`
                     )
                 )
             ]

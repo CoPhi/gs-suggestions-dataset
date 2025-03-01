@@ -16,9 +16,8 @@ from config.settings import (
     N,
     GAMMA,
     sentence_tokenizer,
-    tokenizer,
 )
-from utils.preprocess import clean_text_from_gaps, remove_punctuation
+from utils.preprocess import clean_text_from_gaps, get_tokens_from_clean_text, remove_punctuation
 
 
 def load_abs() -> list:
@@ -36,7 +35,7 @@ def load_abs() -> list:
         unit="file",
         leave=False,
     ):
-        with open(file_path, "r") as f:
+        with open(file_path, "r", encoding="utf-8") as f:
             abs = json.load(f)
             dataset.extend([ab for ab in abs if ab["language"] == "grc"]) #prendo i blocchi anonimi con lingua greca
 
@@ -76,9 +75,9 @@ def get_sentences(abs: list) -> list:
             ):
                 if sent:
                     sentences.append(
-                        tokenizer.run(
-                            input_doc=Doc(raw=remove_punctuation(sent))
-                        ).tokens
+                        get_tokens_from_clean_text(
+                            remove_punctuation(sent)
+                            )
                     )
     return sentences
 
@@ -108,7 +107,6 @@ def train_lm(
         order=n, text=get_sentences(train_abs)
     )
 
-    lm.vocab = Vocabulary(unk_label="UNK")
     token_counts = Counter(vocab_tokens)
 
     lm.fit(
