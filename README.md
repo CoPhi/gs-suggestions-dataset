@@ -22,8 +22,6 @@ $ poetry shell
 
 ## Dataset
 
-Il dataset è basato sul [MAAT Corpus](https://zenodo.org/records/12553283) ed è stato arricchito con i testi dei [primi 1000 anni del greco antico](https://github.com/OpenGreekAndLatin/First1KGreek). 
-
-## Utilizzo 
-
-Per le istruzioni dettagliate sull'uso del dataset e del modello, consultare i file README inclusi nel package `gs-suggestions-dataset`
+Il dataset è basato sul [MAAT Corpus](https://zenodo.org/records/12553283) ed è stato arricchito con i testi:
+- [primi 1000 anni del greco antico](https://github.com/OpenGreekAndLatin/First1KGreek). 
+- [Perseus Digital Library](https://github.com/PerseusDL/canonical-greekLit).

@@ -276,7 +276,7 @@ def accuracy(
 
     for start in tqdm(
         range(0, len(test_abs), batch_size),
-        desc="Calcolo accuracy",
+        desc="Accuracy",
         unit="ab",
         leave=False,
     ):
@@ -290,7 +290,6 @@ def accuracy(
                     continue  # non ci sono blocchi da predire
 
                 for i, obj in enumerate(ab["test_cases"]):
-                    # Per ogni test_case presente nel blocco faccio k-predizioni: se almeno una delle k predizioni è corretta, incremento il contatore delle predizioni corrette
                     # Assumo che i supplements siano ordinati con i test_cases
                     if i >= len(supplements):
                         break
