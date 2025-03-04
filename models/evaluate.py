@@ -294,8 +294,7 @@ def accuracy(
                     if i >= len(supplements):
                         break
 
-                    test_case = obj["test_case"]
-                    context = get_context_from_test_case(test_case, n)
+                    context = get_context_from_test_case(obj["test_case"], n)
                     predictions = get_K_predictions(
                         lm, context, len(supplements[i]), n, k_pred
                     )
