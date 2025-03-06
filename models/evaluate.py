@@ -255,7 +255,7 @@ def get_context_from_test_case(test_case: str, n=N) -> list[str]:
         )
     )[: (1 - n)]   
 
-def accuracy(
+def get_topK_accuracy(
     lm: LanguageModel, test_abs: list, batch_size=BATCH_SIZE, n=N, k_pred=K_PRED
 ) -> float:
     """
@@ -339,7 +339,7 @@ def KFold_cross_validation(k=10):
         else:
             lm = train_lm(train_abs, n=best_params["DIMENSION"])
 
-        acc = accuracy(
+        acc = get_topK_accuracy(
             lm,
             test_abs,
             batch_size=best_params["BATCH_SIZE"],
@@ -363,8 +363,11 @@ def KFold_cross_validation(k=10):
 if __name__ == "__main__":
     lm, test_abs = load_lm()  # carico il modello
     # KFold_cross_validation()
+    
+    #print ("Perplexity: ", perplexity(lm, test_abs))
+    #print ("Accuracy: ", get_topK_accuracy(lm, test_abs))
 
-    acc = accuracy(lm, test_abs)
+    acc = get_topK_accuracy(lm, test_abs)
     if LM_TYPE == "LIDSTONE":
         pp = perplexity(lm, test_abs)
         print("Perplexity: ", pp)

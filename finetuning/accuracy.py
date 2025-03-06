@@ -27,8 +27,8 @@ def evaluate_accuracy(k_pred=K_PRED) -> float:
     
     fill_masker = pipeline("fill-mask", model="Jacobo/aristoBERTo")
     test_db = load_dataset('GabrieleGiannessi/maat-corpus', split='test')
-    tp = 0
-    tn = 0
+    total_pred = 0
+    correct_pred = 0
 
     # Iteriamo su ogni esempio nel dataset con una progress bar
     for example in tqdm(test_db, desc="Processing examples", leave=False):
@@ -41,11 +41,11 @@ def evaluate_accuracy(k_pred=K_PRED) -> float:
         found = any(pred['token_str'].upper() in example['gold_label'] for pred in predictions)
 
         if found:
-            tp += 1
-        else:
-            tn += 1
+            correct_pred += 1
 
-    return tp / (tp + tn)
+        total_pred += 1
+
+    return correct_pred / total_pred
 
 def get_top_k_mask_sequences(model, tokenizer, sentence: str, k_pred=K_PRED) -> list[tuple[list[str], float]]:
     """

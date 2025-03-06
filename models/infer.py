@@ -6,7 +6,7 @@ from models.evaluate import get_context, get_K_predictions
 from config.settings import tokenizer, N, K_PRED
 from models.training import load_lm
 
-def generate_words(lm: LanguageModel, context: str, num_words: int, n=N, k_pred=K_PRED):
+def generate_k_suggests(lm: LanguageModel, context: str, num_words: int, n=N, k_pred=K_PRED) -> list[str]:
     """
     Genera k-predizioni utilizzando un modello di linguaggio.
 
@@ -26,7 +26,7 @@ def generate_words(lm: LanguageModel, context: str, num_words: int, n=N, k_pred=
     if not lm:
         raise ValueError("Il modello non è stato caricato correttamente.")
 
-    return get_K_predictions (lm, get_context(context, n=n), num_words, n, k_pred)
+    return [" ".join(pred).lower() for pred in get_K_predictions(lm, get_context(context, n=n), num_words, n, k_pred)]
 
 
 if __name__ == "__main__":
@@ -43,5 +43,5 @@ if __name__ == "__main__":
 
     args = parser.parse_args()  # Analizza gli argomenti passati
 
-    words = generate_words(lm, args.context, args.num_words)
+    words = generate_k_suggests(lm, args.context, args.num_words)
     print (words)
