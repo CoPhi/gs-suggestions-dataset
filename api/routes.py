@@ -6,6 +6,14 @@ from api.service import model_service
 
 app = FastAPI()
 
+@app.get("/model")
+def get_ngram_model():
+    try: 
+        return model_service.get_model()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.post("/model", response_model=NGramModelResponse)
 def get_ngram_model(request: NGramModelRequest):
     try:

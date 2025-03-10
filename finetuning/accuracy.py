@@ -5,7 +5,7 @@
     - test set: dataset di test, frasi pulite in greco antico con la presenza di token mascherati, usate per valutare l'accuracy del modello.
 """
 
-from transformers import AutoModelForMaskedLM, AutoTokenizer, pipeline
+from transformers import AutoModelForMaskedLM, AutoTokenizer, pipeline, DataCollatorForLanguageModeling
 from config.settings import K_PRED
 import torch
 from datasets import load_dataset
@@ -47,66 +47,106 @@ def evaluate_accuracy(k_pred=K_PRED) -> float:
 
     return correct_pred / total_pred
 
-def get_top_k_mask_sequences(model, tokenizer, sentence: str, k_pred=K_PRED) -> list[tuple[list[str], float]]:
+
+def hcb_beam_search(model_name: str, masked_sentences: list[str], k:int=K_PRED, beam_size:int=K_PRED):
     """
-    Prende una frase con token mascherati e restituisce le top-k sequenze più probabili per i token mascherati.
-    Si assume che i [MASK] token formino una sequenza continua.
-    
-    Args: 
-        model: modello BERT
-        tokenizer: tokenizer BERT
-        sentence: frase con token mascherati
-        k_pred: numero di sequenze più probabili da restituire, default `K_PRED`
-
-    Returns:
-    list[tuple] : (lista_di_token_predetti, probabilità_logaritmica).
+    Implementa l'HCB Beam Search per prevedere sequenze di token mascherati con un MLM,
+    restituendo solo le top-k predizioni per i token sostituiti.
     """
-    # Tokenizzazione della frase
-    token_ids = tokenizer.encode(sentence, return_tensors='pt')
-
-    # Trova le posizioni dei token mascherati
-    masked_positions = (token_ids.squeeze() == tokenizer.mask_token_id).nonzero(as_tuple=True)[0]
+    tokenizer = AutoTokenizer.from_pretrained(model_name)
+    model = AutoModelForMaskedLM.from_pretrained(model_name)
+    model.eval()
     
-    if len(masked_positions) == 0:
-        return []  # Nessun token mascherato nella frase
+    results = []
+    
+    for masked_text in masked_sentences:
+        inputs = tokenizer(masked_text, return_tensors="pt")
+        mask_indices = torch.where(inputs.input_ids == tokenizer.mask_token_id)[1].tolist()
+        
+        beam = [(inputs.input_ids.clone(), 0)]  # (sequence, score)
+        
+        for mask_idx in mask_indices:
+            new_beam = []
+            for seq, score in beam:
+                with torch.no_grad():
+                    outputs = model(input_ids=seq)
+                logits = outputs.logits[0, mask_idx, :]
+                top_k_ids = torch.topk(logits, k=k, dim=-1).indices.squeeze(0)
+                top_k_probs = torch.topk(logits, k=k, dim=-1).values.squeeze(0)
+                
+                for token_id, prob in zip(top_k_ids, top_k_probs):
+                    new_seq = seq.clone()
+                    new_seq[0, mask_idx] = token_id
+                    new_score = score + prob.item()
+                    new_beam.append((new_seq, new_score))
+            
+            beam = sorted(new_beam, key=lambda x: x[1], reverse=True)[:beam_size]
+        
+        top_k_predictions = [tokenizer.decode([b[0][0, idx].item() for idx in mask_indices], skip_special_tokens=True).upper() for b in beam[:k]]
+        results.append(top_k_predictions)
+    
+    return results
 
-    # Ottieni output dal modello
+
+#Implementazione per GPU
+
+def hcb_beam_search_batch(model_name, masked_sentences, ground_truths, k=5, beam_size=5, device="cuda"):
+    """
+    Implementa l'HCB Beam Search per prevedere sequenze di token mascherati con un MLM,
+    utilizzando batch per l'elaborazione efficiente su GPU e calcolando la top-k accuracy.
+    """
+    tokenizer = AutoTokenizer.from_pretrained(model_name)
+    model = AutoModelForMaskedLM.from_pretrained(model_name).to(device)
+    model.eval()
+    
+    # Tokenizzazione in batch
+    inputs = tokenizer(masked_sentences, return_tensors="pt", padding=True, truncation=True).to(device)
+    mask_indices = (inputs.input_ids == tokenizer.mask_token_id).nonzero(as_tuple=True)
+    
+    correct_predictions = 0
+    total_predictions = len(mask_indices[0])
+    
     with torch.no_grad():
-        output = model(token_ids).logits  # Otteniamo i logits
-
-    # Applica softmax per ottenere probabilità
-    probs = torch.nn.functional.softmax(output[0, masked_positions], dim=1)
-
-    # Trova i top-k token e le loro probabilità
-    top_k_probs, top_k_indices = torch.topk(probs, k=k_pred, dim=1)  # (num_masks, k_pred)
-
-    # Converti gli indici in token testuali
-    top_k_tokens = [[tokenizer.decode(idx.item()).strip().replace('*', '') for idx in indices] for indices in top_k_indices]
-
-    # Genera tutte le possibili combinazioni delle parole predette
-    possible_sequences = list(itertools.product(*top_k_tokens))  # Lista di tuple di parole
-
-    # Calcola la probabilità moltiplicando i valori delle probabilità
-    sequence_probs = [torch.prod(torch.tensor(probs)) for probs in itertools.product(*top_k_probs.tolist())]
-
-    # Ordina le sequenze in base alla probabilità
-    sorted_sequences = sorted(zip(possible_sequences, sequence_probs), key=lambda x: x[1], reverse=True)
-
-    # Formatta il risultato in liste di token senza asterischi
-    best_sequences = [(list(seq), prob.item()) for seq, prob in sorted_sequences[:k_pred]]
-
-    return best_sequences
-
-
-def calculate_accuracy (model: AutoModelForMaskedLM, tokenizer: AutoTokenizer, test_set: list, k_pred=K_PRED):
-    pass
+        outputs = model(**inputs)
+    
+    results = []
+    for i, (batch_idx, mask_idx) in enumerate(zip(mask_indices[0], mask_indices[1])):
+        logits = outputs.logits[batch_idx, mask_idx, :]
+        top_k_ids = torch.topk(logits, k=beam_size, dim=-1).indices.tolist()
+        top_k_probs = torch.topk(logits, k=beam_size, dim=-1).values.tolist()
+        
+        beam = [(inputs.input_ids[batch_idx].clone(), 0)]  # (sequence, score)
+        
+        new_beam = []
+        for seq, score in beam:
+            for token_id, prob in zip(top_k_ids, top_k_probs):
+                new_seq = seq.clone()
+                new_seq[mask_idx] = token_id
+                new_score = score + prob
+                new_beam.append((new_seq, new_score))
+        
+        beam = sorted(new_beam, key=lambda x: x[1], reverse=True)[:beam_size]
+        
+        top_k_predictions = [tokenizer.decode([b[0][0, idx].item() for idx in mask_indices], skip_special_tokens=True).upper() for b in beam[:k]]
+        results.append(top_k_predictions)
+        
+        if ground_truths[i] in top_k_predictions:
+            correct_predictions += 1
+    
+    top_k_accuracy = correct_predictions / total_predictions if total_predictions > 0 else 0
+    
+    return results, top_k_accuracy
 
 def main (): 
     pass
     
     
 if __name__ == "__main__":  
-    print (evaluate_accuracy())
+    test_sentences = ["[MASK] Λ ΙΓΡ ΕΝ ΠΕΡΙΟΔΕΎΟΥ ΣΙ ΤῊΝ ΤΩ͂Ν ΔΟΞΩ͂ ' Ν ΓΈΝΕΣΙΝ· ἘΠΕῚ ΓᾺΡ ΑἸΕῚ ΤᾺ ΜῈΝ ἜΝΓΕΙΟΝ ΠΡΟΠΕΊ ΠΤΟΝΤΑ ΤΡΑΝΌΤΕΡΑ ΒΛΈ ΠΕΤΑΙ , ΤᾺ ΔῈ ΠΟΡΡΏΤΕΡΑ ΠΆΝΤΩΣ ΟΥ̓Κ Ἀ ΚΟΛΟΥΘΟΥ͂ΣΙ ΤΟΙ͂Σ ΖΩΙ ΓΡΆΦΟΙΣ ἘΝ ΠΑΡΑΤΗΡΉ ΣΕΣΙ ΠΙ ΔΙΌΤΙ"]
+    predictions = hcb_beam_search(model_name='Jacobo/aristoBERTo', masked_sentences=test_sentences, k=10, beam_size=10)
+    print (len(predictions))
+    for sent, pred in zip(test_sentences, predictions):
+        print(f"Input: {sent}\nPredicted: {pred}\n")
 
 
     
