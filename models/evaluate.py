@@ -41,7 +41,7 @@ def generate_without_padding(context: list[str], lm: LanguageModel, n: int) -> s
     word = lm.generate(text_seed=context[(1 - n) :], num_words=1)
     if word == "<s>":
         return generate_without_padding(context + [word], lm, n)
-    if word == "</s>" or word == '<UNK>':
+    if word == "</s>" or word == "<UNK>":
         return
 
     return word
@@ -87,7 +87,7 @@ def get_dist_freq_words_from_context(
          reverse=True,
      )
 
-def get_next_word_from_dist_freqs(lm: LanguageModel, context: list[str], words: list[str], n=N) -> str:
+def get_next_word_from_dist_freqs(lm: LanguageModel, context: list[str], words: set, n=N) -> str:
     """
     Restituisce la prossima parola più probabile da una distribuzione di frequenza sulle parole dato un contesto, filtrando se essa non è già presente nella lista di parole words.
     Words contiene una lista di parole che sono già state viste e non devono essere considerate.
@@ -95,7 +95,7 @@ def get_next_word_from_dist_freqs(lm: LanguageModel, context: list[str], words: 
     Args:
         lm (LanguageModel): Modello di linguaggio utilizzato per ottenere la distribuzione di frequenza delle parole.
         context (list[str]): Contesto di parole utilizzato per generare la distribuzione di frequenza.
-        words (list[str]): Lista di parole già generate.
+        words (set): Insieme di parole già generate.
         n (int, opzionale): Numero di parole nel contesto da considerare. Default è N.
 
     Returns:
@@ -121,7 +121,7 @@ def get_K_predictions(
 
     :param lm: Istanza del modello di linguaggio (`LanguageModel`).
     :param context: Lista di tokens che rappresenta il contesto iniziale.
-    :param suppl_words: lista di stringhe (tokens) di riferimento che rappresenta la gold label e la lunghezza desiderata del completamento.
+    :param len_suppl_words: lista di stringhe (tokens) di riferimento che rappresenta la gold label e la lunghezza desiderata del completamento.
     :param n: Dimensione del modello di n-grammi (default: `N`).
     :param k_pred: Numero massimo di previsioni da generare (default: `K_PRED`).
 
@@ -133,7 +133,7 @@ def get_K_predictions(
     3. Restituisce una lista di liste, dove ogni lista rappresenta una sequenza generata.
     """
     predictions = []
-    dist_words = []  # Parole trovate nella distribuzione
+    dist_words = set()  # Parole trovate nella distribuzione
     max_iterations = k_pred * 2 # Limite massimo di iterazioni
     iterations = 0
 
@@ -144,7 +144,7 @@ def get_K_predictions(
         if word is None:
             break 
         
-        dist_words.append(word) #la inserisco nella lista delle parole trovate per non considerarla più nella generazioni successive
+        dist_words.add(word) #la inserisco nella lista delle parole trovate per non considerarla più nella generazioni successive
         
         if len_suppl_words == 1:
             if [word] not in predictions:
@@ -364,10 +364,10 @@ if __name__ == "__main__":
     lm, test_abs = load_lm()  # carico il modello
     # KFold_cross_validation()
     
-    #print ("Perplexity: ", perplexity(lm, test_abs))
-    #print ("Accuracy: ", get_topK_accuracy(lm, test_abs))
+    print ("Perplexity: ", perplexity(lm, test_abs))
+    print ("Accuracy: ", get_topK_accuracy(lm, test_abs))
 
-    acc = get_topK_accuracy(lm, test_abs)
+    """acc = get_topK_accuracy(lm, test_abs)
     if LM_TYPE == "LIDSTONE":
         pp = perplexity(lm, test_abs)
         print("Perplexity: ", pp)
@@ -395,3 +395,4 @@ if __name__ == "__main__":
                 "ACCURACY": acc,
             }
         )
+"""

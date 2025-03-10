@@ -1,7 +1,5 @@
 import re
-from cltk.core.data_types import Doc
 from cltk.alphabet.grc.grc import normalize_grc
-from config.settings import tokenizer
 
 LACUNAE_REGEX = re.compile(r"(<|>|]|\[|gap|/|--{2,})")
 PUNCTUATION_REGEX = re.compile(r"[.·,;:!?']")
@@ -50,7 +48,7 @@ def clean_lacunae(token: str) -> str:
         return token
 
     if LACUNAE_REGEX.search(token):  # gestione tag gap o trattini multipli
-        return re.sub(LACUNAE_REGEX, "", token)  # Rimuovo i caratteri specificati
+        return greek_case_folding(re.sub(LACUNAE_REGEX, "", token))  # Rimuovo i caratteri specificati
 
     return "<UNK>"
 
@@ -210,8 +208,8 @@ def clean_supplements(training_text: str) -> list[list[str]]:
             [
                 token
                 for token in get_tokens_from_clean_text(
-                    clean_text(extended_supplement)
-                )
+                    clean_text(extended_supplement)                
+                    )
             ]
         )
 
@@ -240,7 +238,6 @@ def clean_text_from_gaps(text: str):
             )
         )
 
-    tokens = tokenizer.run(input_doc=Doc(raw=text)).tokens
     cleaned_tokens = list(
         filter(
             None,
@@ -250,7 +247,7 @@ def clean_text_from_gaps(text: str):
                     if contains_lacunae(token)
                     else greek_case_folding(token)
                 )
-                for token in tokens
+                for token in get_tokens_from_clean_text(text)
             ],
         )
     )
@@ -273,7 +270,6 @@ def clean_text(text: str) -> str:
             )
         )
     
-    tokens = tokenizer.run(input_doc=Doc(raw=text)).tokens
     cleaned_tokens = list(
         filter(
             None,
@@ -283,7 +279,7 @@ def clean_text(text: str) -> str:
                     if contains_lacunae(token)
                     else greek_case_folding(token)
                 )
-                for token in tokens
+                for token in get_tokens_from_clean_text(text)
             ],
         )
     )
