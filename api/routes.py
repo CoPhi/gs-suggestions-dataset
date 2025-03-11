@@ -9,7 +9,7 @@ app = FastAPI()
 @app.get("/model")
 def get_ngram_model():
     try: 
-        return model_service.get_model()
+        return model_service.get_model_info()
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -17,7 +17,7 @@ def get_ngram_model():
 @app.post("/model", response_model=NGramModelResponse)
 def get_ngram_model(request: NGramModelRequest):
     try:
-        lm = model_service.get_ngram_model(request.lm_type, request.ngrams_order, request.test_size, request.gamma)
+        lm = model_service.get_ngram_model(k_pred=request.k_pred, lm_type=request.lm_type, n=request.ngrams_order, test_size=request.test_size, gamma=request.gamma)
         if lm is None: 
              raise HTTPException(status_code=400, detail="Parametri non corretti")
          
@@ -34,7 +34,7 @@ def restore(request: RestoreRequest):
           
         return RestoreResponse(
                     k_predictions=generate_k_suggests(
-                    lm=lm['lm'], context=request.context, num_words=request.num_words
+                    lm=lm, context=request.context, num_words=request.num_words
                     )
                 )
     except Exception as e:

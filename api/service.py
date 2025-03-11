@@ -13,8 +13,23 @@ class ModelService:
         self._model = None  # modello selezionato dal client
         self.models = []  # modelli caricati
 
-    def get_model(self):
-        return self._model
+    def get_model_info(self):
+        if self._model:
+            return {
+                "model": self._model["model"],
+                "k_pred": self._model["k_pred"],
+                "lm_type": self._model["lm_type"],
+                "gamma": self._model["gamma"],
+                "ngrams_order": self._model["ngrams_order"],
+                "test_size": self._model["test_size"],
+            }
+        return 
+    
+    def get_model(self): 
+        if self._model:
+            return self._model["lm"]
+        return 
+    
 
     def set_model(self, curr_model):
         self._model = curr_model
@@ -38,7 +53,7 @@ class ModelService:
         return (
             lm_type in LM_TYPES
             and k_pred in K_PREDICTIONS
-            and ((gamma and lm_type == "MLE") or gamma in GAMMAS)
+            and ((gamma is not None and lm_type == "MLE") or gamma in GAMMAS)
             and ngrams_order in DIMENSIONS
             and test_size in TEST_SIZES
         )
@@ -65,7 +80,7 @@ class ModelService:
                 None: Se i parametri del modello di n-grammi non sono validi.
         """ 
         if not self.check_ngrams_model_params(k_pred, lm_type, ngrams_order, test_size, gamma):
-            return None
+            return
 
         lm, _ = pipeline_train(
             lm_type=lm_type,
@@ -115,16 +130,16 @@ class ModelService:
 
         for model in [obj for obj in self.models if obj["model"] == "ngrams"]:
             if (
-                self._model["k_pred"] == k_pred
+                model["k_pred"] == k_pred
                 and model["lm_type"] == lm_type
                 and model["ngrams_order"] == n
                 and model["test_size"] == test_size
                 and model["gamma"] == gamma
             ):
-                self.set_model(model["lm"])
+                self.set_model(model)
                 return self.get_model()
 
-        self.load_ngram_model(lm_type, n, test_size, gamma)
+        self.load_ngram_model(k_pred, lm_type, n, test_size, gamma)
         return self.get_model()
 
 model_service = ModelService()

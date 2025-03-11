@@ -5,9 +5,6 @@ from pathlib import Path
 # Tokenizer testo -> frasi (str -> list[str])
 sentence_tokenizer = GreekRegexSentenceTokenizer()
 
-# Tokenizer frase -> tokens (str -> list[str])
-tokenizer = GreekTokenizationProcess()
-
 #Iperparametri per il modello
 LM_TYPE = 'LIDSTONE' #Tipo di Language Model
 GAMMA = 0.001 #k-smoothing
@@ -23,3 +20,4 @@ GAMMAS = [0.001, 0.01, 0.1]
 K_PREDICTIONS = [10, 20]
 TEST_SIZES = [0.05, 0.1]
 DIMENSIONS = [2,3]
+BATCH_SIZES = [32, 64]

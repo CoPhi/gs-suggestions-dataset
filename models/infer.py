@@ -3,7 +3,7 @@ import argparse
 from nltk.lm.models import LanguageModel
 
 from models.evaluate import get_context, get_K_predictions
-from config.settings import tokenizer, N, K_PRED
+from config.settings import N, K_PRED
 from models.training import load_lm
 
 def generate_k_suggests(lm: LanguageModel, context: str, num_words: int, n=N, k_pred=K_PRED) -> list[str]:

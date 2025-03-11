@@ -87,7 +87,7 @@ def get_dist_freq_words_from_context(
          reverse=True,
      )
 
-def get_next_word_from_dist_freqs(lm: LanguageModel, context: list[str], words: set, n=N) -> str:
+def get_next_word_from_dist_freqs(lm: LanguageModel, context: list[str], words: list[str], n=N) -> str:
     """
     Restituisce la prossima parola più probabile da una distribuzione di frequenza sulle parole dato un contesto, filtrando se essa non è già presente nella lista di parole words.
     Words contiene una lista di parole che sono già state viste e non devono essere considerate.
@@ -133,7 +133,7 @@ def get_K_predictions(
     3. Restituisce una lista di liste, dove ogni lista rappresenta una sequenza generata.
     """
     predictions = []
-    dist_words = set()  # Parole trovate nella distribuzione
+    dist_words = []  # Parole trovate nella distribuzione
     max_iterations = k_pred * 2 # Limite massimo di iterazioni
     iterations = 0
 
@@ -144,7 +144,7 @@ def get_K_predictions(
         if word is None:
             break 
         
-        dist_words.add(word) #la inserisco nella lista delle parole trovate per non considerarla più nella generazioni successive
+        dist_words.append(word) #la inserisco nella lista delle parole trovate per non considerarla più nella generazioni successive
         
         if len_suppl_words == 1:
             if [word] not in predictions:
@@ -248,7 +248,7 @@ def get_context_from_test_case(test_case: str, n=N) -> list[str]:
                 )
                 for sent in sentence_tokenizer.tokenize(
                     clean_text_from_gaps(
-                        re.sub(r"[^\s]+\[", "[", test_case).split("[")[0] #Si prende il contesto a sinistra della parentesi `[`
+                            re.sub(r"[^\s]+\[", "[", test_case).split("[")[0] #Si prende il contesto a sinistra della parentesi `[`
                     )
                 )
             ]
