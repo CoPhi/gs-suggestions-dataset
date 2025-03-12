@@ -1,8 +1,11 @@
+from math import inf
 import re
 from tqdm import tqdm
+import heapq
 
 from nltk.lm.models import LanguageModel
 from nltk.lm.preprocessing import pad_both_ends, flatten, padded_everygram_pipeline
+from nltk.metrics.distance import edit_distance
 
 from tests.params import (
     get_best_params_LIDSTONE,
@@ -11,7 +14,12 @@ from tests.params import (
     print_MLE_params_to_csv,
 )
 
-from utils.preprocess import clean_text_from_gaps, remove_punctuation, clean_supplements, get_tokens_from_clean_text
+from utils.preprocess import (
+    clean_text_from_gaps,
+    remove_punctuation,
+    clean_supplements,
+    get_tokens_from_clean_text,
+)
 from models.training import get_sentences, load_abs, load_lm, train_lm
 from sklearn.model_selection import KFold
 from config.settings import (
@@ -21,8 +29,9 @@ from config.settings import (
     N,
     LM_TYPE,
     GAMMA,
-    TEST_SIZE, 
+    TEST_SIZE,
 )
+
 
 def generate_without_padding(context: list[str], lm: LanguageModel, n: int) -> str:
     """
@@ -46,7 +55,10 @@ def generate_without_padding(context: list[str], lm: LanguageModel, n: int) -> s
 
     return word
 
-def generate_sequence(context: list[str], lm: LanguageModel, n: int, length: int) -> list[str]:
+
+def generate_sequence(
+    context: list[str], lm: LanguageModel, n: int, length: int
+) -> list[str]:
     """
     Genera una sequenza di token di una lunghezza specificata a partire da un contesto dato.
 
@@ -66,8 +78,9 @@ def generate_sequence(context: list[str], lm: LanguageModel, n: int, length: int
             break
         generated_sequence.append(next_token)
         context.append(next_token)
-        
-    return generated_sequence     
+
+    return generated_sequence
+
 
 def get_dist_freq_words_from_context(
     lm: LanguageModel, context: list[str], n=N
@@ -82,12 +95,15 @@ def get_dist_freq_words_from_context(
     :return: Lista ordinata di tuple (parola, frequenza)
     """
     return sorted(
-         lm.context_counts(lm.vocab.lookup(context[-(n-1):])).items(),
-         key=lambda x: x[1],
-         reverse=True,
-     )
+        lm.context_counts(lm.vocab.lookup(context[-(n - 1) :])).items(),
+        key=lambda x: x[1],
+        reverse=True,
+    )
 
-def get_next_word_from_dist_freqs(lm: LanguageModel, context: list[str], words: list[str], n=N) -> str:
+
+def get_next_word_from_dist_freqs(
+    lm: LanguageModel, context: list[str], words: set, n=N
+) -> str:
     """
     Restituisce la prossima parola più probabile da una distribuzione di frequenza sulle parole dato un contesto, filtrando se essa non è già presente nella lista di parole words.
     Words contiene una lista di parole che sono già state viste e non devono essere considerate.
@@ -104,15 +120,36 @@ def get_next_word_from_dist_freqs(lm: LanguageModel, context: list[str], words: 
     while n > 0:
         dist_freq_words_from_context = get_dist_freq_words_from_context(lm, context, n)
         for word, _ in dist_freq_words_from_context:
-            if word not in ["</s>", "<s>", '<UNK>'] and word not in words:
+            if word not in ["</s>", "<s>", "<UNK>"] and word not in words:
                 return word
         n -= 1
 
     return None  # Caso in cui non trovo parole nuove nelle distribuzioni di frequenze del contesto
-            
+
+
+def get_pred_sorted_by_edit_distance(
+    predictions: list[list[str]], gold_label: str
+) -> list[str]:
+    """
+    Ordina una lista di previsioni in base alla edit distance rispetto a una etichetta di riferimento.
+    Si usa la distanza di Levenstein implementata da NLTK
+
+    Args:
+        predictions (list[list[str]]): Una lista di previsioni, dove ogni previsione è una lista di `token`.
+        gold_label (str): La stringa di riferimento con cui confrontare le previsioni.
+
+    Returns:
+        list[str]: La lista di previsioni ordinate in base alla edit distance rispetto all'etichetta di riferimento.
+    """
+    return sorted(
+        predictions,
+        key=lambda x: edit_distance(" ".join(x), gold_label),
+    )
+
+
 def get_K_predictions(
-    lm: LanguageModel, context: list[str], len_suppl_words: int, n=N, k_pred=K_PRED
-):
+    lm: LanguageModel, context: list[str], suppl_words: list[str], n=N, k_pred=K_PRED
+) -> list[list[str]]:
     """
     Genera previsioni di completamento del testo basate su un modello di linguaggio.
 
@@ -121,7 +158,7 @@ def get_K_predictions(
 
     :param lm: Istanza del modello di linguaggio (`LanguageModel`).
     :param context: Lista di tokens che rappresenta il contesto iniziale.
-    :param len_suppl_words: lista di stringhe (tokens) di riferimento che rappresenta la gold label e la lunghezza desiderata del completamento.
+    :param suppl_words: lista di stringhe (tokens) di riferimento che rappresenta la gold label e la lunghezza desiderata del completamento.
     :param n: Dimensione del modello di n-grammi (default: `N`).
     :param k_pred: Numero massimo di previsioni da generare (default: `K_PRED`).
 
@@ -134,36 +171,126 @@ def get_K_predictions(
     """
     predictions = []
     dist_words = []  # Parole trovate nella distribuzione
-    max_iterations = k_pred * 2 # Limite massimo di iterazioni
+    max_iterations = k_pred * 5  # Limite massimo di iterazioni
     iterations = 0
 
-    while len(predictions) < k_pred:
+    while True:
         iterations += 1
         word = get_next_word_from_dist_freqs(lm, context, dist_words, n)
-        
+
         if word is None:
-            break 
-        
-        dist_words.append(word) #la inserisco nella lista delle parole trovate per non considerarla più nella generazioni successive
-        
-        if len_suppl_words == 1:
+            break
+
+        dist_words.append(
+            word
+        )  # la inserisco nella lista delle parole trovate per non considerarla più nella generazioni successive
+
+        if len(suppl_words) == 1:
             if [word] not in predictions:
                 predictions.append([word])
-                continue
 
         curr_pred = [word]
-        generated_sequence = generate_sequence(context + [word], lm, n, len_suppl_words - 1)
+        generated_sequence = generate_sequence(
+            context + [word], lm, n, len(suppl_words) - 1
+        )
         curr_pred.extend(generated_sequence)
 
-        if len(curr_pred) == len_suppl_words:
-            if curr_pred not in predictions:    
+        if len(curr_pred) == len(suppl_words):
+            if curr_pred not in predictions:
                 predictions.append(curr_pred)
-                continue
-            
-        if iterations >= max_iterations: # Se non riesco a generare k-predizioni di lunghezza corretta, esco
+
+        if (
+            iterations >= max_iterations
+        ):  # Se non riesco a generare k-predizioni di lunghezza corretta, esco
             break
-        
-    return predictions
+
+    return get_pred_sorted_by_edit_distance(predictions, " ".join(suppl_words))[
+        :k_pred
+    ]  # Ritorno le k-predizioni basate sull'euristica edit distance
+
+
+def get_best_K_predictions_from_context(
+    lm: LanguageModel, context: list[str], len_suppl: int, n=N, k_pred=K_PRED
+) -> list[list[str]]:
+    """
+    Calcolo le migliori K predizioni basandosi sulla probabilità dell'intera sequenza generata (contesto + generazione) definendo un albero di ricerca.
+    Gli stati dell'albero sono il contesto + la generazione corrente: la radice è il contesto che si passa.
+    Il seguente algoritmo implementa una versione della local beam search mantenendo i K risultati migliori, secondo una funzione di perdita.
+    La funzione di perdita è espressa in termini della probabilità di una sequenza assegnata dal modello. `1 - p(seq)`
+    """
+
+    def loss(lm: LanguageModel, context: tuple, word: str, lm_type=LM_TYPE):
+        """
+        Funzione di perdita usata in questa beam search
+        """
+        if lm_type == "MLE":
+            return 1 - lm.unmasked_score(
+                word, context
+            )  # Tratto i token <UNK> come non presenti, altrimenti score = 0 con MLE
+        if lm_type == "LIDSTONE":
+            return 1 - lm.score(word, context)  # tengo conto dei token <UNK>
+        return
+
+    def get_K_words_from_context(
+        lm: LanguageModel, context: list[str], n=N
+    ) -> list[str]:
+        """
+        Funzione con cui espandiamo le K parole possibili successive da uno stato
+        """
+        k_words = []
+        dist_words = (
+            set()
+        )  # Parole già viste nelle distribuzioni di parole date dal contesto
+
+        while len(k_words) < k_pred:
+            next_w = get_next_word_from_dist_freqs(lm, context, dist_words, n)
+            if next_w is None:
+                return k_words  # Non ci sono più parole disponibili
+
+            dist_words.add(next_w)
+            k_words.append(next_w)
+
+        return k_words
+
+    beam = [] # qui mantengono i K candidati
+    boundary = []  # stati di espandere
+
+    # Inizializzazione dei primi K successori
+    next_states = get_K_words_from_context(lm, context)
+    boundary.extend([[s] for s in next_states])
+
+    while boundary:  # finchè ci sono elementi nella frontiera continuo
+
+        state = boundary.pop(0)  # prendo il primo elemento dalla frontiera
+
+        if len(state) >= len_suppl:
+            continue  # non generare
+
+        nexts = get_K_words_from_context(lm, state)
+        min_loss = inf
+        candidate = None
+        for next_w in nexts:
+            loss_seq = loss(lm, lm.vocab.lookup(state[(1 - n) :]), next_w)
+            if loss_seq < min_loss:
+                min_loss = loss_seq
+                candidate = (state + [next_w], min_loss)
+
+        # Guardo se il candidato è migliore degli stati presenti nel beam
+        if len(beam) >= k_pred:
+            # bisogna prelevare la tupla con la loss maggiore
+            max_loss_el = max(beam, key=lambda x: x[1])
+            index = beam.index(max_loss_el)
+
+            if max_loss_el[1] > candidate[1]:
+                beam[index] = candidate
+                boundary.append(candidate[0])  # Inserisco il candidato per espanderlo
+
+        else:
+            beam.append(candidate)
+            boundary.append(candidate[0])  # Inserisco il candidato per espanderlo
+
+    return [seq for (seq, _) in sorted(beam, key=lambda x: x[1])]
+
 
 def perplexity(lm: LanguageModel, test_abs: list, n=N) -> float:
     """
@@ -193,31 +320,26 @@ def perplexity(lm: LanguageModel, test_abs: list, n=N) -> float:
             "Errore nel calcolo della perplessità. Verifica i dati di test e di addestramento."
         )
 
-def get_context(text: str, n=N) -> list[str]: 
+
+def get_context(text: str, n=N) -> list[str]:
     """
-        Ritorna una lista di token da passare al modello liguistico per l'inferenza
-        Args: 
-            text (str): Testo da tokenizzare
-        Returns:
-            list[str]: Lista di token, rappresenta il contesto da cui partire per l'inferenza del modello
+    Ritorna una lista di token da passare al modello liguistico per l'inferenza
+    Args:
+        text (str): Testo da tokenizzare
+    Returns:
+        list[str]: Lista di token, rappresenta il contesto da cui partire per l'inferenza del modello
     """
     return list(
         flatten(
-                list(
-                    pad_both_ends(
-                        get_tokens_from_clean_text(
-                            remove_punctuation(
-                                sent
-                                )
-                        ),
-                        n=n,
-                    )
+            list(
+                pad_both_ends(
+                    get_tokens_from_clean_text(remove_punctuation(sent)),
+                    n=n,
                 )
-                for sent in sentence_tokenizer.tokenize(
-                    clean_text_from_gaps(text)
-                    )
-                )
-        )[: (1 - n)]
+            )
+            for sent in sentence_tokenizer.tokenize(clean_text_from_gaps(text))
+        )
+    )[: (1 - n)]
 
 
 def get_context_from_test_case(test_case: str, n=N) -> list[str]:
@@ -229,8 +351,8 @@ def get_context_from_test_case(test_case: str, n=N) -> list[str]:
     Args:
         test_case (str) : caso di test del blocco anonimo, in cui è presente un supplemento da generare `[...]`
         n (optional, int): ordine degli ngrammi del modello
-        
-    Returns: 
+
+    Returns:
         list[str]: contesto da cui partire per generare la predizione
     """
     return list(
@@ -238,22 +360,21 @@ def get_context_from_test_case(test_case: str, n=N) -> list[str]:
             [
                 list(
                     pad_both_ends(
-                        get_tokens_from_clean_text(
-                            remove_punctuation(
-                                sent
-                                )
-                        ),
+                        get_tokens_from_clean_text(remove_punctuation(sent)),
                         n=n,
                     )
                 )
                 for sent in sentence_tokenizer.tokenize(
                     clean_text_from_gaps(
-                            re.sub(r"[^\s]+\[", "[", test_case).split("[")[0] #Si prende il contesto a sinistra della parentesi `[`
+                        re.sub(r"[^\s]+\[", "[", test_case).split("[")[
+                            0
+                        ]  # Si prende il contesto a sinistra della parentesi `[`
                     )
                 )
             ]
         )
-    )[: (1 - n)]   
+    )[: (1 - n)]
+
 
 def get_topK_accuracy(
     lm: LanguageModel, test_abs: list, batch_size=BATCH_SIZE, n=N, k_pred=K_PRED
@@ -295,7 +416,7 @@ def get_topK_accuracy(
                         break
 
                     context = get_context_from_test_case(obj["test_case"], n)
-                    predictions = get_K_predictions(
+                    predictions = get_best_K_predictions_from_context(
                         lm, context, len(supplements[i]), n, k_pred
                     )
 
@@ -363,9 +484,9 @@ def KFold_cross_validation(k=10):
 if __name__ == "__main__":
     lm, test_abs = load_lm()  # carico il modello
     # KFold_cross_validation()
-    
-    print ("Perplexity: ", perplexity(lm, test_abs))
-    print ("Accuracy: ", get_topK_accuracy(lm, test_abs))
+
+    print("Perplexity: ", perplexity(lm, test_abs))
+    print("Accuracy: ", get_topK_accuracy(lm, test_abs))
 
     """acc = get_topK_accuracy(lm, test_abs)
     if LM_TYPE == "LIDSTONE":

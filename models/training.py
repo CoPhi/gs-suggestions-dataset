@@ -83,7 +83,7 @@ def get_sentences(abs: list) -> list:
 
 
 def train_lm(
-    train_abs: list, lm_type=LM_TYPE, min_freq=3, gamma=GAMMA, n=N
+    train_abs: list, lm_type=LM_TYPE, min_freq=2, gamma=GAMMA, n=N
 ) -> LanguageModel:
     """
     Addestra un modello di linguaggio sulle frasi di addestramento fornite.
