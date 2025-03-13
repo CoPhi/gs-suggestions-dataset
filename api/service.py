@@ -1,87 +1,82 @@
+import requests
+import pickle
+import base64
 from typing import Optional
-from nltk.lm.api import LanguageModel
 from models.training import pipeline_train
 from config.settings import LM_TYPES, GAMMAS, K_PREDICTIONS, TEST_SIZES, DIMENSIONS
 
+EXISTDB_URL = "http://localhost:8080/exist/rest/db/models/"
+EXISTDB_USER = "admin"
+EXISTDB_PASS = "admin"
 
 class ModelService:
-    """
-    Questa classe gestisce i modelli con cui è possibile creare i suggerimenti da fornire tramite l'API.
-    """
-
     def __init__(self):
-        self._model = None  # modello selezionato dal client
-        self.models = []  # modelli caricati
+        self._model = None  # Modello attualmente selezionato
+        self.models = []  # Lista dei modelli caricati in memoria
 
-    def get_model_info(self):
-        if self._model:
-            return {
-                "model": self._model["model"],
-                "k_pred": self._model["k_pred"],
-                "lm_type": self._model["lm_type"],
-                "gamma": self._model["gamma"],
-                "ngrams_order": self._model["ngrams_order"],
-                "test_size": self._model["test_size"],
-            }
-        return 
-    
-    def get_model(self): 
-        if self._model:
-            return self._model["lm"]
-        return 
-    
+    def save_model_to_existdb(self, model_id: str, model_obj):
+        """ Salva il modello in eXistDB serializzandolo con pickle """
+        try:
+            serialized_model = base64.b64encode(pickle.dumps(model_obj)).decode()
+            xml_data = f"""<model>
+                <id>{model_id}</id>
+                <data>{serialized_model}</data>
+            </model>"""
 
-    def set_model(self, curr_model):
-        self._model = curr_model
+            response = requests.put(
+                f"{EXISTDB_URL}{model_id}.xml",
+                auth=(EXISTDB_USER, EXISTDB_PASS),
+                data=xml_data,
+                headers={"Content-Type": "application/xml"},
+            )
 
-    def check_ngrams_model_params(
-        self, k_pred: int, lm_type: str, ngrams_order: int, test_size: float, gamma: Optional[float]
-    ) -> bool:
-        """
-        Valida i parametri per il modello n-grams.
+            if response.status_code in [200, 201]:
+                print(f"✅ Modello {model_id} salvato in eXistDB")
+            else:
+                print(f"❌ Errore nel salvataggio: {response.text}")
 
-        Argomenti:
-            k_pred (int): Il numero di previsioni da fare.
-            lm_type (str): Il tipo di modello linguistico.
-            ngrams_order (int): L'ordine degli n-grams.
-            test_size (float): La dimensione del dataset di test.
-            gamma (Optional[float]): Il parametro gamma, richiesto se lm_type è "MLE".
+        except Exception as e:
+            print(f"❌ Errore nella serializzazione del modello: {e}")
 
-        Ritorna:
-            bool: True se tutti i parametri sono validi, False altrimenti.
-        """
-        return (
-            lm_type in LM_TYPES
-            and k_pred in K_PREDICTIONS
-            and ((gamma is not None and lm_type == "MLE") or gamma in GAMMAS)
-            and ngrams_order in DIMENSIONS
-            and test_size in TEST_SIZES
+    def load_model_from_existdb(self, model_id: str):
+        """ Recupera e deserializza il modello da eXistDB """
+        response = requests.get(
+            f"{EXISTDB_URL}{model_id}.xml",
+            auth=(EXISTDB_USER, EXISTDB_PASS),
         )
 
-    def load_ngram_model(
-        self,
-        k_pred: int, 
-        lm_type: str,
-        ngrams_order: int,
-        test_size: float,
-        gamma: Optional[float] = None,
-    ):
-        """
-            Carica un modello di n-grammi con i parametri specificati e lo aggiunge alla lista dei modelli.
+        if response.status_code == 200:
+            try:
+                xml_content = response.text
+                serialized_model = xml_content.split("<data>")[1].split("</data>")[0]
+                model_data = pickle.loads(base64.b64decode(serialized_model.encode()))
+                print(f"✅ Modello {model_id} caricato da eXistDB")
+                return model_data
+            except Exception as e:
+                print(f"❌ Errore nella deserializzazione: {e}")
+                return None
+        else:
+            print(f"⚠️ Modello {model_id} non trovato in eXistDB")
+            return None
 
-            Args:
-                k_pred (int): Numero di predizioni da generare.
-                lm_type (str): Tipo di modello di linguaggio da utilizzare.
-                ngrams_order (int): Ordine degli n-grammi.
-                test_size (float): Percentuale del dataset da utilizzare per il test.
-                gamma (Optional[float], optional): Parametro opzionale per il modello di linguaggio. Default è None.
+    def load_ngram_model(self, k_pred: int, lm_type: str, ngrams_order: int, test_size: float, gamma: Optional[float] = None):
+        """ Carica un modello esistente o ne crea uno nuovo """
+        model_id = f"{lm_type}_{ngrams_order}_{test_size}_{gamma}_{k_pred}"
 
-            Returns:
-                None: Se i parametri del modello di n-grammi non sono validi.
-        """ 
-        if not self.check_ngrams_model_params(k_pred, lm_type, ngrams_order, test_size, gamma):
-            return
+        # 1️⃣ Cerca il modello in memoria
+        for model in self.models:
+            if model["model_id"] == model_id:
+                self._model = model
+                return model["lm"]
 
+        # 2️⃣ Prova a caricarlo da eXistDB
+        model_data = self.load_model_from_existdb(model_id)
+        if model_data:
+            self.models.append(model_data)
+            self._model = model_data
+            return model_data["lm"]
+
+        # 3️⃣ Se non esiste, lo crea e lo salva
         lm, _ = pipeline_train(
             lm_type=lm_type,
             gamma=gamma,
@@ -90,56 +85,17 @@ class ModelService:
         )
 
         model_info = {
+            "model_id": model_id,
             "lm": lm,
             "model": "ngrams",
-            "k_pred": k_pred, 
+            "k_pred": k_pred,
             "lm_type": lm_type,
             "gamma": gamma,
             "ngrams_order": ngrams_order,
             "test_size": test_size,
         }
+
         self.models.append(model_info)
-        self.set_model(model_info)
-
-    def get_ngram_model(self, k_pred: int, lm_type: str, n: int, test_size: float, gamma: Optional[float]):
-        """
-        Cerchiamo tra i modelli salvati quello con le caratteristiche presenti nei parametri.
-        Se non lo troviamo: lo carichiamo e lo settiamo come modello corrente.
-        Args:
-            k_pred (int): Numero di predizioni da considerare.
-            lm_type (str): Tipo di modello linguistico.
-            n (int): Ordine degli n-grammi.
-            test_size (float): Percentuale del dataset da utilizzare per il test.
-            gamma (Optional[float]): Parametro opzionale per la regolarizzazione.
-        Returns:
-            Il modello n-grammi corrente se trovato, altrimenti None.
-        """
-        
-        if not self.check_ngrams_model_params(k_pred, lm_type, n, test_size, gamma):
-            return None
-        
-        if self._model is not None and self._model["model"] == "ngrams":
-            if (
-                self._model["lm_type"] == lm_type
-                and self._model["k_pred"] == k_pred
-                and self._model["ngrams_order"] == n
-                and self._model["test_size"] == test_size
-                and self._model["gamma"] == gamma
-            ):
-                return self.get_model()
-
-        for model in [obj for obj in self.models if obj["model"] == "ngrams"]:
-            if (
-                model["k_pred"] == k_pred
-                and model["lm_type"] == lm_type
-                and model["ngrams_order"] == n
-                and model["test_size"] == test_size
-                and model["gamma"] == gamma
-            ):
-                self.set_model(model)
-                return self.get_model()
-
-        self.load_ngram_model(k_pred, lm_type, n, test_size, gamma)
-        return self.get_model()
-
-model_service = ModelService()
+        self._model = model_info
+        self.save_model_to_existdb(model_id, model_info)
+        return lm

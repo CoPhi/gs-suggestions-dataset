@@ -26,7 +26,7 @@ def generate_k_suggests(lm: LanguageModel, context: str, num_words: int, n=N, k_
     if not lm:
         raise ValueError("Il modello non è stato caricato correttamente.")
 
-    return [" ".join(pred).lower() for pred in get_best_K_predictions_from_context(lm, get_context(context, n=n), num_words, n, k_pred)]
+    return [" ".join(pred).lower() for pred in get_best_K_predictions_from_context(lm, get_context(context, n=n), num_words, n, k_pred, mod="infer")]
 
 if __name__ == "__main__":
     lm, _ = load_lm()
