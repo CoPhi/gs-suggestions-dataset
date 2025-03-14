@@ -1,62 +1,51 @@
-import requests
 import pickle
 import base64
 from typing import Optional
 from models.training import pipeline_train
-from config.settings import LM_TYPES, GAMMAS, K_PREDICTIONS, TEST_SIZES, DIMENSIONS
+from config.settings import MONGO_URI  # Aggiungi la tua connessione MongoDB
+from pymongo import MongoClient
 
-EXISTDB_URL = "http://localhost:8080/exist/rest/db/models/"
-EXISTDB_USER = "admin"
-EXISTDB_PASS = "admin"
+# Connessione a MongoDB
+client = MongoClient(MONGO_URI)
+db = client["models_db"]  # Il nome del database
+collection = db["models"]  # La raccolta (collezione) che contiene i modelli
 
 class ModelService:
     def __init__(self):
         self._model = None  # Modello attualmente selezionato
         self.models = []  # Lista dei modelli caricati in memoria
 
-    def save_model_to_existdb(self, model_id: str, model_obj):
-        """ Salva il modello in eXistDB serializzandolo con pickle """
+    def save_model_to_db(self, model_id: str, model_obj):
+        """ Salva il modello in MongoDB serializzandolo con pickle """
         try:
-            serialized_model = base64.b64encode(pickle.dumps(model_obj)).decode()
-            xml_data = f"""<model>
-                <id>{model_id}</id>
-                <data>{serialized_model}</data>
-            </model>"""
+            serialized_model = pickle.dumps(model_obj)
 
-            response = requests.put(
-                f"{EXISTDB_URL}{model_id}.xml",
-                auth=(EXISTDB_USER, EXISTDB_PASS),
-                data=xml_data,
-                headers={"Content-Type": "application/xml"},
-            )
-
-            if response.status_code in [200, 201]:
-                print(f"✅ Modello {model_id} salvato in eXistDB")
+            # Si controlla se il modello esiste già
+            existing_model = collection.find_one({"model_id": model_id})
+            if existing_model:
+                collection.update_one({"model_id": model_id}, {"$set": {"data": serialized_model}}) # Se il modello esiste già, aggiorna i dati
             else:
-                print(f"❌ Errore nel salvataggio: {response.text}")
+                collection.insert_one({"model_id": model_id, "data": serialized_model})
 
+            print(f"✅ Modello {model_id} salvato in MongoDB")
         except Exception as e:
             print(f"❌ Errore nella serializzazione del modello: {e}")
 
-    def load_model_from_existdb(self, model_id: str):
-        """ Recupera e deserializza il modello da eXistDB """
-        response = requests.get(
-            f"{EXISTDB_URL}{model_id}.xml",
-            auth=(EXISTDB_USER, EXISTDB_PASS),
-        )
+    def load_model_from_db(self, model_id: str):
+        """ Recupera e deserializza il modello da MongoDB """
+        try:
+            model_record = collection.find_one({"model_id": model_id})
 
-        if response.status_code == 200:
-            try:
-                xml_content = response.text
-                serialized_model = xml_content.split("<data>")[1].split("</data>")[0]
-                model_data = pickle.loads(base64.b64decode(serialized_model.encode()))
-                print(f"✅ Modello {model_id} caricato da eXistDB")
+            if model_record:
+                # Deserializza il modello
+                model_data = pickle.loads(model_record["data"])
+                print(f"✅ Modello {model_id} caricato da MongoDB")
                 return model_data
-            except Exception as e:
-                print(f"❌ Errore nella deserializzazione: {e}")
+            else:
+                print(f"⚠️ Modello {model_id} non trovato in MongoDB")
                 return None
-        else:
-            print(f"⚠️ Modello {model_id} non trovato in eXistDB")
+        except Exception as e:
+            print(f"❌ Errore nella deserializzazione: {e}")
             return None
 
     def load_ngram_model(self, k_pred: int, lm_type: str, ngrams_order: int, test_size: float, gamma: Optional[float] = None):
@@ -69,8 +58,8 @@ class ModelService:
                 self._model = model
                 return model["lm"]
 
-        # 2️⃣ Prova a caricarlo da eXistDB
-        model_data = self.load_model_from_existdb(model_id)
+        # 2️⃣ Prova a caricarlo da MongoDB
+        model_data = self.load_model_from_db(model_id)
         if model_data:
             self.models.append(model_data)
             self._model = model_data
@@ -97,5 +86,5 @@ class ModelService:
 
         self.models.append(model_info)
         self._model = model_info
-        self.save_model_to_existdb(model_id, model_info)
+        self.save_model_to_db(model_id, model_info)
         return lm

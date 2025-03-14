@@ -5,6 +5,9 @@ from pathlib import Path
 # Tokenizer testo -> frasi (str -> list[str])
 sentence_tokenizer = GreekRegexSentenceTokenizer()
 
+#URI per il database 
+MONGO_URI = "mongodb://localhost:27017/"
+
 #Iperparametri per il modello
 LM_TYPE = 'LIDSTONE' #Tipo di Language Model
 GAMMA = 0.001 #k-smoothing

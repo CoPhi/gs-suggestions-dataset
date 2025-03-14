@@ -219,14 +219,13 @@ def get_best_K_predictions_from_context(
     k_pred=K_PRED,
     beam_size=K_PRED * 5,
     alpha=1,
-    beta=0.5,
+    beta=1,
     mod: str = "acc",
 ) -> list[list[str]]:
     """
-    Calcola le migliori K predizioni basate sulla probabilità dell'intera sequenza generata (contesto + generazione) utilizzando un albero di ricerca.
-    Gli stati dell'albero sono il contesto + la generazione corrente: la radice è il contesto passato come parametro.
-    L'algoritmo implementa una versione della local beam search mantenendo i K risultati migliori, secondo una funzione di perdita.
-    La funzione di perdita è espressa in termini della probabilità di prevedere una sequenza, assegnata dal modello: `1 - p(seq)`.
+    Calcola le migliori K predizioni basate sulla probabilità dell'intera sequenza generata (contesto + generazione) utilizzando un algoritmo di ricerca locale (local beam search).
+    Gli stati dell'albero sono la generazione corrente: i k stati iniziali vengono generati dal contesto passato per parametro.
+    La funzione di perdita è espressa in termini della probabilità di prevedere una sequenza, assegnata dal modello: `1 - p(seq)`, aggiungendo un punteggio che riguarda la edit distance con le altre predizioni.
     I parametri alpha e beta sono i pesi dei punteggi della loss e della edit distance, e sono regolabili.
     Args:
         lm (LanguageModel): Il modello di linguaggio utilizzato per calcolare le probabilità delle sequenze.
@@ -284,91 +283,6 @@ def get_best_K_predictions_from_context(
 
         return k_words
 
-    def get_best_candidate_from_nexts(
-        
-        lm: LanguageModel, context: list[str], state: list[str], visited: set = set()
-    ) -> tuple[list[str], float]:
-        """
-        Trova il miglior candidato successivo dato un contesto e uno stato attuale.
-        La ricerca può percorrere a ritroso l'albero se il nodo corrente (contesto + stato) non ha successori. 
-        Args:
-            lm (LanguageModel): Il modello di linguaggio utilizzato per calcolare la perdita.
-            context (list[str]): La lista di parole che rappresenta il contesto attuale.
-            state (list[str]): La lista di parole che rappresenta lo stato attuale.
-            visited (set, opzionale): Un insieme di nodi già visitati per evitare cicli. Default è un insieme vuoto.
-        Returns:
-            tuple[list[str], float]: Una tupla contenente la lista di parole del miglior candidato successivo e la perdita associata.
-        """
-        
-        nexts = get_K_words_from_context(lm, context + state)
-        if not nexts:  # Il nodo context + state non ha successori
-            visited.add(tuple(context + state))
-            if len(context) > 1:
-                *rest, last = context 
-            else: 
-                return [], inf
-            while not nexts: #Finchè non ottengo un successore continuo la ricerca
-                nexts = get_K_words_from_context(
-                lm, get_best_candidate_from_nexts(lm, rest, [last],  visited)[0]
-            )
-
-        candidate = ([], inf)
-        for next_w in nexts:
-            # Non consideriamo i nodi già visti
-            if tuple(context + state + [next_w]) not in visited:
-                loss_seq = loss(
-                    lm, lm.vocab.lookup((context + state)[(1 - n) :]), next_w
-                )
-                if loss_seq < candidate[1]:
-                    candidate = (state + [next_w], loss_seq)
-
-        return candidate
-
-    def add_candidate_to_beam(
-        candidate: tuple, beam: list, heap: list[tuple[float, int]]
-    ) -> tuple[list, list[tuple[float, int]]]:
-        """
-        Inserisce un nuovo candidato al beam
-        """
-
-        if len(beam) >= beam_size:
-            candidate_loss, idx = get_idx_worst_candidate(heap)
-            if -candidate_loss < inf:
-                if len(beam[idx]) >= len(
-                    candidate[0]
-                ):  # Così si evita di sostituire una sequenza lunga con una più corta
-                    heapq.heappush(heap, (-candidate_loss, idx))
-                    return beam, heap
-                if candidate_loss > candidate[1]:
-                    return set_candidate_in_beam(candidate, beam, heap, idx)
-
-        idx = len(beam)
-        heapq.heappush(heap, (-candidate[1], idx))
-        beam.append(candidate[0])  # Manteniamo la sequenza accessibile per indice
-        return beam, heap
-
-    def set_candidate_in_beam(
-        candidate: tuple, beam: list, heap: list[tuple[float, int]], idx: int
-    ) -> None:
-        """
-        Imposta un nuovo candidato al beam, rimpiazzandolo all'indice passato per parametro.
-        L'indice viene precedentemente calcolato con `get_idx_worst_candidate`
-        """
-        beam[idx] = candidate[0]
-        return beam, heap
-
-    def get_idx_worst_candidate(heap: list[tuple[float, int]]) -> tuple[float, int]:
-        """
-        Ritorna il l'indirizzo del peggior candidato presente nel beam
-        """
-        if not heap:
-            return float("inf"), -1
-
-        loss_state, worst_index = heapq.heappop(
-            heap
-        )  # Prendiamo l'indirizzo dell'elemento con loss minima
-        return loss_state, worst_index
-
     def avg_edit_distance(seq: str, others: list[str]) -> float:
         """
         Calcola la distanza di Levenstein media tra una sequenza e le altre presenti nel beam
@@ -380,13 +294,13 @@ def get_best_K_predictions_from_context(
         ) / max(len(others) - 1, 1)
 
     def get_best_candidates_from_beam(
-        beam: list, heap: list[tuple[float, int]]
+        beam: list[tuple[list[str], float]]
     ) -> list[list[str]]:
         """
         Restituisce i candidati ordinati per combinazione migliore tra loss ed edit distance con gli altri candidati
         """
         sorted_candidates = [
-            beam[i] for _, i in sorted(heap, reverse=True)
+            candidate[0] for candidate in sorted(beam, key=lambda x: x[1], reverse=True)
         ]  # Ordinati per priorità (loss)
         if mod == "infer":
             distances = {
@@ -404,49 +318,38 @@ def get_best_K_predictions_from_context(
         else:
             raise ValueError("Cannot value distances: mod is not well defined")
         ranking = [
-            (alpha * loss + beta * distances[tuple(beam[idx])], idx)
-            for loss, idx in heap
-        ]  # punteggi ricalcolati, tenendo conto della edit distanze con le altre predizioni
+            (alpha * candidate[1] + beta * distances[tuple(candidate[0])])
+            for candidate in beam
+        ]  # punteggi ricalcolati, tenendo conto della edit distance con le altre predizioni
 
-        return [beam[i] for _, i in sorted(ranking, reverse=True)][:k_pred]
-
-    beam = []  # qui si mantengono i migliori K candidati
-    heap = (
-        []
-    )  # Coda di priorità (beam): si affianca al beam per la ricerca della massima loss
-    boundary = deque()  # stati da espandere (frontiera)
-
-    # Inizializzazione dei primi K successori
-    next_states = get_K_words_from_context(lm, context, n)
-    if len_suppl == 1: 
-        for state in next_states:
-            candidate_seq = ([state], loss(lm, lm.vocab.lookup(context[(1-n):]), state))
-            beam, heap = add_candidate_to_beam (candidate_seq, beam, heap)
-            boundary.append([state])
+        return [sorted_candidates[i] for i in sorted(range(len(ranking)), key=lambda x: ranking[x], reverse=True)][:k_pred]
     
-    else: 
-        for state in next_states:
-            boundary.append([state])
+    
+    #Local beam search
+    beam = []
+    
+    #Inizializzazione K stati iniziali
+    states = get_K_words_from_context (lm, context)
+    for s in states: 
+        heapq.heappush(beam, ([s], loss(lm, lm.vocab.lookup((context)[(1-n):]), s)))
         
+    for _ in range(beam_size):
 
-    while boundary:  # finchè ci sono elementi nella frontiera continuo
-
-        state = boundary.popleft()  # prendo il primo elemento dalla frontiera
-
-        if (len(state)) >= len_suppl:
-            continue  # non generare: hai raggiunto la dimensione della gold label
-
-        candidate = get_best_candidate_from_nexts(lm, context, state)
-
-        if candidate[0]:
-            if len(candidate[0]) < len_suppl:
-                boundary.append(candidate[0])
-            else:
-                beam, heap = add_candidate_to_beam(
-                    candidate, beam, heap
-                )  # Inserisco nel beam solo le sequenze espanse fino alla lunghezza desiderata
-
-    return get_best_candidates_from_beam(beam, heap)
+        successors = []
+        # Generiamo tutti i successori degli stati presenti nel beam 
+        for candidate in beam: 
+            if len(candidate[0]) >= len_suppl:  # Termina se la lunghezza della sequenza raggiunge len_suppl : le altre sequenze del beam hanno la solita lunghezza
+                break
+            nexts = get_K_words_from_context(lm, context + candidate[0])
+            for w in nexts: 
+                successors.append((candidate[0] + [w], loss(lm, lm.vocab.lookup((context + candidate[0])[(1-n):]), w)))
+            
+        if not successors:
+            break  # Nessun successore 
+        
+        beam = heapq.nsmallest(k_pred, successors, key=lambda x: x[1])
+        
+    return get_best_candidates_from_beam(beam)
 
 
 def perplexity(lm: LanguageModel, test_abs: list, n=N) -> float:
