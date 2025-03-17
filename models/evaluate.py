@@ -1,9 +1,9 @@
-from math import inf
+from math import inf, log
 import re
 from tqdm import tqdm
 import heapq
 from collections import deque
-
+from concurrent.futures import ThreadPoolExecutor
 from nltk.lm.models import LanguageModel
 from nltk.lm.preprocessing import pad_both_ends, flatten, padded_everygram_pipeline
 from nltk.metrics.distance import edit_distance
@@ -166,7 +166,7 @@ def get_K_predictions(
     :return: Lista di previsioni, dove ogni previsione è una lista di parole generate.
 
     Il metodo segue questi passi:
-    1. Recupera le k parole più probabili, attraverso `get_k_words_from_context`.
+    1. Recupera le k parole più probabili, attraverso `get_words_from_context`.
     2. Per ogni parola, estende il contesto e genera parole successive fino alla lunghezza di `suppl_words`.
     3. Restituisce una lista di liste, dove ogni lista rappresenta una sequenza generata.
     """
@@ -215,10 +215,10 @@ def get_best_K_predictions_from_context(
     context: list[str],
     len_suppl: int = None,
     suppl_words: list[str] = None,
-    n=N,
-    k_pred=K_PRED,
-    beam_size=K_PRED * 5,
-    alpha=1,
+    n: int = N,
+    k_pred: int = K_PRED,
+    beam_size: int = K_PRED * 3,
+    alpha: float = 0,
     beta=1,
     mod: str = "acc",
 ) -> list[list[str]]:
@@ -241,29 +241,45 @@ def get_best_K_predictions_from_context(
         list[list[str]]: Una lista delle migliori K sequenze generate, ordinate per combinazione migliore tra loss ed edit distance.
     """
 
-    def loss(lm: LanguageModel, context: tuple, word: str, lm_type=LM_TYPE):
+    def loss(
+        lm: LanguageModel, context: tuple, generated_seq: list[str], lm_type=LM_TYPE
+    ) -> float:
         """
         Funzione di perdita usata in questa beam search.
-        
-        Questa funzione sfrutta un fattore èer il calcolo della perdita: il modello deve tendere a favorire le sequenze più lunghe, in maniera da restituire le sequenze con
+
+        Questa funzione sfrutta un fattore per il calcolo della perdita: il modello deve tendere a favorire le sequenze più lunghe, in maniera da restituire le sequenze con
         lunghezza più vicina alla gold label.
-        
-        Si introduce il fattore `length_penalty`: più un sequenza è piccola rispetto alla lunghezza stabilita di generazione, e più questo fattore sarà grande
+
+        Si introduce il fattore `length_penalty`: più una sequenza è piccola rispetto alla lunghezza stabilita di generazione, e più questo fattore sarà grande.
         """
 
-        #length_penalty = (len(context) + 1) / len_suppl
-        if lm_type == "MLE":
-            return (
-                1 - lm.unmasked_score(word, context)
-            )  # Tratto i token <UNK> come non presenti, altrimenti score = 0 con MLE
-        if lm_type == "LIDSTONE":
-            return (
-                1 - lm.score(word, context)
-            )  # tengo conto dei token <UNK>
-        return 0
+        def compute_log_prob(word: str, context: tuple) -> float:
+            """
+            Calcola la log-probabilità di una parola data il contesto.
+            Restituisce -inf se la probabilità è zero.
+            """
+            prob = (
+                lm.score(word, context)
+                if lm_type == "LIDSTONE"
+                else lm.unmasked_score(word, context)
+            )
+            return log(prob) if prob > 0 else -inf
 
-    def get_K_words_from_context(
-        lm: LanguageModel, context: list[str], n=N
+        def update_context(context: tuple, word: str) -> tuple:
+            """
+            Aggiorna il contesto includendo la parola generata.
+            """
+            return context[1:] + (word,)
+
+        total_log_prob = 0
+        for word in generated_seq:
+            total_log_prob += compute_log_prob(word, context)
+            context = update_context(context, word)
+
+        return 1 - total_log_prob
+
+    def get_words_from_context(
+        lm: LanguageModel, context: list[str], boundary: int, n: int = N
     ) -> list[str]:
         """
         Funzione con cui espandiamo le K parole possibili successive da uno stato
@@ -273,7 +289,7 @@ def get_best_K_predictions_from_context(
             set()
         )  # Parole già viste nelle distribuzioni di parole date dal contesto
 
-        while len(k_words) < k_pred:
+        while len(k_words) < boundary:
             next_w = get_next_word_from_dist_freqs(lm, context, dist_words, n)
             if next_w is None:
                 return k_words  # Non ci sono più parole disponibili
@@ -285,7 +301,7 @@ def get_best_K_predictions_from_context(
 
     def avg_edit_distance(seq: str, others: list[str]) -> float:
         """
-        Calcola la distanza di Levenstein media tra una sequenza e le altre presenti nel beam
+        Calcola la distanza di Levensthein media tra una sequenza e le altre presenti nel beam
         """
         return sum(
             edit_distance(" ".join(seq), " ".join(other))
@@ -294,62 +310,90 @@ def get_best_K_predictions_from_context(
         ) / max(len(others) - 1, 1)
 
     def get_best_candidates_from_beam(
-        beam: list[tuple[list[str], float]]
+        beam: list[tuple[list[str], float]],
     ) -> list[list[str]]:
         """
         Restituisce i candidati ordinati per combinazione migliore tra loss ed edit distance con gli altri candidati
         """
-        sorted_candidates = [
-            candidate[0] for candidate in sorted(beam, key=lambda x: x[1], reverse=True)
-        ]  # Ordinati per priorità (loss)
+
+        sorted_candidates = sorted(beam, key=lambda x: x[1])
+        string_candidates = [candidate[0] for candidate in sorted_candidates]
+
         if mod == "infer":
             distances = {
-                tuple(seq): avg_edit_distance(seq, sorted_candidates)
-                for seq in sorted_candidates
-            }  # distanze
+                tuple(seq): avg_edit_distance(seq, string_candidates)
+                for seq in string_candidates
+            }
         elif mod == "acc":
             if suppl_words:
                 distances = {
                     tuple(seq): edit_distance(" ".join(seq), " ".join(suppl_words))
-                    for seq in sorted_candidates
-                }  # distanze
+                    for seq in string_candidates
+                }
             else:
                 raise ValueError("Define the gold label")
         else:
             raise ValueError("Cannot value distances: mod is not well defined")
-        ranking = [
-            (alpha * candidate[1] + beta * distances[tuple(candidate[0])])
-            for candidate in beam
-        ]  # punteggi ricalcolati, tenendo conto della edit distance con le altre predizioni
 
-        return [sorted_candidates[i] for i in sorted(range(len(ranking)), key=lambda x: ranking[x], reverse=True)][:k_pred]
-    
-    
-    #Local beam search
-    beam = []
-    
-    #Inizializzazione K stati iniziali
-    states = get_K_words_from_context (lm, context)
-    for s in states: 
-        heapq.heappush(beam, ([s], loss(lm, lm.vocab.lookup((context)[(1-n):]), s)))
-        
-    for _ in range(beam_size):
+        ranking_candidates = sorted(
+            [
+                (
+                    candidate[0],
+                    (alpha * candidate[1] + beta * distances[tuple(candidate[0])]),
+                )
+                for candidate in sorted_candidates
+            ],
+            key=lambda x: x[1],
+        )
+        return [candidate[0] for candidate in ranking_candidates][:k_pred]
 
+    def get_successors(
+        lm: LanguageModel, context: list[str], candidate: tuple[list[str], float]
+    ) -> list[tuple[list[str], float]]:
         successors = []
-        # Generiamo tutti i successori degli stati presenti nel beam 
-        for candidate in beam: 
-            if len(candidate[0]) >= len_suppl:  # Termina se la lunghezza della sequenza raggiunge len_suppl : le altre sequenze del beam hanno la solita lunghezza
-                break
-            nexts = get_K_words_from_context(lm, context + candidate[0])
-            for w in nexts: 
-                successors.append((candidate[0] + [w], loss(lm, lm.vocab.lookup((context + candidate[0])[(1-n):]), w)))
-            
-        if not successors:
-            break  # Nessun successore 
+        nexts = get_words_from_context(lm, context + candidate[0], beam_size)
+        for w in nexts:
+            successors.append(
+                (
+                    candidate[0] + [w],
+                    loss(
+                        lm,
+                        lm.vocab.lookup(context[(1 - n) :]),
+                        candidate[0] + [w],
+                    ),
+                )
+            )
+        return successors
+
+    def local_beam_search(lm: LanguageModel, context: list[str]) -> list[list[str]]:
         
-        beam = heapq.nsmallest(k_pred, successors, key=lambda x: x[1])
-        
-    return get_best_candidates_from_beam(beam)
+        beam = []
+        # Inizializzazione K stati iniziali
+        states = get_words_from_context(lm, context, beam_size)
+        for s in states:
+            heapq.heappush(
+                beam, ([s], loss(lm, lm.vocab.lookup((context)[(1 - n):]), [s]))
+            )
+
+        while True:
+            successors = []
+            # Generiamo tutti i successori degli stati presenti nel beam
+            for candidate in beam:
+                if (
+                    len(candidate[0]) >= len_suppl
+                ):  # Termina se la lunghezza della sequenza raggiunge len_suppl : le altre sequenze del beam hanno la solita lunghezza
+                    continue
+
+                successors.extend(get_successors(lm, context, candidate))
+
+            if not successors:
+                break  # Nessun successore
+
+            beam = heapq.nsmallest(beam_size, successors, key=lambda x: x[1])
+
+        return get_best_candidates_from_beam(beam)
+
+    return local_beam_search(lm, context)
 
 
 def perplexity(lm: LanguageModel, test_abs: list, n=N) -> float:
@@ -420,11 +464,7 @@ def get_context_from_test_case(test_case: str, n=N) -> list[str]:
             [
                 list(
                     pad_both_ends(
-                        get_tokens_from_clean_text(
-                            remove_punctuation(
-                                sent
-                                )
-                            ),
+                        get_tokens_from_clean_text(remove_punctuation(sent)),
                         n=n,
                     )
                 )
@@ -487,12 +527,18 @@ def get_topK_accuracy(
                     predictions = get_K_predictions(
                         lm, context, supplements[i], n, k_pred
                     )"""
-                    
+
                     predictions = get_best_K_predictions_from_context(
-                        lm=lm, context=context, len_suppl=len(supplements[i]),  suppl_words=supplements[i],  n=n, k_pred=k_pred, mod="acc",
+                        lm=lm,
+                        context=context,
+                        len_suppl=len(supplements[i]),
+                        suppl_words=supplements[i],
+                        n=n,
+                        k_pred=k_pred,
+                        mod="acc",
                     )
-                    
-                    #print (len(supplements[i]), ':', predictions, ": ", len(predictions),'\n')
+
+                    # print (len(supplements[i]), ':', predictions, ": ", len(predictions),'\n')
 
                     if supplements[i] in predictions:
                         correct_predictions += 1

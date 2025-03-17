@@ -1,5 +1,4 @@
 import pickle
-import base64
 from typing import Optional
 from models.training import pipeline_train
 from config.settings import MONGO_URI  # Aggiungi la tua connessione MongoDB
