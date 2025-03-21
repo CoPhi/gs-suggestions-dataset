@@ -1,9 +1,7 @@
-from math import inf, log
-import re
-from tqdm import tqdm
 import heapq
-from collections import deque
-from concurrent.futures import ThreadPoolExecutor
+import re
+from math import inf, log
+from tqdm import tqdm
 from nltk.lm.models import LanguageModel
 from nltk.lm.preprocessing import pad_both_ends, flatten, padded_everygram_pipeline
 from nltk.metrics.distance import edit_distance
@@ -217,9 +215,9 @@ def get_best_K_predictions_from_context(
     suppl_words: list[str] = None,
     n: int = N,
     k_pred: int = K_PRED,
-    beam_size: int = K_PRED * 3,
+    beam_size: int = K_PRED * 4,
     alpha: float = 0,
-    beta=1,
+    beta: float = 1,
     mod: str = "acc",
 ) -> list[list[str]]:
     """
@@ -245,12 +243,7 @@ def get_best_K_predictions_from_context(
         lm: LanguageModel, context: tuple, generated_seq: list[str], lm_type=LM_TYPE
     ) -> float:
         """
-        Funzione di perdita usata in questa beam search.
-
-        Questa funzione sfrutta un fattore per il calcolo della perdita: il modello deve tendere a favorire le sequenze più lunghe, in maniera da restituire le sequenze con
-        lunghezza più vicina alla gold label.
-
-        Si introduce il fattore `length_penalty`: più una sequenza è piccola rispetto alla lunghezza stabilita di generazione, e più questo fattore sarà grande.
+        Funzione di perdita usata nella local beam search.
         """
 
         def compute_log_prob(word: str, context: tuple) -> float:
@@ -258,11 +251,7 @@ def get_best_K_predictions_from_context(
             Calcola la log-probabilità di una parola data il contesto.
             Restituisce -inf se la probabilità è zero.
             """
-            prob = (
-                lm.score(word, context)
-                if lm_type == "LIDSTONE"
-                else lm.unmasked_score(word, context)
-            )
+            prob = lm.score(word, context)
             return log(prob) if prob > 0 else -inf
 
         def update_context(context: tuple, word: str) -> tuple:
@@ -276,7 +265,12 @@ def get_best_K_predictions_from_context(
             total_log_prob += compute_log_prob(word, context)
             context = update_context(context, word)
 
-        return 1 - total_log_prob
+        if lm_type == "MLE":
+            return (
+                -total_log_prob if total_log_prob != -inf else 100
+            )  # Si aggiunge un valore di fallback nel caso in cui le parole della sequenza non siano presenti nel modello
+            
+        return -total_log_prob
 
     def get_words_from_context(
         lm: LanguageModel, context: list[str], boundary: int, n: int = N
@@ -315,6 +309,8 @@ def get_best_K_predictions_from_context(
         """
         Restituisce i candidati ordinati per combinazione migliore tra loss ed edit distance con gli altri candidati
         """
+        if not beam:
+            return []
 
         sorted_candidates = sorted(beam, key=lambda x: x[1])
         string_candidates = [candidate[0] for candidate in sorted_candidates]
@@ -325,13 +321,12 @@ def get_best_K_predictions_from_context(
                 for seq in string_candidates
             }
         elif mod == "acc":
-            if suppl_words:
-                distances = {
-                    tuple(seq): edit_distance(" ".join(seq), " ".join(suppl_words))
-                    for seq in string_candidates
-                }
-            else:
+            if not suppl_words:
                 raise ValueError("Define the gold label")
+            distances = {
+                tuple(seq): edit_distance(" ".join(seq), " ".join(suppl_words))
+                for seq in string_candidates
+            }
         else:
             raise ValueError("Cannot value distances: mod is not well defined")
 
@@ -345,6 +340,7 @@ def get_best_K_predictions_from_context(
             ],
             key=lambda x: x[1],
         )
+        
         return [candidate[0] for candidate in ranking_candidates][:k_pred]
 
     def get_successors(
@@ -366,13 +362,13 @@ def get_best_K_predictions_from_context(
         return successors
 
     def local_beam_search(lm: LanguageModel, context: list[str]) -> list[list[str]]:
-        
+
         beam = []
         # Inizializzazione K stati iniziali
         states = get_words_from_context(lm, context, beam_size)
         for s in states:
             heapq.heappush(
-                beam, ([s], loss(lm, lm.vocab.lookup((context)[(1 - n):]), [s]))
+                beam, ([s], loss(lm, lm.vocab.lookup((context)[(1 - n) :]), [s]))
             )
 
         while True:
@@ -513,21 +509,20 @@ def get_topK_accuracy(
                 )  # supplements puliti
                 if not supplements:
                     continue  # non ci sono blocchi da predire
-
+                    
                 for i, obj in enumerate(ab["test_cases"]):
                     # Assumo che i supplements siano ordinati con i test_cases
                     if i >= len(supplements):
                         break
 
-                    if not supplements[i]:
+                    if not supplements[i]: #Supplementi non presenti nel testo 
+                        continue
+                    
+                    if '<UNK>' in supplements[i]: #significa che sono presenti dei token 'None' nei supplementi e non posso fare inferenza
                         continue
 
                     context = get_context_from_test_case(obj["test_case"], n)
-                    """
-                    predictions = get_K_predictions(
-                        lm, context, supplements[i], n, k_pred
-                    )"""
-
+                    
                     predictions = get_best_K_predictions_from_context(
                         lm=lm,
                         context=context,
@@ -542,7 +537,7 @@ def get_topK_accuracy(
 
                     if supplements[i] in predictions:
                         correct_predictions += 1
-
+                    
                     total_predictions += 1
 
     return round((correct_predictions / total_predictions) * 100, 2)

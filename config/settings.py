@@ -1,6 +1,16 @@
 from cltk.sentence.grc import GreekRegexSentenceTokenizer
-from cltk.tokenizers.processes import GreekTokenizationProcess
 from pathlib import Path
+
+#Parametri per lo splitting dei dati nei file
+CORPUS_PATHS = [
+    "/home/gabriele/cltk_data/grc/corpora/First1KGreek/data/",
+    "/home/gabriele/cltk_data/grc/corpora/PerseusDL/canonical-greekL/data/",
+    "/home/gabriele/cltk_data/grc/corpora/idp.data/DDB_EpiDoc_XML/",
+    "/home/gabriele/cltk_data/grc/corpora/idp.data/DCLP/"
+]
+
+LIM = 50  # MAX MB per file
+INDENT = 0  # indentazione
 
 # Tokenizer testo -> frasi (str -> list[str])
 sentence_tokenizer = GreekRegexSentenceTokenizer()

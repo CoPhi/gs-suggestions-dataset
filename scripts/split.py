@@ -1,17 +1,9 @@
 import os
 import json
 from pathlib import Path
+from config.settings import CORPUS_PATHS, LIM, INDENT
 
-CORPUS_PATHS = [
-    "/home/gabriele/cltk_data/grc/corpora/First1KGreek/data/",
-    "/home/gabriele/cltk_data/grc/corpora/PerseusDL/canonical-greekL/data/",
-]
-
-LIM = 50  # MAX MB per file
-INDENT = 0  # indentazione
-
-
-def write_to_multiple_files(output, base_filename, max_size_mb=LIM):
+def write_output_to_multiple_files(output, max_size_mb=LIM):
     """
     Funzione usata per splittare il risultato della conversione dei documenti in più file se si supera una certa dimensione in MB (specificata da LIM)
     è possibile rappresentare il livello di indentazione degli oggetti nei file con INDENT
@@ -29,7 +21,7 @@ def write_to_multiple_files(output, base_filename, max_size_mb=LIM):
 
         if current_file_size + line_size > max_size_mb * 1024 * 1024:
 
-            with open(f"data/{base_filename}_{file_index}.json", "w") as current_file:
+            with open(f"data/maat_{file_index}.json", "w") as current_file:
                 json.dump(arr_objs, current_file, ensure_ascii=False, indent=INDENT)
 
             file_index += 1
@@ -41,7 +33,7 @@ def write_to_multiple_files(output, base_filename, max_size_mb=LIM):
 
     # se è rimasto qualcosa nell'array lo scrivo in un ultimo file
     if arr_objs:
-        with open(f"data/{base_filename}_{file_index}.json", "w") as current_file:
+        with open(f"data/maat_{file_index}.json", "w") as current_file:
             json.dump(arr_objs, current_file, ensure_ascii=False, indent=INDENT)
 
 
@@ -51,8 +43,7 @@ def main():
         with os.popen(f"python scripts/convert.py {path}", "r") as pipe:
             for line in pipe:
                 output.append(line.strip())
-        write_to_multiple_files(output, Path(path).name)
-
+        write_output_to_multiple_files(output)
 
 if __name__ == "__main__":
     main()

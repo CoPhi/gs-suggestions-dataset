@@ -3,35 +3,56 @@ from typing import Optional
 from models.training import pipeline_train
 from config.settings import MONGO_URI  # Aggiungi la tua connessione MongoDB
 from pymongo import MongoClient
+from uuid import uuid4
 
 # Connessione a MongoDB
 client = MongoClient(MONGO_URI)
 db = client["models_db"]  # Il nome del database
 collection = db["models"]  # La raccolta (collezione) che contiene i modelli
 
+
 class ModelService:
     def __init__(self):
         self._model = None  # Modello attualmente selezionato
         self.models = []  # Lista dei modelli caricati in memoria
 
-    def save_model_to_db(self, model_id: str, model_obj):
-        """ Salva il modello in MongoDB serializzandolo con pickle """
+    def save_model_to_db(
+        self, k_pred: int, lm_type: str, gamma: float, test_size: float, n: int
+    ):
+        """Salva il modello in MongoDB serializzandolo con pickle"""
         try:
-            serialized_model = pickle.dumps(model_obj)
+            model, _ = pipeline_train(
+                lm_type=lm_type, gamma=gamma, n=n, test_size=test_size
+            )
+            serialized_model = pickle.loads(model)
+            model_id = str(uuid4())
 
             # Si controlla se il modello esiste già
             existing_model = collection.find_one({"model_id": model_id})
             if existing_model:
-                collection.update_one({"model_id": model_id}, {"$set": {"data": serialized_model}}) # Se il modello esiste già, aggiorna i dati
+                return {
+                    
+                }
             else:
-                collection.insert_one({"model_id": model_id, "data": serialized_model})
+                collection.insert_one(
+                    {
+                        "model_id": model_id,
+                        "model": serialized_model,
+                        "k_pred": k_pred,
+                        "type": "ngrams",
+                        "lm_score": lm_type,
+                        "gamma": gamma,
+                        "test_size": test_size,
+                        "order": n,
+                    }
+                )
 
             print(f"✅ Modello {model_id} salvato in MongoDB")
         except Exception as e:
             print(f"❌ Errore nella serializzazione del modello: {e}")
 
     def load_model_from_db(self, model_id: str):
-        """ Recupera e deserializza il modello da MongoDB """
+        """Recupera e deserializza il modello da MongoDB"""
         try:
             model_record = collection.find_one({"model_id": model_id})
 
@@ -47,8 +68,15 @@ class ModelService:
             print(f"❌ Errore nella deserializzazione: {e}")
             return None
 
-    def load_ngram_model(self, k_pred: int, lm_type: str, ngrams_order: int, test_size: float, gamma: Optional[float] = None):
-        """ Carica un modello esistente o ne crea uno nuovo """
+    def load_ngram_model(
+        self,
+        k_pred: int,
+        lm_type: str,
+        ngrams_order: int,
+        test_size: float,
+        gamma: Optional[float] = None,
+    ):
+        """Carica un modello esistente o ne crea uno nuovo"""
         model_id = f"{lm_type}_{ngrams_order}_{test_size}_{gamma}_{k_pred}"
 
         # 1️⃣ Cerca il modello in memoria
@@ -87,3 +115,6 @@ class ModelService:
         self._model = model_info
         self.save_model_to_db(model_id, model_info)
         return lm
+
+
+model_service = ModelService()

@@ -3,10 +3,8 @@ import json
 import pickle
 import gc
 from tqdm import tqdm
-from sklearn.model_selection import train_test_split, KFold
-from cltk.core.data_types import Doc
+from sklearn.model_selection import train_test_split
 from nltk.lm.models import MLE, Lidstone, LanguageModel
-from nltk.lm.vocabulary import Vocabulary
 from nltk.lm.preprocessing import padded_everygram_pipeline
 
 from config.settings import (
@@ -72,13 +70,15 @@ def get_sentences(abs: list) -> list:
         if obj["training_text"] and obj["language"] == "grc":
             for sent in sentence_tokenizer.tokenize(
                 text=clean_text_from_gaps(obj["training_text"])
-            ):
+            ): 
+                
                 if sent:
                     sentences.append(
                         get_tokens_from_clean_text(
                             remove_punctuation(sent)
                             )
                     )
+                
     return sentences
 
 
@@ -106,7 +106,7 @@ def train_lm(
     train_ngrams, vocab_tokens = padded_everygram_pipeline(
         order=n, text=get_sentences(train_abs)
     )
-
+    
     token_counts = Counter(vocab_tokens)
 
     lm.fit(
@@ -114,8 +114,6 @@ def train_lm(
         [token for token, freq in token_counts.items() if freq >= min_freq],
     )
     
-    #Rilascio la oggetti che non mi servono più per liberare memoria
-    del train_abs, train_ngrams, vocab_tokens, token_counts
     gc.collect()
     
     return lm
@@ -179,7 +177,6 @@ def load_lm(n=N, lm_type=LM_TYPE) -> None:
         return lm, test_ab
 
     return None
-
 
 if __name__ == "__main__":
     pipeline_train()
