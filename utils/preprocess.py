@@ -8,6 +8,7 @@ from utils.settings import (
     MISSING_LINES_REGEX,
 )
 
+
 def contains_lacunae(token: str) -> bool:
     """
     Verifica se un dato token contiene lacune da processare.
@@ -19,7 +20,7 @@ def contains_lacunae(token: str) -> bool:
     if token.endswith(".") and all(char.isalpha() for char in token[:-1]):
         return False
 
-    return ("." in token and len(token) > 1) or '<GAP/>' in token.upper()
+    return ("." in token and len(token) > 1) or "<GAP/>" in token.upper()
 
 
 def greek_case_folding(text: str) -> str:
@@ -56,9 +57,9 @@ def clean_lacunae(token: str) -> str:
         '<UNK> .λέγειν'
     """
     token = greek_case_folding(token)
-    if '<GAP/>' in token:  # gestione tag gap
+    if "<GAP/>" in token:  # gestione tag gap
         clean_seq = []
-        seq = token.replace('<GAP/>', ' <UNK> ').split()
+        seq = token.replace("<GAP/>", " <UNK> ").split()
         for i, tkn in enumerate(seq):
             if (
                 tkn.endswith(".")
@@ -74,9 +75,9 @@ def clean_lacunae(token: str) -> str:
                     clean_seq = insert_into_clean_tokens(clean_seq, tkn)
                 else:
                     if (
-                    tkn.endswith(".")
-                    and all(char.isalpha() or char.isspace() for char in tkn[:-1])
-                    and "NONE" not in tkn.upper()
+                        tkn.endswith(".")
+                        and all(char.isalpha() or char.isspace() for char in tkn[:-1])
+                        and "NONE" not in tkn.upper()
                     ):
                         clean_seq = clean_seq + [tkn]
                     else:
@@ -138,6 +139,7 @@ def insert_into_clean_tokens(clean_list: list[str], token: str) -> list[str]:
 
     clean_list.append(token)
     return clean_list
+
 
 def remove_brackets(text: str) -> str:
     """
@@ -266,7 +268,7 @@ def filter_dash(text: str) -> str:
     i = 0
 
     while i < len(words):
-        if '-' in words[i]:
+        if "-" in words[i]:
             result, i = process_dash(words, result, i)
         else:
             result.append(words[i])
@@ -313,6 +315,57 @@ def get_supplement_dict(supplements: list[str]) -> dict:
     return {supplement: 0 for supplement in supplements}
 
 
+def suppl_contain_end_space(training_text: str, end_pos: int):
+    """
+    Verifica se il supplemento contiene uno spazio alla fine
+    """
+    return training_text[end_pos - 2] == " "
+
+
+def suppl_contain_start_space(training_text: str, start_pos: int):
+    """
+    Verifica se il supplemento contiene uno spazio all'inizio
+    """
+    return training_text[start_pos + 1] == " "
+
+
+def get_extended_supplement(training_text: str, start_pos: int, end_pos: int):
+    """
+    Estrae il supplemento dal testo di addestramento, estendendolo se necessario.
+    """
+
+    if suppl_contain_start_space(training_text, start_pos) and suppl_contain_end_space(
+        training_text, end_pos
+    ):
+        return training_text[start_pos + 1 : end_pos - 2]
+
+    if suppl_contain_end_space(training_text, end_pos):
+        # Mi sposto solo a sinistra
+        while start_pos > 0 and training_text[start_pos - 1] not in (" ", "\n"):
+            start_pos -= 1
+        return training_text[start_pos : end_pos - 1]
+
+    if suppl_contain_start_space(training_text, start_pos):
+        # Mi sposto solo a destra
+        while end_pos < len(training_text) and training_text[end_pos] not in (
+            " ",
+            "\n",
+        ):
+            end_pos += 1
+        return training_text[start_pos:end_pos]
+
+    while start_pos > 0 and training_text[start_pos - 1] not in (" ", "\n"):
+        start_pos -= 1
+
+    while end_pos < len(training_text) and training_text[end_pos] not in (
+        " ",
+        "\n",
+    ):
+        end_pos += 1
+
+    return training_text[start_pos:end_pos]
+
+
 def clean_supplements(training_text: str) -> list[list[str]]:
     """
     Questa funzione cerca i supplementi (testo racchiuso tra parentesi quadre) all'interno del testo fornito,
@@ -353,19 +406,9 @@ def clean_supplements(training_text: str) -> list[list[str]]:
         else:
             match = matches[0]  # Prendi la prima (unica) occorrenza trovata
 
-        start_pos = match.start()
-        end_pos = match.end()
-
-        while start_pos > 0 and training_text[start_pos - 1] not in (" ", "\n"):
-            start_pos -= 1
-
-        while end_pos < len(training_text) and training_text[end_pos] not in (
-            " ",
-            "\n",
-        ):
-            end_pos += 1
-
-        extended_supplement = training_text[start_pos:end_pos]
+        extended_supplement = get_extended_supplement(
+            training_text, match.start(), match.end()
+        )
 
         suppl_tokens.append(
             [

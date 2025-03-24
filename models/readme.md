@@ -7,14 +7,14 @@ oltre a fornire anche delle metriche con cui valutare i modelli generati (perple
 Esegui il modulo `training` per addestrare il modello sui dati presenti nella cartella specificata (data/).
 Esempio: 
 
-    python -m models.training
+    poetry run python -m models.training
 
 ## Generazione di parole:
 Esegui il modulo `infer` per generare parole utilizzando un modello pre-addestrato.
 È necessario specificare il contesto e il numero di parole da generare.
 Esempio: 
 
-    python -m models.infer --context="καὶ" --num_words=2
+    poetry run python -m models.infer --context="καὶ" --num_words=2
 
 Argomenti:
     `context`: Contesto per la generazione di parole (richiesto in modalità "infer").
@@ -24,7 +24,7 @@ Argomenti:
 Esegui il modulo `evaluate` per valutare il modello secondo le metriche di perplessità e accuracy: 
 Esempio: 
 
-    python -m models.evaluate
+    poetry run python -m models.evaluate
        
 
 

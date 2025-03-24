@@ -18,7 +18,7 @@ from config.settings import (
 from utils.preprocess import clean_text_from_gaps, get_tokens_from_clean_text, remove_punctuation
 
 
-def load_abs() -> list:
+def load_abs(corpus_set: set = None) -> list:
     """
     Carica e restituisce una lista di anonymous block (ab) dai file JSON presenti nel percorso specificato.
     Il percorso dei file JSON è determinato dalla variabile globale DATA_PATH.
@@ -35,8 +35,11 @@ def load_abs() -> list:
     ):
         with open(file_path, "r", encoding="utf-8") as f:
             abs = json.load(f)
-            dataset.extend([ab for ab in abs if ab["language"] == "grc"]) #prendo i blocchi anonimi con lingua greca
-
+            if corpus_set is None:
+                dataset.extend([ab for ab in abs if ab["language"] == "grc"])
+            else:
+                dataset.extend([ab for ab in abs if ab["language"] == "grc" and ab["corpus_id"] in corpus_set]) #prendo i blocchi anonimi con lingua greca
+                
     return dataset
 
 
@@ -119,7 +122,7 @@ def train_lm(
     return lm
 
 
-def pipeline_train(lm_type=LM_TYPE, gamma=GAMMA, n=N, test_size=TEST_SIZE):
+def pipeline_train(lm_type=LM_TYPE, gamma=GAMMA, n=N, test_size=TEST_SIZE, corpus_set=None) -> tuple:
     """
     Esegue il processo di addestramento del modello.
 
@@ -132,9 +135,8 @@ def pipeline_train(lm_type=LM_TYPE, gamma=GAMMA, n=N, test_size=TEST_SIZE):
     Returns:
         tuple: Una tupla contenente il modello linguistico (lm) ed il test set
     """
-    train_abs, test_abs = split_abs(abs=load_abs(), test_size=test_size)
+    train_abs, test_abs = split_abs(abs=load_abs(corpus_set), test_size=test_size)
     lm = train_lm(train_abs, lm_type=lm_type, gamma=gamma, n=n)
-    save_lm(lm=lm, test_abs=test_abs)
     return lm, test_abs
 
 
@@ -179,4 +181,5 @@ def load_lm(n=N, lm_type=LM_TYPE) -> None:
     return None
 
 if __name__ == "__main__":
-    pipeline_train()
+    lm, test_abs = pipeline_train()
+    save_lm(lm=lm, test_abs=test_abs)

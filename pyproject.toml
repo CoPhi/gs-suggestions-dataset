@@ -2,6 +2,7 @@
 name = "gs-suggestions-dataset"
 version = "0.1.0"
 description = ""
+package-mode = false
 authors = ["Gabriele <gabrielegiannessi@gmail.com>"]
 readme = "README.md"
 
@@ -12,6 +13,13 @@ nltk = "^3.9.1"
 fastapi = "^0.115.11"
 uvicorn = "^0.34.0"
 cltk = "^1.4.0"
+pandas = "^2.2.3"
+matplotlib = "^3.10.1"
+scikit-optimize = "^0.10.2"
+datasets = "^3.4.1"
+transformers = "^4.50.0"
+pymongo = "^4.11.3"
+torch = "^2.6.0"
 
 
 [build-system]

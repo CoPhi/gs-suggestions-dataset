@@ -26,6 +26,7 @@ BATCH_SIZE = 64  # Dimensione del batch
 DATA_PATH = Path("data/") #Percorso al dataset
 TEST_SIZE = 0.05  # Percentuale di dati di test
 N = 3 # Dimensione degli ngrammi
+CORPUS_NAMES = set(["DDbDP", "DCLP", "EDH"]) #Nomi dei corpus
 
 #Spazio di ricerca degli iperparametri
 LM_TYPES = ['LIDSTONE', 'MLE']
