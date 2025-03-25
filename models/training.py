@@ -2,6 +2,7 @@ from collections import Counter
 import json
 import pickle
 import gc
+from typing import Optional
 from tqdm import tqdm
 from sklearn.model_selection import train_test_split
 from nltk.lm.models import MLE, Lidstone, LanguageModel
@@ -14,8 +15,17 @@ from config.settings import (
     N,
     GAMMA,
     sentence_tokenizer,
+    CORPUS_NAMES,
+    DIMENSIONS,
+    TEST_SIZES,
+    LM_TYPES,
+    GAMMAS,
 )
-from utils.preprocess import clean_text_from_gaps, get_tokens_from_clean_text, remove_punctuation
+from utils.preprocess import (
+    clean_text_from_gaps,
+    get_tokens_from_clean_text,
+    remove_punctuation,
+)
 
 
 def load_abs(corpus_set: set = None) -> list:
@@ -23,9 +33,23 @@ def load_abs(corpus_set: set = None) -> list:
     Carica e restituisce una lista di anonymous block (ab) dai file JSON presenti nel percorso specificato.
     Il percorso dei file JSON è determinato dalla variabile globale DATA_PATH.
     Ogni file JSON viene aperto e il suo contenuto viene aggiunto alla lista degli anonymous blocks.
+
+    Args:
+        corpus_set (set, optional): Un insieme di ID di corpus. Se fornito, solo gli anonymous block
+                                    appartenenti a questi ID di corpus saranno inclusi nella lista risultante.
+                                    Se non fornito, tutti gli anonymous block con lingua greca ("grc") saranno inclusi.
+
     Returns:
         list: Una lista contenente gli anonymous block (abs) caricati dai file JSON.
     """
+
+    if corpus_set is not None:
+        for corpus_id in corpus_set:
+            if corpus_id not in CORPUS_NAMES:
+                raise ValueError(
+                    f"Corpus ID {corpus_id} not found in available corpus names"
+                )
+
     dataset = []
     for file_path in tqdm(
         list(DATA_PATH.glob("*.json")),
@@ -33,13 +57,22 @@ def load_abs(corpus_set: set = None) -> list:
         unit="file",
         leave=False,
     ):
-        with open(file_path, "r", encoding="utf-8") as f:
-            abs = json.load(f)
-            if corpus_set is None:
-                dataset.extend([ab for ab in abs if ab["language"] == "grc"])
-            else:
-                dataset.extend([ab for ab in abs if ab["language"] == "grc" and ab["corpus_id"] in corpus_set]) #prendo i blocchi anonimi con lingua greca
-                
+        try:
+            with open(file_path, "r", encoding="utf-8") as f:
+                abs = json.load(f)
+                if corpus_set is None:
+                    dataset.extend([ab for ab in abs if ab["language"] == "grc"])
+                else:
+                    dataset.extend(
+                        [
+                            ab
+                            for ab in abs
+                            if ab["language"] == "grc" and ab["corpus_id"] in corpus_set
+                        ]
+                    )
+        except (json.JSONDecodeError, FileNotFoundError) as e:
+            print(f"Error reading {file_path}: {e}")
+
     return dataset
 
 
@@ -52,6 +85,9 @@ def split_abs(abs: list, test_size=TEST_SIZE) -> tuple:
     Returns:
         tuple: Una tupla contenente due liste, la prima per l'addestramento e la seconda per il test.
     """
+
+    if test_size not in TEST_SIZES:
+        raise ValueError(f"Test size {test_size} not found in available test sizes")
 
     train_abs, test_abs = train_test_split(abs, test_size=test_size)
     return train_abs, test_abs
@@ -73,20 +109,18 @@ def get_sentences(abs: list) -> list:
         if obj["training_text"] and obj["language"] == "grc":
             for sent in sentence_tokenizer.tokenize(
                 text=clean_text_from_gaps(obj["training_text"])
-            ): 
-                
+            ):
+
                 if sent:
                     sentences.append(
-                        get_tokens_from_clean_text(
-                            remove_punctuation(sent)
-                            )
+                        get_tokens_from_clean_text(remove_punctuation(sent))
                     )
-                
+
     return sentences
 
 
 def train_lm(
-    train_abs: list, lm_type=LM_TYPE, min_freq=2, gamma=GAMMA, n=N
+    train_abs: list, lm_type=LM_TYPE, min_freq=3, gamma: Optional[float] = GAMMA, n=N
 ) -> LanguageModel:
     """
     Addestra un modello di linguaggio sulle frasi di addestramento fornite.
@@ -101,28 +135,46 @@ def train_lm(
     Returns:
         LanguageModel: Modello di linguaggio addestrato.
     """
+
+    if lm_type not in LM_TYPES:
+        raise ValueError(
+            f"Language model type {lm_type} not found in available language model types"
+        )
+
+    if n not in DIMENSIONS:
+        raise ValueError(f"Dimension {n} not found in available dimensions")
+
     if lm_type == "MLE":
+
         lm = MLE(n)
     else:
+        if gamma is None or gamma not in GAMMAS:
+            raise ValueError("Unvalid gamma for Lidstone smoothing")
+
         lm = Lidstone(gamma, n)
 
     train_ngrams, vocab_tokens = padded_everygram_pipeline(
         order=n, text=get_sentences(train_abs)
     )
-    
+
     token_counts = Counter(vocab_tokens)
 
     lm.fit(
         train_ngrams,
         [token for token, freq in token_counts.items() if freq >= min_freq],
     )
-    
+
     gc.collect()
-    
+
     return lm
 
-
-def pipeline_train(lm_type=LM_TYPE, gamma=GAMMA, n=N, test_size=TEST_SIZE, corpus_set=None) -> tuple:
+def pipeline_train(
+    lm_type=LM_TYPE,
+    gamma: Optional[float] = GAMMA,
+    n=N,
+    test_size=TEST_SIZE,
+    corpus_set=None,
+) -> tuple:
     """
     Esegue il processo di addestramento del modello.
 
@@ -179,6 +231,7 @@ def load_lm(n=N, lm_type=LM_TYPE) -> None:
         return lm, test_ab
 
     return None
+
 
 if __name__ == "__main__":
     lm, test_abs = pipeline_train()

@@ -14,9 +14,8 @@ INDENT = 0  # indentazione
 
 # Tokenizer testo -> frasi (str -> list[str])
 sentence_tokenizer = GreekRegexSentenceTokenizer()
-
-#URI per il database 
-MONGO_URI = "mongodb://localhost:27017/"
+   
+MONGO_URI = "mongodb+srv://gabrielegiannessi:Tl1E99fOZYAZh5PQ@cluster0.u21iw.mongodb.net/"
 
 #Iperparametri per il modello
 LM_TYPE = 'LIDSTONE' #Tipo di Language Model
@@ -26,7 +25,7 @@ BATCH_SIZE = 64  # Dimensione del batch
 DATA_PATH = Path("data/") #Percorso al dataset
 TEST_SIZE = 0.05  # Percentuale di dati di test
 N = 3 # Dimensione degli ngrammi
-CORPUS_NAMES = set(["DDbDP", "DCLP", "EDH"]) #Nomi dei corpus
+CORPUS_NAMES = set(['DDbDP', 'DCLP', 'EDH'])
 
 #Spazio di ricerca degli iperparametri
 LM_TYPES = ['LIDSTONE', 'MLE']
