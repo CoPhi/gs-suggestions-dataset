@@ -12,7 +12,7 @@
     Le gold label sono usate per confrontare l'accuracy del modello BERT sul test_set rispetto ad altri modelli. 
 """
 
-from models.training import load_abs, split_abs, get_sentences
+from train import load_abs, split_abs, get_sentences
 from datasets import Dataset, DatasetDict
 from finetuning.utils import get_test_cases_from_abs    
 

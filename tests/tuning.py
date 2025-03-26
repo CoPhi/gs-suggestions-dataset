@@ -1,8 +1,9 @@
 from skopt import gp_minimize
 from skopt.space import Categorical
 
-from models.evaluate import get_topK_accuracy, perplexity
-from models.training import split_abs, load_abs, train_lm
+from metrics.accuracy import get_topK_accuracy, perplexity
+from train import split_abs, load_abs
+from train.training import train_lm
 from tests.params import print_MLE_params_to_csv, print_LIDSTONE_params_to_csv
 from concurrent.futures import ThreadPoolExecutor
 from config.settings import K_PREDICTIONS, DIMENSIONS, TEST_SIZES, BATCH_SIZES, GAMMA

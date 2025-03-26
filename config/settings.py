@@ -1,4 +1,3 @@
-from cltk.sentence.grc import GreekRegexSentenceTokenizer
 from pathlib import Path
 
 #Parametri per lo splitting dei dati nei file
@@ -11,11 +10,6 @@ CORPUS_PATHS = [
 
 LIM = 50  # MAX MB per file
 INDENT = 0  # indentazione
-
-# Tokenizer testo -> frasi (str -> list[str])
-sentence_tokenizer = GreekRegexSentenceTokenizer()
-   
-MONGO_URI = "mongodb+srv://gabrielegiannessi:Tl1E99fOZYAZh5PQ@cluster0.u21iw.mongodb.net/"
 
 #Iperparametri per il modello
 LM_TYPE = 'LIDSTONE' #Tipo di Language Model

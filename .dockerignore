@@ -1,0 +1,13 @@
+# Python
+__pycache__/
+
+#VS code file 
+.vscode/
+
+#File 
+.gitignore
+*csv
+poetry.lock
+pyproject.toml
+README.md
+requirements.txt

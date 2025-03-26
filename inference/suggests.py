@@ -2,11 +2,19 @@ import argparse
 
 from nltk.lm.models import LanguageModel
 
-from models.evaluate import get_context, get_best_K_predictions_from_context
-from config.settings import N, K_PRED
-from models.training import load_lm
+from metrics.accuracy import get_context, get_best_K_predictions_from_context
+from config.settings import N, K_PRED, LM_TYPE
+from train.training import load_lm
 
-def generate_k_suggests(lm: LanguageModel, context: str, num_words: int, n=N, k_pred=K_PRED) -> list[str]:
+
+def generate_k_suggests(
+    lm: LanguageModel,
+    context: str,
+    num_words: int,
+    lm_type: str = LM_TYPE,
+    n: int = N,
+    k_pred: int = K_PRED,
+) -> list[str]:
     """
     Genera k-predizioni utilizzando un modello di linguaggio.
 
@@ -15,7 +23,7 @@ def generate_k_suggests(lm: LanguageModel, context: str, num_words: int, n=N, k_
         context (str): Il contesto testuale da utilizzare come seme per la generazione.
         num_words (int): Il numero di parole da generare.
         n (int, opzionale): Dimensione degli ngrammi del modello, default N (settings.py).
-        k_pred (int, opzionale): Il numero di parole da predire, default K_PRED (settings.py).  
+        k_pred (int, opzionale): Il numero di parole da predire, default K_PRED (settings.py).
 
     Returns:
         List[list[str]]: Una lista di parole generate dal modello di linguaggio.
@@ -26,7 +34,21 @@ def generate_k_suggests(lm: LanguageModel, context: str, num_words: int, n=N, k_
     if not lm:
         raise ValueError("Il modello non è stato caricato correttamente.")
 
-    return [" ".join(pred).lower() for pred in get_best_K_predictions_from_context(lm, get_context(context, n=n), num_words, n, k_pred, mod="infer", alpha=1, beta=0)]
+    return [
+        " ".join(pred).lower()
+        for pred in get_best_K_predictions_from_context(
+            lm=lm,
+            context=get_context(context, n=n),
+            lm_type=lm_type,
+            len_suppl_words=num_words, 
+            n=n,
+            k_pred=k_pred,
+            mod="infer",
+            alpha=1,
+            beta=0,
+        )
+    ]
+
 
 if __name__ == "__main__":
     lm, _ = load_lm()
@@ -43,4 +65,4 @@ if __name__ == "__main__":
     args = parser.parse_args()  # Analizza gli argomenti passati
 
     words = generate_k_suggests(lm, args.context, args.num_words)
-    print (words)
+    print(words)

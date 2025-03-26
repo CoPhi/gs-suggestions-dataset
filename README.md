@@ -3,7 +3,7 @@
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.12553283.svg)](https://doi.org/10.5281/zenodo.12553283)
 
 Questo progetto sviluppa un sistema di autosuggerimento per la ricostruzione di lacune nei testi in greco antico.  
-I dati provengono dal [MAAT Corpus](https://zenodo.org/records/12553283), e il modello utilizza le librerie `nltk` e `cltk` per l'elaborazione del linguaggio naturale.  
+I dati provengono dal [MAAT Corpus](https://zenodo.org/records/12553283), e il modello utilizza le librerie `NLTK` e `CLTK` per l'elaborazione del linguaggio naturale.  
 
 ## Installazione
 

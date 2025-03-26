@@ -1,6 +1,3 @@
-from config.settings import K_PREDICTIONS
-
-
 def serial_model(model) -> dict:
     return {
         "ID": str(model["_id"]),

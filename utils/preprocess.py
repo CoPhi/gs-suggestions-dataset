@@ -1,13 +1,12 @@
 import re
 from cltk.alphabet.grc.grc import normalize_grc
-from utils.settings import (
+from utils import (
     PUNCTUATION_REGEX,
     BRACKETS_REGEX,
     UNMATCHED_BRACKETS_REGEX,
     SUPPLEMENTS_REGEX,
     MISSING_LINES_REGEX,
 )
-
 
 def contains_lacunae(token: str) -> bool:
     """
