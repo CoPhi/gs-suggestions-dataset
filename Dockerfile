@@ -1,6 +1,6 @@
 FROM python:3.11.11-slim
 
-WORKDIR /api-models
+WORKDIR /app
 
 COPY ./config ./config
 

@@ -4,4 +4,3 @@ from cltk.sentence.grc import GreekRegexSentenceTokenizer
 sentence_tokenizer = GreekRegexSentenceTokenizer()
 
 from .cleaner import *
-from .training import * 

@@ -1,0 +1,1 @@
+CHUNK_SIZE = 50  # Define the desired chunk size

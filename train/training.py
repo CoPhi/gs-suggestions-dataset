@@ -1,14 +1,11 @@
 from collections import Counter
-
-import pickle
 import gc
 from typing import Optional
 
 from nltk.lm.models import MLE, Lidstone, LanguageModel
 from nltk.lm.preprocessing import padded_everygram_pipeline
 
-from train import get_sentences, split_abs, load_abs, save_lm, load_lm
-
+from train import get_sentences, split_abs, load_abs, save_lm
 
 from config.settings import (
     TEST_SIZE,
@@ -22,7 +19,7 @@ from config.settings import (
 
 
 def train_lm(
-    train_abs: list, lm_type=LM_TYPE, min_freq=3, gamma: Optional[float] = GAMMA, n=N
+    train_abs: list, lm_type=LM_TYPE, min_freq=2, gamma: Optional[float] = GAMMA, n=N
 ) -> LanguageModel:
     """
     Addestra un modello di linguaggio sulle frasi di addestramento fornite.

@@ -78,7 +78,7 @@ def split_abs(abs: list, test_size=TEST_SIZE) -> tuple:
     return train_abs, test_abs
 
 
-def get_sentences(abs: list) -> list:
+def get_sentences(abs: list, remove_punct: bool = True) -> list:
     """
     Estrae e processa le frasi di addestramento da una lista di blocchi anonimi fornita.
     Questo metodo filtra e processa il 'training_text' da ciascun oggetto nella lista di input 'ab'.
@@ -95,11 +95,13 @@ def get_sentences(abs: list) -> list:
             for sent in sentence_tokenizer.tokenize(
                 text=clean_text_from_gaps(obj["training_text"])
             ):
-
                 if sent:
-                    sentences.append(
-                        get_tokens_from_clean_text(remove_punctuation(sent))
-                    )
+                    if remove_punct:
+                        sentences.append(
+                            get_tokens_from_clean_text(remove_punctuation(sent))
+                        )
+                    else:
+                        sentences.append(get_tokens_from_clean_text(sent))
 
     return sentences
 

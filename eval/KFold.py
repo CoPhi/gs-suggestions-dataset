@@ -6,8 +6,8 @@ from tests.params import (
 )
 
 from sklearn.model_selection import KFold
-from train import load_abs
-from train.training import load_lm, train_lm
+from train import load_abs, load_lm
+from train.training import train_lm
 from config.settings import (
     K_PRED,
     BATCH_SIZE,

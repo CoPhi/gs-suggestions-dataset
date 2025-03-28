@@ -6,20 +6,26 @@ from utils import (
     UNMATCHED_BRACKETS_REGEX,
     SUPPLEMENTS_REGEX,
     MISSING_LINES_REGEX,
+    EXPUNCTION_REGEX,
+    MARKER_REGEX,
+    UNKNOWN_LEFT_MARKER_REGEX,
+    EXTENDED_LINE_RIGHT_MARKER_REGEX,
 )
+
 
 def contains_lacunae(token: str) -> bool:
     """
     Verifica se un dato token contiene lacune da processare.
     """
+    fold_token = token.upper()
 
-    if "NONE" in token.upper():
+    if "NONE" in fold_token:
         return True
 
     if token.endswith(".") and all(char.isalpha() for char in token[:-1]):
         return False
 
-    return ("." in token and len(token) > 1) or "<GAP/>" in token.upper()
+    return ("<GAP/>" in fold_token) or ("." in token and len(token) > 1)
 
 
 def greek_case_folding(text: str) -> str:
@@ -482,19 +488,97 @@ def clean_text_content(text: str) -> str:
     Returns:
         str: Il testo pulito.
     """
-    text = remove_brackets(
-        re.sub(
-            r"\.\s*<gap/>\s*\.", ".", text
-        )  # Rimuovo i gap di lunghezza sconosciuta che rappresentano frasi
-    )
 
-    # processo linee mancanti (se presenti)
-    if MISSING_LINES_REGEX.search(text):
-        text = MISSING_LINES_REGEX.sub("", text)
+    def process_leiden_elements(text: str) -> str:
+        """
+        Processa gli elementi Leiden+ nel testo.
+        """
 
-    return (
-        text if "-" not in text else filter_dash(text)
-    )  # filtro i trattini se sono presenti nel testo
+        def process_brackets(text: str) -> str:
+            return remove_brackets(
+                re.sub(
+                    r"\.\s*<gap/>\s*\.", ".", text
+                )  # Rimuove gap di lunghezza sconosciuta che rappresentano frasi)
+            )
+
+        def process_missing_lines(text: str) -> str:
+            """
+            Rimuove linee mancanti dal testo.
+            """
+            return (
+                MISSING_LINES_REGEX.sub("", text)
+                if MISSING_LINES_REGEX.search(text)
+                else text
+            )
+
+        def process_parentheses(text: str) -> str:
+            """
+            Processa estensioni di abbreviazioni (a(bc)) -> (abc).
+            """
+            return text.replace("(", "").replace(")", "")
+
+        def process_markers(text: str) -> str:
+            """
+            Processa aggiunte di testo <abc> -> abc.
+            """
+            if MARKER_REGEX.search(text):
+                text = MARKER_REGEX.sub(r"\1", text)
+
+            if UNKNOWN_LEFT_MARKER_REGEX.search(text):
+                text = UNKNOWN_LEFT_MARKER_REGEX.sub(r"<gap/>\1", text)
+
+            if EXTENDED_LINE_RIGHT_MARKER_REGEX.search(text):
+                text = EXTENDED_LINE_RIGHT_MARKER_REGEX.sub("", text)
+
+            if "&gt;" in text:
+                text = text.replace("&gt;", "")
+
+            if "&lt;" in text:
+                text = text.replace("&lt;", "")
+
+            return text
+
+        def process_expunctions(text: str) -> str:
+            """
+            Rimuove espunzioni {abc} -> "".
+            """
+            return (
+                EXPUNCTION_REGEX.sub("", text)
+                if EXPUNCTION_REGEX.search(text)
+                else text
+            )
+
+        def process_parallel_text(text: str) -> str:
+            """
+            Rimuove testo fornito in parallelo (_abc_) -> abc.
+            """
+            return text.replace("_", "") if "_" in text else text
+
+        def process_doubts(text: str) -> str:
+            """
+            Rimuove i punti interrogativi da una stringa di testo.
+
+            Args:
+                text (str): La stringa di input da elaborare.
+
+            Returns:
+                str: La stringa risultante con i punti interrogativi rimossi.
+            """
+            return text.replace("?", "")
+
+        # Applica le varie trasformazioni
+        text = process_brackets(text)
+        text = process_doubts(text)
+        text = process_missing_lines(text)
+        text = process_parentheses(text)
+        text = process_markers(text)
+        text = process_expunctions(text)
+        text = process_parallel_text(text)
+
+        # Filtra i trattini se presenti
+        return filter_dash(text) if "-" in text else text
+
+    return process_leiden_elements(text)
 
 
 def clean_tokens(text: str) -> list[str]:

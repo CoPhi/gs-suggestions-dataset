@@ -4,7 +4,7 @@ from api.schema import serial_model, list_models
 from api.database import collection
 from api.models import NgramModel
 from bson import ObjectId
-from train import pipeline_train
+from train.training import pipeline_train
 from inference import generate_k_suggests
 from config.settings import K_PREDICTIONS, LM_TYPES, GAMMA, TEST_SIZE, N
 import pickle

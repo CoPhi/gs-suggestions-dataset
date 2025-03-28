@@ -477,8 +477,6 @@ def get_topK_accuracy(
                         mod="acc",
                     )
 
-                    # print (len(supplements[i]), ':', predictions, ": ", len(predictions),'\n')
-
                     if supplements[i] in predictions:
                         correct_predictions += 1
 

@@ -4,6 +4,3 @@ Esegui il modulo `KFold` per valutare il modello secondo tramite una K-Fold cros
 Esempio: 
 
     poetry run python -m eval.KFold
-
-
-       
