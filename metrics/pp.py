@@ -21,7 +21,7 @@ def perplexity(lm: LanguageModel, test_abs: list, n=N) -> float:
         RuntimeError: Se si verifica un errore nel calcolo della perplessità.
     """
 
-    test_ngrams, _ = padded_everygram_pipeline(n, get_sentences(test_abs))
+    test_ngrams, _ = padded_everygram_pipeline(n, get_sentences(abs=test_abs))
 
     if not lm.vocab:
         raise ValueError("Il modello non è stato addestrato correttamente.")

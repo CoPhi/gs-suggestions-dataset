@@ -38,7 +38,7 @@ def greek_case_folding(text: str) -> str:
     Returns:
         str: Il testo normalizzato con il case folding greco applicato.
     """
-    return normalize_grc(text).upper()
+    return normalize_grc(text)
 
 
 def clean_lacunae(token: str) -> str:
@@ -61,10 +61,9 @@ def clean_lacunae(token: str) -> str:
         >>> clean_lacunae("<gap/>.λέγειν")
         '<UNK> .λέγειν'
     """
-    token = greek_case_folding(token)
-    if "<GAP/>" in token:  # gestione tag gap
+    if "<gap/>" in token:  # gestione tag gap
         clean_seq = []
-        seq = token.replace("<GAP/>", " <UNK> ").split()
+        seq = token.replace("<gap/>", " <UNK> ").split()
         for i, tkn in enumerate(seq):
             if (
                 tkn.endswith(".")
@@ -371,7 +370,7 @@ def get_extended_supplement(training_text: str, start_pos: int, end_pos: int):
     return training_text[start_pos:end_pos]
 
 
-def clean_supplements(training_text: str) -> list[list[str]]:
+def clean_supplements(training_text: str, case_folding:bool=True) -> list[list[str]]:
     """
     Questa funzione cerca i supplementi (testo racchiuso tra parentesi quadre) all'interno del testo fornito,
     estende il loro contesto se necessario, li pulisce e li tokenizza. I token vengono restituiti come
@@ -419,7 +418,7 @@ def clean_supplements(training_text: str) -> list[list[str]]:
             [
                 token
                 for token in get_tokens_from_clean_text(
-                    remove_punctuation(clean_text_from_gaps(extended_supplement))
+                    remove_punctuation(clean_text_from_gaps(extended_supplement, case_folding))
                 )
             ]
         )
@@ -458,11 +457,11 @@ def process_token(token: str) -> list[str]:
     return (
         clean_lacunae(token).split()
         if contains_lacunae(token)
-        else greek_case_folding(token).split()
+        else token.split()
     )
 
 
-def clean_text_from_gaps(text: str) -> str:
+def clean_text_from_gaps(text: str, case_folding:bool=True) -> str:
     """
     Pulisce il testo dalle lacune, lasciando invariata la punteggiatura.
     Viene usato questo metodo per pulire i testi di addestramento, per poi suddividerlo in frasi.
@@ -473,9 +472,10 @@ def clean_text_from_gaps(text: str) -> str:
     Returns:
         clean_text (str): testo pulito dalle lacune
     """
-    text = clean_text_content(text)
-    cleaned_tokens = clean_tokens(text)
-    return " ".join(cleaned_tokens).strip()
+    cleaned_text = clean_text_content(text)
+    tokens = clean_tokens(cleaned_text)
+    result_text = " ".join(tokens).strip()
+    return greek_case_folding(result_text) if case_folding else result_text
 
 
 def clean_text_content(text: str) -> str:

@@ -53,7 +53,7 @@ def train_lm(
         lm = Lidstone(gamma, n)
 
     train_ngrams, vocab_tokens = padded_everygram_pipeline(
-        order=n, text=get_sentences(train_abs)
+        order=n, text=get_sentences(abs=train_abs)
     )
 
     token_counts = Counter(vocab_tokens)

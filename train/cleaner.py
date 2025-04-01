@@ -78,10 +78,12 @@ def split_abs(abs: list, test_size=TEST_SIZE) -> tuple:
     return train_abs, test_abs
 
 
-def get_sentences(abs: list, remove_punct: bool = True) -> list:
+def get_sentences(
+    abs: list, remove_punct: bool = True, case_folding: bool = True
+) -> list:
     """
     Estrae e processa le frasi di addestramento da una lista di blocchi anonimi fornita.
-    Questo metodo filtra e processa il 'training_text' da ciascun oggetto nella lista di input 'ab'.
+    Questo metodo filtra e processa il 'training_text' da ciascun oggetto nella lista di input 'abs'.
     Include solo i testi in cui la 'language' è 'grc'.
     Le frasi vengono tokenizzate e aggiunte alla lista di frasi.
     Args:
@@ -93,8 +95,10 @@ def get_sentences(abs: list, remove_punct: bool = True) -> list:
     for obj in tqdm(abs, desc="Processing anonymous blocks", unit="ab", leave=False):
         if obj["training_text"] and obj["language"] == "grc":
             for sent in sentence_tokenizer.tokenize(
-                text=clean_text_from_gaps(obj["training_text"])
-            ):
+                text=clean_text_from_gaps(
+                    obj["training_text"], case_folding=case_folding
+                )
+            ):        
                 if sent:
                     if remove_punct:
                         sentences.append(
@@ -102,13 +106,12 @@ def get_sentences(abs: list, remove_punct: bool = True) -> list:
                         )
                     else:
                         sentences.append(get_tokens_from_clean_text(sent))
-
     return sentences
 
 
 def save_lm(lm: LanguageModel, test_abs: list, n=N, lm_type=LM_TYPE) -> None:
     """
-    Salva un modello di linguaggio (LanguageModel) su disco come file pickle.
+    Salva un modello di linguaggio (`LanguageModel`) su disco come file pickle.
     Args:
         lm (LanguageModel): Il modello di linguaggio da salvare.
         test_abs (list): Una lista di anonymous blocks di test.

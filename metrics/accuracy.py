@@ -370,7 +370,7 @@ def get_context(text: str, n=N) -> list[str]:
         text (str): Testo da tokenizzare
     Returns:
         list[str]: Lista di token, rappresenta il contesto da cui partire per l'inferenza del modello
-    """
+    """   
     return list(
         flatten(
             list(
@@ -384,7 +384,7 @@ def get_context(text: str, n=N) -> list[str]:
     )[: (1 - n)]
 
 
-def get_context_from_test_case(test_case: str, n=N) -> list[str]:
+def get_context_from_test_case(test_case: str, n=N, case_folding:bool=True) -> list[str]:
     """
     Forma il contesto da cui il modello linguistico fa partire la generazione della predizione.
     Prende la sottostringa del test_case che parte dall'inizio e finisce con '[', la divide in frasi e le tokenizza, pulendone lacune e punteggiatura. (Contesto a sinistra)
@@ -410,13 +410,31 @@ def get_context_from_test_case(test_case: str, n=N) -> list[str]:
                     clean_text_from_gaps(
                         re.sub(r"[^\s]+\[", "[", test_case).split("[")[
                             0
-                        ]  # Si prende il contesto a sinistra della parentesi `[`
+                        ], case_folding=case_folding   # Si prende il contesto a sinistra della parentesi `[`
                     )
                 )
             ]
         )
     )[: (1 - n)]
+    
 
+def check_supplement(supplement: list[str]) -> bool:
+    """
+    Verifica se la lista di supplementi è valida.
+
+    Questa funzione controlla se la lista di supplementi (token) fornita è vuota o 
+    contiene la stringa "<UNK>". Se una di queste condizioni è vera, 
+    la funzione restituisce False, altrimenti restituisce True.
+
+    Args:
+        supplement (list[str]): Una lista di tokens (stringhe) che rappresentano i supplementi.
+
+    Returns:
+        bool: True se la lista è valida, False altrimenti.
+    """
+    if not supplement or  "<UNK>" in supplement :  # Supplementi non presenti nel testo
+            return False
+    return True
 
 def get_topK_accuracy(
     lm: LanguageModel, test_abs: list, batch_size=BATCH_SIZE, n=N, k_pred=K_PRED
@@ -457,14 +475,9 @@ def get_topK_accuracy(
                     if i >= len(supplements):
                         break
 
-                    if not supplements[i]:  # Supplementi non presenti nel testo
+                    if not check_supplement(supplements[i]):
                         continue
-
-                    if (
-                        "<UNK>" in supplements[i]
-                    ):  # significa che sono presenti dei token 'None' nei supplementi e non posso fare inferenza
-                        continue
-
+                    
                     context = get_context_from_test_case(obj["test_case"], n)
 
                     predictions = get_best_K_predictions_from_context(
@@ -479,7 +492,7 @@ def get_topK_accuracy(
 
                     if supplements[i] in predictions:
                         correct_predictions += 1
-
+                    
                     total_predictions += 1
 
     return round((correct_predictions / total_predictions) * 100, 2)

@@ -4,6 +4,8 @@ Script per rendere disponibile l'insieme delle frasi pre-processsate del MAAT co
 access token: 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
 nome: hf-maat-upload
 
+token dell'organizzazione CNR-ILC: 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
+
 Questo dataset serve per fare il finetuning dei modelli BERT per il greco antico sul task MLM
 
 Il train_set è composto da frasi pulite in greco antico senza la presenza di token sconosciuti, in cui è stato applicato il case folding.
@@ -12,79 +14,37 @@ Il test_set è composto da frasi pulite in greco antico con la presenza di token
 Le gold label sono usate per confrontare l'accuracy del modello BERT sul test_set rispetto ad altri modelli.
 """
 
-from train import load_abs, split_abs, get_sentences
-from datasets import Dataset, DatasetDict
-from finetuning import CHUNK_SIZE
-from finetuning.utils import get_test_cases_from_abs
+from datasets import DatasetDict
+from huggingface_hub import notebook_login
+from finetuning.utils import load_and_split_abs, get_train_set, get_test_cases_from_abs
+from finetuning import TRAIN_DATASET_CHECKPOINT, TEST_DATASET_CHECKPOINT
 
-
-def get_sent_from_tokens(tokens: list[str]):
-    return " ".join(tokens)
-
-
-def push_to_huggingface_hub(dataset: DatasetDict):
-    dataset.push_to_hub(
-        "GabrieleGiannessi/maat-corpus", commit_message="v6: sentences chunked, add puntuaction"
-    )
-    pass
-
-
-def chunk_sentences(sentences: list[str], chunk_size: int = CHUNK_SIZE) -> list[str]:
-    chunked = []
-    for sentence in sentences:
-        tokens = sentence.split()
-        for i in range(0, len(tokens), chunk_size):
-            chunk = tokens[i : i + chunk_size]
-            if len(chunk) == chunk_size:  # Ensure all chunks are of the same length
-                chunked.append(" ".join(chunk))
-    return chunked
+def push_trainset_to_huggingface_hub(dataset: DatasetDict, message: str) -> None:
+    
+    dataset.push_to_hub(TRAIN_DATASET_CHECKPOINT, commit_message=message)
+    
+def push_testset_to_huggingface_hub(dataset: DatasetDict, message: str) -> None:
+    dataset.push_to_hub(TEST_DATASET_CHECKPOINT, commit_message=message)
 
 
 def main():
-    abs = load_abs()
-    temp_abs, test_abs = split_abs(abs, 0.1)
-    train_abs, dev_abs = split_abs(temp_abs, 0.1)
 
-    test_set = chunk_sentences(
-        [
-            get_sent_from_tokens(tokens)
-            for tokens in get_sentences(test_abs, remove_punct=False)
-            if tokens and "<UNK>" not in tokens
-        ],
-    )
-    train_set = chunk_sentences(
-        [
-            get_sent_from_tokens(tokens)
-            for tokens in get_sentences(train_abs, remove_punct=False)
-            if tokens and "<UNK>" not in tokens
-        ],
-    )
-    dev_set = chunk_sentences(
-        [
-            get_sent_from_tokens(tokens)
-            for tokens in get_sentences(dev_abs, remove_punct=False)
-            if tokens and "<UNK>" not in tokens
-        ],
-    )
-
-    dataset = DatasetDict(
+    train_abs, dev_abs, test_abs = load_and_split_abs()
+    train_eval_dataset = DatasetDict(
         {
-            "train": Dataset.from_dict(
-                {
-                    "text": train_set,
-                }
-            ),
-            "dev": Dataset.from_dict(
-                {
-                    "text": dev_set,
-                }
-            ),
-            "test": Dataset.from_dict({"text": test_set}),
+            "train": get_train_set(train_abs),
         }
     )
 
-    push_to_huggingface_hub(dataset)
-
+    push_trainset_to_huggingface_hub(train_eval_dataset, "New split")
+    
+    test_dataset = DatasetDict({
+        "dev": get_test_cases_from_abs(dev_abs), 
+        "test": get_test_cases_from_abs(test_abs)
+    })
+    
+    push_testset_to_huggingface_hub(test_dataset, "New split")
+    
 
 if __name__ == "__main__":
     main()
