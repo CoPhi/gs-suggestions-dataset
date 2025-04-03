@@ -26,7 +26,7 @@ def generate_mask_tokens(num: int) -> str:
     return mask_str
 
 
-def load_and_split_abs(test_size: float = 0.1, dev_size: float = 0.1):
+def load_and_split_sentences(test_size: float = 0.1, dev_size: float = 0.1):
     abs = load_abs()
     temp_abs, test_abs = split_abs(abs, test_size)
     train_abs, dev_abs = split_abs(temp_abs, dev_size)
@@ -73,7 +73,7 @@ def get_num_unk_tokens(text: str) -> int:
     return c
 
 
-def get_train_set(train_abs: list):
+def get_processed_sentences(train_abs: list):
     """
     Estrae e filtra le frasi di addestramento da una lista di blocchi anonimi e applica i controlli sui token sconosciuti.
     Args:

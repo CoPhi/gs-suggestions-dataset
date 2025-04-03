@@ -4,7 +4,7 @@ Script per rendere disponibile l'insieme delle frasi pre-processsate del MAAT co
 access token: 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
 nome: hf-maat-upload
 
-token dell'organizzazione CNR-ILC: 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
+token dell'organizzazione CNR-ILC: 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
 
 Questo dataset serve per fare il finetuning dei modelli BERT per il greco antico sul task MLM
 
@@ -15,36 +15,38 @@ Le gold label sono usate per confrontare l'accuracy del modello BERT sul test_se
 """
 
 from datasets import DatasetDict
-from huggingface_hub import notebook_login
-from finetuning.utils import load_and_split_abs, get_train_set, get_test_cases_from_abs
+from finetuning.utils import (
+    load_and_split_sentences,
+    get_processed_sentences,
+)
 from finetuning import TRAIN_DATASET_CHECKPOINT, TEST_DATASET_CHECKPOINT
 
+
 def push_trainset_to_huggingface_hub(dataset: DatasetDict, message: str) -> None:
-    
+
     dataset.push_to_hub(TRAIN_DATASET_CHECKPOINT, commit_message=message)
-    
+
+
 def push_testset_to_huggingface_hub(dataset: DatasetDict, message: str) -> None:
     dataset.push_to_hub(TEST_DATASET_CHECKPOINT, commit_message=message)
 
 
+def push_set_to_huggingface_hub(dataset: DatasetDict, message: str) -> None:
+    dataset.push_to_hub("GabrieleGiannessi/maat-corpus", commit_message=message)
+
+
 def main():
 
-    train_abs, dev_abs, test_abs = load_and_split_abs()
-    train_eval_dataset = DatasetDict(
+    train_abs, dev_abs, test_abs = load_and_split_sentences()
+    dataset = DatasetDict(
         {
-            "train": get_train_set(train_abs),
+            "train": get_processed_sentences(train_abs),
+            "dev": get_processed_sentences(dev_abs),
+            "test": get_processed_sentences(test_abs),
         }
     )
 
-    push_trainset_to_huggingface_hub(train_eval_dataset, "New split")
-    
-    test_dataset = DatasetDict({
-        "dev": get_test_cases_from_abs(dev_abs), 
-        "test": get_test_cases_from_abs(test_abs)
-    })
-    
-    push_testset_to_huggingface_hub(test_dataset, "New split")
-    
+    push_set_to_huggingface_hub(dataset, "New split fill-mask task, without labels")
 
 if __name__ == "__main__":
     main()

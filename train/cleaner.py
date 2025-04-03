@@ -98,7 +98,11 @@ def get_sentences(
                 text=clean_text_from_gaps(
                     obj["training_text"], case_folding=case_folding
                 )
-            ):        
+            ):      
+                if '‡' in sent:
+                    print (obj["training_text"]) 
+                    print (sent)  
+                    
                 if sent:
                     if remove_punct:
                         sentences.append(

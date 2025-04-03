@@ -10,6 +10,8 @@ from utils import (
     MARKER_REGEX,
     UNKNOWN_LEFT_MARKER_REGEX,
     EXTENDED_LINE_RIGHT_MARKER_REGEX,
+    VACAT_REGEX,
+    NOTES_REGEX,
 )
 
 
@@ -163,7 +165,7 @@ def remove_brackets(text: str) -> str:
 
 def remove_lb(text: str) -> str:
     """
-    Rimuove i caratteri di nuova riga (Line Breaks) e numeri di linea da un testo sostituendoli con spazi.
+    Rimuove i caratteri di nuova riga (Line Breaks `\\n`) e numeri di linea da un testo sostituendoli con spazi.
     Args:
         text (str): Il testo di input da pulire.
     Returns:
@@ -370,7 +372,7 @@ def get_extended_supplement(training_text: str, start_pos: int, end_pos: int):
     return training_text[start_pos:end_pos]
 
 
-def clean_supplements(training_text: str, case_folding:bool=True) -> list[list[str]]:
+def clean_supplements(training_text: str, case_folding: bool = True) -> list[list[str]]:
     """
     Questa funzione cerca i supplementi (testo racchiuso tra parentesi quadre) all'interno del testo fornito,
     estende il loro contesto se necessario, li pulisce e li tokenizza. I token vengono restituiti come
@@ -418,7 +420,9 @@ def clean_supplements(training_text: str, case_folding:bool=True) -> list[list[s
             [
                 token
                 for token in get_tokens_from_clean_text(
-                    remove_punctuation(clean_text_from_gaps(extended_supplement, case_folding))
+                    remove_punctuation(
+                        clean_text_from_gaps(extended_supplement, case_folding)
+                    )
                 )
             ]
         )
@@ -454,14 +458,10 @@ def process_token(token: str) -> list[str]:
     Returns:
         list[str]: Lista di token puliti o normalizzati.
     """
-    return (
-        clean_lacunae(token).split()
-        if contains_lacunae(token)
-        else token.split()
-    )
+    return clean_lacunae(token).split() if contains_lacunae(token) else token.split()
 
 
-def clean_text_from_gaps(text: str, case_folding:bool=True) -> str:
+def clean_text_from_gaps(text: str, case_folding: bool = True) -> str:
     """
     Pulisce il testo dalle lacune, lasciando invariata la punteggiatura.
     Viene usato questo metodo per pulire i testi di addestramento, per poi suddividerlo in frasi.
@@ -478,6 +478,139 @@ def clean_text_from_gaps(text: str, case_folding:bool=True) -> str:
     return greek_case_folding(result_text) if case_folding else result_text
 
 
+def process_leiden_elements(text: str) -> str:
+    """
+    Processa gli elementi Leiden+ nel testo.
+    """
+
+    def process_integrations(text: str) -> str:
+        """
+        Rimuove le integrazioni `||` presenti nel testo.
+
+        Args:
+        text (str): Il testo da processare.
+
+        Returns:
+        str: Il testo processato senza le doppie stanghe `||` e con le parole unite.
+        """
+        return text.replace("||", " ") if "||" in text else text
+
+    def process_leiden_lb(text: str) -> str:
+        """
+        Rimuove i *line breaks* di leiden `|` presenti nel testo.
+
+        Args:
+        text (str): Il testo da processare.
+
+        Returns:
+        str: Il testo senza *line breaks* `|`.
+        """
+        return text.replace("|", " ") if "|" in text else text
+
+    def process_vacat_text(text: str) -> str:
+        """
+        Rimuove i tag `vac.` e `vacat` dal testo, che rappresentano secondo le convenzioni di Leiden
+        del testo mancante non inciso sulla pietra o non presente sul papiro.
+        """
+        return VACAT_REGEX.sub("", text) if VACAT_REGEX.search(text) else text
+
+    def process_brackets(text: str) -> str:
+        return remove_brackets(
+            re.sub(
+                r"\.\s*<gap/>\s*\.", ".", text
+            )  # Rimuove gap di lunghezza sconosciuta che rappresentano frasi)
+        )
+
+    def process_missing_lines(text: str) -> str:
+        """
+        Rimuove linee mancanti dal testo.
+        """
+        return (
+            MISSING_LINES_REGEX.sub("", text)
+            if MISSING_LINES_REGEX.search(text)
+            else text
+        )
+
+    def process_parentheses(text: str) -> str:
+        """
+        Processa estensioni di abbreviazioni (a(bc)) -> (abc).
+        """
+        return text.replace("(", "").replace(")", "")
+
+    def process_markers(text: str) -> str:
+        """
+        Processa aggiunte di testo <abc> -> abc.
+        """
+        if MARKER_REGEX.search(text):
+            text = MARKER_REGEX.sub(r"\1", text)
+
+        if UNKNOWN_LEFT_MARKER_REGEX.search(text):
+            text = UNKNOWN_LEFT_MARKER_REGEX.sub(r"<gap/>\1", text)
+
+        if EXTENDED_LINE_RIGHT_MARKER_REGEX.search(text):
+            text = EXTENDED_LINE_RIGHT_MARKER_REGEX.sub("", text)
+
+        if "&gt;" in text:
+            text = text.replace("&gt;", "")
+
+        if "&lt;" in text:
+            text = text.replace("&lt;", "")
+
+        return text
+
+    def process_expunctions(text: str) -> str:
+        """
+        Rimuove espunzioni {abc} -> "".
+        """
+        return EXPUNCTION_REGEX.sub("", text) if EXPUNCTION_REGEX.search(text) else text
+
+    def process_parallel_text(text: str) -> str:
+        """
+        Rimuove testo fornito in parallelo
+        """
+        text = text.replace("†", "") if "†" in text else text  # process obelisk
+        text = text.replace("_", "") if "_" in text else text
+        return text
+
+    def process_double_obelisks(text: str) -> str:
+        return NOTES_REGEX.sub("", text) if NOTES_REGEX.search(text) else text
+
+    def process_doubts(text: str) -> str:
+        """
+        Rimuove i punti interrogativi da una stringa di testo.
+
+        Args:
+            text (str): La stringa di input da elaborare.
+
+        Returns:
+            str: La stringa risultante con i punti interrogativi rimossi.
+        """
+        return text.replace("?", "")
+
+    def process_dash_if_needed(text: str) -> str:
+        return filter_dash(text) if "-" in text else text
+
+    # Applica le varie trasformazioni
+    trasformations = [
+        process_brackets,
+        process_integrations,
+        process_leiden_lb,
+        process_vacat_text,
+        process_double_obelisks,
+        process_doubts,
+        process_missing_lines,
+        process_parentheses,
+        process_markers,
+        process_expunctions,
+        process_parallel_text,
+        process_dash_if_needed,
+    ]
+    for transform in trasformations:
+        text = transform(text)
+
+    return text
+
+
 def clean_text_content(text: str) -> str:
     """
     Applica una serie di pulizie al testo, come la rimozione di parentesi, la gestione dei trattini e la sostituzione di linee mancanti.
@@ -488,96 +621,6 @@ def clean_text_content(text: str) -> str:
     Returns:
         str: Il testo pulito.
     """
-
-    def process_leiden_elements(text: str) -> str:
-        """
-        Processa gli elementi Leiden+ nel testo.
-        """
-
-        def process_brackets(text: str) -> str:
-            return remove_brackets(
-                re.sub(
-                    r"\.\s*<gap/>\s*\.", ".", text
-                )  # Rimuove gap di lunghezza sconosciuta che rappresentano frasi)
-            )
-
-        def process_missing_lines(text: str) -> str:
-            """
-            Rimuove linee mancanti dal testo.
-            """
-            return (
-                MISSING_LINES_REGEX.sub("", text)
-                if MISSING_LINES_REGEX.search(text)
-                else text
-            )
-
-        def process_parentheses(text: str) -> str:
-            """
-            Processa estensioni di abbreviazioni (a(bc)) -> (abc).
-            """
-            return text.replace("(", "").replace(")", "")
-
-        def process_markers(text: str) -> str:
-            """
-            Processa aggiunte di testo <abc> -> abc.
-            """
-            if MARKER_REGEX.search(text):
-                text = MARKER_REGEX.sub(r"\1", text)
-
-            if UNKNOWN_LEFT_MARKER_REGEX.search(text):
-                text = UNKNOWN_LEFT_MARKER_REGEX.sub(r"<gap/>\1", text)
-
-            if EXTENDED_LINE_RIGHT_MARKER_REGEX.search(text):
-                text = EXTENDED_LINE_RIGHT_MARKER_REGEX.sub("", text)
-
-            if "&gt;" in text:
-                text = text.replace("&gt;", "")
-
-            if "&lt;" in text:
-                text = text.replace("&lt;", "")
-
-            return text
-
-        def process_expunctions(text: str) -> str:
-            """
-            Rimuove espunzioni {abc} -> "".
-            """
-            return (
-                EXPUNCTION_REGEX.sub("", text)
-                if EXPUNCTION_REGEX.search(text)
-                else text
-            )
-
-        def process_parallel_text(text: str) -> str:
-            """
-            Rimuove testo fornito in parallelo (_abc_) -> abc.
-            """
-            return text.replace("_", "") if "_" in text else text
-
-        def process_doubts(text: str) -> str:
-            """
-            Rimuove i punti interrogativi da una stringa di testo.
-
-            Args:
-                text (str): La stringa di input da elaborare.
-
-            Returns:
-                str: La stringa risultante con i punti interrogativi rimossi.
-            """
-            return text.replace("?", "")
-
-        # Applica le varie trasformazioni
-        text = process_brackets(text)
-        text = process_doubts(text)
-        text = process_missing_lines(text)
-        text = process_parentheses(text)
-        text = process_markers(text)
-        text = process_expunctions(text)
-        text = process_parallel_text(text)
-
-        # Filtra i trattini se presenti
-        return filter_dash(text) if "-" in text else text
-
     return process_leiden_elements(text)
 
 

@@ -19,3 +19,7 @@ UNKNOWN_LEFT_MARKER_REGEX = re.compile(r"<gap/>lt;(.*?)&gt;")
 EXTENDED_LINE_RIGHT_MARKER_REGEX = re.compile (r"break=\"no\"/&gt;") #
 
 EXPUNCTION_REGEX = re.compile(r"\{\{(.*?)\}\}|\{(.*?)\}")
+
+VACAT_REGEX = re.compile(r"vac\.|vacat")
+
+NOTES_REGEX = re.compile(r"‡\d+")
