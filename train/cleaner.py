@@ -98,15 +98,16 @@ def get_sentences(
                 text=clean_text_from_gaps(
                     obj["training_text"], case_folding=case_folding
                 )
-            ):      
-                    
+            ):
+                
                 if sent:
                     if remove_punct:
                         sentences.append(
                             get_tokens_from_clean_text(remove_punctuation(sent))
                         )
                     else:
-                        sentences.append(get_tokens_from_clean_text(sent))
+                        sentences.append(get_tokens_from_clean_text(sent))    
+    #print(sentences)                   
     return sentences
 
 

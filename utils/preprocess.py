@@ -1,6 +1,8 @@
 import re
 from cltk.alphabet.grc.grc import normalize_grc
 from utils import (
+    GAP_TOKEN,
+    UNK_TOKEN,
     PUNCTUATION_REGEX,
     BRACKETS_REGEX,
     UNMATCHED_BRACKETS_REGEX,
@@ -27,10 +29,10 @@ def contains_lacunae(token: str) -> bool:
     if token.endswith(".") and all(char.isalpha() for char in token[:-1]):
         return False
 
-    return ("<GAP/>" in fold_token) or ("." in token and len(token) > 1)
+    return (GAP_TOKEN.upper() in fold_token) or ("." in token and len(token) > 1)
 
 
-def greek_case_folding(text: str) -> str:
+def normalize_greek(text: str) -> str:
     """
     Applica il case folding greco al testo fornito.
 
@@ -63,19 +65,19 @@ def clean_lacunae(token: str) -> str:
         >>> clean_lacunae("<gap/>.λέγειν")
         '<UNK> .λέγειν'
     """
-    if "<gap/>" in token:  # gestione tag gap
+    if GAP_TOKEN in token:  # gestione tag gap
         clean_seq = []
-        seq = token.replace("<gap/>", " <UNK> ").split()
+        seq = token.replace(GAP_TOKEN, " <UNK> ").split()
         for i, tkn in enumerate(seq):
             if (
                 tkn.endswith(".")
                 and all(char.isalpha() or char.isspace() for char in tkn[:-1])
                 and "NONE" not in tkn.upper()
-            ) and (clean_seq and clean_seq[-1] == "<UNK>"):
-                clean_seq = insert_into_clean_tokens(clean_seq, "<UNK>")
+            ) and (clean_seq and clean_seq[-1] == UNK_TOKEN):
+                clean_seq = insert_into_clean_tokens(clean_seq, UNK_TOKEN)
 
             elif is_part_of_lacuna(tkn):
-                clean_seq = insert_into_clean_tokens(clean_seq, "<UNK>")
+                clean_seq = insert_into_clean_tokens(clean_seq, UNK_TOKEN)
             else:
                 if i == len(seq) - 1:
                     clean_seq = insert_into_clean_tokens(clean_seq, tkn)
@@ -88,12 +90,12 @@ def clean_lacunae(token: str) -> str:
                         clean_seq = clean_seq + [tkn]
                     else:
                         next_seq = clean_lacunae(" ".join(seq[i:])).replace(
-                            " <UNK> ", "<gap/>"
+                            " <UNK> ", GAP_TOKEN
                         )
                         clean_seq = clean_seq + next_seq.split()
         return " ".join(clean_seq).strip()
 
-    return "<UNK>"  # Caso in cui contiene punti o None (lacune di lunghezza approssimata o definita)
+    return UNK_TOKEN  # Caso in cui contiene punti o None (lacune di lunghezza approssimata o definita)
 
 
 def is_part_of_lacuna(token: str) -> bool:
@@ -120,7 +122,7 @@ def is_part_of_lacuna(token: str) -> bool:
     return bool(
         all(char.isalpha() for char in token)
         or contains_lacunae(token)
-        or token == "<UNK>"
+        or token == UNK_TOKEN
     )
 
 
@@ -140,7 +142,7 @@ def insert_into_clean_tokens(clean_list: list[str], token: str) -> list[str]:
         clean_list.append(token)
         return clean_list
 
-    if token == "<UNK>" and clean_list[-1] == "<UNK>":
+    if token == UNK_TOKEN and clean_list[-1] == UNK_TOKEN:
         return clean_list
 
     clean_list.append(token)
@@ -448,7 +450,7 @@ def process_token(token: str) -> list[str]:
     Funzione usata all'interno di `clean_text_from_gaps` per restituire i token puliti.
     Pulisce o normalizza un token greco se non sono presenti lacune.
     Questa funzione verifica se il token contiene lacune e, in tal caso, applica la funzione `clean_lacunae`.
-    Se il token non contiene lacune, applica la funzione `greek_case_folding` per normalizzare il caso.
+    Se il token non contiene lacune, applica la funzione `normalize_greek` per normalizzare il caso.
         token (str): Il token da processare.
         str: Il token pulito o normalizzato.
 
@@ -475,7 +477,7 @@ def clean_text_from_gaps(text: str, case_folding: bool = True) -> str:
     cleaned_text = clean_text_content(text)
     tokens = clean_tokens(cleaned_text)
     result_text = " ".join(tokens).strip()
-    return greek_case_folding(result_text) if case_folding else result_text
+    return normalize_greek(result_text) if case_folding else result_text
 
 
 def process_leiden_elements(text: str) -> str:
@@ -493,7 +495,21 @@ def process_leiden_elements(text: str) -> str:
         Returns:
         str: Il testo processato senza le doppie stanghe `||` e con le parole unite.
         """
-        return text.replace("||", " ") if "||" in text else text
+        text = text.replace("||", " ") if "||" in text else text
+        text = text.replace("‖", " ") if "‖" in text else text
+        return text
+    
+    def process_syllables(text:str) -> str:
+        """
+        Rimuove le sillabe `-` presenti nel testo.
+
+        Args:
+        text (str): Il testo da processare.
+
+        Returns:
+        str: Il testo processato senza le sillabe `-`.
+        """
+        return text.replace("-", " ") if "-" in text else text
 
     def process_leiden_lb(text: str) -> str:
         """
@@ -506,6 +522,21 @@ def process_leiden_elements(text: str) -> str:
         str: Il testo senza *line breaks* `|`.
         """
         return text.replace("|", " ") if "|" in text else text
+    
+    def process_unclear_signs(text: str) -> str:
+        """
+        Rimuove i segni che rappresentano incertezze ('+' e '*') dal testo.
+
+        Args:
+            text (str): Il testo da processare.
+
+        Returns:
+            str: Il testo senza i segni '+' e '*'.
+        """
+        text = text.replace("+", "") if "+" in text else text
+        text = text.replace("*", "") if "*" in text else text
+        return text
+    
 
     def process_vacat_text(text: str) -> str:
         """
@@ -592,9 +623,10 @@ def process_leiden_elements(text: str) -> str:
 
     # Applica le varie trasformazioni
     trasformations = [
-        process_brackets,
         process_integrations,
         process_leiden_lb,
+        process_unclear_signs,
+        process_brackets,
         process_vacat_text,
         process_double_obelisks,
         process_doubts,

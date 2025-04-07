@@ -4,7 +4,7 @@ from nltk.lm.models import LanguageModel
 
 from metrics.accuracy import get_context, get_best_K_predictions_from_context
 from config.settings import N, K_PRED, LM_TYPE
-from train.training import load_lm
+from train import load_lm
 
 
 def generate_k_suggests(

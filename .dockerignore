@@ -1,8 +1,16 @@
+## Directory da ignorare
+
+
+/tests/
+/eval/
+
 # Python
 __pycache__/
 
 #VS code file 
 .vscode/
+
+
 
 #File 
 .gitignore
