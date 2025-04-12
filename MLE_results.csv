@@ -1,3 +1,2 @@
-K_PRED,DIMENSION,BATCH_SIZE,TEST_SIZE,ACCURACY
-20,3,64,0.05,25.68
-20,2,32,0.1,19.1
+k_predictions, dimension, test_size, min_frequence, accuracy
+

@@ -11,12 +11,12 @@ RUN apt-get update && \
 COPY api-requirements.txt api-requirements.txt
 RUN pip install -U pip && pip install -r api-requirements.txt
 
-COPY ./config ./config
-COPY ./api ./api
-COPY ./train ./train
-COPY ./inference ./inference
-COPY ./metrics ./metrics
-COPY ./utils ./utils
-COPY ./data ./data
+COPY ./config /app/config
+COPY ./api /app/api
+COPY ./train /app/train
+COPY ./inference /app/inference
+COPY ./metrics /app/metrics
+COPY ./utils /app/utils
+COPY ./data /app/data
 
 CMD ["uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]

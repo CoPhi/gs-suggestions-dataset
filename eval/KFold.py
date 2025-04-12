@@ -1,4 +1,4 @@
-from tests.params import (
+from tuning.params import (
     get_best_params_LIDSTONE,
     get_best_params_MLE,
     print_LIDSTONE_params_to_csv,

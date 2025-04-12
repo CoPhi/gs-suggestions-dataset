@@ -12,14 +12,16 @@ from config.settings import (
     LM_TYPE,
     N,
     GAMMA,
+    MIN_FREQ, 
     DIMENSIONS,
     LM_TYPES,
     GAMMAS,
+    MIN_FREQS, 
 )
 
 
 def train_lm(
-    train_abs: list, lm_type=LM_TYPE, min_freq=2, gamma: Optional[float] = GAMMA, n=N
+    train_abs: list, lm_type=LM_TYPE, min_freq: Optional[int] = MIN_FREQ, gamma: Optional[float] = GAMMA, n=N, 
 ) -> LanguageModel:
     """
     Addestra un modello di linguaggio sulle frasi di addestramento fornite.
@@ -42,6 +44,10 @@ def train_lm(
 
     if n not in DIMENSIONS:
         raise ValueError(f"Dimension {n} not found in available dimensions")
+    
+    if min_freq not in MIN_FREQS:
+        raise ValueError(f"frequence {min_freq} not found in available frequencies for training")
+
 
     if lm_type == "MLE":
 
@@ -64,16 +70,17 @@ def train_lm(
     )
 
     gc.collect()
-
     return lm
 
 
 def pipeline_train(
     lm_type=LM_TYPE,
     gamma: Optional[float] = GAMMA,
+    min_freq: Optional[int] = MIN_FREQ,
     n=N,
     test_size=TEST_SIZE,
     corpus_set=None,
+    budget: Optional[int] = None
 ) -> tuple:
     """
     Esegue il processo di addestramento del modello.
@@ -87,8 +94,8 @@ def pipeline_train(
     Returns:
         tuple: Una tupla contenente il modello linguistico (lm) ed il test set
     """
-    train_abs, test_abs = split_abs(abs=load_abs(corpus_set), test_size=test_size)
-    lm = train_lm(train_abs, lm_type=lm_type, gamma=gamma, n=n)
+    train_abs, test_abs = split_abs(abs=load_abs(corpus_set, budget), test_size=test_size)
+    lm = train_lm(train_abs, lm_type=lm_type, min_freq=min_freq, gamma=gamma, n=n)
     return lm, test_abs
 
 

@@ -14,6 +14,7 @@ from utils import (
     EXTENDED_LINE_RIGHT_MARKER_REGEX,
     VACAT_REGEX,
     NOTES_REGEX,
+    OBELISK_REGEX,
 )
 
 
@@ -285,7 +286,7 @@ def filter_dash(text: str) -> str:
     return " ".join(result)
 
 
-def get_idx_supplement_from_suppl_dict(suppl_dict: dict, supplement: str) -> int:
+def get_num_occ_supplement_from_suppl_dict(suppl_dict: dict, supplement: str) -> int:
     """
     Restituisce il numero di occorrenze di un supplemento nella lista suppl_dict, dando un supplemento in input
 
@@ -405,7 +406,7 @@ def clean_supplements(training_text: str, case_folding: bool = True) -> list[lis
             continue
 
         if len(matches) > 1:
-            idx = get_idx_supplement_from_suppl_dict(suppl_dict, matches[0].group(0))
+            idx = get_num_occ_supplement_from_suppl_dict(suppl_dict, matches[0].group(0))
             if idx != -1:
                 match = matches[idx]
                 update_num_occ_supplement_from_suppl_dict(
@@ -428,7 +429,6 @@ def clean_supplements(training_text: str, case_folding: bool = True) -> list[lis
                 )
             ]
         )
-
     return suppl_tokens
 
 
@@ -546,10 +546,15 @@ def process_leiden_elements(text: str) -> str:
         return VACAT_REGEX.sub("", text) if VACAT_REGEX.search(text) else text
 
     def process_brackets(text: str) -> str:
+        """
+            Rimuove le parentesi quadre mantenendo il contenuto interno.
+            Prima della rimozione viene applicata una sostituzione nel testo per rimuovere i gap di lunghezza sconosciuta che 
+            rappresentano frasi.
+        """
         return remove_brackets(
             re.sub(
                 r"\.\s*<gap/>\s*\.", ".", text
-            )  # Rimuove gap di lunghezza sconosciuta che rappresentano frasi)
+            )  # Rimuove gap di lunghezza sconosciuta che rappresentano frasi
         )
 
     def process_missing_lines(text: str) -> str:
@@ -564,7 +569,7 @@ def process_leiden_elements(text: str) -> str:
 
     def process_parentheses(text: str) -> str:
         """
-        Processa estensioni di abbreviazioni (a(bc)) -> (abc).
+        Estensione delle abbreviazioni (a(bc)) -> (abc).
         """
         return text.replace("(", "").replace(")", "")
 
@@ -599,7 +604,7 @@ def process_leiden_elements(text: str) -> str:
         """
         Rimuove testo fornito in parallelo
         """
-        text = text.replace("†", "") if "†" in text else text  # process obelisk
+        text =  OBELISK_REGEX.sub("", text) if OBELISK_REGEX.search(text) else text  # process obelisk
         text = text.replace("_", "") if "_" in text else text
         return text
 

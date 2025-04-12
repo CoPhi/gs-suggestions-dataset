@@ -1,11 +1,13 @@
 import json
 import pickle
+import random
+from typing import Optional
 from nltk.lm.api import LanguageModel
 from sklearn.model_selection import train_test_split
 from train import sentence_tokenizer
 from tqdm import tqdm
 from config.settings import CORPUS_NAMES, DATA_PATH, TEST_SIZE, TEST_SIZES, LM_TYPE, N
-
+from utils import SYLLABLES
 from utils.preprocess import (
     clean_text_from_gaps,
     get_tokens_from_clean_text,
@@ -13,7 +15,20 @@ from utils.preprocess import (
 )
 
 
-def load_abs(corpus_set: set = None) -> list:
+def check_ab(ab: dict, corpus_set: set = None) -> bool:
+    if corpus_set is None:
+        return ab["language"] == "grc" and not all(
+            syllable in ab["training_text"] for syllable in SYLLABLES #Scarto i testi poetici
+        )
+
+    return (
+        ab["language"] == "grc"
+        and (ab["corpus_id"] in corpus_set or ab["corpus_id"] == "unknown")
+        and not all(syllable in ab["training_text"] for syllable in SYLLABLES) #Scarto i testi poetici
+    )
+
+
+def load_abs(corpus_set: Optional[int] = None, budget: Optional[int] = None) -> list:
     """
     Carica e restituisce una lista di anonymous block (ab) dai file JSON presenti nel percorso specificato.
     Il percorso dei file JSON è determinato dalla variabile globale DATA_PATH.
@@ -45,18 +60,13 @@ def load_abs(corpus_set: set = None) -> list:
         try:
             with open(file_path, "r", encoding="utf-8") as f:
                 abs = json.load(f)
-                if corpus_set is None:
-                    dataset.extend([ab for ab in abs if ab["language"] == "grc"])
-                else:
-                    dataset.extend(
-                        [
-                            ab
-                            for ab in abs
-                            if ab["language"] == "grc" and ab["corpus_id"] in corpus_set
-                        ]
-                    )
+                dataset.extend([ab for ab in abs if check_ab(ab, corpus_set)])
         except (json.JSONDecodeError, FileNotFoundError) as e:
             print(f"Error reading {file_path}: {e}")
+
+    if budget is not None:
+        subset_size = int(len(dataset) * (budget / 100))
+        return random.sample(dataset, subset_size)
 
     return dataset
 
@@ -99,15 +109,16 @@ def get_sentences(
                     obj["training_text"], case_folding=case_folding
                 )
             ):
-                
+                if '÷' in obj["training_text"]: 
+                    print (sent)
                 if sent:
                     if remove_punct:
                         sentences.append(
                             get_tokens_from_clean_text(remove_punctuation(sent))
                         )
                     else:
-                        sentences.append(get_tokens_from_clean_text(sent))    
-    #print(sentences)                   
+                        sentences.append(get_tokens_from_clean_text(sent))
+    # print(sentences)
     return sentences
 
 

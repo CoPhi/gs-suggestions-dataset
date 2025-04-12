@@ -6,7 +6,7 @@ from api.models import NgramModel
 from bson import ObjectId
 from train.training import pipeline_train
 from inference import generate_k_suggests
-from config.settings import K_PREDICTIONS, LM_TYPES, GAMMA, TEST_SIZE, N
+from config.settings import K_PREDICTIONS, LM_TYPES, GAMMA, TEST_SIZE, N, MIN_FREQ
 import pickle
 import zlib
 
@@ -58,6 +58,7 @@ async def post_model(model: NgramModel):
         ngram_model, _ = pipeline_train(
             lm_type=model_dict["LM_SCORE"],
             gamma=model_dict["GAMMA"],
+            min_freq=model_dict["MIN_FREQ"],
             test_size=model_dict["TEST_SIZE"],
             n=model_dict["N"],
             corpus_set=model_dict["CORPUS_NAMES"],
@@ -84,6 +85,7 @@ async def create_models():
                 "GAMMA": GAMMA,
                 "K_PRED": K_pred,
                 "TEST_SIZE": TEST_SIZE,
+                "MIN_FREQ": MIN_FREQ, 
                 "N": N,
                 "CORPUS_NAMES": None,
             }
@@ -96,6 +98,7 @@ async def create_models():
             ngram_model, _ = pipeline_train(
                 lm_type=model_dict["LM_SCORE"],
                 gamma=model_dict["GAMMA"],
+                min_freq=model_dict["MIN_FREQ"],
                 test_size=model_dict["TEST_SIZE"],
                 n=model_dict["N"],
                 corpus_set=model_dict["CORPUS_NAMES"],

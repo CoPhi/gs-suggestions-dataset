@@ -388,7 +388,7 @@ def get_context_from_test_case(test_case: str, n=N, case_folding:bool=True) -> l
     """
     Forma il contesto da cui il modello linguistico fa partire la generazione della predizione.
     Prende la sottostringa del test_case che parte dall'inizio e finisce con '[', la divide in frasi e le tokenizza, pulendone lacune e punteggiatura. (Contesto a sinistra)
-    Questo metodo viene usato per generare il contesto dal test_case da cui partire per la generazione della predizione nel metodo `get_topK_accuracy()`.
+    Questo metodo viene usato per generare il contesto dal test_case da cui partire per la generazione della predizioni nel metodo `get_topK_accuracy()`.
 
     Args:
         test_case (str) : caso di test del blocco anonimo, in cui è presente un supplemento da generare `[...]`
@@ -467,6 +467,7 @@ def get_topK_accuracy(
                 supplements = clean_supplements(
                     ab["training_text"]
                 )  # supplements puliti
+                
                 if not supplements:
                     continue  # non ci sono blocchi da predire
 

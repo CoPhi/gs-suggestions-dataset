@@ -20,6 +20,7 @@ datasets = "^3.4.1"
 transformers = "^4.50.0"
 pymongo = "^4.11.3"
 torch = "^2.6.0"
+bohb-hpo = "^0.5.2"
 
 
 [build-system]
