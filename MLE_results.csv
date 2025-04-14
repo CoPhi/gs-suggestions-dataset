@@ -1,2 +1,2 @@
-k_predictions, dimension, test_size, min_frequence, accuracy
-
+budget, k_predictions, dimension, test_size, min_frequence, accuracy
+50,10,3,0.1,3,25.47

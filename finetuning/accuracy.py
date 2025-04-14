@@ -142,11 +142,15 @@ def main ():
     
     
 if __name__ == "__main__":  
-    test_sentences = ["[MASK] Λ ΙΓΡ ΕΝ ΠΕΡΙΟΔΕΎΟΥ ΣΙ ΤῊΝ ΤΩ͂Ν ΔΟΞΩ͂ ' Ν ΓΈΝΕΣΙΝ· ἘΠΕῚ ΓᾺΡ ΑἸΕῚ ΤᾺ ΜῈΝ ἜΝΓΕΙΟΝ ΠΡΟΠΕΊ ΠΤΟΝΤΑ ΤΡΑΝΌΤΕΡΑ ΒΛΈ ΠΕΤΑΙ , ΤᾺ ΔῈ ΠΟΡΡΏΤΕΡΑ ΠΆΝΤΩΣ ΟΥ̓Κ Ἀ ΚΟΛΟΥΘΟΥ͂ΣΙ ΤΟΙ͂Σ ΖΩΙ ΓΡΆΦΟΙΣ ἘΝ ΠΑΡΑΤΗΡΉ ΣΕΣΙ ΠΙ ΔΙΌΤΙ"]
-    predictions = hcb_beam_search(model_name='Jacobo/aristoBERTo', masked_sentences=test_sentences, k=10, beam_size=10)
+    test_sentences = ["[MASK] [MASK] Λ ΙΓΡ ΕΝ ΠΕΡΙΟΔΕΎΟΥ ΣΙ ΤῊΝ ΤΩ͂Ν ΔΟΞΩ͂ ' Ν ΓΈΝΕΣΙΝ· ἘΠΕῚ ΓᾺΡ ΑἸΕῚ ΤᾺ ΜῈΝ ἜΝΓΕΙΟΝ ΠΡΟΠΕΊ ΠΤΟΝΤΑ ΤΡΑΝΌΤΕΡΑ ΒΛΈ ΠΕΤΑΙ , ΤᾺ ΔῈ ΠΟΡΡΏΤΕΡΑ ΠΆΝΤΩΣ ΟΥ̓Κ Ἀ ΚΟΛΟΥΘΟΥ͂ΣΙ ΤΟΙ͂Σ ΖΩΙ ΓΡΆΦΟΙΣ ἘΝ ΠΑΡΑΤΗΡΉ ΣΕΣΙ ΠΙ ΔΙΌΤΙ"]
+    """predictions = hcb_beam_search(model_name='Jacobo/aristoBERTo', masked_sentences=test_sentences, k=10, beam_size=10)
     print (len(predictions))
     for sent, pred in zip(test_sentences, predictions):
         print(f"Input: {sent}\nPredicted: {pred}\n")
-
+        
+        
+    """
+    fill_mask = pipeline("fill-mask", model="Jacobo/aristoBERTo")
+    print (fill_mask(test_sentences[0], top_k=10))
 
     

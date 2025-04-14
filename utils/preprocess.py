@@ -15,6 +15,7 @@ from utils import (
     VACAT_REGEX,
     NOTES_REGEX,
     OBELISK_REGEX,
+    COMBINED_DACTYL_PATTERNS,
 )
 
 
@@ -480,9 +481,9 @@ def clean_text_from_gaps(text: str, case_folding: bool = True) -> str:
     return normalize_greek(result_text) if case_folding else result_text
 
 
-def process_leiden_elements(text: str) -> str:
+def process_editorial_marks(text: str) -> str:
     """
-    Processa gli elementi Leiden+ nel testo.
+    Processa le annotazioni editoriali presenti nel testo.
     """
 
     def process_integrations(text: str) -> str:
@@ -499,17 +500,17 @@ def process_leiden_elements(text: str) -> str:
         text = text.replace("‖", " ") if "‖" in text else text
         return text
     
-    def process_syllables(text:str) -> str:
+    def process_dactyl_patterns (text : str) -> str:
         """
-        Rimuove le sillabe `-` presenti nel testo.
+        Rimuove i pattern che identificano i dattili o sequenze di dattili in versi incompleti presenti nei testi poetici. 
 
         Args:
         text (str): Il testo da processare.
 
         Returns:
-        str: Il testo processato senza le sillabe `-`.
+        str: Il testo senza i modelli di dactilo.
         """
-        return text.replace("-", " ") if "-" in text else text
+        return COMBINED_DACTYL_PATTERNS.sub("<gap/>", text) if COMBINED_DACTYL_PATTERNS.search(text) else text
 
     def process_leiden_lb(text: str) -> str:
         """
@@ -632,6 +633,7 @@ def process_leiden_elements(text: str) -> str:
         process_leiden_lb,
         process_unclear_signs,
         process_brackets,
+        process_dactyl_patterns,
         process_vacat_text,
         process_double_obelisks,
         process_doubts,
@@ -658,7 +660,7 @@ def clean_text_content(text: str) -> str:
     Returns:
         str: Il testo pulito.
     """
-    return process_leiden_elements(text)
+    return process_editorial_marks(text)
 
 
 def clean_tokens(text: str) -> list[str]:

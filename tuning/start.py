@@ -60,12 +60,12 @@ def BHOB_mle(max_budget=100, min_budget=10, num_proc=1):
     print(opt_log.best["hyperparameter"])
     
     with open("MLE_results.csv", "w") as f:
-        f.write("k_predictions, dimension, test_size, min_frequence, accuracy\n")
+        f.write("budget, k_predictions, dimension, test_size, min_frequence, accuracy\n")
         for log in opt_log.logs:
             for budget in log:
                 hyperparameters = log[budget]["hyperparameter"].to_dict()
                 f.write(
-                f"{hyperparameters['k']},{hyperparameters['n']},{hyperparameters['test_size']},{hyperparameters['min_freq']},{-log[budget]['loss']}\n"
+                f"{budget},{hyperparameters['k']},{hyperparameters['n']},{hyperparameters['test_size']},{hyperparameters['min_freq']},{-log[budget]['loss']}\n"
             )
             
             
@@ -94,7 +94,7 @@ def BHOB_lidstone(max_budget=100, min_budget=10, num_proc=1):
 if __name__ == "__main__":
 
     # Esegui BOHB per MLE
-    BHOB_mle(max_budget=50, min_budget=30, num_proc=4)
+    BHOB_mle(max_budget=100, min_budget=50, num_proc=1)
 
     # Esegui BOHB per Lidstone
     # BHOB_lidstone()

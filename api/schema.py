@@ -7,6 +7,7 @@ def serial_model(model) -> dict:
         "TEST_SIZE": model["TEST_SIZE"],
         "N": model["N"],
         "CORPUS_NAMES": model["CORPUS_NAMES"],
+        "TYPE": model["TYPE"]
     }
 
 def list_models(models) -> list:

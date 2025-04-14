@@ -7,7 +7,6 @@ from sklearn.model_selection import train_test_split
 from train import sentence_tokenizer
 from tqdm import tqdm
 from config.settings import CORPUS_NAMES, DATA_PATH, TEST_SIZE, TEST_SIZES, LM_TYPE, N
-from utils import SYLLABLES
 from utils.preprocess import (
     clean_text_from_gaps,
     get_tokens_from_clean_text,
@@ -17,14 +16,10 @@ from utils.preprocess import (
 
 def check_ab(ab: dict, corpus_set: set = None) -> bool:
     if corpus_set is None:
-        return ab["language"] == "grc" and not all(
-            syllable in ab["training_text"] for syllable in SYLLABLES #Scarto i testi poetici
-        )
+        return ab["language"] == "grc"
 
-    return (
-        ab["language"] == "grc"
-        and (ab["corpus_id"] in corpus_set or ab["corpus_id"] == "unknown")
-        and not all(syllable in ab["training_text"] for syllable in SYLLABLES) #Scarto i testi poetici
+    return ab["language"] == "grc" and (
+        ab["corpus_id"] in corpus_set or ab["corpus_id"] == "unknown"
     )
 
 
@@ -38,6 +33,14 @@ def load_abs(corpus_set: Optional[int] = None, budget: Optional[int] = None) -> 
         corpus_set (set, optional): Un insieme di ID di corpus. Se fornito, solo gli anonymous block
                                     appartenenti a questi ID di corpus saranno inclusi nella lista risultante.
                                     Se non fornito, tutti gli anonymous block con lingua greca ("grc") saranno inclusi.
+        budget (int, optional): Un valore percentuale che determina la dimensione del sottoinsieme da restituire.
+                                    Se fornito, la funzione restituirà un sottoinsieme casuale della lista
+                                    di anonymous block, limitato alla percentuale specificata.
+                                    Se non fornito, la funzione restituirà l'intera lista di anonymous block.
+    Raises:
+        ValueError: Se un ID di corpus fornito non è presente nell'insieme CORPUS_NAMES.
+        FileNotFoundError: Se si verifica un errore durante la lettura dei file JSON.
+        json.JSONDecodeError: Se si verifica un errore durante il caricamento del contenuto JSON.
 
     Returns:
         list: Una lista contenente gli anonymous block (abs) caricati dai file JSON.
@@ -98,6 +101,10 @@ def get_sentences(
     Le frasi vengono tokenizzate e aggiunte alla lista di frasi.
     Args:
         ab (list): Una lista di oggetti, ciascuno contenente le chiavi 'training_text' e 'language'.
+        remove_punct (bool, opzionale): Se `True`, rimuove la punteggiatura dalle frasi. Default è `True`.
+        case_folding (bool, opzionale): Se `True`, applica il case folding al testo. Default è `True`.
+    Raises:
+        ValueError: Se il testo di addestramento è vuoto o se la lingua non è 'grc'.
     Returns:
         list: Una lista di frasi di addestramento tokenizzate.
     """
@@ -109,8 +116,7 @@ def get_sentences(
                     obj["training_text"], case_folding=case_folding
                 )
             ):
-                if '÷' in obj["training_text"]: 
-                    print (sent)
+
                 if sent:
                     if remove_punct:
                         sentences.append(

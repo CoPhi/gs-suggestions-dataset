@@ -2,7 +2,24 @@ import re
 
 GAP_TOKEN = "<gap/>"
 UNK_TOKEN = "<UNK>"
-SYLLABLES = set(['⏑', '‒'])
+
+#sequenze di dattili canonici incompleta trovati nei testi
+INCOMPLETE_DACTYL_PATTERNS = [
+    r"⏑⏑‒", #dattilo canonico
+    r"‒⏑⏑‒", #dattilo chiuso
+    r"‒⏑⏑", #dattilo parziale
+    r"⏑", #singolo breve
+    r"‒", #singolo lungo
+    r"‒⏑⏑‒⏑⏑‒", 
+    r"‒⏑⏑‒⏑⏑‒⏑",
+    r"⏑⏑‒⏑", 
+    r"‒⏑", 
+    r"⏑⏑‒", 
+    r"⏑‒⏑⏑", 
+    r"⏑⏑‒⏑⏑",  
+]
+COMBINED_DACTYL_PATTERNS = re.compile('|'.join(f'({p})' for p in INCOMPLETE_DACTYL_PATTERNS))
+
 """
     Queste espressioni regolari vogliono codificare pattern che rappresentano gli elementi editoriali presenti nella convenzione Leiden+.
     https://papyri.info/docs/leiden_plus
