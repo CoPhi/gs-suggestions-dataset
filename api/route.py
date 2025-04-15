@@ -1,8 +1,8 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query, Path, Body
 from fastapi.responses import JSONResponse
-from api.schema import serial_model, list_models
+from api.schema import serial_model
 from api.database import collection, fs
-from api.models import NgramModel
+from api.models import NgramModel, BERTModel, Model
 from bson import ObjectId
 from train.training import pipeline_train
 from inference import generate_k_suggests
@@ -10,77 +10,251 @@ from config.settings import K_PREDICTIONS, LM_TYPES, GAMMA, TEST_SIZE, N, MIN_FR
 import pickle
 import zlib
 from uuid import uuid4
+from typing import Annotated
+from transformers import AutoModelForMaskedLM, AutoTokenizer
+
+
+def save_to_gridfs(data, file_id=None):
+    pickled_data = pickle.dumps(data)
+    compressed_data = zlib.compress(pickled_data)
+    filename = file_id or f"{uuid4()}"
+    fs.put(compressed_data, filename=filename)
+    return filename
+
 
 router = APIRouter()
 
 
-# get model/id
-@router.get("/model/{id}")
-async def get_model(id: str):
+@router.get(
+    "/model/{id}",
+    responses={
+        200: {
+            "description": "ID del modello",
+            "content": {
+                "application/json": {
+                    "examples": {
+                        "NgramModel": {
+                            "summary": "Example Ngram Model",
+                            "value": {
+                                "LM_SCORE": "string",
+                                "GAMMA": "float | None",
+                                "MIN_FREQ": "float",
+                                "K_PRED": "float",
+                                "TEST_SIZE": "float",
+                                "N": 3,
+                                "CORPUS_NAMES": "list[string] | None",
+                                "MODEL_FILE_ID": "string",
+                            },
+                        },
+                        "BERTModel": {
+                            "summary": "Example BERT Model",
+                            "value": {
+                                "MODEL": "string",
+                                "TOKENIZER": "string",
+                                "MODEL_FILE_ID": "string",
+                                "TOKENIZER_FILE_ID": "string",
+                            },
+                        },
+                    }
+                }
+            },
+        },
+        404: {"description": "Model not found"},
+        500: {"description": "Internal server error"},
+    },
+)
+async def get_model(id: Annotated[str, Path(title="ID", description="ID del modello")]):
     try:
-        model = collection.find_one({"_id": ObjectId(id)})
+        model = serial_model(id)
         if model is None:
-            return JSONResponse(status_code=404, content={"message": "Model not found"})
-        return serial_model(model)
+            return JSONResponse(status_code=404, content={"detail": "Model not found"})
+        return JSONResponse(status_code=200, content={"model": model})
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        return JSONResponse(status_code=500, content={"detail": str(e)})
 
 
-# get models/
-@router.get("/models")
+@router.get(
+    "/models",
+    responses={
+        200: {
+            "description": "Lista dei modelli",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "models": [
+                            {
+                                "LM_SCORE": "string",
+                                "GAMMA": "float | None",
+                                "MIN_FREQ": "float",
+                                "K_PRED": "float",
+                                "TEST_SIZE": "float",
+                                "N": 3,
+                                "CORPUS_NAMES": "list[string] | None",
+                                "MODEL_FILE_ID": "string",
+                            },
+                            {
+                                "MODEL": "string",
+                                "TOKENIZER": "string",
+                                "MODEL_FILE_ID": "string",
+                                "TOKENIZER_FILE_ID": "string",
+                            },
+                        ]
+                    }
+                },
+            },
+        },
+        404: {"description": "Models not found"},
+        500: {"description": "Internal server error"},
+    },
+)
 async def get_models():
     try:
         models = collection.find()
         if models:
-            return list_models(models)
+            return JSONResponse(
+                status_code=200,
+                content={
+                    "models": [serial_model(str(model["_id"])) for model in models]
+                },
+            )
         else:
             return JSONResponse(
-                status_code=404, content={"message": "Models are not found"}
+                status_code=404, content={"detail": "Models are not found"}
             )
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise JSONResponse(status_code=500, content={"detail": str(e)})
 
 
-# post model/
-@router.post("/model")
-async def create_model(model: NgramModel):
-    try:
-        model_dict = dict(model)
-        if model_dict["K_PRED"] not in K_PREDICTIONS:
-            return JSONResponse(
-                status_code=400, content={"message": "Invalid K_PRED value"}
-            )
+@router.post(
+    "/model",
+    status_code=201,
+    responses={
+        201: {
+            "description": "Model created successfully",
+            "content": {"application/json": {"example": {"ID": "string"}}},
+        },
+        409: {"description": "Model already exists"},
+        404: {"description": "Model not found"},
+        500: {"description": "Internal server error"},
+    },
+)
+async def create_model(
+    model: Annotated[
+        Model,
+        Body(
+            discriminator="TYPE",
+            title="Modello",
+            description="Modello linguistico da creare",
+            openapi_examples={
+                "MLE": {
+                    "summary": "Esempio creazione modello MLE",
+                    "description": "Parametri di esempio per la creazione di un modello linguistico che usa MLE.",
+                    "value": {
+                        "LM_SCORE": "MLE",
+                        "K_PRED": 10,
+                        "TEST_SIZE": 0.05,
+                        "MIN_FREQ": 3,
+                        "N": 3,
+                        "TYPE": "Ngrams",
+                    },
+                },
+                "Lidstone": {
+                    "summary": "Esempio creazione modello Lidstone",
+                    "description": "Parametri di esempio per la creazione di un modello linguistico che usa Lidstone.",
+                    "value": {
+                        "LM_SCORE": "LIDSTONE",
+                        "K_PRED": 10,
+                        "GAMMA": 0.1,
+                        "TEST_SIZE": 0.05,
+                        "MIN_FREQ": 3,
+                        "N": 3,
+                        "TYPE": "Ngrams",
+                    },
+                },
+                "BERT": {
+                    "summary": "Esempio creazione modello BERT",
+                    "description": "Parametri di esempio per la creazione di un modello linguistico BERT.",
+                    "value": {
+                        "MODEL": "CNR-ILC/gs-aristoBERTo",
+                        "TOKENIZER": "CNR-ILC/gs-aristoBERTo",
+                        "TYPE": "BERT",
+                    },
+                },
+            },
+        ),
+    ],
+):
 
-        if collection.find_one(model_dict):
-            return JSONResponse(
-                status_code=409, content={"message": "Model already exist in db"}
-            )
+    match model:
+        case NgramModel():
+            try:
+                model_dict = dict(model)
+                if model_dict["K_PRED"] not in K_PREDICTIONS:
+                    return JSONResponse(
+                        status_code=400, content={"detail": "Invalid K_PRED value"}
+                    )
 
-        ngram_model, _ = pipeline_train(
-            lm_type=model_dict["LM_SCORE"],
-            gamma=model_dict["GAMMA"],
-            min_freq=model_dict["MIN_FREQ"],
-            test_size=model_dict["TEST_SIZE"],
-            n=model_dict["N"],
-            corpus_set=model_dict["CORPUS_NAMES"],
-        )
+                if collection.find_one(model_dict):
+                    return JSONResponse(
+                        status_code=409,
+                        content={"detail": "Model already exist in db"},
+                    )
 
-        pickled_model = pickle.dumps(ngram_model)
-        compressed_model = zlib.compress(pickled_model)
+                ngram_model, _ = pipeline_train(
+                    lm_type=model_dict["LM_SCORE"],
+                    gamma=model_dict["GAMMA"],
+                    min_freq=model_dict["MIN_FREQ"],
+                    test_size=model_dict["TEST_SIZE"],
+                    n=model_dict["N"],
+                    corpus_set=model_dict["CORPUS_NAMES"],
+                )
 
-        # Una volta compresso, si usa GridFS per salvare il modello in MongoDB
-        filename = f"{uuid4()}"
-        fs.put(compressed_model, filename=filename)
+                model_dict["MODEL_FILE_ID"] = save_to_gridfs(ngram_model)
+                model_id = collection.insert_one(model_dict).inserted_id
+                return JSONResponse(status_code=201, content={"ID": str(model_id)})
+            except ValueError as v:
+                return JSONResponse(status_code=404, content={"detail": str(v)})
+            except Exception as e:
+                raise JSONResponse(status_code=500, content=str(e))
 
-        model_dict["MODEL_FILE_ID"] = filename
-        model_id = collection.insert_one(model_dict).inserted_id
-        return {"ID": str(model_id)}
-    except ValueError as v:
-        return JSONResponse(status_code=404, content={"message": str(v)})
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        case BERTModel():
+            try:
+                model_dict = dict(model)
+                if collection.find_one(model_dict):
+                    return JSONResponse(
+                        status_code=409,
+                        content={"message": "Model already exist in db"},
+                    )
 
-@router.post("/models")
+                bert_model = AutoModelForMaskedLM.from_pretrained(
+                    model_dict["MODEL"], token=True
+                )
+                bert_tokenizer = AutoTokenizer.from_pretrained(model_dict["TOKENIZER"])
+
+                model_dict["MODEL_FILE_ID"] = save_to_gridfs(bert_model)
+                model_dict["TOKENIZER_FILE_ID"] = save_to_gridfs(bert_tokenizer)
+
+                model_id = collection.insert_one(model_dict).inserted_id
+                return JSONResponse(status_code=201, content={"ID": str(model_id)})
+
+            except ValueError as v:
+                return JSONResponse(status_code=404, content={"message": str(v)})
+            except Exception as e:
+                return JSONResponse(status_code=500, content={"detail": str(e)})
+
+
+@router.post(
+    "/models",
+    status_code=201,
+    responses={
+        201: {
+            "description": "Models created successfully",
+            "content": {"application/json": {"example": {"IDs": ["string"]}}},
+        },
+        409: {"description": "Model already exists"},
+        500: {"description": "Internal server error"},
+    },
+)
 async def create_models():
     ids = []
     for lm_score, K_pred in zip(LM_TYPES, K_PREDICTIONS):
@@ -108,23 +282,57 @@ async def create_models():
                 n=model_dict["N"],
                 corpus_set=model_dict["CORPUS_NAMES"],
             )
-            
-            pickled_model = pickle.dumps(ngram_model)
-            compressed_model = zlib.compress(pickled_model)
-            filename = f"{uuid4()}"
-            fs.put(compressed_model, filename=filename)
 
-            model_dict["MODEL_FILE_ID"] = filename
+            model_dict["MODEL_FILE_ID"] = save_to_gridfs(ngram_model)
             model_id = collection.insert_one(model_dict).inserted_id
             ids.append(str(model_id))
         except Exception as e:
-            raise HTTPException(status_code=500, detail=str(e))
-    return {"IDs": ids}
+            return JSONResponse(status_code=500, content={"detail": str(e)})
+
+    return JSONResponse(status_code=201, content={"IDs": ids})
 
 
 # predictions
-@router.get("/predictions")
-async def get_predictions(model_id: str, context: str, num_words: int):
+@router.get(
+    "/predictions",
+    responses={
+        200: {
+            "description": "Predictions",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "predictions": [
+                            {
+                                "token": "string",
+                                "score": 0.5,
+                            }
+                        ]
+                    }
+                }
+            },
+        },
+        400: {"description": "Invalid request"},
+        404: {"description": "Model not found"},
+        500: {"description": "Internal server error"},
+    },
+)
+async def get_predictions(
+    model_id: Annotated[str, Query(title="ID", description="ID del modello")],
+    context: Annotated[
+        str,
+        Query(
+            title="Contesto di generazione",
+            description="Deve contenere una lacuna da riempire",
+            max_length=512,
+        ),
+    ],
+    num_tokens: Annotated[
+        int,
+        Query(
+            title="Numero di token", description="Numero previsto di token da generare"
+        ),
+    ],
+):
     try:
         model = collection.find_one({"_id": ObjectId(model_id)})
         if model is None:
@@ -133,28 +341,32 @@ async def get_predictions(model_id: str, context: str, num_words: int):
         dict_model = dict(model)
 
         if dict_model["TYPE"] == "Ngrams":
-            model_filename = dict_model["MODEL_FILE_ID"] 
-            file_document = fs.find_one({"filename": model_filename})  # Cerca il file per nome
+            model_filename = dict_model["MODEL_FILE_ID"]
+            file_document = fs.find_one(
+                {"filename": model_filename}
+            )  # Cerca il file per nome
             if not file_document:
-                return JSONResponse(status_code=404, content={"message": "Model not found"})
-        
+                return JSONResponse(
+                    status_code=404, content={"message": "Model not found"}
+                )
+
             model_file = fs.get(file_document._id)  # Recupera il file usando il suo _id
             decompressed_model = pickle.loads(zlib.decompress(model_file.read()))
 
-            return generate_k_suggests(
+            return JSONResponse(status_code=200, content={"predictions": generate_k_suggests(
                 decompressed_model,
                 context,
-                num_words,
+                num_tokens,
                 dict_model["LM_SCORE"],
                 dict_model["N"],
                 dict_model["K_PRED"],
-            )
-            
-        if dict_model["TYPE"] == "BERT":
+            )})
+
+        elif dict_model["TYPE"] == "BERT":
             pass
-        
+
         else:
             return JSONResponse(status_code=404, content={"message": "Model not found"})
-        
+
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        return JSONResponse(status_code=500, content={"detail": str(e)})
