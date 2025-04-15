@@ -3,15 +3,18 @@ from fastapi.responses import JSONResponse
 from api.schema import serial_model
 from api.database import collection, fs
 from api.models import NgramModel, BERTModel, Model
+from api import LEFT_CONTEXT_PATTERN
 from bson import ObjectId
 from train.training import pipeline_train
 from inference import generate_k_suggests
+from finetuning import hcb_beam_search, convert_lacuna_to_masks
 from config.settings import K_PREDICTIONS, LM_TYPES, GAMMA, TEST_SIZE, N, MIN_FREQ
 import pickle
 import zlib
 from uuid import uuid4
-from typing import Annotated
+from typing import Annotated, Optional
 from transformers import AutoModelForMaskedLM, AutoTokenizer
+import re
 
 
 def save_to_gridfs(data, file_id=None):
@@ -302,10 +305,8 @@ async def create_models():
                 "application/json": {
                     "example": {
                         "predictions": [
-                            {
-                                "token": "string",
-                                "score": 0.5,
-                            }
+                            ["token", 0.5],
+                            ["another_token", 0.3],
                         ]
                     }
                 }
@@ -322,23 +323,33 @@ async def get_predictions(
         str,
         Query(
             title="Contesto di generazione",
-            description="Deve contenere una lacuna da riempire",
+            description="Deve contenere una lacuna da riempire, indicata tramite `[...]`",
             max_length=512,
         ),
     ],
     num_tokens: Annotated[
-        int,
+        Optional[int],
         Query(
-            title="Numero di token", description="Numero previsto di token da generare"
+            title="Numero di token",
+            description="Numero previsto di token da generare, deve essere presente solo se il modello è di tipo `Ngrams`",
+            ge=1,
+            le=10,
         ),
-    ],
+    ] = None,
 ):
     try:
         model = collection.find_one({"_id": ObjectId(model_id)})
         if model is None:
-            return JSONResponse(status_code=404, content={"message": "Model not found"})
+            return JSONResponse(status_code=404, content={"detail": "Model not found"})
 
         dict_model = dict(model)
+
+        # Se non è presente la lacuna nel contesto, restituisce bad request
+        if "[" not in context:
+            return JSONResponse(
+                status_code=400,
+                content={"detail": "Context must contain a gap indicated by `[...]`"},
+            )
 
         if dict_model["TYPE"] == "Ngrams":
             model_filename = dict_model["MODEL_FILE_ID"]
@@ -353,17 +364,53 @@ async def get_predictions(
             model_file = fs.get(file_document._id)  # Recupera il file usando il suo _id
             decompressed_model = pickle.loads(zlib.decompress(model_file.read()))
 
-            return JSONResponse(status_code=200, content={"predictions": generate_k_suggests(
-                decompressed_model,
-                context,
-                num_tokens,
-                dict_model["LM_SCORE"],
-                dict_model["N"],
-                dict_model["K_PRED"],
-            )})
+
+            left_context = LEFT_CONTEXT_PATTERN.sub("[", context).split("[")[0]
+            predictions = [
+                {"sentence": left_context+suggestion , "token_str": suggestion, "score": 0}
+                for suggestion in generate_k_suggests(
+                    lm=decompressed_model,
+                    context=context,
+                    num_tokens=num_tokens,
+                    lm_type=dict_model["LM_SCORE"],
+                    n=dict_model["N"],
+                    k_pred=dict_model["K_PRED"],
+                )
+            ]
+            return JSONResponse(
+                status_code=200,
+                content={"predictions": predictions},
+            )
 
         elif dict_model["TYPE"] == "BERT":
-            pass
+            model_filename = dict_model["MODEL_FILE_ID"]
+            tokenizer_filename = dict_model["TOKENIZER_FILE_ID"]
+            model_document = fs.find_one({"filename": model_filename})
+            tokenizer_document = fs.find_one({"filename": tokenizer_filename})
+            if not model_document or not tokenizer_document:
+                return JSONResponse(
+                    status_code=404, content={"message": "Model not found"}
+                )
+            model_file = fs.get(model_document._id)
+            tokenizer_file = fs.get(tokenizer_document._id)
+            decompressed_model = pickle.loads(zlib.decompress(model_file.read()))
+            decompressed_tokenizer = pickle.loads(
+                zlib.decompress(tokenizer_file.read())
+            )
+
+            predictions = [
+                {"token_str": suggestion[0], "score": suggestion[1]}
+                for suggestion in hcb_beam_search(
+                    decompressed_model,
+                    decompressed_tokenizer,
+                    convert_lacuna_to_masks(context, decompressed_tokenizer),
+                )
+            ]
+
+            return JSONResponse(
+                status_code=200,
+                content={"predictions": predictions},
+            )
 
         else:
             return JSONResponse(status_code=404, content={"message": "Model not found"})

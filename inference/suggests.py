@@ -10,7 +10,7 @@ from train import load_lm
 def generate_k_suggests(
     lm: LanguageModel,
     context: str,
-    num_words: int,
+    num_tokens: int,
     lm_type: str = LM_TYPE,
     n: int = N,
     k_pred: int = K_PRED,
@@ -38,9 +38,9 @@ def generate_k_suggests(
         " ".join(pred).lower()
         for pred in get_best_K_predictions_from_context(
             lm=lm,
-            context=get_context(context, n=n),
+            context=get_context(context, n=n, case_folding=True),
             lm_type=lm_type,
-            len_suppl_words=num_words, 
+            len_suppl_words=num_tokens, 
             n=n,
             k_pred=k_pred,
             mod="infer",

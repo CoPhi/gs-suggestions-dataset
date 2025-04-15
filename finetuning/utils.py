@@ -224,3 +224,18 @@ def get_tokenizer(model_checkpoint: str):
 
 def get_masker(model: AutoModelForMaskedLM, tokenizer: AutoTokenizer):
     return pipeline("fill-mask", model=model, tokenizer=tokenizer)
+
+
+def convert_lacuna_to_masks(text: str, tokenizer: AutoTokenizer, mask_token="[MASK]") -> str:
+    def replacer(match):
+        dots = match.group(1)
+        dot_count = len(dots.replace(" ", ""))
+        
+        # Simula un segmento della stessa lunghezza con caratteri fittizi
+        fake_segment = "x" * dot_count
+        num_tokens = len(tokenizer.tokenize(fake_segment))
+        
+        return "".join([mask_token] * num_tokens)
+    
+    # Sostituisce ogni lacuna [......] con [MASK] [MASK] ...
+    return re.sub(r"\[([. ]+)\]", replacer, text)

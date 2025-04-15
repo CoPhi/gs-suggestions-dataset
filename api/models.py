@@ -27,12 +27,9 @@ class NgramModel(BaseModel):
 
 # BERT model (da implementare)
 class BERTModel(BaseModel):
-    MODEL: str = Field(
-        description="Nome del modello BERT da utilizzare"
-    )
-    TOKENIZER: str = Field(
-        description="Nome del tokenizer da utilizzare"
-    )
+    MODEL: str = Field(description="Nome del modello BERT da utilizzare")
+    TOKENIZER: str = Field(description="Nome del tokenizer da utilizzare")
+    K_PRED: int = Field(description="Numero di predizioni che restituisce il modello")
     TYPE: Literal["BERT"]
 
 

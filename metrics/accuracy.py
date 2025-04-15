@@ -363,14 +363,26 @@ def get_best_K_predictions_from_context(
     )
 
 
-def get_context(text: str, n=N) -> list[str]:
+def get_context(text: str, n=N, case_folding: bool = True) -> list[str]:
     """
-    Ritorna una lista di token da passare al modello liguistico per l'inferenza
+    Ritorna una lista di token da utilizzare come contesto per l'inferenza del modello linguistico.
+
     Args:
-        text (str): Testo da tokenizzare
+        text (str): Testo di input da tokenizzare e processare.
+        n (int, opzionale): Dimensione degli n-grammi da generare. Default è N.
+        case_folding (bool, opzionale): Indica se convertire il testo in minuscolo durante il processo. Default è True.
+
     Returns:
-        list[str]: Lista di token, rappresenta il contesto da cui partire per l'inferenza del modello
-    """   
+        list[str]: Lista di token che rappresentano il contesto per l'inferenza del modello linguistico.
+
+    Note:
+        - Se il testo di input contiene parentesi quadre ("[") denota un test_case, perciò si delega la formazione del contesto alla funzione `get_context_from_test_case`.
+        - Altrimenti, il testo viene pulito, suddiviso in frasi e ulteriormente processato per generare i token.
+        - I token risultanti vengono imbottiti su entrambi i lati e troncati alla dimensione specificata degli n-grammi.
+    """
+    if "[" in text:
+        return get_context_from_test_case(text, n, case_folding)
+
     return list(
         flatten(
             list(
@@ -379,7 +391,7 @@ def get_context(text: str, n=N) -> list[str]:
                     n=n,
                 )
             )
-            for sent in sentence_tokenizer.tokenize(clean_text_from_gaps(text))
+            for sent in sentence_tokenizer.tokenize(clean_text_from_gaps(text, case_folding))
         )
     )[: (1 - n)]
 
@@ -399,7 +411,6 @@ def get_context_from_test_case(test_case: str, n=N, case_folding:bool=True) -> l
     """
     return list(
         flatten(
-            [
                 list(
                     pad_both_ends(
                         get_tokens_from_clean_text(remove_punctuation(sent)),
@@ -413,7 +424,6 @@ def get_context_from_test_case(test_case: str, n=N, case_folding:bool=True) -> l
                         ], case_folding=case_folding   # Si prende il contesto a sinistra della parentesi `[`
                     )
                 )
-            ]
         )
     )[: (1 - n)]
     
@@ -479,7 +489,7 @@ def get_topK_accuracy(
                     if not check_supplement(supplements[i]):
                         continue
                     
-                    context = get_context_from_test_case(obj["test_case"], n)
+                    context = get_context(obj["test_case"], n)
 
                     predictions = get_best_K_predictions_from_context(
                         lm=lm,

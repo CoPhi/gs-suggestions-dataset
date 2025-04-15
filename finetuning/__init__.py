@@ -10,3 +10,5 @@ MAX_UNK_TOKEN_TRESHOLD = 5
 MAX_MASK_TOKEN_TRESHOLD=10
 MIN_MASK_TOKEN_TRESHOLD=1
 
+from .accuracy import hcb_beam_search
+from .utils import convert_lacuna_to_masks
