@@ -12,7 +12,9 @@ import numpy as np
 from finetuning.utils import get_model, get_tokenizer, convert_lacuna_to_masks
 import collections
 
-
+from hcb.hcb_infilling.decode import decode_modified_BestToWorst_vectorized
+from hcb.hcb_infilling.metrics import score_batch
+from hcb.hcb_infilling.utils import mask_tokens_batch
 
 def hcb_beam_search(
     model: AutoModelForMaskedLM,
@@ -131,10 +133,40 @@ def one_word_masking_data_collator(features, tokenizer, wwm_probability=1.0):
 
     return default_data_collator(features)
 
-
-def main():
-    pass
-
+def hcb_topK_accuracy(model, tokenizer, dataset, beam_size, k, num_masks, num_examples = 16, num_experiments = 32, report_period = 10):
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    np.random.seed(42) 
+    rng = np.random.default_rng(seed=42) #si rende il calcolo riproducibile (deterministico)
+    num_total = 0
+    num_correct = np.zeros(beam_size)
+    
+    for batch_num in range(num_experiments):
+        if batch_num % report_period == 0:
+            print("Starting batch", batch_num+1)
+            print()
+        example_nums = rng.choice(np.arange(len(dataset.input_ids)), size=num_examples, replace=False)
+        input_ids = dataset.input_ids[example_nums]
+        attention_mask = dataset.attention_mask[example_nums].to(device)
+        total = input_ids.shape[1]
+        if batch_num % report_period == 0:
+            print("Example text:")
+            print(' '.join(tokenizer.convert_ids_to_tokens(input_ids[0][:10])))
+        mask_start_ind = rng.choice(np.arange(1, total-num_masks))
+        if batch_num % report_period == 0:
+            print(f"Index: {mask_start_ind} / {total-num_masks}")
+        masked_positions = list(range(mask_start_ind,mask_start_ind+num_masks))
+        masked_inputs_batch, true_ids_batch = mask_tokens_batch(input_ids, masked_positions, tokenizer.mask_token_id, tokenizer.pad_token_id)
+        suggestions_batch = decode_modified_BestToWorst_vectorized(model, masked_inputs_batch, attention_mask, beam_size, tokenizer.mask_token_id)
+        count_batch, num_correct_batch = score_batch(suggestions_batch, true_ids_batch, tokenizer)
+        num_correct += num_correct_batch
+        num_total =+ count_batch
+        
+        if batch_num % report_period == 0:
+            print()
+            print(f"Modified Best-to-Worst Correct: {num_correct}/{num_total}")
+            print()
+    
+    return { "topK-accuracy": sum(num_correct[:k])/num_total if num_total != 0 else 0}
 
 if __name__ == "__main__":
     test = "ἀντίγραφον ἀπʼ ἀντιγράφου Αἰγυ[....]ίας"  # πτ
