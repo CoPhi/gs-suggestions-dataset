@@ -1,6 +1,7 @@
+import re
 TRAIN_DATASET_CHECKPOINT = "CNR-ILC/maat-corpus-train"
 TEST_DATASET_CHECKPOINT = "CNR-ILC/maat-corpus-test"
-
+BERT_TOKENS_PER_WORD = 1.77
 
 CHUNK_SIZE = 50  # Define the desired chunk size
 BERT_UNK_TOKEN = "[UNK]"
@@ -10,5 +11,4 @@ MAX_UNK_TOKEN_TRESHOLD = 5
 MAX_MASK_TOKEN_TRESHOLD=10
 MIN_MASK_TOKEN_TRESHOLD=1
 
-from .accuracy import hcb_beam_search
-from .utils import convert_lacuna_to_masks
+LACUNAE_REGEX = re.compile(r"\[([. ]+)\]")

@@ -10,58 +10,91 @@ from config.settings import K_PRED
 import torch
 import numpy as np
 from finetuning.utils import get_model, get_tokenizer, convert_lacuna_to_masks
-from utils.preprocess import clean_text_from_gaps
 import collections
 
 
 def hcb_beam_search(
     model: AutoModelForMaskedLM,
     tokenizer: AutoTokenizer,
-    masked_text: str,
+    masked_text: tuple,  # (masked_text, attached_left, attached_right)
     k: int = K_PRED,
     beam_size: int = K_PRED,
 ) -> list[str]:
-    inputs = tokenizer(masked_text, return_tensors="pt")
+    inputs = tokenizer(masked_text[0], return_tensors="pt")
     input_ids = inputs.input_ids.clone()
     attention_mask = inputs.attention_mask
     mask_indices = torch.where(input_ids == tokenizer.mask_token_id)[1].tolist()
 
-    beam = [(input_ids.clone(), 0.0)]  # (input_ids, score)
+    if not mask_indices:
+        return []
+
+    beam = [(input_ids.clone(), 0.0, tokenizer.decode(input_ids[0]))]
 
     for mask_idx in mask_indices:
         new_beam = []
 
-        for seq, score in beam:
+        for seq, score, text in beam:
             with torch.no_grad():
-                outputs = model(input_ids=seq, attention_mask=attention_mask)
-                logits = outputs.logits[0, mask_idx, :]
-                log_probs = torch.nn.functional.log_softmax(logits, dim=-1)
+                logits = model(input_ids=seq, attention_mask=attention_mask).logits[
+                    0, mask_idx, :
+                ] #logits sul primo batch (0) sul token mascherato indicato da `mask_idx` sul vocabolario `:`
+                log_probs = torch.nn.functional.log_softmax(logits, dim=-1) #normalizzazione dei logits con una softmax logaritmica
 
-                # Calcola log p(x_i | x_<i, [M]_{i:k}, x_>k)
-                topk_log_probs, topk_ids = torch.topk(log_probs, k=k)
-
-                # Calcola log p([MASK]_i | x_<i, [M]_{i:k}, x_>k)
+                topk_log_probs, topk_ids = torch.topk(log_probs, k=beam_size) #IDs e probabilità logartimiche dei `beam_size` token più probabili
                 mask_log_prob = log_probs[tokenizer.mask_token_id].item()
 
                 for token_id, log_prob in zip(topk_ids, topk_log_probs):
                     new_seq = seq.clone()
                     new_seq[0, mask_idx] = token_id.item()
-
                     hcb_score = score + (log_prob.item() - mask_log_prob)
-                    new_beam.append((new_seq, hcb_score))
+                    new_beam.append(
+                        (
+                            new_seq,
+                            hcb_score,
+                            tokenizer.decode(new_seq[0], skip_special_tokens=True),
+                        )
+                    )
 
-        # Mantieni solo i migliori beam_size candidati
-        beam = sorted(new_beam, key=lambda x: x[1] ,reverse=True)[:beam_size]
+        beam = sorted(new_beam, key=lambda x: x[1], reverse=True)[:beam_size]
 
-    # Estrai le top-k sequenze finali
+    return _extract_top_k_results(beam, mask_indices, tokenizer, masked_text, k)
+
+
+def _extract_top_k_results(beam, mask_indices, tokenizer, masked_text, k):
     result = []
-    for seq, score in beam[:k]:
-        decoded_tokens = [seq[0, idx].item() for idx in mask_indices]
-        decoded_sequence = tokenizer.decode(decoded_tokens, skip_special_tokens=True)
-        normalized_score = score #da implementare
-        result.append((decoded_sequence, normalized_score))
+
+    for seq, score, _ in beam[:k]:
+        decoded_mask_tokens = [seq[0, idx].item() for idx in mask_indices]
+        decoded_mask_sequence = tokenizer.decode(
+            decoded_mask_tokens, skip_special_tokens=True
+        )
+
+        left_context = (
+            tokenizer.decode(seq[0, : mask_indices[0]], skip_special_tokens=True)
+            if mask_indices
+            else ""
+        )
+        right_context = (
+            tokenizer.decode(seq[0, mask_indices[-1] + 1 :], skip_special_tokens=True)
+            if mask_indices
+            else ""
+        )
+
+        text = _reconstruct_text(
+            left_context, decoded_mask_sequence, right_context, masked_text
+        )
+        result.append((decoded_mask_sequence, np.exp(-score), text))
 
     return result
+
+
+def _reconstruct_text(left_context, decoded_mask_sequence, right_context, masked_text):
+    left_context = left_context.strip() if masked_text[1] else left_context
+    right_context = right_context.strip() if masked_text[2] else right_context
+    reconstructed_text = f"{left_context}{decoded_mask_sequence}{right_context}"
+    return reconstructed_text.replace(
+        "#", ""
+    )  # Si eliminano riferimento a subword tokens
 
 
 def one_word_masking_data_collator(features, tokenizer, wwm_probability=1.0):
@@ -102,17 +135,17 @@ def main():
 
 
 if __name__ == "__main__":
-    test = "ἀντίγραφον ἀπʼ ἀντιγράφου Αἰγυ[...]ίας" #πτ
+    test = "ἀντίγραφον ἀπʼ ἀντιγράφου Αἰγυ[....]ίας"  # πτ
     model_checkpoint = "CNR-ILC/gs-aristoBERTo"
     dataset_checkpoint = "ILC-CNR/gs-maat"
     model = get_model(model_checkpoint)
     tokenizer = get_tokenizer(model_checkpoint)
-    
+    # print ("Frase con sequenza mascherata: ", convert_lacuna_to_masks(test))
     print(
         hcb_beam_search(
             model=model,
             tokenizer=tokenizer,
-            masked_text=convert_lacuna_to_masks(test, tokenizer),
+            masked_text=convert_lacuna_to_masks(test),
         )
     )
     """print (convert_lacuna_to_masks(test, tokenizer))"""

@@ -18,5 +18,6 @@ COPY ./inference /app/inference
 COPY ./metrics /app/metrics
 COPY ./utils /app/utils
 COPY ./data /app/data
+COPY ./finetuning /app/finetuning
 
 CMD ["uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]

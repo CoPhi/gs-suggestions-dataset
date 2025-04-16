@@ -8,7 +8,10 @@ from finetuning import (
     MAX_UNK_TOKEN_TRESHOLD,
     MAX_MASK_TOKEN_TRESHOLD,
     MIN_MASK_TOKEN_TRESHOLD,
+    LACUNAE_REGEX, 
+    BERT_TOKENS_PER_WORD
 )
+from utils import SUPPLEMENTS_REGEX
 from transformers import AutoModelForMaskedLM, AutoTokenizer, pipeline
 import re
 
@@ -226,16 +229,38 @@ def get_masker(model: AutoModelForMaskedLM, tokenizer: AutoTokenizer):
     return pipeline("fill-mask", model=model, tokenizer=tokenizer)
 
 
-def convert_lacuna_to_masks(text: str, tokenizer: AutoTokenizer, mask_token="[MASK]") -> str:
-    def replacer(match):
-        dots = match.group(1)
-        dot_count = len(dots.replace(" ", ""))
-        
-        # Simula un segmento della stessa lunghezza con caratteri fittizi
-        fake_segment = "x" * dot_count
-        num_tokens = len(tokenizer.tokenize(fake_segment))
-        
-        return "".join([mask_token] * num_tokens)
+def convert_lacuna_to_masks(text: str, mask_token="[MASK]") -> str:
+    """
+    Converte le lacune nel testo in token mascherati.
+
+    Args:
+        text (str): Il testo contenente lacune da convertire.
+        tokenizer (AutoTokenizer): Il tokenizer utilizzato per determinare i token.
+        mask_token (str, opzionale): Il token mascherato da utilizzare. Default è "[MASK]".
+
+    Returns:
+        str: Il testo con le lacune sostituite dai token mascherati.
+    """
+    def get_mask_sequence(match)-> str:
+         dots = match.group(1)
+         return "".join([mask_token] * int(len(dots) / BERT_TOKENS_PER_WORD))
     
-    # Sostituisce ogni lacuna [......] con [MASK] [MASK] ...
-    return re.sub(r"\[([. ]+)\]", replacer, text)
+    gap_matches = list(SUPPLEMENTS_REGEX.finditer(text)) 
+    if len(gap_matches) != 1:
+        return 
+    
+    seq = gap_matches[0]
+    start, end = seq.start(), seq.end()
+    
+    attached_left = start > 0 and text[start - 1].isalpha()
+    attached_right = end < len(text) and text[end + 1].isalpha()
+    
+    converted_text = re.sub(
+        LACUNAE_REGEX,
+        lambda match: get_mask_sequence(match),
+        text,
+    )
+    
+    return (converted_text, attached_left, attached_right)
+    
+    

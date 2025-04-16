@@ -400,7 +400,7 @@ def clean_supplements(training_text: str, case_folding: bool = True) -> list[lis
 
     for suppl in supplements:
         matches = list(
-            re.finditer(re.escape(suppl), training_text)
+            re.finditer(re.escape(suppl), training_text) #Si usa re.escape per trattare il supplemento come stringa
         )  # Occorrenze del supplemento nel testo
         if not matches:
             suppl_tokens.append([])
