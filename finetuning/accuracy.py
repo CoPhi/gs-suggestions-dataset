@@ -13,6 +13,7 @@ from finetuning.utils import get_model, get_tokenizer, convert_lacuna_to_masks
 import collections
 
 
+
 def hcb_beam_search(
     model: AutoModelForMaskedLM,
     tokenizer: AutoTokenizer,
@@ -95,6 +96,7 @@ def _reconstruct_text(left_context, decoded_mask_sequence, right_context, masked
     return reconstructed_text.replace(
         "#", ""
     )  # Si eliminano riferimento a subword tokens
+    
 
 
 def one_word_masking_data_collator(features, tokenizer, wwm_probability=1.0):
