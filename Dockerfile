@@ -8,16 +8,12 @@ RUN apt-get update && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-COPY api-requirements.txt api-requirements.txt
-RUN pip install -U pip && pip install -r api-requirements.txt
+COPY . . 
 
-COPY ./config /app/config
-COPY ./api /app/api
-COPY ./train /app/train
-COPY ./inference /app/inference
-COPY ./metrics /app/metrics
-COPY ./utils /app/utils
-COPY ./data /app/data
-COPY ./finetuning /app/finetuning
+#Si installano le dipendenze
+RUN pip install -r requirements.txt
+
+#Si espone la porta 
+EXPOSE 8000 
 
 CMD ["uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]

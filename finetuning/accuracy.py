@@ -9,7 +9,7 @@ from transformers import AutoModelForMaskedLM, AutoTokenizer, default_data_colla
 from config.settings import K_PRED
 import torch
 import numpy as np
-from finetuning.utils import (
+from finetuning import (
     get_model,
     get_tokenizer,
     get_dataset,

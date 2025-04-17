@@ -15,7 +15,7 @@ Le gold label sono usate per confrontare l'accuracy del modello BERT sul test_se
 """
 
 from datasets import DatasetDict
-from finetuning.utils import (
+from finetuning import (
     load_and_split_sentences,
     get_processed_sentences,
 )

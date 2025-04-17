@@ -1,21 +1,23 @@
 ## Directory da ignorare
-
-
-/tests/
-/eval/
+tuning/
+eval/
 
 # Python
-__pycache__/
+__pycache__
+**/__pycache__/
+**/**/__pycache__/
 
 #VS code file 
 .vscode/
 
-
-
 #File 
 .gitignore
-*csv
-poetry.lock
-pyproject.toml
-README.md
-requirements.txt
+.gitmodules
+.git
+*.pyc
+*.pyo
+*.pyd
+*.log
+*.tmp
+*.swp
+*.csv

@@ -364,10 +364,13 @@ async def get_predictions(
             model_file = fs.get(file_document._id)  # Recupera il file usando il suo _id
             decompressed_model = pickle.loads(zlib.decompress(model_file.read()))
 
-
             left_context = LEFT_CONTEXT_PATTERN.sub("[", context).split("[")[0]
             predictions = [
-                {"sentence": left_context+suggestion , "token_str": suggestion, "score": 0}
+                {
+                    "sentence": left_context + suggestion,
+                    "token_str": suggestion,
+                    "score": 0,
+                }
                 for suggestion in generate_k_suggests(
                     lm=decompressed_model,
                     context=context,
