@@ -9,12 +9,18 @@ from transformers import AutoModelForMaskedLM, AutoTokenizer, default_data_colla
 from config.settings import K_PRED
 import torch
 import numpy as np
-from finetuning.utils import get_model, get_tokenizer, convert_lacuna_to_masks
+from finetuning.utils import (
+    get_model,
+    get_tokenizer,
+    get_dataset,
+    convert_lacuna_to_masks,
+)
 import collections
 
 from hcb.hcb_infilling.decode import decode_modified_BestToWorst_vectorized
 from hcb.hcb_infilling.metrics import score_batch
 from hcb.hcb_infilling.utils import mask_tokens_batch
+
 
 def hcb_beam_search(
     model: AutoModelForMaskedLM,
@@ -40,10 +46,14 @@ def hcb_beam_search(
             with torch.no_grad():
                 logits = model(input_ids=seq, attention_mask=attention_mask).logits[
                     0, mask_idx, :
-                ] #logits sul primo batch (0) sul token mascherato indicato da `mask_idx` sul vocabolario `:`
-                log_probs = torch.nn.functional.log_softmax(logits, dim=-1) #normalizzazione dei logits con una softmax logaritmica
+                ]  # logits sul primo batch (0) sul token mascherato indicato da `mask_idx` sul vocabolario `:`
+                log_probs = torch.nn.functional.log_softmax(
+                    logits, dim=-1
+                )  # normalizzazione dei logits con una softmax logaritmica
 
-                topk_log_probs, topk_ids = torch.topk(log_probs, k=beam_size) #IDs e probabilità logartimiche dei `beam_size` token più probabili
+                topk_log_probs, topk_ids = torch.topk(
+                    log_probs, k=beam_size
+                )  # IDs e probabilità logartimiche dei `beam_size` token più probabili
                 mask_log_prob = log_probs[tokenizer.mask_token_id].item()
 
                 for token_id, log_prob in zip(topk_ids, topk_log_probs):
@@ -98,7 +108,6 @@ def _reconstruct_text(left_context, decoded_mask_sequence, right_context, masked
     return reconstructed_text.replace(
         "#", ""
     )  # Si eliminano riferimento a subword tokens
-    
 
 
 def one_word_masking_data_collator(features, tokenizer, wwm_probability=1.0):
@@ -133,40 +142,99 @@ def one_word_masking_data_collator(features, tokenizer, wwm_probability=1.0):
 
     return default_data_collator(features)
 
-def hcb_topK_accuracy(model, tokenizer, dataset, beam_size, k, num_masks, num_examples = 16, num_experiments = 32, report_period = 10):
+
+def hcb_topK_accuracy(
+    model,
+    tokenizer,
+    dataset,
+    beam_size,
+    k,
+    num_masks,
+    num_examples=16,
+    num_experiments=32,
+    report_period=10,
+):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    np.random.seed(42) 
-    rng = np.random.default_rng(seed=42) #si rende il calcolo riproducibile (deterministico)
+    np.random.seed(42)
+    rng = np.random.default_rng(
+        seed=42
+    )  # si rende il calcolo riproducibile (deterministico)
     num_total = 0
     num_correct = np.zeros(beam_size)
-    
+
     for batch_num in range(num_experiments):
         if batch_num % report_period == 0:
-            print("Starting batch", batch_num+1)
+            print("Starting batch", batch_num + 1)
             print()
-        example_nums = rng.choice(np.arange(len(dataset.input_ids)), size=num_examples, replace=False)
-        input_ids = dataset.input_ids[example_nums]
-        attention_mask = dataset.attention_mask[example_nums].to(device)
+        example_nums = rng.choice(
+            np.arange(len(dataset["input_ids"])), size=num_examples, replace=False
+        ).tolist()  # Convert to a Python list
+        input_ids = torch.tensor([dataset["input_ids"][i] for i in example_nums]).to(device)
+        attention_mask = torch.tensor([dataset["attention_mask"][i] for i in example_nums]).to(device)
         total = input_ids.shape[1]
         if batch_num % report_period == 0:
             print("Example text:")
-            print(' '.join(tokenizer.convert_ids_to_tokens(input_ids[0][:10])))
-        mask_start_ind = rng.choice(np.arange(1, total-num_masks))
+            print(" ".join(tokenizer.convert_ids_to_tokens(input_ids[0][:10])))
+        mask_start_ind = rng.choice(np.arange(1, total - num_masks))
         if batch_num % report_period == 0:
             print(f"Index: {mask_start_ind} / {total-num_masks}")
-        masked_positions = list(range(mask_start_ind,mask_start_ind+num_masks))
-        masked_inputs_batch, true_ids_batch = mask_tokens_batch(input_ids, masked_positions, tokenizer.mask_token_id, tokenizer.pad_token_id)
-        suggestions_batch = decode_modified_BestToWorst_vectorized(model, masked_inputs_batch, attention_mask, beam_size, tokenizer.mask_token_id)
-        count_batch, num_correct_batch = score_batch(suggestions_batch, true_ids_batch, tokenizer)
+        masked_positions = list(range(mask_start_ind, mask_start_ind + num_masks))
+        masked_inputs_batch, true_ids_batch = mask_tokens_batch(
+            input_ids, masked_positions, tokenizer.mask_token_id, tokenizer.pad_token_id
+        )
+        suggestions_batch = decode_modified_BestToWorst_vectorized(
+            model,
+            masked_inputs_batch,
+            attention_mask,
+            beam_size,
+            tokenizer.mask_token_id,
+        )
+        count_batch, num_correct_batch = score_batch(
+            suggestions_batch, true_ids_batch, tokenizer
+        )
         num_correct += num_correct_batch
-        num_total =+ count_batch
-        
+        num_total = +count_batch
+
         if batch_num % report_period == 0:
             print()
             print(f"Modified Best-to-Worst Correct: {num_correct}/{num_total}")
             print()
-    
-    return { "topK-accuracy": sum(num_correct[:k])/num_total if num_total != 0 else 0}
+
+    return {"topK-accuracy": sum(num_correct[:k]) / num_total if num_total != 0 else 0}
+
+
+def get_test_set_chunked(
+    dataset,
+    chunk_size=64,
+    desired_columns=["input_ids", "attention_mask", "labels", "word_ids"],
+):
+
+    def tokenize_function(examples):
+        result = tokenizer(examples["text"])
+        if tokenizer.is_fast:
+            result["word_ids"] = [
+                result.word_ids(i) for i in range(len(result["input_ids"]))
+            ]
+        return result
+
+    def group_texts(examples):
+        concatenated_examples = {k: sum(examples[k], []) for k in examples.keys()}
+        total_length = len(concatenated_examples[list(examples.keys())[0]])
+        total_length = (total_length // chunk_size) * chunk_size
+        result = {
+            k: [t[i : i + chunk_size] for i in range(0, total_length, chunk_size)]
+            for k, t in concatenated_examples.items()
+        }
+        result["labels"] = result["input_ids"].copy()
+        return result
+
+    tokenized_datasets = dataset.map(
+        tokenize_function, batched=True, remove_columns=["text"]
+    )  # Applica la tokenizzazione mantenendo il tipo di dato
+    lm_datasets = tokenized_datasets.map(group_texts, batched=True)
+    lm_datasets = lm_datasets.select_columns(desired_columns)
+    return lm_datasets
+
 
 if __name__ == "__main__":
     test = "ἀντίγραφον ἀπʼ ἀντιγράφου Αἰγυ[....]ίας"  # πτ
@@ -174,12 +242,15 @@ if __name__ == "__main__":
     dataset_checkpoint = "ILC-CNR/gs-maat"
     model = get_model(model_checkpoint)
     tokenizer = get_tokenizer(model_checkpoint)
+    test_set = get_test_set_chunked(get_dataset(dataset_checkpoint)["test"])
+    print (hcb_topK_accuracy(model=model, tokenizer=tokenizer, dataset=test_set, beam_size=K_PRED*2, k=K_PRED, num_masks=3))
+
     # print ("Frase con sequenza mascherata: ", convert_lacuna_to_masks(test))
-    print(
+    """print(
         hcb_beam_search(
             model=model,
             tokenizer=tokenizer,
             masked_text=convert_lacuna_to_masks(test),
         )
-    )
+    )"""
     """print (convert_lacuna_to_masks(test, tokenizer))"""

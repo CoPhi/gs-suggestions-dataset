@@ -1,7 +1,8 @@
+from typing import Union
 from utils.preprocess import clean_supplements, clean_text_from_gaps
 from tqdm import tqdm
 from train import load_abs, split_abs, get_sentences, get_tokens_from_clean_text
-from datasets import load_dataset, Dataset
+from datasets import load_dataset, Dataset, DatasetDict, IterableDatasetDict, IterableDataset
 from finetuning import (
     CHUNK_SIZE,
     BERT_UNK_TOKEN,
@@ -224,10 +225,11 @@ def get_model(model_checkpoint: str):
 def get_tokenizer(model_checkpoint: str):
     return AutoTokenizer.from_pretrained(model_checkpoint)
 
-
 def get_masker(model: AutoModelForMaskedLM, tokenizer: AutoTokenizer):
     return pipeline("fill-mask", model=model, tokenizer=tokenizer)
 
+def get_dataset (data_checkpoint: str) -> Union[DatasetDict, Dataset, IterableDatasetDict, IterableDataset]: 
+    return load_dataset(data_checkpoint)
 
 def convert_lacuna_to_masks(text: str, mask_token="[MASK]") -> str:
     """
