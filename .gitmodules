@@ -1,0 +1,3 @@
+[submodule "hcb"]
+	path = hcb
+	url = https://github.com/GabrieleGiannessi/hcb_infilling.git
