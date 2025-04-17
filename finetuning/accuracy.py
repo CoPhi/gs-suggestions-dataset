@@ -12,9 +12,9 @@ import numpy as np
 from finetuning.utils import get_model, get_tokenizer, convert_lacuna_to_masks
 import collections
 
-from hcb.hcb_infilling.decode import decode_modified_BestToWorst_vectorized
-from hcb.hcb_infilling.metrics import score_batch
-from hcb.hcb_infilling.utils import mask_tokens_batch
+from hcb_infilling.hcb_infilling.decode import decode_modified_BestToWorst_vectorized
+from hcb_infilling.hcb_infilling.metrics import score_batch
+from hcb_infilling.hcb_infilling.utils import mask_tokens_batch
 
 def hcb_beam_search(
     model: AutoModelForMaskedLM,
