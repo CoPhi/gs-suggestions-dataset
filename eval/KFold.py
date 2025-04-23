@@ -77,7 +77,7 @@ if __name__ == "__main__":
     # KFold_cross_validation()
 
     print("Perplexity: ", perplexity(lm, test_abs))
-    print("Accuracy: ", get_topK_accuracy(lm, test_abs))
+    #print("Accuracy: ", get_topK_accuracy(lm, test_abs))
 
     """acc = get_topK_accuracy(lm, test_abs)
     if LM_TYPE == "LIDSTONE":

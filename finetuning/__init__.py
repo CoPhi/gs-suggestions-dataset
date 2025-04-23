@@ -13,15 +13,5 @@ MIN_MASK_TOKEN_TRESHOLD=1
 
 LACUNAE_REGEX = re.compile(r"\[([. ]+)\]")
 
-from .utils import (
-    load_and_split_sentences,
-    get_processed_sentences,
-    get_model,
-    get_tokenizer,
-    get_dataset,
-    convert_lacuna_to_masks,
-)
-
-from.accuracy import (
-    hcb_beam_search,
-)
+from .utils import *
+from.accuracy import *

@@ -1,0 +1,39 @@
+@if (isBERT()) {
+    <div class="model-card bg-gray-50 border border-gray-200 rounded-lg p-4 transition-all duration-200">
+      <div class="flex justify-between items-start">
+        <div>
+          <h4 class="font-medium text-gray-800">Modello BERT</h4>
+          <p class="text-sm text-gray-500">Creato: 15/06/2023</p>
+        </div>
+        <span class="bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full">Attivo</span>
+      </div>
+      <div class="mt-2 text-sm text-gray-600">
+        <p>Tipo: BERT</p>
+        <p>Checkpoint: {{ bertmodel().MODEL }}</p>
+        <p>Numero di predizioni: {{ bertmodel().K_PRED }}</p>
+      </div>
+    </div>
+  }
+  @else{
+    <div class="model-card bg-gray-50 border border-gray-200 rounded-lg p-4 transition-all duration-200">
+      <div class="flex justify-between items-start">
+        <div>
+          <h4 class="font-medium text-gray-800">Modello N-grammi</h4>
+          <p class="text-sm text-gray-500">Creato: 10/07/2023</p>
+        </div>
+        <span class="bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full">Attivo</span>
+      </div>
+      <div class="mt-2 text-sm text-gray-600">
+        <p>Tipo: N-grammi</p>
+        @if (ngramsmodel().LM_SCORE == "LIDSTONE") {
+          <p>Tecnica: {{ ngramsmodel().LM_SCORE }} (Gamma = {{ ngramsmodel().GAMMA }})</p>
+        }
+        @else {
+          <p>Tecnica: {{ ngramsmodel().LM_SCORE }}</p>
+        }
+        <p>Frequenza minima token: {{ ngramsmodel().MIN_FREQ }}</p>
+        <p>Dimensione test set: {{ ngramsmodel().TEST_SIZE }}</p>
+        <p>Numero di predizioni: {{ ngramsmodel().K_PRED }}</p>
+      </div>
+    </div>
+  }

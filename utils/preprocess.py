@@ -605,7 +605,8 @@ def process_editorial_marks(text: str) -> str:
         """
         Rimuove testo fornito in parallelo
         """
-        text =  OBELISK_REGEX.sub("", text) if OBELISK_REGEX.search(text) else text  # process obelisk
+        text =  OBELISK_REGEX.sub("", text) if OBELISK_REGEX.search(text) else text  # processazione parole morte
+        text = text.replace("†", "") if "†" in text else text
         text = text.replace("_", "") if "_" in text else text
         return text
 

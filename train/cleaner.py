@@ -116,7 +116,6 @@ def get_sentences(
                     obj["training_text"], case_folding=case_folding
                 )
             ):
-
                 if sent:
                     if remove_punct:
                         sentences.append(

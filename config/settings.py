@@ -18,7 +18,7 @@ K_PRED = 20  # Numero delle predizioni che il modello deve fare nella funzione d
 BATCH_SIZE = 64  # Dimensione del batch
 DATA_PATH = Path("data/")  # Percorso al dataset
 TEST_SIZE = 0.05  # Percentuale di dati di test
-MIN_FREQ = 2  # Frequenza minima per i token dentro il modello
+MIN_FREQ = 3  # Frequenza minima per i token dentro il modello
 N = 3  # Dimensione degli ngrammi
 CORPUS_NAMES = set(["DDbDP", "DCLP", "EDH"])
 

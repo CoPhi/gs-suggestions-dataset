@@ -1,5 +1,6 @@
-from fastapi import APIRouter, HTTPException, Query, Path, Body
+from fastapi import APIRouter, Query, Path, Body, Request
 from fastapi.responses import JSONResponse
+from fastapi.templating import Jinja2Templates
 from api.schema import serial_model
 from api.database import collection, fs
 from api.models import NgramModel, BERTModel, Model
@@ -14,7 +15,6 @@ import zlib
 from uuid import uuid4
 from typing import Annotated, Optional
 from transformers import AutoModelForMaskedLM, AutoTokenizer
-import re
 
 
 def save_to_gridfs(data, file_id=None):
@@ -24,9 +24,17 @@ def save_to_gridfs(data, file_id=None):
     fs.put(compressed_data, filename=filename)
     return filename
 
-
 router = APIRouter()
+templates = Jinja2Templates(directory="api/templates")
+API_BASE = "http://localhost:8000" 
 
+@router.get("/", include_in_schema=False)
+async def root(request: Request):
+    return templates.TemplateResponse(
+        request=request, 
+        name="index.html",
+        context={"models": [serial_model(str(model["_id"])) for model in collection.find()]},
+    )
 
 @router.get(
     "/model/{id}",
