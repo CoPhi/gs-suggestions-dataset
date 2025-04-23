@@ -1,1 +1,56 @@
-<p>suggests-box works!</p>
+<!-- Form Generazione Suggerimenti -->
+<form id="generate-suggestions-form" 
+      class="space-y-6"
+      [formGroup]="form" 
+      (submit)="generateSuggestions()">
+    <div>
+        <label for="input-text" class="block text-sm font-medium text-gray-700 mb-1">Inserisci il contesto di generazione (deve contenere una lacuna)</label>
+        <textarea id="input-text" 
+                  name="input-text" 
+                  class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 textarea-auto-resize" 
+                  placeholder="Esempio: τὰς ὀφειλομένας τῇ τοῦ Ἀνθεντίου μητρὶ [MASK] Σισόιτος" 
+                  formControlName="text"
+                  required></textarea>
+    </div>
+    
+    <div>
+        <label for="selected-model" class="block text-sm font-medium text-gray-700 mb-1">Seleziona modello</label>
+            <input id="model" 
+            formControlName="modelID" 
+            type="text"
+            />
+    </div>
+    
+    <div class="pt-2">
+        <button type="submit" 
+                class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-3 px-4 rounded-lg transition duration-200 flex items-center justify-center">
+            <i class="fas fa-magic mr-2"></i> Genera Suggerimenti
+        </button>
+    </div>
+</form>
+
+<!-- Risultati Generazione -->
+<div id="generation-results" class="mt-8 hidden">
+    <h3 class="text-lg font-medium text-gray-800 mb-4 flex items-center">
+        <i class="fas fa-poll mr-2 text-indigo-500"></i> Risultati
+    </h3>
+    
+    <div class="bg-indigo-50 border-l-4 border-indigo-500 p-4 rounded-r-lg">
+        <div class="flex">
+            <div class="flex-shrink-0">
+                <i class="fas fa-info-circle text-indigo-500 mt-1"></i>
+            </div>
+            <div class="ml-3">
+                <h4 class="text-sm font-medium text-indigo-800">Suggerimenti generati</h4>
+                <div class="mt-2 text-sm text-indigo-700">
+                    <p id="suggestions-output" class="whitespace-pre-line">Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nullam in dui mauris.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="mt-4 flex justify-between text-sm text-gray-500">
+        <span>Tempo di generazione: <span id="generation-time">1.24</span>s</span>
+        <span>Modello: <span id="used-model">Modello Default</span></span>
+    </div>
+</div>

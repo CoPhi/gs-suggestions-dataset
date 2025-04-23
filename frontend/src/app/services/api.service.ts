@@ -18,16 +18,16 @@ export class ApiService {
     );
   }
 
-  createModel(data: any): Observable<string> {
+  createModel(data: modelType): Observable<string> {
     return this.http.post<{ ID: string }>(`${this.apiUrl}/model/`, data).pipe(
       map(response => response.ID)
     );
   }
 
-  generateSuggestion(text: string, model: string): Observable<SuggestionInterface[]> {
-    return this.http.post<SuggestionInterface[]>(`${this.apiUrl}/predictions`, {
-      text,
-      model,
+  generateSuggestion(text: string, model_id: string): Observable<SuggestionInterface[]> {
+    return this.http.get<SuggestionInterface[]>(`${this.apiUrl}/predictions/`, {
+      params: { text, model_id },
+      responseType: 'json'
     });
   }
 }
@@ -35,6 +35,7 @@ export class ApiService {
 export type modelType = BERTModelInterface | NgramsModelInterface;
 
 export interface BERTModelInterface {
+  _id: string; // ID del modello
   MODEL: string; // Nome del modello BERT da utilizzare
   TOKENIZER: string; // Nome del tokenizer da utilizzare
   K_PRED: number; // Numero di predizioni che restituisce il modello
@@ -42,6 +43,7 @@ export interface BERTModelInterface {
 }
 
 export interface NgramsModelInterface {
+  _id: string; // ID del modello
   LM_SCORE: string;
   GAMMA: number | null;
   MIN_FREQ: number;

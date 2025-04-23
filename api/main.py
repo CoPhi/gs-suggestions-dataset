@@ -6,7 +6,7 @@ app = FastAPI(title="gs-api", version="0.1.0")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], #Da cambiare con "http://localhost:4200" e porta usata da Angular
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

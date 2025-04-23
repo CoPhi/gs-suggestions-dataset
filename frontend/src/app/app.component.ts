@@ -4,10 +4,12 @@ import { Signal } from '@angular/core';
 import { ApiService, modelType } from './services/api.service';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { ModelComponent } from './components/model/model.component';
+import { CreateModelBoxComponent } from './components/create-model-box/create-model-box.component';
+import { SuggestsBoxComponent } from './components/suggests-box/suggests-box.component';
 
 @Component({
   selector: 'app-root',
-  imports: [ModelComponent],
+  imports: [ModelComponent, CreateModelBoxComponent, SuggestsBoxComponent],
   templateUrl: './app.component.html',
   styleUrl: './app.component.css'
 })
