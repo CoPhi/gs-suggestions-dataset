@@ -8,7 +8,7 @@ import { toSignal } from '@angular/core/rxjs-interop';
 })
 export class ApiService {
 
-  private apiUrl = 'http://localhost:8000'; // base URL dell'API FastAPI
+  private apiUrl = 'http://127.0.0.1:8000'; // base URL dell'API FastAPI
 
   constructor(private http: HttpClient) {}
 
@@ -24,9 +24,9 @@ export class ApiService {
     );
   }
 
-  generateSuggestion(text: string, model_id: string): Observable<SuggestionInterface[]> {
+  generateSuggestion(model_id: string, context: string ): Observable<SuggestionInterface[]> {
     return this.http.get<SuggestionInterface[]>(`${this.apiUrl}/predictions/`, {
-      params: { text, model_id },
+      params: { model_id, context },
       responseType: 'json'
     });
   }

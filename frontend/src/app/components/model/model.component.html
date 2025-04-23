@@ -1,41 +1,51 @@
 @if (isBERT()) {
-    <div class="model-card bg-gray-50 border border-gray-200 rounded-lg p-4 transition-all duration-200">
-      <div class="flex justify-between items-start">
-        <div>
-          <h4 class="font-medium text-gray-800">Modello BERT</h4>
-          <p class="text-sm text-gray-500">Creato: 15/06/2023</p>
-          <button [cdkCopyToClipboard]="id()" ></button>
-        </div>
-        <span class="bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full">Attivo</span>
+<div class="col-md-6 mb-4">
+  <div class="card model-card h-100">
+    <div class="card-body">
+      <div class="d-flex justify-content-between align-items-start mb-3">
+        <h5 class="card-title mb-0">BERT</h5>
+        <button (click)="showCopy($event)" class="btn btn-sm btn-outline-primary copy-model-id" [cdkCopyToClipboard]="id()">
+          <i class="bi bi-clipboard"></i> Copia ID
+        </button>
       </div>
-      <div class="mt-2 text-sm text-gray-600">
-        <p>Tipo: BERT</p>
-        <p>Checkpoint: {{ bertmodel().MODEL }}</p>
-        <p>Numero di predizioni: {{ bertmodel().K_PRED }}</p>
-      </div>
+      <h6 class="card-subtitle mb-2 text-muted">ID: <code>${{ id() }}</code></h6>
+      <p class="card-text">Modello BERT</p>
+      <ul class="list-group list-group-flush mb-3">
+        <li class="list-group-item"><strong>Tipo:</strong> BERT</li>
+        <li class="list-group-item"><strong>Checkpoint:</strong> {{ bertmodel().MODEL }} </li>
+        <li class="list-group-item"><strong>Numero di predizioni:</strong> {{ bertmodel().K_PRED }}</li>
+      </ul>
     </div>
-  }
-  @else{
-    <div class="model-card bg-gray-50 border border-gray-200 rounded-lg p-4 transition-all duration-200">
-      <div class="flex justify-between items-start">
-        <div>
-          <h4 class="font-medium text-gray-800">Modello N-grammi</h4>
-          <p class="text-sm text-gray-500">Creato: 10/07/2023</p>
-          <button [cdkCopyToClipboard]="id()" ></button>
-        </div>
-        <span class="bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full">Attivo</span>
+  </div>
+</div>
+}
+@else{
+<div class="col-md-6 mb-4">
+  <div class="card model-card h-100">
+    <div class="card-body">
+      <div class="d-flex justify-content-between align-items-start mb-3">
+        <h5 class="card-title mb-0">N-grammi</h5>
+        <button class="btn btn-sm btn-outline-primary copy-model-id" [cdkCopyToClipboard]="id()">
+          <i class="bi bi-clipboard"></i> Copia ID
+        </button>
       </div>
-      <div class="mt-2 text-sm text-gray-600">
-        <p>Tipo: N-grammi</p>
+      <h6 class="card-subtitle mb-2 text-muted">ID: <code>${{ id() }}</code></h6>
+      <p class="card-text">Modello N-grammi</p>
+      <ul class="list-group list-group-flush mb-3">
+        <li class="list-group-item"><strong>Tipo:</strong> Ngrams</li>
         @if (ngramsmodel().LM_SCORE == "LIDSTONE") {
-          <p>Tecnica: {{ ngramsmodel().LM_SCORE }} (Gamma = {{ ngramsmodel().GAMMA }})</p>
+        <li class="list-group-item"><strong>Tipo di score:</strong> {{ ngramsmodel().LM_SCORE }} ( Gamma: {{
+          ngramsmodel().GAMMA }}) </li>
         }
         @else {
-          <p>Tecnica: {{ ngramsmodel().LM_SCORE }}</p>
+        <li class="list-group-item"><strong>Tipo di score:</strong> {{ ngramsmodel().LM_SCORE }} </li>
         }
-        <p>Frequenza minima token: {{ ngramsmodel().MIN_FREQ }}</p>
-        <p>Dimensione test set: {{ ngramsmodel().TEST_SIZE }}</p>
-        <p>Numero di predizioni: {{ ngramsmodel().K_PRED }}</p>
-      </div>
+        <li class="list-group-item"><strong>Frequenza minima in vocabolario:</strong> {{ ngramsmodel().MIN_FREQ }}</li>
+        <li class="list-group-item"><strong>Dimensione del test set:</strong> {{ ngramsmodel().TEST_SIZE * 100 }}%</li>
+        <li class="list-group-item"><strong>Dimensionalità del modello (N-grammi):</strong> {{ ngramsmodel().N }}</li>
+        <li class="list-group-item"><strong>Numero di predizioni:</strong> {{ ngramsmodel().K_PRED }}</li>
+      </ul>
     </div>
-  }
+  </div>
+</div>
+}
