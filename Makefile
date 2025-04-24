@@ -4,7 +4,7 @@ CONTAINER_NAME := gabrielegiannessi/gs-api
 
 train: 
 	poetry run python -m train.training
-
+	
 eval: 
 	poetry run python -m eval.KFold
 	

@@ -67,13 +67,13 @@ def train_lm(
     train_ngrams, vocab_tokens = padded_everygram_pipeline(
         order=n, text=get_sentences(abs=train_abs)
     )
-
+    
     filtered_vocab = Vocabulary(
         vocab_tokens,
         unk_cutoff=min_freq,
     )
-    
-    lm.vocab = filtered_vocab #Assegno il vocabolario filtrato al modello
+
+    lm.vocab = filtered_vocab  # Assegno il vocabolario filtrato al modello
 
     lm.fit(
         train_ngrams,

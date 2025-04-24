@@ -2,6 +2,7 @@ import heapq
 import re
 from math import inf, log
 from tqdm import tqdm
+from metrics import FALLBACK_LOSS
 from nltk.lm.models import LanguageModel
 from nltk.lm.preprocessing import pad_both_ends, flatten
 from nltk.metrics.distance import edit_distance
@@ -72,6 +73,7 @@ def loss(
 ) -> float:
     """
     Funzione di perdita usata nella local beam search.
+    Tale implementazione fa riferimento alla metrica NLL (Negative Log Likelihood) normalizzata per la lunghezza della frase complessiva (contesto + generazione).
 
     Args:
         lm (LanguageModel): Modello di linguaggio utilizzato.
@@ -118,7 +120,7 @@ def loss(
 
     if lm_type == "MLE":
         return (
-            -total_log_prob if total_log_prob != -inf else 100
+            -(total_log_prob / len(generated_seq)) if total_log_prob != -inf else FALLBACK_LOSS
         )  # Si aggiunge un valore di fallback nel caso in cui le parole della sequenza non siano presenti nel modello
 
     return -total_log_prob
@@ -258,7 +260,7 @@ def get_successors(
                 candidate[0] + [w],
                 loss(
                     lm,
-                    lm.vocab.lookup(context[(1 - n) :]),
+                    lm.vocab.lookup(context[(1 - n):]),
                     candidate[0] + [w],
                 ),
             )

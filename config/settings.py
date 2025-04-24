@@ -14,8 +14,8 @@ INDENT = 0  # indentazione
 # Iperparametri per il modello
 LM_TYPE = "LIDSTONE"  # Tipo di Language Model
 GAMMA = 0.001  # k-smoothing
-K_PRED = 20  # Numero delle predizioni che il modello deve fare nella funzione di accuracy (da poi confrontare con la gold label)
-BATCH_SIZE = 64  # Dimensione del batch
+K_PRED = 20  # Numero delle predizioni del modello 
+BATCH_SIZE = 64  # Dimensione del batch per il calcolo dell'accuracy
 DATA_PATH = Path("data/")  # Percorso al dataset
 TEST_SIZE = 0.05  # Percentuale di dati di test
 MIN_FREQ = 3  # Frequenza minima per i token dentro il modello

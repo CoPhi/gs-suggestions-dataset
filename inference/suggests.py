@@ -1,8 +1,9 @@
 import argparse
+from math import exp
 
 from nltk.lm.models import LanguageModel
 
-from metrics.accuracy import get_context, get_best_K_predictions_from_context
+from metrics.accuracy import get_context, get_best_K_predictions_from_context, loss
 from config.settings import N, K_PRED, LM_TYPE
 from train import load_lm
 
@@ -34,11 +35,12 @@ def generate_k_suggests(
     if not lm:
         raise ValueError("Il modello non è stato caricato correttamente.")
 
-    return [
-        " ".join(pred).lower()
-        for pred in get_best_K_predictions_from_context(
+
+    context = get_context(context, n=n, case_folding=True)
+
+    predictions = get_best_K_predictions_from_context(
             lm=lm,
-            context=get_context(context, n=n, case_folding=True),
+            context=context,
             lm_type=lm_type,
             len_suppl_words=num_tokens, 
             n=n,
@@ -47,6 +49,10 @@ def generate_k_suggests(
             alpha=1,
             beta=0,
         )
+    
+    return [
+        (" ".join(pred).lower(),  exp(- loss(lm, lm.vocab.lookup(context[(1 - n):]), pred)))
+        for pred in predictions 
     ]
 
 

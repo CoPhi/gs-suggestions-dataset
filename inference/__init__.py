@@ -1,1 +1,1 @@
-from .suggests import *
+from .suggests import generate_k_suggests

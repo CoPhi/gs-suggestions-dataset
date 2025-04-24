@@ -375,9 +375,9 @@ async def get_predictions(
             left_context = LEFT_CONTEXT_PATTERN.sub("[", context).split("[")[0]
             predictions = [
                 {
-                    "sentence": left_context + suggestion,
-                    "token_str": suggestion,
-                    "score": 0,
+                    "sentence": left_context + suggestion[0],
+                    "token_str": suggestion[0],
+                    "score": suggestion[1],
                 }
                 for suggestion in generate_k_suggests(
                     lm=decompressed_model,
@@ -394,7 +394,6 @@ async def get_predictions(
             )
 
         elif dict_model["TYPE"] == "BERT":
-            print("prelievo del modello ")
             model_filename = dict_model["MODEL_FILE_ID"]
             tokenizer_filename = dict_model["TOKENIZER_FILE_ID"]
             model_document = fs.find_one({"filename": model_filename})
@@ -409,7 +408,6 @@ async def get_predictions(
             decompressed_tokenizer = pickle.loads(
                 zlib.decompress(tokenizer_file.read())
             )
-            print("prelievo del modello completato")
 
             predictions = [
                 {"token_str": suggestion[0], "score": suggestion[1]}
