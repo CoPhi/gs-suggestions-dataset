@@ -19,16 +19,18 @@ export class ApiService {
   }
 
   createModel(data: modelType): Observable<string> {
-    return this.http.post<{ ID: string }>(`${this.apiUrl}/model/`, data).pipe(
+    return this.http.post<{ ID: string }>(`${this.apiUrl}/model`, data).pipe(
       map(response => response.ID)
     );
   }
 
-  generateSuggestion(model_id: string, context: string ): Observable<SuggestionInterface[]> {
-    return this.http.get<SuggestionInterface[]>(`${this.apiUrl}/predictions/`, {
-      params: { model_id, context },
+  generateSuggestion(model_id: string, context: string, num_tokens: number ): Observable<SuggestionInterface[]> {
+    return this.http.get< {predictions : SuggestionInterface[]}>(`${this.apiUrl}/predictions`, {
+      params: { model_id, context, num_tokens },
       responseType: 'json'
-    });
+    }).pipe(
+      map(response => response.predictions)
+    );
   }
 }
 
@@ -55,6 +57,7 @@ export interface NgramsModelInterface {
 }
 
 export interface SuggestionInterface {
-  text: string; // Testo suggerito
+  sentence: string
+  token_str: string; // token suggerito
   score: number; // Punteggio del suggerimento
 }

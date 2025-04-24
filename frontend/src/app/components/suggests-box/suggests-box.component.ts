@@ -1,12 +1,12 @@
-import { Component, inject, input, model } from '@angular/core';
-import { setThrowInvalidWriteToSignalError } from '@angular/core/primitives/signals';
+import { Component, effect, inject, input, signal } from '@angular/core';
 import { AbstractControl, FormControl, FormGroup, ReactiveFormsModule, ValidationErrors, Validators } from '@angular/forms';
-import { ApiService, modelType } from '../../services/api.service';
+import { ApiService, modelType, SuggestionInterface } from '../../services/api.service';
 import { ModelComponent } from '../model/model.component';
+import { SuggestComponent } from '../suggest/suggest.component';
 
 @Component({
   selector: 'app-suggests-box',
-  imports: [ReactiveFormsModule, ModelComponent],
+  imports: [ReactiveFormsModule, ModelComponent, SuggestComponent],
   templateUrl: './suggests-box.component.html',
   styleUrl: './suggests-box.component.css'
 })
@@ -14,6 +14,10 @@ export class SuggestsBoxComponent {
 
   api = inject(ApiService);
   models = input.required<modelType[]>()
+
+  suggestions = signal<SuggestionInterface[]>([]);
+
+  debug = effect(() => {console.log('suggestions:', this.suggestions())});
 
   isContextValid = (c: AbstractControl): ValidationErrors | null => {
     if (!c.value) return { notvalid: true };
@@ -41,10 +45,10 @@ export class SuggestsBoxComponent {
 
   toggleSpinner() {
     const spinner = <HTMLElement>document.querySelector('#loadingSpinner');
-    if (spinner.style.display === 'none') {
-      spinner.style.display = 'block';
+    if (spinner.classList.contains('d-none')) {
+      spinner.classList.remove('d-none')
     } else {
-      spinner.style.display = 'none';
+      spinner.classList.add('d-none')
     }
   }
 
@@ -115,15 +119,17 @@ export class SuggestsBoxComponent {
 
     this.toggleSpinner();
 
-    this.api.generateSuggestion(modelID!, text!).subscribe({
+    // default di num_tokens a 1
+    this.api.generateSuggestion(modelID!, text!, 1).subscribe({
       next: (response) => {
-        console.log(response);
+        this.suggestions.set(response);
         this.showAlert('Suggerimenti generati con successo', 'success');
         this.clearForm();
       },
       error: (error: any) => {
         console.error('Errore:', error);
         this.showAlert('Errore durante la generazione dei suggerimenti', 'danger');
+        this.toggleSpinner();
       },
       complete: () => {
         this.toggleSpinner();

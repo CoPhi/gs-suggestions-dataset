@@ -394,6 +394,7 @@ async def get_predictions(
             )
 
         elif dict_model["TYPE"] == "BERT":
+            print("prelievo del modello ")
             model_filename = dict_model["MODEL_FILE_ID"]
             tokenizer_filename = dict_model["TOKENIZER_FILE_ID"]
             model_document = fs.find_one({"filename": model_filename})
@@ -408,13 +409,14 @@ async def get_predictions(
             decompressed_tokenizer = pickle.loads(
                 zlib.decompress(tokenizer_file.read())
             )
+            print("prelievo del modello completato")
 
             predictions = [
                 {"token_str": suggestion[0], "score": suggestion[1]}
                 for suggestion in hcb_beam_search(
                     decompressed_model,
                     decompressed_tokenizer,
-                    convert_lacuna_to_masks(context, decompressed_tokenizer),
+                    convert_lacuna_to_masks(context),
                 )
             ]
 
