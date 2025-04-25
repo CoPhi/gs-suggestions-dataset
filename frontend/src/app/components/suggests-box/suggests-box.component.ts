@@ -29,14 +29,13 @@ export class SuggestsBoxComponent {
         validators: [Validators.required, Validators.minLength(24),
         Validators.maxLength(24)]
       }),
-      num_tokens: new FormControl<number>(1, { validators: [Validators.required, Validators.min(1), Validators.max(10)] })
+      num_tokens: new FormControl<number>(1, { validators: [Validators.min(1), Validators.max(10)] })
     })
   }
 
   setCurrentID($event: Event) {
     const target = $event.target as HTMLInputElement;
-    const modelID = target.value;
-    this.curr_id.set(modelID);
+    this.curr_id.set(target.value);
   }
 
   isContextValid = (c: AbstractControl): ValidationErrors | null => {
@@ -90,8 +89,6 @@ export class SuggestsBoxComponent {
   }
   generateSuggestions() {
     this.form.markAllAsTouched(); // forza la validazione
-    this.form.updateValueAndValidity(); // aggiorna tutti i validator
-  
     if (this.form.invalid) {
       const textErrors = this.form.controls['text'].errors;
       const modelErrors = this.form.controls['modelID'].errors;
@@ -136,7 +133,6 @@ export class SuggestsBoxComponent {
     }
   
     const { text, modelID, num_tokens } = this.form.getRawValue();
-  
     this.toggleSpinner();
   
     this.api.generateSuggestion(modelID!, text!, num_tokens!).subscribe({
@@ -155,5 +151,4 @@ export class SuggestsBoxComponent {
       }
     });
   }
-
 }

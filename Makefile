@@ -1,20 +1,23 @@
 VERSION := $(shell poetry version | cut -d ' ' -f 2)
-CONTAINER_NAME := gabrielegiannessi/gs-api
-
+API_CONTAINER_NAME := gabrielegiannessi/gs-api
+FRONTEND_CONTAINER_NAME := gabrielegiannessi/gs-frontend
 
 train: 
 	poetry run python -m train.training
-	
 eval: 
-	poetry run python -m eval.KFold
-	
+	poetry run python -m eval.KFold	
 requirements:
 	poetry export -f requirements.txt -o requirements.txt --without-hashes
-
 container: requirements
-	docker build -t $(CONTAINER_NAME):$(VERSION) -t $(CONTAINER_NAME):latest .
-
+	docker compose up --build
 .PHONY: requirements container 
-
 run: 
-	docker run -p 8000:8000 $(CONTAINER_NAME):$(VERSION)
+	docker compose up
+tag-api:
+	docker tag $(API_CONTAINER_NAME):latest	 $(API_CONTAINER_NAME):$(VERSION)	
+tag-frontend:
+	docker tag $(FRONTEND_CONTAINER_NAME):latest $(FRONTEND_CONTAINER_NAME):$(VERSION)
+push-api:
+	docker push $(API_CONTAINER_NAME):$(VERSION)
+push-frontend:
+	docker push $(FRONTEND_CONTAINER_NAME):$(VERSION)

@@ -32,7 +32,7 @@ def push_testset_to_huggingface_hub(dataset: DatasetDict, message: str) -> None:
 
 
 def push_set_to_huggingface_hub(dataset: DatasetDict, message: str) -> None:
-    dataset.push_to_hub("GabrieleGiannessi/maat-corpus", commit_message=message)
+    dataset.push_to_hub("CNR-ILC/gs-maat-corpus", commit_message=message)
 
 
 def main():
@@ -46,7 +46,7 @@ def main():
         }
     )
 
-    push_set_to_huggingface_hub(dataset, "New split fill-mask task, without labels")
+    push_set_to_huggingface_hub(dataset, "Unlabeled ancient greek sentences for fill-mask task")
 
 if __name__ == "__main__":
     main()

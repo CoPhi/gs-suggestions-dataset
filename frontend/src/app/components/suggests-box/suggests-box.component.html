@@ -1,11 +1,13 @@
 <!-- Toast per la notifica di copia -->
 <div class="toast-container">
-    <div class="toast align-items-center text-white bg-success" id="copyToast" role="alert" aria-live="assertive" aria-atomic="true">
+    <div class="toast align-items-center text-white bg-success" id="copyToast" role="alert" aria-live="assertive"
+        aria-atomic="true">
         <div class="d-flex">
             <div class="toast-body">
                 <i class="fas fa-check-circle me-2"></i> Suggerimento copiato negli appunti!
             </div>
-            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"
+                aria-label="Close"></button>
         </div>
     </div>
 </div>
@@ -29,8 +31,8 @@
                     <div class="mb-4">
                         <label for="modelId" class="form-label fw-bold">ID Modello</label>
                         <div class="input-group">
-                            <input type="text" class="form-control" formControlName="modelID" (input)="setCurrentID($event)" id="modelId"
-                                placeholder="Inserisci l'ID del modello">
+                            <input type="text" class="form-control" formControlName="modelID"
+                                (input)="setCurrentID($event)" id="modelId" placeholder="Inserisci l'ID del modello">
                             <button class="btn btn-outline-secondary" type="button" id="showModelsBtn"
                                 (click)="toggleModels()">
                                 <i class="bi bi-collection"></i> Mostra Modelli
@@ -38,13 +40,13 @@
                         </div>
                     </div>
                     @if (curr_type_model() !== 'BERT') {
-                        <div class="mb-4">
-                            <label for="modelId" class="form-label fw-bold">Numero di token</label>
-                            <div class="input-group">
-                                <input type="number" class="form-control" formControlName="modelID" id="modelId"
-                                    placeholder="Inserisci il numero di token da generare">
-                            </div>
+                    <div class="mb-4">
+                        <label for="num_tokens" class="form-label fw-bold">Numero di token</label>
+                        <div class="input-group">
+                            <input type="number" class="form-control" formControlName="num_tokens" id="num_tokens"
+                                placeholder="Inserisci il numero di token da generare">
                         </div>
+                    </div>
                     }
 
                     <div class="d-flex justify-content-between align-items-center mb-3">
@@ -67,48 +69,47 @@
                 </div>
             </div>
 
-                    <div class="alert alert-info" id="previewArea" style="display: none;">
-                        <strong>Anteprima richiesta:</strong>
-                        <div class="mt-2 text-with-gap" id="previewText"></div>
-                        <div class="mt-2"><strong>Modello:</strong> <span id="previewModel"></span></div>
-                    </div>
-                </div>
+            <div class="alert alert-info" id="previewArea" style="display: none;">
+                <strong>Anteprima richiesta:</strong>
+                <div class="mt-2 text-with-gap" id="previewText"></div>
+                <div class="mt-2"><strong>Modello:</strong> <span id="previewModel"></span></div>
             </div>
-
-            <div class="card shadow-sm mb-5" id="modelsCard" style="display: none;">
-                <div class="card-header bg-success text-white">
-                    <h3 class="h5 mb-0">Modelli Disponibili</h3>
-                </div>
-                <div class="card-body">
-                    <div class="row" id="modelsContainer">
-                        @for (model of models(); track $index) {
-                        <app-model [model]="model"></app-model>
-                        }
-                    </div>
-                </div>
-            </div>
-
-
-            @if (suggestions().length > 0) {
-            <div class="card rounded-4 shadow" id="resultsCard">
-                <div class="card-header rounded-top-4 bg-info text-white">
-                    <h3 class="h5 mb-0"><i class="bi bi-lightbulb-fill"></i> Suggerimenti generati</h3>
-                </div>
-                <div class="card-body">
-                    <div class="mb-3">
-                        <h4 class="h6 text-muted">Fai doppio click <i class="bi bi-hand-index"></i> per copiare il
-                            suggerimento selezionato sugli appunti</h4>
-                        <p class="text-with-gap" id="originalTextDisplay"></p>
-                    </div>
-
-                    <h4 class="h5 mb-3">Risultati:</h4>
-                    <div class="list-group" id="suggestionsList">
-                        @for (suggest of suggestions(); track $index) {
-                        <app-suggest [suggest]="suggest" />
-                        }
-                    </div>
-                </div>
-            </div>
-            }
         </div>
-    
+    </div>
+
+    <div class="card shadow-sm mb-5" id="modelsCard" style="display: none;">
+        <div class="card-header bg-success text-white">
+            <h3 class="h5 mb-0">Modelli Disponibili</h3>
+        </div>
+        <div class="card-body">
+            <div class="row row-cols-1 row-cols-sm-2 row-cols-md-4 gy-3" id="modelsContainer">
+                @for (model of models(); track $index) {
+                <app-model [model]="model"></app-model>
+                }
+            </div>
+        </div>
+    </div>
+
+
+    @if (suggestions().length > 0) {
+    <div class="card rounded-4 shadow" id="resultsCard">
+        <div class="card-header rounded-top-4 bg-info text-white">
+            <h3 class="h5 mb-0"><i class="bi bi-lightbulb-fill"></i> Suggerimenti generati</h3>
+        </div>
+        <div class="card-body">
+            <div class="mb-3">
+                <h4 class="h6 text-muted">Fai doppio click <i class="bi bi-hand-index"></i> per copiare il
+                    suggerimento selezionato sugli appunti</h4>
+                <p class="text-with-gap" id="originalTextDisplay"></p>
+            </div>
+
+            <h4 class="h5 mb-3">Risultati:</h4>
+            <div class="list-group" id="suggestionsList">
+                @for (suggest of suggestions(); track $index) {
+                <app-suggest [suggest]="suggest" />
+                }
+            </div>
+        </div>
+    </div>
+    }
+</div>
