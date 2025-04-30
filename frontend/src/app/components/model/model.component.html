@@ -13,7 +13,6 @@
       <ul class="list-group list-group-flush mb-3">
         <li class="list-group-item"><strong>Tipo:</strong> BERT</li>
         <li class="list-group-item"><strong>Checkpoint:</strong> {{ bertmodel().MODEL }} </li>
-        <li class="list-group-item"><strong>Numero di predizioni:</strong> {{ bertmodel().K_PRED }}</li>
       </ul>
     </div>
   </div>
@@ -41,9 +40,7 @@
         <li class="list-group-item"><strong>Tipo di score:</strong> {{ ngramsmodel().LM_SCORE }} </li>
         }
         <li class="list-group-item"><strong>Frequenza minima in vocabolario:</strong> {{ ngramsmodel().MIN_FREQ }}</li>
-        <li class="list-group-item"><strong>Dimensione del test set:</strong> {{ ngramsmodel().TEST_SIZE * 100 }}%</li>
         <li class="list-group-item"><strong>Dimensionalità del modello (N-grammi):</strong> {{ ngramsmodel().N }}</li>
-        <li class="list-group-item"><strong>Numero di predizioni:</strong> {{ ngramsmodel().K_PRED }}</li>
       </ul>
     </div>
   </div>

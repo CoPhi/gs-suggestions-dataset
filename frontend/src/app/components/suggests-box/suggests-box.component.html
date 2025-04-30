@@ -21,6 +21,7 @@
                     <h2 class="h4 mb-0">Generatore di Suggerimenti</h2>
                 </div>
                 <div class="card-body">
+                    <!-- Campo di testo per inserire la sequenza con la lacuna  -->
                     <div class="mb-4">
                         <label for="inputText" class="form-label fw-bold">Testo con lacuna</label>
                         <textarea class="form-control" id="inputText" formControlName="text" rows="3"
@@ -28,6 +29,7 @@
                         <div class="form-text">Usa [...] per indicare la lacuna da completare</div>
                     </div>
 
+                    <!-- Modelli disponibili -->
                     <div class="mb-4">
                         <label for="modelId" class="form-label fw-bold">ID Modello</label>
                         <div class="input-group">
@@ -39,18 +41,34 @@
                             </button>
                         </div>
                     </div>
+
+                    <!-- Numero di predizioni -->
+                    <div class="mb-4">
+                        <label for="num_predictions" class="form-label fw-bold">Numero di predizioni</label>
+                        <div class="input-group">
+                            <select class="form-select" formControlName="num_predictions" id="num_predictions"
+                                placeholder="Inserisci il numero di predizioni da generare">
+                                <option value="1" selected>1</option>
+                                <option value="5">5</option>
+                                <option value="10">10</option>
+                                <option value="20">20</option>
+                        </select>
+                        </div>
+                    </div>
+
+                    <!-- Numero di token -->
                     @if (curr_type_model() !== 'BERT') {
                     <div class="mb-4">
                         <label for="num_tokens" class="form-label fw-bold">Numero di token</label>
                         <div class="input-group">
                             <input type="number" class="form-control" formControlName="num_tokens" id="num_tokens"
-                                placeholder="Inserisci il numero di token da generare">
+                                placeholder="Inserisci il numero di token da generare per ogni predizione">
                         </div>
                     </div>
                     }
 
                     <div class="d-flex justify-content-between align-items-center mb-3">
-                        <button class="btn btn-primary" (click)="generateSuggestions()" id="generateBtn">
+                        <button class="btn btn-primary" (click)="generateSuggestions()" id="generateBtn" [disabled]="this.isGenerating()">
                             <i class="bi bi-magic"></i> Genera Suggerimenti
                         </button>
                         <div>

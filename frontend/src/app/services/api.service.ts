@@ -24,9 +24,9 @@ export class ApiService {
     );
   }
 
-  generateSuggestion(model_id: string, context: string, num_tokens: number ): Observable<SuggestionInterface[]> {
+  generateSuggestion(model_id: string, context: string, num_tokens: number, num_predictions: number ): Observable<SuggestionInterface[]> {
     return this.http.get< {predictions : SuggestionInterface[]}>(`${this.apiUrl}/predictions`, {
-      params: { model_id, context, num_tokens },
+      params: { model_id, context, num_tokens, num_predictions },
       responseType: 'json'
     }).pipe(
       map(response => response.predictions)
@@ -40,7 +40,6 @@ export interface BERTModelInterface {
   _id: string; // ID del modello
   MODEL: string; // Nome del modello BERT da utilizzare
   TOKENIZER: string; // Nome del tokenizer da utilizzare
-  K_PRED: number; // Numero di predizioni che restituisce il modello
   TYPE: "BERT"; // Tipo di modello
 }
 
@@ -49,8 +48,6 @@ export interface NgramsModelInterface {
   LM_SCORE: string;
   GAMMA: number | null;
   MIN_FREQ: number;
-  K_PRED: number;
-  TEST_SIZE: number;
   N: number;
   CORPUS_NAMES: string[];
   TYPE: "Ngrams";

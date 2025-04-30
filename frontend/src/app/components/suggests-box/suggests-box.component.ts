@@ -11,6 +11,7 @@ import { SuggestComponent } from '../suggest/suggest.component';
   styleUrl: './suggests-box.component.css'
 })
 export class SuggestsBoxComponent {
+
   api = inject(ApiService);
   models = input.required<modelType[]>()
   form: FormGroup;
@@ -21,6 +22,7 @@ export class SuggestsBoxComponent {
     return this.curr_id() ? this.models().find((model) => model._id === this.curr_id()) || null : null;
   });
   curr_type_model = computed(() => this.selectedModel()?.TYPE)
+  isGenerating =  signal<boolean>(false);
 
   constructor() {
     this.form = new FormGroup({
@@ -29,7 +31,8 @@ export class SuggestsBoxComponent {
         validators: [Validators.required, Validators.minLength(24),
         Validators.maxLength(24)]
       }),
-      num_tokens: new FormControl<number>(1, { validators: [Validators.min(1), Validators.max(10)] })
+      num_tokens: new FormControl<number>(1, { validators: [Validators.min(1), Validators.max(10)] }), 
+      num_predictions: new FormControl<number>(1, { validators: [Validators.required]} )
     })
   }
 
@@ -37,6 +40,11 @@ export class SuggestsBoxComponent {
     const target = $event.target as HTMLInputElement;
     this.curr_id.set(target.value);
   }
+
+  setNumPredictions($event: Event) {
+    const target = $event.target as HTMLInputElement;
+    console.log(target.value);
+    }
 
   isContextValid = (c: AbstractControl): ValidationErrors | null => {
     if (!c.value) return { notvalid: true };
@@ -131,19 +139,20 @@ export class SuggestsBoxComponent {
   
       return;
     }
-  
-    const { text, modelID, num_tokens } = this.form.getRawValue();
+    this.isGenerating.set(true);
+    const { text, modelID, num_tokens, num_predictions } = this.form.getRawValue();
     this.toggleSpinner();
   
-    this.api.generateSuggestion(modelID!, text!, num_tokens!).subscribe({
+    this.api.generateSuggestion(modelID, text, num_tokens, Number(num_predictions)).subscribe({
       next: (response) => {
         this.suggestions.set(response);
         this.showAlert('Suggerimenti generati con successo', 'success');
-        this.clearForm();
+        this.isGenerating.set(false);
       },
       error: (error: any) => {
         console.error('Errore:', error);
         this.showAlert('Errore durante la generazione dei suggerimenti', 'danger');
+        this.isGenerating.set(false);
         this.toggleSpinner();
       },
       complete: () => {
