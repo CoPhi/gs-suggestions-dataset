@@ -3,18 +3,27 @@ from fastapi.responses import JSONResponse
 from fastapi.templating import Jinja2Templates
 from api.schema import serial_model
 from api.database import collection, fs
-from api.models import NgramModel, BERTModel, Model
+from api.models import NgramModel, BERTModel, Model, PredictionCount
 from api import LEFT_CONTEXT_PATTERN
 from bson import ObjectId
-from train.training import pipeline_train
+from train.training import pipeline_train, train_lm
+from train import load_abs
 from inference import generate_k_suggests
 from finetuning import hcb_beam_search, convert_lacuna_to_masks
-from config.settings import K_PREDICTIONS, LM_TYPES, GAMMA, TEST_SIZE, N, MIN_FREQ, BERT_CHECKPOINTS
+from config.settings import (
+    K_PREDICTIONS,
+    LM_TYPES,
+    GAMMA,
+    N,
+    MIN_FREQ,
+    BERT_CHECKPOINTS,
+)
 import pickle
 import zlib
 from uuid import uuid4
-from typing import Annotated, Optional
+from typing import Annotated, Literal, Optional
 from transformers import AutoModelForMaskedLM, AutoTokenizer
+from fastapi.responses import RedirectResponse
 
 
 def save_to_gridfs(data, file_id=None):
@@ -24,17 +33,14 @@ def save_to_gridfs(data, file_id=None):
     fs.put(compressed_data, filename=filename)
     return filename
 
+
 router = APIRouter()
-templates = Jinja2Templates(directory="api/templates")
-API_BASE = "http://localhost:8000" 
+
 
 @router.get("/", include_in_schema=False)
-async def root(request: Request):
-    return templates.TemplateResponse(
-        request=request, 
-        name="index.html",
-        context={"models": [serial_model(str(model["_id"])) for model in collection.find()]},
-    )
+async def root():
+    return RedirectResponse(url="/docs")
+
 
 @router.get(
     "/model/{id}",
@@ -50,8 +56,6 @@ async def root(request: Request):
                                 "LM_SCORE": "string",
                                 "GAMMA": "float | None",
                                 "MIN_FREQ": "float",
-                                "K_PRED": "float",
-                                "TEST_SIZE": "float",
                                 "N": 3,
                                 "CORPUS_NAMES": "list[string] | None",
                                 "MODEL_FILE_ID": "string",
@@ -97,8 +101,6 @@ async def get_model(id: Annotated[str, Path(title="ID", description="ID del mode
                                 "LM_SCORE": "string",
                                 "GAMMA": "float | None",
                                 "MIN_FREQ": "float",
-                                "K_PRED": "float",
-                                "TEST_SIZE": "float",
                                 "N": 3,
                                 "CORPUS_NAMES": "list[string] | None",
                                 "MODEL_FILE_ID": "string",
@@ -162,8 +164,6 @@ async def create_model(
                     "description": "Parametri di esempio per la creazione di un modello linguistico che usa MLE.",
                     "value": {
                         "LM_SCORE": "MLE",
-                        "K_PRED": 10,
-                        "TEST_SIZE": 0.05,
                         "MIN_FREQ": 3,
                         "N": 3,
                         "TYPE": "Ngrams",
@@ -174,9 +174,7 @@ async def create_model(
                     "description": "Parametri di esempio per la creazione di un modello linguistico che usa Lidstone.",
                     "value": {
                         "LM_SCORE": "LIDSTONE",
-                        "K_PRED": 10,
                         "GAMMA": 0.1,
-                        "TEST_SIZE": 0.05,
                         "MIN_FREQ": 3,
                         "N": 3,
                         "TYPE": "Ngrams",
@@ -200,10 +198,6 @@ async def create_model(
         case NgramModel():
             try:
                 model_dict = dict(model)
-                if model_dict["K_PRED"] not in K_PREDICTIONS:
-                    return JSONResponse(
-                        status_code=400, content={"detail": "Invalid K_PRED value"}
-                    )
 
                 if collection.find_one(model_dict):
                     return JSONResponse(
@@ -211,15 +205,17 @@ async def create_model(
                         content={"detail": "Model already exist in db"},
                     )
 
-                ngram_model, _ = pipeline_train(
-                    lm_type=model_dict["LM_SCORE"],
-                    gamma=model_dict["GAMMA"],
-                    min_freq=model_dict["MIN_FREQ"],
-                    test_size=model_dict["TEST_SIZE"],
-                    n=model_dict["N"],
-                    corpus_set=model_dict["CORPUS_NAMES"],
-                )
+                abs = load_abs(
+                    corpus_set=model_dict["CORPUS_NAMES"]
+                )  # Carico i blocchi anonimi di default
 
+                ngram_model = train_lm(
+                    train_abs=abs,
+                    lm_type=model_dict["LM_SCORE"],
+                    min_freq=model_dict["MIN_FREQ"],
+                    gamma=model_dict["GAMMA"],
+                    n=model_dict["N"],
+                )
                 model_dict["MODEL_FILE_ID"] = save_to_gridfs(ngram_model)
                 model_id = collection.insert_one(model_dict).inserted_id
                 return JSONResponse(status_code=201, content={"ID": str(model_id)})
@@ -268,15 +264,15 @@ async def create_model(
 )
 async def create_models():
     ids = []
-    
-    #Ngrams models
-    for lm_score, K_pred in zip(LM_TYPES, K_PREDICTIONS):
+
+    # Ngrams models
+    abs = load_abs()  # Carico i blocchi anonimi di default
+    # Selezione migliori iperparametri tramite BO (WIP)
+    for lm_score in LM_TYPES:
         try:
             model_dict = {
                 "LM_SCORE": lm_score,
                 "GAMMA": GAMMA,
-                "K_PRED": K_pred,
-                "TEST_SIZE": TEST_SIZE,
                 "MIN_FREQ": MIN_FREQ,
                 "N": N,
                 "CORPUS_NAMES": None,
@@ -288,34 +284,31 @@ async def create_models():
                     status_code=409, content={"message": "Model already exist in db"}
                 )
 
-            ngram_model, _ = pipeline_train(
+            ngram_model = train_lm(
+                train_abs=abs,
                 lm_type=model_dict["LM_SCORE"],
-                gamma=model_dict["GAMMA"],
                 min_freq=model_dict["MIN_FREQ"],
-                test_size=model_dict["TEST_SIZE"],
+                gamma=model_dict["GAMMA"],
                 n=model_dict["N"],
-                corpus_set=model_dict["CORPUS_NAMES"],
             )
-
             model_dict["MODEL_FILE_ID"] = save_to_gridfs(ngram_model)
             model_id = collection.insert_one(model_dict).inserted_id
             ids.append(str(model_id))
         except Exception as e:
             return JSONResponse(status_code=500, content={"detail": str(e)})
-        
-        #BERT models
-        for checkpoint, K_pred in zip(BERT_CHECKPOINTS, K_PREDICTIONS):
+
+        # BERT models
+        for checkpoint in BERT_CHECKPOINTS:
             try:
                 model_dict = {
                     "MODEL": checkpoint,
                     "TOKENIZER": checkpoint,
-                    "K_PRED": K_pred,
                     "TYPE": "BERT",
-            }
+                }
                 bert_model = AutoModelForMaskedLM.from_pretrained(
-                        model_dict["MODEL"], token=True
-                    )
-                
+                    model_dict["MODEL"], token=True
+                )
+
                 bert_tokenizer = AutoTokenizer.from_pretrained(model_dict["TOKENIZER"])
                 model_dict["MODEL_FILE_ID"] = save_to_gridfs(bert_model)
                 model_dict["TOKENIZER_FILE_ID"] = save_to_gridfs(bert_tokenizer)
@@ -325,6 +318,7 @@ async def create_models():
             except Exception as e:
                 return JSONResponse(status_code=500, content={"detail": str(e)})
     return JSONResponse(status_code=201, content={"IDs": ids})
+
 
 # predictions
 @router.get(
@@ -354,8 +348,15 @@ async def get_predictions(
         str,
         Query(
             title="Contesto di generazione",
-            description="Deve contenere una lacuna da riempire, indicata tramite `[...]`",
+            description="Deve contenere una lacuna da riempire, indicata tramite `[...]`, il numero di puntini indica la grandezza della lacuna nei modelli `BERT`",
             max_length=512,
+        ),
+    ],
+    num_predictions: Annotated[
+        PredictionCount,
+        Query(
+            title="Numero di predizioni da generare",
+            description="Numero di generazioni che il modello deve eseguire; valori consentiti: 1, 5, 10, 20",
         ),
     ],
     num_tokens: Annotated[
@@ -368,6 +369,7 @@ async def get_predictions(
         ),
     ] = None,
 ):
+    print(num_predictions)
     try:
         model = collection.find_one({"_id": ObjectId(model_id)})
         if model is None:
@@ -408,7 +410,7 @@ async def get_predictions(
                     num_tokens=num_tokens,
                     lm_type=dict_model["LM_SCORE"],
                     n=dict_model["N"],
-                    k_pred=dict_model["K_PRED"],
+                    k_pred=num_predictions.value,
                 )
             ]
             return JSONResponse(

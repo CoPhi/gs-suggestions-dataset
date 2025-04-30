@@ -23,7 +23,7 @@ def check_ab(ab: dict, corpus_set: set = None) -> bool:
     )
 
 
-def load_abs(corpus_set: Optional[int] = None, budget: Optional[int] = None) -> list:
+def load_abs(corpus_set: Optional[list[str]] = None, budget: Optional[int] = None) -> list:
     """
     Carica e restituisce una lista di anonymous block (ab) dai file JSON presenti nel percorso specificato.
     Il percorso dei file JSON è determinato dalla variabile globale DATA_PATH.

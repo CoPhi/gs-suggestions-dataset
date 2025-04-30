@@ -23,7 +23,7 @@ N = 3  # Dimensione degli ngrammi
 CORPUS_NAMES = set(["DDbDP", "DCLP", "EDH"])
 
 
-BERT_CHECKPOINTS = ["CNR-ILC/gs-aristoBERTo", "CNR-ILC/gs-GreBerta"]
+BERT_CHECKPOINTS = ["CNR-ILC/gs-aristoBERTo", "CNR-ILC/gs-GreBerta", "CNR-ILC/gs-Logion"]
 
 # Spazio di ricerca degli iperparametri
 LM_TYPES = ["LIDSTONE", "MLE"]

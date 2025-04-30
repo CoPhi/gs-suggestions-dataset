@@ -1,6 +1,6 @@
 from typing import Union, Literal
 from pydantic import BaseModel, Field
-
+from enum import IntEnum
 
 # Model
 class NgramModel(BaseModel):
@@ -13,10 +13,6 @@ class NgramModel(BaseModel):
     MIN_FREQ: int = Field(
         description="Frequenza minima per la considerazione di un n-gramma dal vocabolario"
     )
-    K_PRED: int = Field(description="Numero di predizioni che restituisce il modello")
-    TEST_SIZE: float = Field(
-        description="Percentuale di dataset da utilizzare per il formare il test set"
-    )
     N: int = Field(description="Dimensionalità massima degli n-grammi del modello")
     CORPUS_NAMES: list[str] | None = Field(
         default=None,
@@ -24,13 +20,15 @@ class NgramModel(BaseModel):
     )
     TYPE: Literal["Ngrams"]
 
-
-# BERT model (da implementare)
 class BERTModel(BaseModel):
     MODEL: str = Field(description="Nome del modello BERT da utilizzare")
     TOKENIZER: str = Field(description="Nome del tokenizer da utilizzare")
-    K_PRED: int = Field(description="Numero di predizioni che restituisce il modello")
     TYPE: Literal["BERT"]
-
+    
+class PredictionCount(IntEnum):
+    ONE = 1
+    FIVE = 5
+    TEN = 10
+    TWENTY = 20
 
 Model = Union[NgramModel, BERTModel]
