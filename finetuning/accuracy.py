@@ -28,7 +28,7 @@ def hcb_beam_search(
     masked_text: tuple,  # (masked_text, attached_left, attached_right)
     k: int = K_PRED,
     beam_size: int = K_PRED,
-) -> list[str]:
+) -> list[tuple[str, float, str]]:
     inputs = tokenizer(masked_text[0], return_tensors="pt")
     input_ids = inputs.input_ids.clone()
     attention_mask = inputs.attention_mask
@@ -73,7 +73,7 @@ def hcb_beam_search(
     return _extract_top_k_results(beam, mask_indices, tokenizer, masked_text, k)
 
 
-def _extract_top_k_results(beam, mask_indices, tokenizer, masked_text, k):
+def _extract_top_k_results(beam, mask_indices, tokenizer, masked_text, k) -> list[tuple[str, float, str]]:
     result = []
 
     for seq, score, _ in beam[:k]:

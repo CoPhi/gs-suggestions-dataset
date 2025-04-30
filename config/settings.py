@@ -28,7 +28,7 @@ BERT_CHECKPOINTS = ["CNR-ILC/gs-aristoBERTo", "CNR-ILC/gs-GreBerta", "CNR-ILC/gs
 # Spazio di ricerca degli iperparametri
 LM_TYPES = ["LIDSTONE", "MLE"]
 GAMMAS = [0.001, 0.01, 0.1]
-K_PREDICTIONS = [10, 20]
+K_PREDICTIONS = [1, 5, 10, 20]
 MIN_FREQS = [2, 3, 4]
 TEST_SIZES = [0.05, 0.1]
 DIMENSIONS = [2, 3]

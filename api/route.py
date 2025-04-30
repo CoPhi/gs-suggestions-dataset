@@ -234,7 +234,7 @@ async def create_model(
                     )
 
                 bert_model = AutoModelForMaskedLM.from_pretrained(
-                    model_dict["MODEL"], token=True
+                    model_dict["MODEL"]
                 )
                 bert_tokenizer = AutoTokenizer.from_pretrained(model_dict["TOKENIZER"])
 
@@ -306,7 +306,7 @@ async def create_models():
                     "TYPE": "BERT",
                 }
                 bert_model = AutoModelForMaskedLM.from_pretrained(
-                    model_dict["MODEL"], token=True
+                    model_dict["MODEL"]
                 )
 
                 bert_tokenizer = AutoTokenizer.from_pretrained(model_dict["TOKENIZER"])
@@ -369,7 +369,6 @@ async def get_predictions(
         ),
     ] = None,
 ):
-    print(num_predictions)
     try:
         model = collection.find_one({"_id": ObjectId(model_id)})
         if model is None:
@@ -435,11 +434,13 @@ async def get_predictions(
             )
 
             predictions = [
-                {"token_str": suggestion[0], "score": suggestion[1]}
+                {"token_str": suggestion[0], "score": suggestion[1], "sentence": suggestion[2]}
                 for suggestion in hcb_beam_search(
-                    decompressed_model,
-                    decompressed_tokenizer,
-                    convert_lacuna_to_masks(context),
+                    model=decompressed_model,
+                    tokenizer=decompressed_tokenizer,
+                    masked_text=convert_lacuna_to_masks(context),
+                    k=num_predictions.value,
+                    beam_size=num_predictions.value*5,
                 )
             ]
 
