@@ -9,6 +9,7 @@ from finetuning import (
     MAX_UNK_TOKEN_TRESHOLD,
     MAX_MASK_TOKEN_TRESHOLD,
     MIN_MASK_TOKEN_TRESHOLD,
+    MIN_SENT_TOKEN_TRESHOLD,
     LACUNAE_REGEX, 
     BERT_TOKENS_PER_WORD
 )
@@ -30,12 +31,19 @@ def generate_mask_tokens(num: int) -> str:
     return mask_str
 
 
-def load_and_split_sentences(test_size: float = 0.1, dev_size: float = 0.1):
+def load_and_split_sentences(test_size: float = 0.1) -> tuple[list, list]:
+    """
+    Carica i blocchi anonimi e li divide in due set: uno per l'addestramento e uno per il test.
+    I blocchi anonimi vengono caricati dai file JSON presenti nella cartella `data/` e suddivisi in due set: uno per l'addestramento e uno per il test.
+    
+        Args:
+        test_size (float): La proporzione del set di test rispetto al totale. Default è 0.1 (10%).
+    Returns:
+        tuple: Due liste di frasi, una per l'addestramento e una per il test.
+    """
     abs = load_abs()
-    temp_abs, test_abs = split_abs(abs, test_size)
-    train_abs, dev_abs = split_abs(temp_abs, dev_size)
-
-    return train_abs, dev_abs, test_abs
+    train_abs, test_abs = split_abs(abs, test_size)
+    return train_abs, test_abs
 
 
 def get_sent_from_tokens(tokens: list[str]):
@@ -77,10 +85,9 @@ def get_num_unk_tokens(text: str) -> int:
     return c
 
 
-def get_processed_sentences(train_abs: list):
+def get_processed_sentences(abs: list):
     """
-    Estrae e filtra le frasi di addestramento da una lista di blocchi anonimi e applica i controlli sui token sconosciuti.
-    Args:
+    Estrae e filtra le frasi di addestramento da una lista di blocchi anonimi, filtrando le frasi in modo da assicurarsi che tali frasi contengano un concetto semantico. 
         train_abs (list): Lista di abstract da cui estrarre le frasi.
     Returns:
         list: Una lista di frasi filtrate che soddisfano i criteri specificati.
@@ -90,13 +97,13 @@ def get_processed_sentences(train_abs: list):
     """
     sentences = []
     for sent_tkns in tqdm(
-        get_sentences(train_abs, remove_punct=False),
-        desc="Loading train set",
+        get_sentences(abs, case_folding=True, remove_punct=False),
+        desc="Loading set",
         unit="sentence",
         leave=False,
     ):
         processed_text = get_cast_unk_tokens_text(get_sent_from_tokens(sent_tkns))
-        if get_num_unk_tokens(processed_text) > MAX_UNK_TOKEN_TRESHOLD:
+        if get_num_unk_tokens(processed_text) >= (len(sent_tkns) * 0.1) or len(sent_tkns) < MIN_SENT_TOKEN_TRESHOLD:
             continue
         sentences.append(processed_text)
 

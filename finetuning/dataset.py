@@ -37,16 +37,15 @@ def push_set_to_huggingface_hub(dataset: DatasetDict, message: str) -> None:
 
 def main():
 
-    train_abs, dev_abs, test_abs = load_and_split_sentences()
+    train_abs, test_abs = load_and_split_sentences()
     dataset = DatasetDict(
         {
             "train": get_processed_sentences(train_abs),
-            "dev": get_processed_sentences(dev_abs),
             "test": get_processed_sentences(test_abs),
         }
     )
 
-    push_set_to_huggingface_hub(dataset, "Unlabeled ancient greek sentences for fill-mask task")
+    push_set_to_huggingface_hub(dataset, "Unlabeled ancient greek sentences for fill-mask task, folded to uppercase, version without dev set")
 
 if __name__ == "__main__":
     main()

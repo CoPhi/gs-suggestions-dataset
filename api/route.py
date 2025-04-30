@@ -9,7 +9,7 @@ from bson import ObjectId
 from train.training import pipeline_train
 from inference import generate_k_suggests
 from finetuning import hcb_beam_search, convert_lacuna_to_masks
-from config.settings import K_PREDICTIONS, LM_TYPES, GAMMA, TEST_SIZE, N, MIN_FREQ
+from config.settings import K_PREDICTIONS, LM_TYPES, GAMMA, TEST_SIZE, N, MIN_FREQ, BERT_CHECKPOINTS
 import pickle
 import zlib
 from uuid import uuid4
@@ -268,6 +268,8 @@ async def create_model(
 )
 async def create_models():
     ids = []
+    
+    #Ngrams models
     for lm_score, K_pred in zip(LM_TYPES, K_PREDICTIONS):
         try:
             model_dict = {
@@ -278,6 +280,7 @@ async def create_models():
                 "MIN_FREQ": MIN_FREQ,
                 "N": N,
                 "CORPUS_NAMES": None,
+                "TYPE": "Ngrams",
             }
 
             if collection.find_one(model_dict):
@@ -299,9 +302,29 @@ async def create_models():
             ids.append(str(model_id))
         except Exception as e:
             return JSONResponse(status_code=500, content={"detail": str(e)})
+        
+        #BERT models
+        for checkpoint, K_pred in zip(BERT_CHECKPOINTS, K_PREDICTIONS):
+            try:
+                model_dict = {
+                    "MODEL": checkpoint,
+                    "TOKENIZER": checkpoint,
+                    "K_PRED": K_pred,
+                    "TYPE": "BERT",
+            }
+                bert_model = AutoModelForMaskedLM.from_pretrained(
+                        model_dict["MODEL"], token=True
+                    )
+                
+                bert_tokenizer = AutoTokenizer.from_pretrained(model_dict["TOKENIZER"])
+                model_dict["MODEL_FILE_ID"] = save_to_gridfs(bert_model)
+                model_dict["TOKENIZER_FILE_ID"] = save_to_gridfs(bert_tokenizer)
 
+                model_id = collection.insert_one(model_dict).inserted_id
+                ids.append(str(model_id))
+            except Exception as e:
+                return JSONResponse(status_code=500, content={"detail": str(e)})
     return JSONResponse(status_code=201, content={"IDs": ids})
-
 
 # predictions
 @router.get(

@@ -22,6 +22,9 @@ MIN_FREQ = 3  # Frequenza minima per i token dentro il modello
 N = 3  # Dimensione degli ngrammi
 CORPUS_NAMES = set(["DDbDP", "DCLP", "EDH"])
 
+
+BERT_CHECKPOINTS = ["CNR-ILC/gs-aristoBERTo", "CNR-ILC/gs-GreBerta"]
+
 # Spazio di ricerca degli iperparametri
 LM_TYPES = ["LIDSTONE", "MLE"]
 GAMMAS = [0.001, 0.01, 0.1]

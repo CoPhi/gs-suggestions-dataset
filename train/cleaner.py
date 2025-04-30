@@ -93,7 +93,7 @@ def split_abs(abs: list, test_size=TEST_SIZE) -> tuple:
 
 def get_sentences(
     abs: list, remove_punct: bool = True, case_folding: bool = True
-) -> list:
+) -> list[list[str]]:
     """
     Estrae e processa le frasi di addestramento da una lista di blocchi anonimi fornita.
     Questo metodo filtra e processa il 'training_text' da ciascun oggetto nella lista di input 'abs'.

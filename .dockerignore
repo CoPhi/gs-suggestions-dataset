@@ -1,16 +1,16 @@
-## Directory da ignorare
-tuning/
-eval/
+# Cartelle da ignorare
+tuning
+eval
+frontend
 
-# Python
+# Cache di Python
 __pycache__
-**/__pycache__/
-**/**/__pycache__/
+**/__pycache__
 
-#VS code file 
-.vscode/
-
-#File 
+# File di configurazione e temporanei
+.vscode
+*.yaml
+Dockerfile
 .gitignore
 .gitmodules
 .git
@@ -20,4 +20,6 @@ __pycache__
 *.log
 *.tmp
 *.swp
+
+# File di dati
 *.csv

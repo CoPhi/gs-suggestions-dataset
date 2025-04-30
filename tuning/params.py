@@ -1,29 +1,45 @@
-import pandas as pd
-import os
+import csv
+import pickle
 
-def print_MLE_params_to_csv(params: dict) -> None:
-    file_exists = os.path.isfile("MLE_results.csv")
-    df = pd.DataFrame([params])
-    df.to_csv("MLE_results.csv", mode="a", header=not file_exists, index=False)
+def save_results_pickle(opt_log, filename):
+    with open(filename, 'wb') as f:
+        pickle.dump(opt_log, f)
+        
+def load_results_pickle(filename):
+    with open(filename, 'rb') as f:
+        return pickle.load(f)        
 
+def save_results(logs, filename, is_lidstone=False):
+    with open(filename, mode="w", newline='') as csv_file:
+        writer = csv.writer(csv_file)
 
-def print_LIDSTONE_params_to_csv(params: dict) -> None:
-    file_exists = os.path.isfile("LIDSTONE_results.csv")
-    df = pd.DataFrame([params])
-    df.to_csv("LIDSTONE_results.csv", mode="a", header=not file_exists, index=False)
-    
-def get_best_params_MLE():
-    df = pd.read_csv("MLE_results.csv")
-    best_params = df.loc[df["ACCURACY"].idxmax()]
-    best_params_dict = best_params.to_dict()
-    for col in df.columns:
-        best_params_dict[col] = df[col].dtype.type(best_params_dict[col])
-    return best_params_dict
+        # Scrivi l'intestazione
+        if is_lidstone:
+            writer.writerow(["budget", "k_predictions", "dimension", "test_size", "min_frequency", "gamma", "topk-accuracy"])
+        else:
+            writer.writerow(["budget", "k_predictions", "dimension", "test_size", "min_frequency", "topk-accuracy"])
 
-def get_best_params_LIDSTONE():
-    df = pd.read_csv("LIDSTONE_results.csv")
-    best_params = df.loc[df["ACCURACY"].idxmax()]
-    best_params_dict = best_params.to_dict()
-    for col in df.columns:
-        best_params_dict[col] = df[col].dtype.type(best_params_dict[col])
-    return best_params_dict
+        # Scrivi i dati
+        for log in logs:
+            for budget, entry in log.items():
+                params = entry["hyperparameter"].to_dict()
+                acc = -entry["loss"]
+                if is_lidstone:
+                    writer.writerow([
+                        budget,
+                        params["k"],
+                        params["n"],
+                        params["test_size"],
+                        params["min_freq"],
+                        params["gamma"],
+                        acc
+                    ])
+                else:
+                    writer.writerow([
+                        budget,
+                        params["k"],
+                        params["n"],
+                        params["test_size"],
+                        params["min_freq"],
+                        acc
+                    ])

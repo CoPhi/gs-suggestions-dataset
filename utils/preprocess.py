@@ -34,17 +34,17 @@ def contains_lacunae(token: str) -> bool:
     return (GAP_TOKEN.upper() in fold_token) or ("." in token and len(token) > 1)
 
 
-def normalize_greek(text: str) -> str:
+def normalize_greek(text: str, case_folding: bool= True) -> str:
     """
-    Applica il case folding greco al testo fornito.
+    Applica la normalizzazione al testo in greco antico fornito `text`, successivamente il testo normalizzato viene fornito in lowercase.
 
     Args:
         text (str): Il testo in greco da normalizzare.
-
+        case_folding (bool): Se `True`, applica il case folding al testo. Default è `True`.
     Returns:
-        str: Il testo normalizzato con il case folding greco applicato.
+        str: Il testo normalizzato con il case folding greco applicato di default.
     """
-    return normalize_grc(text)
+    return normalize_grc(text).upper() if case_folding else normalize_grc(text)
 
 
 def clean_lacunae(token: str) -> str:
@@ -478,7 +478,7 @@ def clean_text_from_gaps(text: str, case_folding: bool = True) -> str:
     cleaned_text = clean_text_content(text)
     tokens = clean_tokens(cleaned_text)
     result_text = " ".join(tokens).strip()
-    return normalize_greek(result_text) if case_folding else result_text
+    return normalize_greek(result_text, case_folding)
 
 
 def process_editorial_marks(text: str) -> str:
