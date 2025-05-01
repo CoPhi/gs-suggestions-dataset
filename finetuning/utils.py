@@ -97,7 +97,7 @@ def get_processed_sentences(abs: list):
     """
     sentences = []
     for sent_tkns in tqdm(
-        get_sentences(abs, case_folding=True, remove_punct=False),
+        get_sentences(abs, case_folding=True, remove_punct=True),
         desc="Loading set",
         unit="sentence",
         leave=False,

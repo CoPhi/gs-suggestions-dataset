@@ -41,11 +41,11 @@ def main():
     dataset = DatasetDict(
         {
             "train": get_processed_sentences(train_abs),
-            "test": get_processed_sentences(test_abs),
+            "dev": get_processed_sentences(test_abs),
         }
     )
 
-    push_set_to_huggingface_hub(dataset, "Unlabeled ancient greek sentences for fill-mask task, folded to uppercase, version without dev set")
+    push_set_to_huggingface_hub(dataset, "Unlabeled ancient greek sentences for fill-mask task, folded to uppercase, remove punct, with dev set")
 
 if __name__ == "__main__":
     main()
