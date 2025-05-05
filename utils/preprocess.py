@@ -1,4 +1,5 @@
 import re
+from typing import Optional
 from cltk.alphabet.grc.grc import normalize_grc
 from utils import (
     GAP_TOKEN,
@@ -34,7 +35,7 @@ def contains_lacunae(token: str) -> bool:
     return (GAP_TOKEN.upper() in fold_token) or ("." in token and len(token) > 1)
 
 
-def normalize_greek(text: str, case_folding: bool= True) -> str:
+def normalize_greek(text: str, case_folding: bool = True) -> str:
     """
     Applica la normalizzazione al testo in greco antico fornito `text`, successivamente il testo normalizzato viene fornito in lowercase.
 
@@ -400,14 +401,18 @@ def clean_supplements(training_text: str, case_folding: bool = True) -> list[lis
 
     for suppl in supplements:
         matches = list(
-            re.finditer(re.escape(suppl), training_text) #Si usa re.escape per trattare il supplemento come stringa
+            re.finditer(
+                re.escape(suppl), training_text
+            )  # Si usa re.escape per trattare il supplemento come stringa
         )  # Occorrenze del supplemento nel testo
         if not matches:
             suppl_tokens.append([])
             continue
 
         if len(matches) > 1:
-            idx = get_num_occ_supplement_from_suppl_dict(suppl_dict, matches[0].group(0))
+            idx = get_num_occ_supplement_from_suppl_dict(
+                suppl_dict, matches[0].group(0)
+            )
             if idx != -1:
                 match = matches[idx]
                 update_num_occ_supplement_from_suppl_dict(
@@ -431,6 +436,38 @@ def clean_supplements(training_text: str, case_folding: bool = True) -> list[lis
             ]
         )
     return suppl_tokens
+
+
+def get_head_supplement(text_case: str) -> Optional[str]:
+    """
+    Restituisce la sottostringa che precede la lacuna, identificata con `[...]`, e che segue lo spazio o l'inizio della frase.
+    """
+    if SUPPLEMENTS_REGEX.search(text_case):
+        match = SUPPLEMENTS_REGEX.search(text_case)
+        end = match.start()
+        start = end - 1
+        while start > 0 and text_case[start] not in (" ", "\n"):
+            start -= 1
+        return (
+            clean_text_from_gaps(text_case[start:end], True).strip() if not contains_lacunae(text_case[start:end]) else None
+        )
+    return None
+
+
+def get_tail_supplement(text_case: str) -> Optional[str]:
+    """
+    Restituisce la sottostringa che segue la lacuna, identificata con `[...]`, e che precede lo spazio o la fine della frase.
+    """
+    if SUPPLEMENTS_REGEX.search(text_case):
+        match = SUPPLEMENTS_REGEX.search(text_case)
+        start = match.end()
+        end = start + 1
+        while end < len(text_case) and text_case[end] not in (" ", "\n"):
+            end += 1
+        return (
+            clean_text_from_gaps(text_case[start:end], True).strip() if not contains_lacunae(text_case[start:end]) else None
+        )
+    return None
 
 
 def get_tokens_from_clean_text(text: str) -> list[str]:
@@ -499,10 +536,10 @@ def process_editorial_marks(text: str) -> str:
         text = text.replace("||", " ") if "||" in text else text
         text = text.replace("‖", " ") if "‖" in text else text
         return text
-    
-    def process_dactyl_patterns (text : str) -> str:
+
+    def process_dactyl_patterns(text: str) -> str:
         """
-        Rimuove i pattern che identificano i dattili o sequenze di dattili in versi incompleti presenti nei testi poetici. 
+        Rimuove i pattern che identificano i dattili o sequenze di dattili in versi incompleti presenti nei testi poetici.
 
         Args:
         text (str): Il testo da processare.
@@ -510,7 +547,11 @@ def process_editorial_marks(text: str) -> str:
         Returns:
         str: Il testo senza i modelli di dactilo.
         """
-        return COMBINED_DACTYL_PATTERNS.sub("<gap/>", text) if COMBINED_DACTYL_PATTERNS.search(text) else text
+        return (
+            COMBINED_DACTYL_PATTERNS.sub("<gap/>", text)
+            if COMBINED_DACTYL_PATTERNS.search(text)
+            else text
+        )
 
     def process_leiden_lb(text: str) -> str:
         """
@@ -523,7 +564,7 @@ def process_editorial_marks(text: str) -> str:
         str: Il testo senza *line breaks* `|`.
         """
         return text.replace("|", " ") if "|" in text else text
-    
+
     def process_unclear_signs(text: str) -> str:
         """
         Rimuove i segni che rappresentano incertezze ('+' e '*') dal testo.
@@ -537,7 +578,6 @@ def process_editorial_marks(text: str) -> str:
         text = text.replace("+", "") if "+" in text else text
         text = text.replace("*", "") if "*" in text else text
         return text
-    
 
     def process_vacat_text(text: str) -> str:
         """
@@ -548,9 +588,9 @@ def process_editorial_marks(text: str) -> str:
 
     def process_brackets(text: str) -> str:
         """
-            Rimuove le parentesi quadre mantenendo il contenuto interno.
-            Prima della rimozione viene applicata una sostituzione nel testo per rimuovere i gap di lunghezza sconosciuta che 
-            rappresentano frasi.
+        Rimuove le parentesi quadre mantenendo il contenuto interno.
+        Prima della rimozione viene applicata una sostituzione nel testo per rimuovere i gap di lunghezza sconosciuta che
+        rappresentano frasi.
         """
         return remove_brackets(
             re.sub(
@@ -605,7 +645,9 @@ def process_editorial_marks(text: str) -> str:
         """
         Rimuove testo fornito in parallelo
         """
-        text =  OBELISK_REGEX.sub("", text) if OBELISK_REGEX.search(text) else text  # processazione parole morte
+        text = (
+            OBELISK_REGEX.sub("", text) if OBELISK_REGEX.search(text) else text
+        )  # processazione parole morte
         text = text.replace("†", "") if "†" in text else text
         text = text.replace("_", "") if "_" in text else text
         return text

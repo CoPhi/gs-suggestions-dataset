@@ -1,10 +1,3 @@
-from tuning.params import (
-    get_best_params_LIDSTONE,
-    get_best_params_MLE,
-    print_LIDSTONE_params_to_csv,
-    print_MLE_params_to_csv,
-)
-
 from sklearn.model_selection import KFold
 from train import load_abs, load_lm
 from train.training import train_lm
@@ -19,15 +12,14 @@ from config.settings import (
 
 from metrics import get_topK_accuracy, perplexity
 
-def KFold_cross_validation(k=10):
-    """
+"""def KFold_cross_validation(k=10):
     Funzione che esegue la cross validation K-Fold per valutare il modello di linguistico su tutto il dataset.
     Addestra e valuta il modello nelle varie fold usando gli iperparametri che restituiscono la migliore accuracy, secondo l'ottimizzazione
     degli iperparametri (Bayesian Optimization).
 
     Args:
         k (int): Numero di fold per la cross validation. Default è 10 (10-Fold cross validation).
-    """
+    
     abs = load_abs()  # dataset
     kf = KFold(n_splits=k, shuffle=True, random_state=42)
 
@@ -71,6 +63,7 @@ def KFold_cross_validation(k=10):
         avg_perplexity = sum(perplexities) / len(perplexities)
         print(f"Average Perplexity: {avg_perplexity}")
 
+"""
 
 if __name__ == "__main__":
     lm, test_abs = load_lm()  # carico il modello

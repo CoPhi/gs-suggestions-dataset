@@ -69,6 +69,5 @@ if __name__ == "__main__":
     )
 
     args = parser.parse_args()  # Analizza gli argomenti passati
-
     words = generate_k_suggests(lm, args.context, args.num_words)
     print(words)

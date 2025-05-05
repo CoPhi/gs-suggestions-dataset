@@ -1,6 +1,7 @@
 import heapq
 import re
 from math import inf, log
+from typing import Optional
 from tqdm import tqdm
 from metrics import FALLBACK_LOSS
 from nltk.lm.models import LanguageModel
@@ -11,6 +12,8 @@ from utils.preprocess import (
     clean_text_from_gaps,
     remove_punctuation,
     clean_supplements,
+    get_head_supplement,
+    get_tail_supplement,
     get_tokens_from_clean_text,
 )
 
@@ -24,8 +27,12 @@ from config.settings import (
 
 
 def get_dist_freq_words_from_context(
-    lm: LanguageModel, context: list[str], n=N
-) -> list:
+    lm: LanguageModel,
+    context: list[str],
+    n=N,
+    startswith: Optional[str] = None,
+    endswith: Optional[str] = None,
+) -> list[tuple[str, int]]:
     """
     Genera la distribuzione di frequenze delle parole per un dato contesto.
     Se la distribuzione è vuota, riduce progressivamente il contesto fino a trovare una distribuzione non vuota. (Backoff)
@@ -33,17 +40,29 @@ def get_dist_freq_words_from_context(
     :param lm: Modello di linguaggio con il metodo `context_counts`
     :param context: Lista di token che rappresenta il contesto
     :param n: Dimensione del modello (numero di parole nel contesto)
+    :param startswith: Se specificato, filtra solo le parole che iniziano con questa sottostringa
+    :param endswith: Se specificato, filtra solo le parole che finiscono con questa sottostringa
     :return: Lista ordinata di tuple (parola, frequenza)
     """
-    return sorted(
-        lm.context_counts(lm.vocab.lookup(context[-(n - 1) :])).items(),
-        key=lambda x: x[1],
-        reverse=True,
-    )
-
+    freq_dist = lm.context_counts(lm.vocab.lookup(context[-(n - 1):]))
+    context_counts = freq_dist.most_common(len(freq_dist)) 
+    
+    if startswith and endswith: 
+       return sorted(context_counts, key=lambda x: x[0].startswith(startswith) and x[0].endswith(endswith), reverse=True) 
+    elif startswith:
+        return sorted(context_counts, key=lambda x: x[0].startswith(startswith), reverse=True)
+    elif endswith:
+        return sorted(context_counts, key=lambda x: x[0].endswith(endswith), reverse=True)
+        
+    return context_counts
 
 def get_next_word_from_dist_freqs(
-    lm: LanguageModel, context: list[str], words: set, n=N
+    lm: LanguageModel,
+    context: list[str],
+    words: set,
+    head: Optional[str] = None,
+    tail: Optional[str] = None,
+    n=N,
 ) -> str:
     """
     Restituisce la prossima parola più probabile da una distribuzione di frequenza sulle parole dato un contesto, filtrando se essa non è già presente nella lista di parole words.
@@ -59,7 +78,7 @@ def get_next_word_from_dist_freqs(
         str: La prossima parola più probabile che non è già presente nella lista di parole words.
     """
     while n > 0:
-        dist_freq_words_from_context = get_dist_freq_words_from_context(lm, context, n)
+        dist_freq_words_from_context = get_dist_freq_words_from_context(lm, context, n, head, tail)
         for word, _ in dist_freq_words_from_context:
             if word not in ["</s>", "<s>", "<UNK>"] and word not in words:
                 return word
@@ -120,14 +139,21 @@ def loss(
 
     if lm_type == "MLE":
         return (
-            -(total_log_prob / len(generated_seq)) if total_log_prob != -inf else FALLBACK_LOSS
+            -(total_log_prob / len(generated_seq))
+            if total_log_prob != -inf
+            else FALLBACK_LOSS
         )  # Si aggiunge un valore di fallback nel caso in cui le parole della sequenza non siano presenti nel modello
 
     return -total_log_prob
 
 
 def get_words_from_context(
-    lm: LanguageModel, context: list[str], boundary: int, n: int = N
+    lm: LanguageModel,
+    context: list[str],
+    boundary: int,
+    head: Optional[str] = None,
+    tail: Optional[str] = None,
+    n: int = N,
 ) -> list[str]:
     """
     Funzione con cui espandiamo le parole possibili successive da uno stato (il numero massimo consentito è rappresentato da `boundary`).
@@ -147,7 +173,7 @@ def get_words_from_context(
     )  # Parole già viste nelle distribuzioni di parole date dal contesto
 
     while len(k_words) < boundary:
-        next_w = get_next_word_from_dist_freqs(lm, context, dist_words, n)
+        next_w = get_next_word_from_dist_freqs(lm, context, dist_words, head, tail, n)
         if next_w is None:
             return k_words  # Non ci sono più parole disponibili
 
@@ -237,6 +263,7 @@ def get_successors(
     context: list[str],
     candidate: tuple[list[str], float],
     beam_size: int = K_PRED * 4,
+    tail: Optional[str] = None, 
     n: int = N,
 ) -> list[tuple[list[str], float]]:
     """
@@ -253,14 +280,14 @@ def get_successors(
         list[tuple[list[str], float]]: Lista di successori generati.
     """
     successors = []
-    nexts = get_words_from_context(lm, context + candidate[0], beam_size, n)
+    nexts = get_words_from_context(lm, context + candidate[0], beam_size, None, tail,  n)
     for w in nexts:
         successors.append(
             (
                 candidate[0] + [w],
                 loss(
                     lm,
-                    lm.vocab.lookup(context[(1 - n):]),
+                    lm.vocab.lookup(context[(1 - n) :]),
                     candidate[0] + [w],
                 ),
             )
@@ -276,6 +303,8 @@ def local_beam_search(
     n: int = N,
     len_suppl_words: int = 0,
     suppl_words: list[str] = None,
+    head_suppl: Optional[str] = None,
+    tail_suppl: Optional[str] = None,
     mod: str = "acc",
     alpha: float = 0,
     beta: float = 1,
@@ -300,7 +329,11 @@ def local_beam_search(
     """
     beam = []
     # Inizializzazione K stati iniziali
-    states = get_words_from_context(lm, context, beam_size, n)
+    if len_suppl_words <= 1:  
+        states = get_words_from_context(lm, context, beam_size, head_suppl, tail_suppl, n)
+    else:
+        states = get_words_from_context(lm, context, beam_size, head_suppl, None, n)
+        
     for s in states:
         heapq.heappush(
             beam, ([s], loss(lm, lm.vocab.lookup((context)[(1 - n) :]), [s], lm_type))
@@ -313,7 +346,11 @@ def local_beam_search(
                 len(candidate[0]) >= len_suppl_words
             ):  # Termina se la lunghezza della sequenza raggiunge `len_suppl_words` : le altre sequenze del beam hanno la solita lunghezza
                 continue
-            successors.extend(get_successors(lm, context, candidate, beam_size, n))
+            
+            if len(candidate[0]) == len_suppl_words - 1:
+                successors.extend(get_successors(lm, context, candidate, beam_size, tail_suppl, n))
+            else: 
+                successors.extend(get_successors(lm, context, candidate, beam_size, None, n))
         if not successors:
             break  # Nessun successore
         beam = heapq.nsmallest(beam_size, successors, key=lambda x: x[1])
@@ -326,6 +363,8 @@ def get_best_K_predictions_from_context(
     lm_type: str = LM_TYPE,
     len_suppl_words: int = 0,
     suppl_words: list[str] = None,
+    head_suppl: Optional[str] = None,
+    tail_suppl: Optional[str] = None,
     n: int = N,
     k_pred: int = K_PRED,
     beam_size: int = K_PRED * 4,
@@ -358,6 +397,8 @@ def get_best_K_predictions_from_context(
         n,
         len_suppl_words,
         suppl_words,
+        head_suppl,
+        tail_suppl,
         mod,
         alpha,
         beta,
@@ -393,12 +434,16 @@ def get_context(text: str, n=N, case_folding: bool = True) -> list[str]:
                     n=n,
                 )
             )
-            for sent in sentence_tokenizer.tokenize(clean_text_from_gaps(text, case_folding))
+            for sent in sentence_tokenizer.tokenize(
+                clean_text_from_gaps(text, case_folding)
+            )
         )
     )[: (1 - n)]
 
 
-def get_context_from_test_case(test_case: str, n=N, case_folding:bool=True) -> list[str]:
+def get_context_from_test_case(
+    test_case: str, n=N, case_folding: bool = True
+) -> tuple[list[str], str, str]:
     """
     Forma il contesto da cui il modello linguistico fa partire la generazione della predizione.
     Prende la sottostringa del test_case che parte dall'inizio e finisce con '[', la divide in frasi e le tokenizza, pulendone lacune e punteggiatura. (Contesto a sinistra)
@@ -411,31 +456,32 @@ def get_context_from_test_case(test_case: str, n=N, case_folding:bool=True) -> l
     Returns:
         list[str]: contesto da cui partire per generare la predizione
     """
-    return list(
+    context = list(
         flatten(
-                list(
-                    pad_both_ends(
-                        get_tokens_from_clean_text(remove_punctuation(sent)),
-                        n=n,
-                    )
+            list(
+                pad_both_ends(
+                    get_tokens_from_clean_text(remove_punctuation(sent)),
+                    n=n,
                 )
-                for sent in sentence_tokenizer.tokenize(
-                    clean_text_from_gaps(
-                        re.sub(r"[^\s]+\[", "[", test_case).split("[")[
-                            0
-                        ], case_folding=case_folding   # Si prende il contesto a sinistra della parentesi `[`
-                    )
+            )
+            for sent in sentence_tokenizer.tokenize(
+                clean_text_from_gaps(
+                    re.sub(r"[^\s]+\[", "[", test_case).split("[")[0],
+                    case_folding=case_folding,  # Si prende il contesto a sinistra della parentesi `[`
                 )
+            )
         )
     )[: (1 - n)]
-    
+
+    return (context, get_head_supplement(test_case), get_tail_supplement(test_case))
+
 
 def check_supplement(supplement: list[str]) -> bool:
     """
     Verifica se la lista di supplementi è valida.
 
-    Questa funzione controlla se la lista di supplementi (token) fornita è vuota o 
-    contiene la stringa "<UNK>". Se una di queste condizioni è vera, 
+    Questa funzione controlla se la lista di supplementi (token) fornita è vuota o
+    contiene la stringa "<UNK>". Se una di queste condizioni è vera,
     la funzione restituisce False, altrimenti restituisce True.
 
     Args:
@@ -444,9 +490,10 @@ def check_supplement(supplement: list[str]) -> bool:
     Returns:
         bool: True se la lista è valida, False altrimenti.
     """
-    if not supplement or  "<UNK>" in supplement :  # Supplementi non presenti nel testo
-            return False
+    if not supplement or "<UNK>" in supplement:  # Supplementi non presenti nel testo
+        return False
     return True
+
 
 def get_topK_accuracy(
     lm: LanguageModel, test_abs: list, batch_size=BATCH_SIZE, n=N, k_pred=K_PRED
@@ -479,7 +526,7 @@ def get_topK_accuracy(
                 supplements = clean_supplements(
                     ab["training_text"]
                 )  # supplements puliti
-                
+
                 if not supplements:
                     continue  # non ci sono blocchi da predire
 
@@ -490,22 +537,27 @@ def get_topK_accuracy(
 
                     if not check_supplement(supplements[i]):
                         continue
-                    
-                    context = get_context(obj["test_case"], n)
+
+                    context, head_suppl, tail_suppl = get_context_from_test_case(
+                        obj["test_case"], n
+                    )
 
                     predictions = get_best_K_predictions_from_context(
                         lm=lm,
                         context=context,
                         len_suppl_words=len(supplements[i]),
                         suppl_words=supplements[i],
+                        head_suppl=head_suppl,
+                        tail_suppl=tail_suppl,
                         n=n,
                         k_pred=k_pred,
+                        beam_size=k_pred * 4,
                         mod="acc",
                     )
 
                     if supplements[i] in predictions:
                         correct_predictions += 1
-                    
+
                     total_predictions += 1
 
     return round((correct_predictions / total_predictions) * 100, 2)
