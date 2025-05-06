@@ -1,11 +1,10 @@
-from collections import Counter
 import gc
 from typing import Optional
 
-from nltk.lm import Vocabulary
 from nltk.lm.models import MLE, Lidstone, LanguageModel
 from nltk.lm.preprocessing import padded_everygram_pipeline
-
+from nltk.metrics.association import NgramAssocMeasures
+from nltk.collocations import BigramCollocationFinder
 from train import get_sentences, split_abs, load_abs, save_lm
 
 from config.settings import (
@@ -67,17 +66,8 @@ def train_lm(
     train_ngrams, vocab_tokens = padded_everygram_pipeline(
         order=n, text=get_sentences(abs=train_abs)
     )
-    
-    filtered_vocab = Vocabulary(
-        vocab_tokens,
-        unk_cutoff=min_freq,
-    )
 
-    lm.vocab = filtered_vocab  # Assegno il vocabolario filtrato al modello
-
-    lm.fit(
-        train_ngrams,
-    )
+    lm.fit(train_ngrams, vocab_tokens)
 
     gc.collect()
     return lm

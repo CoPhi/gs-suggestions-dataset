@@ -30,61 +30,84 @@ def get_dist_freq_words_from_context(
     lm: LanguageModel,
     context: list[str],
     n=N,
-    startswith: Optional[str] = None,
-    endswith: Optional[str] = None,
-) -> list[tuple[str, int]]:
+    head: Optional[str] = None,
+    tail: Optional[str] = None,
+) -> list[str]:
     """
     Genera la distribuzione di frequenze delle parole per un dato contesto.
-    Se la distribuzione è vuota, riduce progressivamente il contesto fino a trovare una distribuzione non vuota. (Backoff)
 
     :param lm: Modello di linguaggio con il metodo `context_counts`
     :param context: Lista di token che rappresenta il contesto
     :param n: Dimensione del modello (numero di parole nel contesto)
-    :param startswith: Se specificato, filtra solo le parole che iniziano con questa sottostringa
-    :param endswith: Se specificato, filtra solo le parole che finiscono con questa sottostringa
-    :return: Lista ordinata di tuple (parola, frequenza)
+    :param head: Se specificato, filtra solo le parole che iniziano con questa sottostringa
+    :param tail: Se specificato, filtra solo le parole che finiscono con questa sottostringa
+    :return: Lista di parole ordinate in base alla testa, coda e frequenza
+    :rtype: list[str]
     """
-    freq_dist = lm.context_counts(lm.vocab.lookup(context[-(n - 1):]))
-    context_counts = freq_dist.most_common(len(freq_dist)) 
-    
-    if startswith and endswith: 
-       return sorted(context_counts, key=lambda x: x[0].startswith(startswith) and x[0].endswith(endswith), reverse=True) 
-    elif startswith:
-        return sorted(context_counts, key=lambda x: x[0].startswith(startswith), reverse=True)
-    elif endswith:
-        return sorted(context_counts, key=lambda x: x[0].endswith(endswith), reverse=True)
-        
-    return context_counts
 
-def get_next_word_from_dist_freqs(
+    def filter_words(df):
+        return [w for w, _ in df if w not in ["</s>", "<s>", "<UNK>"]]
+
+    if n <= 1:
+        return []
+
+    return filter_words(
+        sorted(
+            lm.context_counts(lm.vocab.lookup(context[-(n - 1) :])).items(),
+            key=lambda x: (
+                (head is None or x[0].startswith(head))
+                and (tail is None or x[0].endswith(tail)),
+                x[1],
+            ),
+            reverse=True,
+        )
+    )
+
+
+def get_words_from_context(
     lm: LanguageModel,
     context: list[str],
-    words: set,
+    boundary: int,
     head: Optional[str] = None,
     tail: Optional[str] = None,
-    n=N,
-) -> str:
+    n: int = N,
+) -> list[str]:
     """
-    Restituisce la prossima parola più probabile da una distribuzione di frequenza sulle parole dato un contesto, filtrando se essa non è già presente nella lista di parole words.
-    Words contiene una lista di parole che sono già state viste e non devono essere considerate.
+    Funzione con cui espandiamo le parole possibili successive da uno stato (il numero massimo consentito è rappresentato da `boundary`).
+    Se la distribuzione è vuota, riduce progressivamente il contesto fino a trovare una distribuzione non vuota. (Backoff)
 
     Args:
-        lm (LanguageModel): Modello di linguaggio utilizzato per ottenere la distribuzione di frequenza delle parole.
-        context (list[str]): Contesto di parole utilizzato per generare la distribuzione di frequenza.
-        words (set): Insieme di parole già generate.
-        n (int, opzionale): Numero di parole nel contesto da considerare. Default è N.
+        lm (LanguageModel): Modello di linguaggio utilizzato.
+        context (list[str]): Contesto di parole.
+        boundary (int): Numero massimo di parole da generare.
+        n (int, opzionale): Numero di parole nel contesto. Default è N.
 
     Returns:
-        str: La prossima parola più probabile che non è già presente nella lista di parole words.
+        list[str]: Lista di parole generate.
     """
-    while n > 0:
-        dist_freq_words_from_context = get_dist_freq_words_from_context(lm, context, n, head, tail)
-        for word, _ in dist_freq_words_from_context:
-            if word not in ["</s>", "<s>", "<UNK>"] and word not in words:
-                return word
+    k_words = []
+    dist_words = (
+        set()
+    )  # Parole già viste nelle distribuzioni di parole date dal contesto
+
+    # print (f"Contesto: {context}")
+    # Se il contesto è vuoto, esco
+
+    while len(k_words) < boundary:
+        # Se non ci sono più parole disponibili, esco
+        if n <= 1:
+            break
+
+        for next_w in get_dist_freq_words_from_context(lm, context, n, head, tail):
+
+            if next_w in dist_words:
+                continue
+
+            dist_words.add(next_w)  # La aggiungo alla lista delle parole già viste
+            k_words.append(next_w)
         n -= 1
 
-    return None  # Caso in cui non trovo parole nuove nelle distribuzioni di frequenze del contesto
+    return k_words
 
 
 def loss(
@@ -147,40 +170,39 @@ def loss(
     return -total_log_prob
 
 
-def get_words_from_context(
-    lm: LanguageModel,
-    context: list[str],
-    boundary: int,
-    head: Optional[str] = None,
-    tail: Optional[str] = None,
-    n: int = N,
-) -> list[str]:
-    """
-    Funzione con cui espandiamo le parole possibili successive da uno stato (il numero massimo consentito è rappresentato da `boundary`).
+"""
+def pmi(context: tuple, word: str, lm: LanguageModel, alpha: float) -> float:
+    
+    Calcola la PMI (Pointwise Mutual Information) tra una parola e un contesto (PMI condizionata).
 
     Args:
+        context (tuple): Contesto di parole.
+        word (str): Parola da analizzare.
         lm (LanguageModel): Modello di linguaggio utilizzato.
-        context (list[str]): Contesto di parole.
-        boundary (int): Numero massimo di parole da generare.
-        n (int, opzionale): Numero di parole nel contesto. Default è N.
 
     Returns:
-        list[str]: Lista di parole generate.
-    """
-    k_words = []
-    dist_words = (
-        set()
-    )  # Parole già viste nelle distribuzioni di parole date dal contesto
+        float: Valore della PMI.
+    
+    return log(
+        lm.score((word,) + context) / (lm.score(word) * (pow(lm.score(context), alpha)))
+    )  # PMI condizionata
 
-    while len(k_words) < boundary:
-        next_w = get_next_word_from_dist_freqs(lm, context, dist_words, head, tail, n)
-        if next_w is None:
-            return k_words  # Non ci sono più parole disponibili
 
-        dist_words.add(next_w)
-        k_words.append(next_w)
+def ppmi(context: tuple, word: str, lm: LanguageModel, alpha: float = 0.75) -> float:
+    
+    Calcola la PPMI (Positive Pointwise Mutual Information) tra una parola e un contesto.
+    Alpha rappresenta il peso che normalizza le probabilità delle parole più rare con quelle più frequenti.
 
-    return k_words
+    Args:
+        context (tuple): Contesto di parole.
+        word (str): Parola da analizzare.
+        lm (LanguageModel): Modello di linguaggio utilizzato.
+
+    Returns:
+        float: Valore della PPMI.
+    
+    return max(0, pmi(context, word, lm, alpha))  # PPMI = max(0, PMI)
+"""
 
 
 def avg_edit_distance(seq: str, others: list[str]) -> float:
@@ -230,13 +252,10 @@ def get_best_candidates_from_beam(
     string_candidates = [candidate[0] for candidate in sorted_candidates]
 
     if mod == "infer":
-        distances = {
-            tuple(seq): avg_edit_distance(seq, string_candidates)
-            for seq in string_candidates
-        }
+        distances = {tuple(seq): score for seq, score in sorted_candidates}
     elif mod == "acc":
         if not suppl_words:
-            raise ValueError("Definire il gold label")
+            raise ValueError("Definire la gold label")
         distances = {
             tuple(seq): edit_distance(" ".join(seq), " ".join(suppl_words))
             for seq in string_candidates
@@ -260,10 +279,13 @@ def get_best_candidates_from_beam(
 
 def get_successors(
     lm: LanguageModel,
+    lm_type: str,
     context: list[str],
     candidate: tuple[list[str], float],
-    beam_size: int = K_PRED * 4,
-    tail: Optional[str] = None, 
+    beam_size: int = K_PRED * 2,
+    len_suppl_words: int = 0,
+    head: Optional[str] = None,
+    tail: Optional[str] = None,
     n: int = N,
 ) -> list[tuple[list[str], float]]:
     """
@@ -280,26 +302,69 @@ def get_successors(
         list[tuple[list[str], float]]: Lista di successori generati.
     """
     successors = []
-    nexts = get_words_from_context(lm, context + candidate[0], beam_size, None, tail,  n)
+    nexts = get_words_from_context(lm, context + candidate[0], beam_size, None, tail, n)
     for w in nexts:
         successors.append(
             (
                 candidate[0] + [w],
-                loss(
+                score_candidate(
                     lm,
+                    lm_type,
                     lm.vocab.lookup(context[(1 - n) :]),
                     candidate[0] + [w],
+                    head,
+                    tail,
+                    len_suppl_words,
                 ),
             )
         )
     return successors
 
 
+def score_candidate(
+    lm: LanguageModel,
+    lm_type: str,
+    context: tuple,
+    candidate: list[str],
+    head: Optional[str] = None,
+    tail: Optional[str] = None,
+    len_suppl_words: int = 0,
+) -> float:
+    """
+    Calcola il punteggio di un candidato in base alla loss e alla edit distance con la testa e la coda del supplemento.
+
+    Args:
+        lm (LanguageModel): Modello di linguaggio utilizzato.
+        context (list[str]): Contesto di parole.
+        candidate (tuple): Candidato da valutare.
+        head (Optional[str], opzionale): Testa del supplemento. Default è None.
+        tail (Optional[str], opzionale): Coda del supplemento. Default è None.
+        len_suppl_words (int, opzionale): Lunghezza del supplemento. Default è 0.
+
+    Returns:
+        float: Punteggio calcolato per il candidato.
+    """
+    loss_score = loss(lm, context, candidate, lm_type)
+
+    def calculate_edit_distance(segment: str, reference: str) -> float:
+        return edit_distance(segment, reference)
+
+    score = loss_score
+    if head and len(candidate) >= 1:
+        first_token = candidate[0]
+        score += calculate_edit_distance(first_token[: len(head)], head)
+    if tail and len(candidate) == len_suppl_words and candidate:
+        last_token = candidate[-1]
+        score += calculate_edit_distance(last_token[-len(tail) :], tail)
+
+    return score
+
+
 def local_beam_search(
     lm: LanguageModel,
     context: list[str],
     lm_type: str = LM_TYPE,
-    beam_size: int = K_PRED * 4,
+    beam_size: int = K_PRED * 2,
     n: int = N,
     len_suppl_words: int = 0,
     suppl_words: list[str] = None,
@@ -329,32 +394,87 @@ def local_beam_search(
     """
     beam = []
     # Inizializzazione K stati iniziali
-    if len_suppl_words <= 1:  
-        states = get_words_from_context(lm, context, beam_size, head_suppl, tail_suppl, n)
+    if len_suppl_words <= 1:
+        states = get_words_from_context(
+            lm, context, beam_size, head_suppl, tail_suppl, n
+        )
+        # print("Testa: ", head_suppl)
+        # print("Coda: ", tail_suppl)
+        # print(f"Stati iniziali con sequenza di token da generare pari a 1: {states}")
+
+        for s in states:
+            heapq.heappush(
+                beam,
+                (
+                    [s],
+                    score_candidate(
+                        lm,
+                        lm_type,
+                        lm.vocab.lookup(context[(1 - n) :]),
+                        [s],
+                        head_suppl,
+                        tail_suppl,
+                        len_suppl_words,
+                    ),
+                ),
+            )
+
+        return get_best_candidates_from_beam(
+            beam, suppl_words, mod, alpha, beta, k_pred
+        )
+
     else:
         states = get_words_from_context(lm, context, beam_size, head_suppl, None, n)
-        
-    for s in states:
-        heapq.heappush(
-            beam, ([s], loss(lm, lm.vocab.lookup((context)[(1 - n) :]), [s], lm_type))
+        # print(f"Stati iniziali con sequenza di token da generare > 1: {states}")
+        # print("Testa: ", head_suppl)
+
+        for s in states:
+            heapq.heappush(
+                beam,
+                (
+                    [s],
+                    score_candidate(
+                        lm,
+                        lm_type,
+                        lm.vocab.lookup(context[(1 - n) :]),
+                        [s],
+                        head_suppl,
+                        tail_suppl,
+                        len_suppl_words,
+                    ),
+                ),
+            )
+        while True:
+            successors = []
+            # Generiamo tutti i successori degli stati presenti nel beam
+            for candidate in beam:
+                if (
+                    len(candidate[0]) >= len_suppl_words
+                ):  # Termina se la lunghezza della sequenza raggiunge `len_suppl_words` : le altre sequenze del beam hanno la solita lunghezza
+                    continue
+
+                if len(candidate[0]) == len_suppl_words - 1:
+                    successors.extend(
+                        get_successors(
+                            lm,
+                            lm_type,
+                            context,
+                            candidate,
+                            beam_size,
+                            len_suppl_words,
+                            head_suppl,
+                            tail_suppl,
+                            n,
+                        )
+                    )
+            if not successors:
+                break  # Nessun successore
+
+            beam = heapq.nsmallest(beam_size, successors, key=lambda x: x[1])
+
+        return get_best_candidates_from_beam(
+            beam, suppl_words, mod, alpha, beta, k_pred
         )
-    while True:
-        successors = []
-        # Generiamo tutti i successori degli stati presenti nel beam
-        for candidate in beam:
-            if (
-                len(candidate[0]) >= len_suppl_words
-            ):  # Termina se la lunghezza della sequenza raggiunge `len_suppl_words` : le altre sequenze del beam hanno la solita lunghezza
-                continue
-            
-            if len(candidate[0]) == len_suppl_words - 1:
-                successors.extend(get_successors(lm, context, candidate, beam_size, tail_suppl, n))
-            else: 
-                successors.extend(get_successors(lm, context, candidate, beam_size, None, n))
-        if not successors:
-            break  # Nessun successore
-        beam = heapq.nsmallest(beam_size, successors, key=lambda x: x[1])
-    return get_best_candidates_from_beam(beam, suppl_words, mod, alpha, beta, k_pred)
 
 
 def get_best_K_predictions_from_context(
@@ -367,7 +487,7 @@ def get_best_K_predictions_from_context(
     tail_suppl: Optional[str] = None,
     n: int = N,
     k_pred: int = K_PRED,
-    beam_size: int = K_PRED * 4,
+    beam_size: int = K_PRED * 2,
     mod: str = "acc",
     alpha: float = 0,
     beta: float = 1,
@@ -551,9 +671,13 @@ def get_topK_accuracy(
                         tail_suppl=tail_suppl,
                         n=n,
                         k_pred=k_pred,
-                        beam_size=k_pred * 4,
+                        beam_size=k_pred * 2,
                         mod="acc",
                     )
+
+                    # print("testa del supplemento: ", head_suppl)
+                    # print("coda del supplemento: ", tail_suppl)
+                    # print("predizioni: ", predictions)
 
                     if supplements[i] in predictions:
                         correct_predictions += 1

@@ -442,14 +442,15 @@ def get_head_supplement(text_case: str) -> Optional[str]:
     """
     Restituisce la sottostringa che precede la lacuna, identificata con `[...]`, e che segue lo spazio o l'inizio della frase.
     """
-    if SUPPLEMENTS_REGEX.search(text_case):
-        match = SUPPLEMENTS_REGEX.search(text_case)
+    match = SUPPLEMENTS_REGEX.search(text_case)
+    if match:
         end = match.start()
         start = end - 1
         while start > 0 and text_case[start] not in (" ", "\n"):
             start -= 1
+        substring = text_case[start:end]
         return (
-            clean_text_from_gaps(text_case[start:end], True).strip() if not contains_lacunae(text_case[start:end]) else None
+            clean_text_from_gaps(substring, True).strip() if not contains_lacunae(substring) else None
         )
     return None
 
@@ -458,16 +459,18 @@ def get_tail_supplement(text_case: str) -> Optional[str]:
     """
     Restituisce la sottostringa che segue la lacuna, identificata con `[...]`, e che precede lo spazio o la fine della frase.
     """
-    if SUPPLEMENTS_REGEX.search(text_case):
-        match = SUPPLEMENTS_REGEX.search(text_case)
+    match = SUPPLEMENTS_REGEX.search(text_case)
+    if match:
         start = match.end()
         end = start + 1
         while end < len(text_case) and text_case[end] not in (" ", "\n"):
             end += 1
+        substring = text_case[start:end]
         return (
-            clean_text_from_gaps(text_case[start:end], True).strip() if not contains_lacunae(text_case[start:end]) else None
+            clean_text_from_gaps(substring, True).strip() if not contains_lacunae(substring) else None
         )
     return None
+ 
 
 
 def get_tokens_from_clean_text(text: str) -> list[str]:
