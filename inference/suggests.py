@@ -3,7 +3,7 @@ from math import exp
 
 from nltk.lm.models import LanguageModel
 
-from metrics.accuracy import get_context, get_best_K_predictions_from_context, loss
+from metrics.accuracy import get_context_from_test_case, get_best_K_predictions_from_context, loss
 from config.settings import N, K_PRED, LM_TYPE
 from train import load_lm
 
@@ -36,13 +36,15 @@ def generate_k_suggests(
         raise ValueError("Il modello non è stato caricato correttamente.")
 
 
-    context = get_context(context, n=n, case_folding=True)
+    context, head, tail = get_context_from_test_case(context, n=n, case_folding=True)
 
     predictions = get_best_K_predictions_from_context(
             lm=lm,
             context=context,
             lm_type=lm_type,
             len_suppl_words=num_tokens, 
+            head_suppl=head,
+            tail_suppl=tail,
             n=n,
             k_pred=k_pred,
             mod="infer",
@@ -51,7 +53,7 @@ def generate_k_suggests(
         )
     
     return [
-        (" ".join(pred).lower(),  exp(- loss(lm, lm.vocab.lookup(context[(1 - n):]), pred)))
+        (" ".join(pred).lower(),  exp(- loss(lm, lm.vocab.lookup(context[(1 - n):]), pred, lm_type)))
         for pred in predictions 
     ]
 

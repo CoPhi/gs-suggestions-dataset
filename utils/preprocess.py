@@ -1,4 +1,5 @@
 import re
+import unicodedata
 from typing import Optional
 from cltk.alphabet.grc.grc import normalize_grc
 from utils import (
@@ -35,17 +36,28 @@ def contains_lacunae(token: str) -> bool:
     return (GAP_TOKEN.upper() in fold_token) or ("." in token and len(token) > 1)
 
 
+def strip_diacritics(text: str) -> str:
+    """
+    Rimuove tutti i segni diacritici da una stringa Unicode usando decomposizione canonica.
+    """
+    return "".join(
+        c for c in unicodedata.normalize("NFD", text) if not unicodedata.combining(c)
+    )
+
+
 def normalize_greek(text: str, case_folding: bool = True) -> str:
     """
-    Applica la normalizzazione al testo in greco antico fornito `text`, successivamente il testo normalizzato viene fornito in lowercase.
+    Normalizza il testo in greco antico rimuovendo i segni diacritici e applicando il case folding.
 
     Args:
         text (str): Il testo in greco da normalizzare.
-        case_folding (bool): Se `True`, applica il case folding al testo. Default è `True`.
+        case_folding (bool): Se `True`, converte il testo in maiuscolo. Default è `True`.
+
     Returns:
-        str: Il testo normalizzato con il case folding greco applicato di default.
+        str: Il testo normalizzato.
     """
-    return normalize_grc(text).upper() if case_folding else normalize_grc(text)
+    normalized_text = normalize_grc(strip_diacritics(text))
+    return normalized_text.upper() if case_folding else normalized_text
 
 
 def clean_lacunae(token: str) -> str:
@@ -450,7 +462,9 @@ def get_head_supplement(text_case: str) -> Optional[str]:
             start -= 1
         substring = text_case[start:end]
         return (
-            clean_text_from_gaps(substring, True).strip() if not contains_lacunae(substring) else None
+            remove_punctuation(clean_text_from_gaps(substring, True).strip())
+            if not contains_lacunae(substring)
+            else None
         )
     return None
 
@@ -467,10 +481,11 @@ def get_tail_supplement(text_case: str) -> Optional[str]:
             end += 1
         substring = text_case[start:end]
         return (
-            clean_text_from_gaps(substring, True).strip() if not contains_lacunae(substring) else None
+            remove_punctuation(clean_text_from_gaps(substring, True).strip())
+            if not contains_lacunae(substring)
+            else None
         )
     return None
- 
 
 
 def get_tokens_from_clean_text(text: str) -> list[str]:
@@ -724,3 +739,16 @@ def clean_tokens(text: str) -> list[str]:
     for token in get_tokens_from_clean_text(text):
         cleaned_tokens.extend(process_token(token))
     return cleaned_tokens
+
+def test_case_contains_lacuna(test_case: str) -> bool:
+    """
+    Verifica se un caso di test contiene lacune, identificate da pattern specifici come `[...]`.
+
+    Args:
+        test_case (str): Il caso di test da verificare.
+
+    Returns:
+        bool: True se il caso di test contiene lacune, False altrimenti.
+    """
+    matches = SUPPLEMENTS_REGEX.findall(test_case)
+    return len(matches) == 1

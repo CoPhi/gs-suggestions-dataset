@@ -2,11 +2,17 @@ VERSION := $(shell poetry version | cut -d ' ' -f 2)
 API_CONTAINER_NAME := gabrielegiannessi/gs-api
 FRONTEND_CONTAINER_NAME := gabrielegiannessi/gs-frontend
 
-train: 
+.PHONY:
+	requirements build run-api training assessment run tag-api tag-frontend push-api push-frontend
+
+training: 
 	poetry run python -m train.training
 
-eval: 
+assessment: 
 	poetry run python -m eval.KFold
+
+run-api:
+	poetry run uvicorn api.main:app --reload 
 
 requirements:
 	poetry export -f requirements.txt -o requirements.txt --without-hashes
@@ -28,6 +34,3 @@ push-api:
 
 push-frontend:
 	docker push $(FRONTEND_CONTAINER_NAME):$(VERSION)
-
-.PHONY:
-	requirements build train eval run tag-api tag-frontend push-api push-frontend

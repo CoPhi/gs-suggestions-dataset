@@ -1,5 +1,6 @@
 import heapq
 import re
+import unicodedata
 from math import inf, log
 from typing import Optional
 from tqdm import tqdm
@@ -15,6 +16,7 @@ from utils.preprocess import (
     get_head_supplement,
     get_tail_supplement,
     get_tokens_from_clean_text,
+    test_case_contains_lacuna,
 )
 
 from metrics import sentence_tokenizer
@@ -36,32 +38,67 @@ def get_dist_freq_words_from_context(
     """
     Genera la distribuzione di frequenze delle parole per un dato contesto.
 
-    :param lm: Modello di linguaggio con il metodo `context_counts`
-    :param context: Lista di token che rappresenta il contesto
-    :param n: Dimensione del modello (numero di parole nel contesto)
-    :param head: Se specificato, filtra solo le parole che iniziano con questa sottostringa
-    :param tail: Se specificato, filtra solo le parole che finiscono con questa sottostringa
-    :return: Lista di parole ordinate in base alla testa, coda e frequenza
-    :rtype: list[str]
+    Args:
+        lm (LanguageModel): Modello di linguaggio con il metodo `context_counts`.
+        context (list[str]): Lista di token che rappresenta il contesto.
+        n (int): Dimensione del modello (numero di parole nel contesto).
+        head (Optional[str]): Se specificato, filtra solo le parole che iniziano con questa sottostringa.
+        tail (Optional[str]): Se specificato, filtra solo le parole che finiscono con questa sottostringa.
+
+    Returns:
+        list[str]: Lista di parole ordinate in base alla testa, coda e frequenza.
     """
 
     def filter_words(df):
+        """Filtra parole non valide come token speciali."""
         return [w for w, _ in df if w not in ["</s>", "<s>", "<UNK>"]]
+
+    def sort_and_filter(df, condition, key_func):
+        """Ordina e filtra le parole in base a una condizione e una funzione di ordinamento."""
+        target = sorted(
+            [(w, f) for w, f in df if condition(w)],
+            key=key_func,
+        )
+        remaining = sorted(
+            [(w, f) for w, f in df if w not in dict(target)],
+            key=lambda x: x[1],
+            reverse=True,
+        )
+        return filter_words(target + remaining)
 
     if n <= 1:
         return []
 
-    return filter_words(
-        sorted(
-            lm.context_counts(lm.vocab.lookup(context[-(n - 1) :])).items(),
-            key=lambda x: (
-                (head is None or x[0].startswith(head))
-                and (tail is None or x[0].endswith(tail)),
-                x[1],
-            ),
-            reverse=True,
+    df = lm.context_counts(lm.vocab.lookup(context[-(n - 1) :])).items()
+
+    if head and tail:
+        return sort_and_filter(
+            df,
+            lambda w: len(w) >= (len(head) + len(tail)),
+            lambda x: edit_distance(x[0][: len(head)], head)
+            + edit_distance(x[0][-len(tail) :], tail),
         )
-    )
+    elif head:
+        return sort_and_filter(
+            df,
+            lambda w: len(w) >= len(head),
+            lambda x: edit_distance(x[0][: len(head)], head),
+        )
+    elif tail:
+        return sort_and_filter(
+            df,
+            lambda w: len(w) >= len(tail),
+            lambda x: edit_distance(x[0][-len(tail) :], tail),
+        )
+    else:
+        # Ordina solo in base alla frequenza se non ci sono informazioni su testa o coda
+        return filter_words(
+            sorted(
+                df,
+                key=lambda x: x[1],
+                reverse=True,
+            )
+        )
 
 
 def get_words_from_context(
@@ -80,12 +117,14 @@ def get_words_from_context(
         lm (LanguageModel): Modello di linguaggio utilizzato.
         context (list[str]): Contesto di parole.
         boundary (int): Numero massimo di parole da generare.
+        head (str , opzionale): Testa del supplemento, utile per far virare la ricerca verso token più rappresentativi
+        tail (str , opzionale): Coda del suggerimento
         n (int, opzionale): Numero di parole nel contesto. Default è N.
 
     Returns:
         list[str]: Lista di parole generate.
     """
-    k_words = []
+    tokens = []
     dist_words = (
         set()
     )  # Parole già viste nelle distribuzioni di parole date dal contesto
@@ -93,7 +132,7 @@ def get_words_from_context(
     # print (f"Contesto: {context}")
     # Se il contesto è vuoto, esco
 
-    while len(k_words) < boundary:
+    while len(tokens) < boundary:
         # Se non ci sono più parole disponibili, esco
         if n <= 1:
             break
@@ -104,10 +143,10 @@ def get_words_from_context(
                 continue
 
             dist_words.add(next_w)  # La aggiungo alla lista delle parole già viste
-            k_words.append(next_w)
+            tokens.append(next_w)
         n -= 1
 
-    return k_words
+    return tokens
 
 
 def loss(
@@ -344,10 +383,44 @@ def score_candidate(
     Returns:
         float: Punteggio calcolato per il candidato.
     """
-    loss_score = loss(lm, context, candidate, lm_type)
 
     def calculate_edit_distance(segment: str, reference: str) -> float:
         return edit_distance(segment, reference)
+
+    def apply_length_penalty(
+        candidate: list[str],
+        head: Optional[str],
+        tail: Optional[str],
+        len_suppl_words: int,
+        weight: float = 0.75,
+    ) -> float:
+        """
+        Applica una penalità basata sulla lunghezza del candidato rispetto alla testa e alla coda del supplemento.
+
+        Args:
+            candidate (list[str]): Lista di token del candidato.
+            head (Optional[str]): Testa del supplemento.
+            tail (Optional[str]): Coda del supplemento.
+            len_suppl_words (int): Lunghezza del supplemento.
+            weight (float, opzionale): Peso della penalità. Default è 0.75.
+
+        Returns:
+            float: Fattore di penalità da moltiplicare allo score.
+        """
+        penalty = 0
+        if len_suppl_words == 1:
+            if head and tail:
+                if len(candidate[0]) < (len(head) + len(tail)):
+                    penalty += ((len(head) + len(tail)) - len(candidate[0])) / weight
+            elif head:
+                if len(candidate[0]) < len(head):
+                    penalty += (len(head) - len(candidate[0])) / weight
+            elif tail:
+                if len(candidate[0]) < len(tail):
+                    penalty += (len(tail) - len(candidate[0])) / weight
+        return penalty
+
+    loss_score = loss(lm, context, candidate, lm_type)
 
     score = loss_score
     if head and len(candidate) >= 1:
@@ -357,8 +430,11 @@ def score_candidate(
         last_token = candidate[-1]
         score += calculate_edit_distance(last_token[-len(tail) :], tail)
 
-    return score
+    # Applica la penalità allo score
+    if len_suppl_words == 1: 
+        score += apply_length_penalty(candidate, head, tail, len_suppl_words, weight=1.0)
 
+    return score
 
 def local_beam_search(
     lm: LanguageModel,
@@ -394,7 +470,7 @@ def local_beam_search(
     """
     beam = []
     # Inizializzazione K stati iniziali
-    if len_suppl_words <= 1:
+    if len_suppl_words == 1:
         states = get_words_from_context(
             lm, context, beam_size, head_suppl, tail_suppl, n
         )
@@ -526,41 +602,6 @@ def get_best_K_predictions_from_context(
     )
 
 
-def get_context(text: str, n=N, case_folding: bool = True) -> list[str]:
-    """
-    Ritorna una lista di token da utilizzare come contesto per l'inferenza del modello linguistico.
-
-    Args:
-        text (str): Testo di input da tokenizzare e processare.
-        n (int, opzionale): Dimensione degli n-grammi da generare. Default è N.
-        case_folding (bool, opzionale): Indica se convertire il testo in minuscolo durante il processo. Default è True.
-
-    Returns:
-        list[str]: Lista di token che rappresentano il contesto per l'inferenza del modello linguistico.
-
-    Note:
-        - Se il testo di input contiene parentesi quadre ("[") denota un test_case, perciò si delega la formazione del contesto alla funzione `get_context_from_test_case`.
-        - Altrimenti, il testo viene pulito, suddiviso in frasi e ulteriormente processato per generare i token.
-        - I token risultanti vengono imbottiti su entrambi i lati e troncati alla dimensione specificata degli n-grammi.
-    """
-    if "[" in text:
-        return get_context_from_test_case(text, n, case_folding)
-
-    return list(
-        flatten(
-            list(
-                pad_both_ends(
-                    get_tokens_from_clean_text(remove_punctuation(sent)),
-                    n=n,
-                )
-            )
-            for sent in sentence_tokenizer.tokenize(
-                clean_text_from_gaps(text, case_folding)
-            )
-        )
-    )[: (1 - n)]
-
-
 def get_context_from_test_case(
     test_case: str, n=N, case_folding: bool = True
 ) -> tuple[list[str], str, str]:
@@ -574,8 +615,20 @@ def get_context_from_test_case(
         n (optional, int): ordine degli ngrammi del modello
 
     Returns:
-        list[str]: contesto da cui partire per generare la predizione
+        tupla : (list[str], str, str)
+            - list[str]: lista di token che rappresentano il contesto per l'inferenza del modello linguistico.
+            - str: testa del supplemento
+            - str: coda del supplemento
+    Note:
+        - Si assume che il testo passato per parametro denoti un test_case, perciò la stringa deve essere composta da una lacuna, rappresenta da `[...]`.
+        - I token risultanti nel contesto vengono imbottiti e troncati alla dimensione specificata degli n-grammi.
     """
+
+    if not test_case_contains_lacuna(test_case):
+        raise ValueError(
+            "Il test case non contiene una lacuna (Assicurati di mantenere una singola lacuna dentro il testo)"
+        )
+
     context = list(
         flatten(
             list(
@@ -598,7 +651,7 @@ def get_context_from_test_case(
 
 def check_supplement(supplement: list[str]) -> bool:
     """
-    Verifica se la lista di supplementi è valida.
+    Verifica se la lista di supplementi è valida per la valutazione nella topK accuracy.
 
     Questa funzione controlla se la lista di supplementi (token) fornita è vuota o
     contiene la stringa "<UNK>". Se una di queste condizioni è vera,
@@ -610,7 +663,9 @@ def check_supplement(supplement: list[str]) -> bool:
     Returns:
         bool: True se la lista è valida, False altrimenti.
     """
-    if not supplement or "<UNK>" in supplement:  # Supplementi non presenti nel testo
+    if (
+        not supplement or len(supplement) > 1 or "<UNK>" in supplement
+    ):  # Supplementi non presenti nel testo
         return False
     return True
 
@@ -651,7 +706,7 @@ def get_topK_accuracy(
                     continue  # non ci sono blocchi da predire
 
                 for i, obj in enumerate(ab["test_cases"]):
-                    # Assumo che i supplements siano ordinati con i test_cases
+
                     if i >= len(supplements):
                         break
 
@@ -671,7 +726,7 @@ def get_topK_accuracy(
                         tail_suppl=tail_suppl,
                         n=n,
                         k_pred=k_pred,
-                        beam_size=k_pred * 2,
+                        beam_size=k_pred * 4,
                         mod="acc",
                     )
 

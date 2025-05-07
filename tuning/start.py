@@ -7,80 +7,80 @@ from config.settings import (
     GAMMAS,
     MIN_FREQS,
     BATCH_SIZE,
+    K_PRED,
 )
 from tuning import save_results, save_results_pickle
-from bohb import BOHB
-import bohb.configspace as cs 
+from skopt import gp_minimize
+from skopt.space import Categorical
+import json
 
-# Definizione spazi di ricerca discreti
+BUDGET = 10  # Budget di riferimento per condurre l'ottimizzazione
 
-k = cs.CategoricalHyperparameter("k", K_PREDICTIONS)
-n = cs.CategoricalHyperparameter("n", DIMENSIONS)
-test_size = cs.CategoricalHyperparameter("test_size", TEST_SIZES)
-min_freq = cs.CategoricalHyperparameter("min_freq", MIN_FREQS)
-gamma = cs.CategoricalHyperparameter("gamma", GAMMAS)
-param_space_mle = cs.ConfigurationSpace([k, n, test_size, min_freq])
-param_space_lidstone = cs.ConfigurationSpace([k, n, test_size, min_freq, gamma])
+SPACE = [
+    Categorical(DIMENSIONS, name="dimension"),
+    Categorical(TEST_SIZES, name="test_size"),
+    Categorical(GAMMAS, name="gamma"),
+    Categorical(MIN_FREQS, name="min_freq"),
+]
 
 
-# Funzione obiettivo per Lidstone
-def objective_function_lidstone(config, budget):
-    k = config["k"]
-    n = config["n"]
-    test_size = config["test_size"]
-    min_freq = config["min_freq"]
-    gamma = config["gamma"]
+def objective_function_lidstone(params):
+    n, test_size, gamma, min_freq = params
     model, val = pipeline_train(
-        lm_type="LIDSTONE", gamma=gamma, min_freq=min_freq, n=n, test_size=test_size, budget=budget
+        lm_type="LIDSTONE",
+        gamma=gamma,
+        min_freq=min_freq,
+        n=n,
+        test_size=test_size,
+        budget=BUDGET,
     )
-    accuracy = get_topK_accuracy(model, val, BATCH_SIZE, n, k)
-    return -accuracy
+    return -get_topK_accuracy(model, val, BATCH_SIZE, n, K_PRED)
 
 
-def objective_function_mle(config, budget):
-    k = config["k"]
-    n = config["n"]
-    test_size = config["test_size"]
-    min_freq = config["min_freq"]
+def objective_function_mle(params):
+    n, test_size, _, min_freq = params
     model, val = pipeline_train(
-        lm_type="MLE", min_freq=min_freq, n=n, test_size=test_size, budget=budget
+        lm_type="MLE", min_freq=min_freq, n=n, test_size=test_size, budget=BUDGET
     )
-    accuracy = get_topK_accuracy(model, val, BATCH_SIZE, n, k)
-    return -accuracy
+    return -get_topK_accuracy(model, val, BATCH_SIZE, n, K_PRED)
 
 
-def BOHB_mle(max_budget=100, min_budget=10, num_proc=1):
-    optimizer = BOHB(
-        param_space_mle, objective_function_mle, max_budget=max_budget, min_budget=min_budget, n_proc=num_proc	
-    )
-    opt_log = optimizer.optimize()
+def save_results_json(res, filename):
+    """
+    Salva i risultati dell'ottimizzazione in formato JSON.
+    """
+    with open(filename, "w") as f:
+        json.dump(
+            {
+                "x": res.x,
+                "fun": res.fun,
+                "space": [dim.name for dim in SPACE],
+            },
+            f,
+        )
 
-    print("Best configuration found:")
-    print("Best accuracy:", -opt_log.best["loss"])
-    print("Best hyperparameters")
-    print(opt_log.best["hyperparameter"])
-    
-    save_results(opt_log.logs, "MLE_results.csv", is_lidstone=False)
-    save_results_pickle(opt_log, "opt_log_results_mle.pkl")
 
-def BOHB_lidstone(max_budget=100, min_budget=10, num_proc=1):
-    optimizer = BOHB(
-        param_space_lidstone, objective_function_lidstone, max_budget=max_budget, min_budget=min_budget, n_proc=num_proc
-    )
-    opt_log = optimizer.optimize()
+def bo_gp_lidstone():
+    """
+    Funzione di ottimizzazione bayesiana per il modello LIDSTONE.
+    """
+    opt = gp_minimize(objective_function_lidstone, SPACE, random_state=42)
+    save_results_json(opt, "lidstone_tuning_results.json")
+    return opt
 
-    print("Best configuration found:")
-    print("Best accuracy:", -opt_log.best["loss"])
-    print("Best hyperparameters")
-    print(opt_log.best["hyperparameter"])
-    
-    save_results(opt_log.logs, "LIDSTONE_results.csv", is_lidstone=True)
-    save_results_pickle(opt_log, "opt_log_results_lidstone.pkl")
+
+def bo_gp_mle():
+    """
+    Funzione di ottimizzazione bayesiana per il modello MLE.
+    """
+    opt = gp_minimize(objective_function_mle, SPACE, random_state=42)
+    save_results_json(opt, "mle_tuning_results.json")
+    return opt
+
 
 if __name__ == "__main__":
-
-    # Esegui BOHB per Lidstone
-    BOHB_lidstone(max_budget=10, min_budget=10, num_proc=1)
-
-    # Esegui BOHB per MLE
-    #BOHB_mle(max_budget=40, min_budget=10, num_proc=1)
+    # Esegui l'ottimizzazione bayesiana per LIDSTONE
+    # res_lidstone = bo_gp_lidstone()
+    # print (res_lidstone)
+    # Esegui l'ottimizzazione bayesiana per MLE
+    res_mle = bo_gp_mle()

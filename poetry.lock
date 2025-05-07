@@ -185,24 +185,6 @@ tests = ["cloudpickle ; platform_python_implementation == \"CPython\"", "hypothe
 tests-mypy = ["mypy (>=1.11.1) ; platform_python_implementation == \"CPython\" and python_version >= \"3.10\"", "pytest-mypy-plugins ; platform_python_implementation == \"CPython\" and python_version >= \"3.10\""]
 
 [[package]]
-name = "bayesian-optimization"
-version = "2.0.3"
-description = "Bayesian Optimization package"
-optional = false
-python-versions = "<4.0,>=3.9"
-groups = ["main"]
-files = [
-    {file = "bayesian_optimization-2.0.3-py3-none-any.whl", hash = "sha256:73d08237c46a1787c17333aeaae3e41c5fab8e58a68d979645b70e72ba22b63d"},
-    {file = "bayesian_optimization-2.0.3.tar.gz", hash = "sha256:2fd4bff8b2e5dda2d658ab66b57a2f39e6dc2c36ba5489878e45499c732cdf44"},
-]
-
-[package.dependencies]
-colorama = ">=0.4.6,<0.5.0"
-numpy = ">=1.25"
-scikit-learn = ">=1.0.0,<2.0.0"
-scipy = {version = ">=1.0.0,<2.0.0", markers = "python_version < \"3.13\""}
-
-[[package]]
 name = "bert-score"
 version = "0.3.13"
 description = "PyTorch implementation of BERT score"
@@ -478,6 +460,7 @@ description = "Cross-platform colored terminal text."
 optional = false
 python-versions = "!=3.0.*,!=3.1.*,!=3.2.*,!=3.3.*,!=3.4.*,!=3.5.*,!=3.6.*,>=2.7"
 groups = ["main"]
+markers = "sys_platform == \"win32\" or platform_system == \"Windows\""
 files = [
     {file = "colorama-0.4.6-py2.py3-none-any.whl", hash = "sha256:4f1d9991f5acc0ca119f9d443620b77f9d6b33703e51011c16baf57afb285fc6"},
     {file = "colorama-0.4.6.tar.gz", hash = "sha256:08695f5cb7ed6e0531a20572697297273c47b8cae5a63ffc6d6ed5c201be6e44"},
@@ -4563,4 +4546,4 @@ propcache = ">=0.2.1"
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.11,<3.12"
-content-hash = "2583385c738efbdd04602ac77c186c725efcaf54b59782fc06a5543d6ebf6c0f"
+content-hash = "cbae6575422b38fba298b6fee81f41026111931601ad8425fd0df536d55e6b0e"
