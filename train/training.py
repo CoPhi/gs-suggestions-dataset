@@ -56,7 +56,7 @@ def train_lm(
 
         lm = MLE(n)
     else:
-        if gamma is None or gamma not in GAMMAS:
+        if gamma is None:
             raise ValueError("Unvalid gamma for Lidstone smoothing")
 
         lm = Lidstone(gamma, n)

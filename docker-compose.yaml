@@ -3,15 +3,31 @@ services:
     build:
       context: .
     image: gabrielegiannessi/gs-api:latest
+    container_name: gs-api
     ports:
         - "8000:8000"
     volumes:
         - .:/app 
+    environment:
+      - MONGO_URI=${MONGO_URI}
 
   frontend: 
     build:
       context: ./frontend
     image: gabrielegiannessi/gs-frontend:latest
+    container_name: frontend
     ports:
         - "4200:4200"
-    
+
+  mongodb: 
+    image: mongodb/mongodb-community-server:latest
+    container_name: mongodb
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    environment:
+      - MONGODB_INITDB_ROOT_USERNAME=${MONGO_USERNAME}
+      - MONGODB_INITDB_ROOT_PASSWORD=${MONGO_PASSWORD}
+volumes:
+  mongodb_data:
