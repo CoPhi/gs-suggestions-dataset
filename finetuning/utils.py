@@ -2,7 +2,13 @@ from typing import Union
 from utils.preprocess import clean_supplements, clean_text_from_gaps
 from tqdm import tqdm
 from train import load_abs, split_abs, get_sentences, get_tokens_from_clean_text
-from datasets import load_dataset, Dataset, DatasetDict, IterableDatasetDict, IterableDataset
+from datasets import (
+    load_dataset,
+    Dataset,
+    DatasetDict,
+    IterableDatasetDict,
+    IterableDataset,
+)
 from finetuning import (
     CHUNK_SIZE,
     BERT_UNK_TOKEN,
@@ -10,10 +16,11 @@ from finetuning import (
     MAX_MASK_TOKEN_TRESHOLD,
     MIN_MASK_TOKEN_TRESHOLD,
     MIN_SENT_TOKEN_TRESHOLD,
-    LACUNAE_REGEX, 
-    BERT_TOKENS_PER_WORD
+    LACUNAE_REGEX,
+    BERT_TOKENS_PER_WORD,
 )
 from utils import SUPPLEMENTS_REGEX
+from utils.preprocess import strip_diacritics
 from transformers import AutoModelForMaskedLM, AutoTokenizer, pipeline
 import re
 
@@ -35,7 +42,7 @@ def load_and_split_sentences(test_size: float = 0.1) -> tuple[list, list]:
     """
     Carica i blocchi anonimi e li divide in due set: uno per l'addestramento e uno per il test.
     I blocchi anonimi vengono caricati dai file JSON presenti nella cartella `data/` e suddivisi in due set: uno per l'addestramento e uno per il test.
-    
+
         Args:
         test_size (float): La proporzione del set di test rispetto al totale. Default è 0.1 (10%).
     Returns:
@@ -87,7 +94,7 @@ def get_num_unk_tokens(text: str) -> int:
 
 def get_processed_sentences(abs: list):
     """
-    Estrae e filtra le frasi di addestramento da una lista di blocchi anonimi, filtrando le frasi in modo da assicurarsi che tali frasi contengano un concetto semantico. 
+    Estrae e filtra le frasi di addestramento da una lista di blocchi anonimi, filtrando le frasi in modo da assicurarsi che tali frasi contengano un concetto semantico.
         train_abs (list): Lista di abstract da cui estrarre le frasi.
     Returns:
         list: Una lista di frasi filtrate che soddisfano i criteri specificati.
@@ -103,7 +110,10 @@ def get_processed_sentences(abs: list):
         leave=False,
     ):
         processed_text = get_cast_unk_tokens_text(get_sent_from_tokens(sent_tkns))
-        if get_num_unk_tokens(processed_text) >= (len(sent_tkns) * 0.1) or len(sent_tkns) < MIN_SENT_TOKEN_TRESHOLD:
+        if (
+            get_num_unk_tokens(processed_text) >= (len(sent_tkns) * 0.1)
+            or len(sent_tkns) < MIN_SENT_TOKEN_TRESHOLD
+        ):
             continue
         sentences.append(processed_text)
 
@@ -167,7 +177,11 @@ def get_test_cases_from_abs(abs: list):
             if (
                 len(supplements[i]) > 1
             ):  # se la parola da predire è composta da più di una parola, divido il test_case in più test_case per predire una parola alla volta
-                blocks.extend(split_test_case_with_multiple_mask_tokens(obj["test_case"], supplements[i]))
+                blocks.extend(
+                    split_test_case_with_multiple_mask_tokens(
+                        obj["test_case"], supplements[i]
+                    )
+                )
             else:
                 blocks.append(
                     {
@@ -186,7 +200,9 @@ def get_test_cases_from_abs(abs: list):
     )
 
 
-def split_test_case_with_multiple_mask_tokens(test_case: str, supplements: list[str]) -> list[dict]:
+def split_test_case_with_multiple_mask_tokens(
+    test_case: str, supplements: list[str]
+) -> list[dict]:
     """
     Genera una lista di casi di test con un singolo token mascherato e la relativa etichetta,
     sostituendo gli altri token mascherati con le rispettive etichette.
@@ -199,22 +215,28 @@ def split_test_case_with_multiple_mask_tokens(test_case: str, supplements: list[
         list[dict]: Lista di dizionari, ciascuno contenente un test_case con un solo token mascherato
         e gli altri token mascherati sostituiti con le rispettive etichette.
     """
-    match = re.search(r'(\[MASK\](?:\s+\[MASK\])*)', test_case) # Trova la sequenza completa di token [MASK]
+    match = re.search(
+        r"(\[MASK\](?:\s+\[MASK\])*)", test_case
+    )  # Trova la sequenza completa di token [MASK]
     if not match:
         return []  # Nessun token mascherato trovato
 
     mask_seq = match.group().split()  # Lista dei token [MASK]
 
     if len(mask_seq) != len(supplements):
-        raise ValueError("La lista delle etichette deve avere la stessa lunghezza dei token [MASK].")
+        raise ValueError(
+            "La lista delle etichette deve avere la stessa lunghezza dei token [MASK]."
+        )
 
     # Genera i test case sostituendo uno per volta ogni [MASK]
     blocks = [
         {
-            "test_case": test_case[:match.start()] + " ".join(
+            "test_case": test_case[: match.start()]
+            + " ".join(
                 supplements[j] if i != j else "[MASK]" for j in range(len(mask_seq))
-            ) + test_case[match.end():],
-            "label": supplements[i]
+            )
+            + test_case[match.end() :],
+            "label": supplements[i],
         }
         for i in range(len(mask_seq))
     ]
@@ -225,18 +247,23 @@ def split_test_case_with_multiple_mask_tokens(test_case: str, supplements: list[
 """UTILS ACCURACY"""
 
 
-def get_model(model_checkpoint: str):
+def get_BERT_model(model_checkpoint: str):
     return AutoModelForMaskedLM.from_pretrained(model_checkpoint)
 
 
 def get_tokenizer(model_checkpoint: str):
     return AutoTokenizer.from_pretrained(model_checkpoint)
 
+
 def get_masker(model: AutoModelForMaskedLM, tokenizer: AutoTokenizer):
     return pipeline("fill-mask", model=model, tokenizer=tokenizer)
 
-def get_dataset (data_checkpoint: str) -> Union[DatasetDict, Dataset, IterableDatasetDict, IterableDataset]: 
+
+def get_dataset(
+    data_checkpoint: str,
+) -> Union[DatasetDict, Dataset, IterableDatasetDict, IterableDataset]:
     return load_dataset(data_checkpoint)
+
 
 def convert_lacuna_to_masks(text: str, mask_token="[MASK]") -> str:
     """
@@ -244,32 +271,17 @@ def convert_lacuna_to_masks(text: str, mask_token="[MASK]") -> str:
 
     Args:
         text (str): Il testo contenente lacune da convertire.
-        tokenizer (AutoTokenizer): Il tokenizer utilizzato per determinare i token.
-        mask_token (str, opzionale): Il token mascherato da utilizzare. Default è "[MASK]".
+        mask_token (str, opzionale): Il token mascherato da utilizzare. Default è "<mask>".
 
     Returns:
-        str: Il testo con le lacune sostituite dai token mascherati.
+        str: Il testo con la lacuna sostituita dal token mascherato.
     """
-    def get_mask_sequence(match)-> str:
-         dots = match.group(1)
-         return "".join([mask_token] * int(len(dots) / BERT_TOKENS_PER_WORD))
-    
-    gap_matches = list(SUPPLEMENTS_REGEX.finditer(text)) 
+
+    gap_matches = list(SUPPLEMENTS_REGEX.finditer(text))
     if len(gap_matches) != 1:
-        return 
-    
+        return
+
     seq = gap_matches[0]
     start, end = seq.start(), seq.end()
-    
-    attached_left = start > 0 and text[start - 1].isalpha()
-    attached_right = end < len(text) and text[end + 1].isalpha()
-    
-    converted_text = re.sub(
-        LACUNAE_REGEX,
-        lambda match: get_mask_sequence(match),
-        text,
-    )
-    
-    return (converted_text, attached_left, attached_right)
-    
-    
+
+    return strip_diacritics(text.replace(text[start:end], mask_token))

@@ -3,8 +3,6 @@ from typing import Optional
 
 from nltk.lm.models import MLE, Lidstone, LanguageModel
 from nltk.lm.preprocessing import padded_everygram_pipeline
-from nltk.metrics.association import NgramAssocMeasures
-from nltk.collocations import BigramCollocationFinder
 from train import get_sentences, split_abs, load_abs, save_lm
 
 from config.settings import (

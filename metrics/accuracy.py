@@ -59,11 +59,14 @@ def get_dist_freq_words_from_context(
             [(w, f) for w, f in df if condition(w)],
             key=key_func,
         )
+        
+        target_words = set(w for w, _ in target)
         remaining = sorted(
-            [(w, f) for w, f in df if w not in dict(target)],
+            [(w, f) for w, f in df if w not in target_words],
             key=lambda x: x[1],
             reverse=True,
         )
+        
         return filter_words(target + remaining)
 
     if n <= 1:
@@ -730,9 +733,9 @@ def get_topK_accuracy(
                         mod="acc",
                     )
 
-                    # print("testa del supplemento: ", head_suppl)
-                    # print("coda del supplemento: ", tail_suppl)
-                    # print("predizioni: ", predictions)
+                    #print("testa del supplemento: ", head_suppl)
+                    #print("coda del supplemento: ", tail_suppl)
+                    #print("predizioni: ", predictions)
 
                     if supplements[i] in predictions:
                         correct_predictions += 1

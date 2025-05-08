@@ -1,27 +1,24 @@
-from fastapi import APIRouter, Query, Path, Body, Request
+from fastapi import APIRouter, Query, Path, Body
 from fastapi.responses import JSONResponse
-from fastapi.templating import Jinja2Templates
 from api.schema import serial_model
 from api.database import collection, fs
 from api.models import NgramModel, BERTModel, Model, PredictionCount
 from api import LEFT_CONTEXT_PATTERN
 from bson import ObjectId
-from train.training import pipeline_train, train_lm
+from train.training import train_lm
 from train import load_abs
 from inference import generate_k_suggests
-from finetuning import hcb_beam_search, convert_lacuna_to_masks
+from finetuning import fill_mask
 from config.settings import (
-    K_PREDICTIONS,
     LM_TYPES,
     GAMMA,
     N,
-    MIN_FREQ,
     BERT_CHECKPOINTS,
 )
 import pickle
 import zlib
 from uuid import uuid4
-from typing import Annotated, Literal, Optional
+from typing import Annotated, Optional
 from transformers import AutoModelForMaskedLM, AutoTokenizer
 from fastapi.responses import RedirectResponse
 
@@ -39,7 +36,7 @@ router = APIRouter()
 
 @router.get("/", include_in_schema=False)
 async def root():
-    return RedirectResponse(url="/docs")
+    return RedirectResponse(url="/docs")  # si fa il redirect alla documentazione
 
 
 @router.get(
@@ -55,7 +52,6 @@ async def root():
                             "value": {
                                 "LM_SCORE": "string",
                                 "GAMMA": "float | None",
-                                "MIN_FREQ": "float",
                                 "N": 3,
                                 "CORPUS_NAMES": "list[string] | None",
                                 "MODEL_FILE_ID": "string",
@@ -65,9 +61,7 @@ async def root():
                             "summary": "Example BERT Model",
                             "value": {
                                 "MODEL": "string",
-                                "TOKENIZER": "string",
                                 "MODEL_FILE_ID": "string",
-                                "TOKENIZER_FILE_ID": "string",
                             },
                         },
                     }
@@ -100,16 +94,13 @@ async def get_model(id: Annotated[str, Path(title="ID", description="ID del mode
                             {
                                 "LM_SCORE": "string",
                                 "GAMMA": "float | None",
-                                "MIN_FREQ": "float",
                                 "N": 3,
                                 "CORPUS_NAMES": "list[string] | None",
                                 "MODEL_FILE_ID": "string",
                             },
                             {
                                 "MODEL": "string",
-                                "TOKENIZER": "string",
                                 "MODEL_FILE_ID": "string",
-                                "TOKENIZER_FILE_ID": "string",
                             },
                         ]
                     }
@@ -164,7 +155,6 @@ async def create_model(
                     "description": "Parametri di esempio per la creazione di un modello linguistico che usa MLE.",
                     "value": {
                         "LM_SCORE": "MLE",
-                        "MIN_FREQ": 3,
                         "N": 3,
                         "TYPE": "Ngrams",
                     },
@@ -175,7 +165,6 @@ async def create_model(
                     "value": {
                         "LM_SCORE": "LIDSTONE",
                         "GAMMA": 0.1,
-                        "MIN_FREQ": 3,
                         "N": 3,
                         "TYPE": "Ngrams",
                     },
@@ -184,8 +173,7 @@ async def create_model(
                     "summary": "Esempio creazione modello BERT",
                     "description": "Parametri di esempio per la creazione di un modello linguistico BERT.",
                     "value": {
-                        "MODEL": "CNR-ILC/gs-aristoBERTo",
-                        "TOKENIZER": "CNR-ILC/gs-aristoBERTo",
+                        "CHECKPOINT": "CNR-ILC/gs-aristoBERTo",
                         "TYPE": "BERT",
                     },
                 },
@@ -212,7 +200,6 @@ async def create_model(
                 ngram_model = train_lm(
                     train_abs=abs,
                     lm_type=model_dict["LM_SCORE"],
-                    min_freq=model_dict["MIN_FREQ"],
                     gamma=model_dict["GAMMA"],
                     n=model_dict["N"],
                 )
@@ -232,16 +219,18 @@ async def create_model(
                         status_code=409,
                         content={"message": "Model already exist in db"},
                     )
-
+                print(model_dict)
                 bert_model = AutoModelForMaskedLM.from_pretrained(
-                    model_dict["MODEL"]
+                    model_dict["CHECKPOINT"]
                 )
-                bert_tokenizer = AutoTokenizer.from_pretrained(model_dict["TOKENIZER"])
 
+                bert_tokenizer = AutoTokenizer.from_pretrained(model_dict["CHECKPOINT"])
                 model_dict["MODEL_FILE_ID"] = save_to_gridfs(bert_model)
                 model_dict["TOKENIZER_FILE_ID"] = save_to_gridfs(bert_tokenizer)
 
-                model_id = collection.insert_one(model_dict).inserted_id
+                model_id = collection.insert_one(
+                    {**model_dict, "TYPE": "BERT"}
+                ).inserted_id
                 return JSONResponse(status_code=201, content={"ID": str(model_id)})
 
             except ValueError as v:
@@ -271,10 +260,9 @@ async def create_models():
     for lm_score in LM_TYPES:
         try:
             model_dict = {
-                "LM_SCORE": lm_score,
-                "GAMMA": GAMMA,
-                "MIN_FREQ": MIN_FREQ,
-                "N": N,
+                "LM_SCORE": lm_score,  # Si presuppone che sia ottimizzato
+                "GAMMA": GAMMA,  # Si presuppone che sia ottimizzato
+                "N": N,  # Si presuppone che sia ottimizzato
                 "CORPUS_NAMES": None,
                 "TYPE": "Ngrams",
             }
@@ -287,7 +275,6 @@ async def create_models():
             ngram_model = train_lm(
                 train_abs=abs,
                 lm_type=model_dict["LM_SCORE"],
-                min_freq=model_dict["MIN_FREQ"],
                 gamma=model_dict["GAMMA"],
                 n=model_dict["N"],
             )
@@ -297,26 +284,25 @@ async def create_models():
         except Exception as e:
             return JSONResponse(status_code=500, content={"detail": str(e)})
 
-        # BERT models
-        for checkpoint in BERT_CHECKPOINTS:
-            try:
-                model_dict = {
-                    "MODEL": checkpoint,
-                    "TOKENIZER": checkpoint,
-                    "TYPE": "BERT",
-                }
-                bert_model = AutoModelForMaskedLM.from_pretrained(
-                    model_dict["MODEL"]
-                )
-
-                bert_tokenizer = AutoTokenizer.from_pretrained(model_dict["TOKENIZER"])
-                model_dict["MODEL_FILE_ID"] = save_to_gridfs(bert_model)
-                model_dict["TOKENIZER_FILE_ID"] = save_to_gridfs(bert_tokenizer)
-
-                model_id = collection.insert_one(model_dict).inserted_id
-                ids.append(str(model_id))
-            except Exception as e:
-                return JSONResponse(status_code=500, content={"detail": str(e)})
+    # BERT models
+    for checkpoint in BERT_CHECKPOINTS:
+        try:
+            model_dict = {
+                "CHECKPOINT": checkpoint,
+                "TYPE": "BERT",
+            }
+            bert_model = AutoModelForMaskedLM.from_pretrained(
+                model_dict["CHECKPOINT"]
+            )
+            bert_tokenizer = AutoTokenizer.from_pretrained(model_dict["CHECKPOINT"])
+            model_dict["MODEL_FILE_ID"] = save_to_gridfs(bert_model)
+            model_dict["TOKENIZER_FILE_ID"] = save_to_gridfs(bert_tokenizer)
+            model_id = collection.insert_one(
+                {**model_dict, "TYPE": "BERT"}
+            ).inserted_id
+            ids.append(str(model_id))
+        except Exception as e:
+            return JSONResponse(status_code=500, content={"detail": str(e)})
     return JSONResponse(status_code=201, content={"IDs": ids})
 
 
@@ -434,15 +420,19 @@ async def get_predictions(
             )
 
             predictions = [
-                {"token_str": suggestion[0], "score": suggestion[1], "sentence": suggestion[2]}
-                for suggestion in hcb_beam_search(
-                    model=decompressed_model,
-                    tokenizer=decompressed_tokenizer,
-                    masked_text=convert_lacuna_to_masks(context),
-                    k=num_predictions.value,
-                    beam_size=num_predictions.value*5,
+                {"token_str": token, "score": score, "sequence": seq}
+                for (token, score, seq) in fill_mask(
+                    decompressed_model, decompressed_tokenizer, context, num_predictions
                 )
             ]
+
+            if not predictions:
+                return JSONResponse(
+                    status_code=500,
+                    content={
+                        "detail": str("No predictions generated, check the context")
+                    },
+                )
 
             return JSONResponse(
                 status_code=200,
@@ -451,6 +441,39 @@ async def get_predictions(
 
         else:
             return JSONResponse(status_code=404, content={"message": "Model not found"})
+
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"detail": str(e)})
+
+@router.delete(
+    "/model/{id}",
+    responses={
+        200: {"description": "Model deleted successfully"},
+        404: {"description": "Model not found"},
+        500: {"description": "Internal server error"},
+    },
+)
+async def delete_model(id: Annotated[str, Path(title="ID", description="ID del modello da eliminare")]):
+    try:
+        model = collection.find_one({"_id": ObjectId(id)})
+        if not model:
+            return JSONResponse(status_code=404, content={"message": "Model not found"})
+
+        # Elimina file GridFS associati
+        if "MODEL_FILE_ID" in model:
+            file_doc = fs.find_one({"filename": model["MODEL_FILE_ID"]})
+            if file_doc:
+                fs.delete(file_doc._id)
+
+        if model.get("TYPE") == "BERT" and "TOKENIZER_FILE_ID" in model:
+            tokenizer_doc = fs.find_one({"filename": model["TOKENIZER_FILE_ID"]})
+            if tokenizer_doc:
+                fs.delete(tokenizer_doc._id)
+
+        # Rimuovi il documento dalla collezione
+        collection.delete_one({"_id": ObjectId(id)})
+
+        return JSONResponse(status_code=200, content={"detail": "Model deleted successfully"})
 
     except Exception as e:
         return JSONResponse(status_code=500, content={"detail": str(e)})

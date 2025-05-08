@@ -10,9 +10,6 @@ class NgramModel(BaseModel):
     GAMMA: float | None = Field(
         default=None, description="Parametro di smoothing per il modello LIDSTONE"
     )
-    MIN_FREQ: int = Field(
-        description="Frequenza minima per la considerazione di un n-gramma dal vocabolario"
-    )
     N: int = Field(description="Dimensionalità massima degli n-grammi del modello")
     CORPUS_NAMES: list[str] | None = Field(
         default=None,
@@ -21,8 +18,7 @@ class NgramModel(BaseModel):
     TYPE: Literal["Ngrams"]
 
 class BERTModel(BaseModel):
-    MODEL: str = Field(description="Nome del modello BERT da utilizzare")
-    TOKENIZER: str = Field(description="Nome del tokenizer da utilizzare")
+    CHECKPOINT: str = Field(description="Nome del modello BERT da utilizzare")
     TYPE: Literal["BERT"]
     
 class PredictionCount(IntEnum):
