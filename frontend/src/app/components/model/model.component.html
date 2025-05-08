@@ -12,7 +12,7 @@
       <p class="card-text">Modello BERT</p>
       <ul class="list-group list-group-flush mb-3">
         <li class="list-group-item"><strong>Tipo:</strong> BERT</li>
-        <li class="list-group-item"><strong>Checkpoint:</strong> {{ bertmodel().MODEL }} </li>
+        <li class="list-group-item"><strong>Checkpoint:</strong> {{ bertmodel().CHECKPOINT }} </li>
       </ul>
     </div>
   </div>
@@ -39,8 +39,10 @@
         @else {
         <li class="list-group-item"><strong>Tipo di score:</strong> {{ ngramsmodel().LM_SCORE }} </li>
         }
-        <li class="list-group-item"><strong>Frequenza minima in vocabolario:</strong> {{ ngramsmodel().MIN_FREQ }}</li>
         <li class="list-group-item"><strong>Dimensionalità del modello (N-grammi):</strong> {{ ngramsmodel().N }}</li>
+        @if (ngramsmodel().CORPUS_NAMES) {
+          <li class="list-group-item"><strong>Lista di corpus di addestramento:</strong> {{ ngramsmodel().CORPUS_NAMES }}</li>
+        }
       </ul>
     </div>
   </div>

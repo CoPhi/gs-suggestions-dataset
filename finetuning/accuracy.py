@@ -6,7 +6,9 @@ from finetuning import (
 )
 
 
-def fill_mask(model, tokenizer, context, k, mask_token="[MASK]") -> list[tuple[str, float, str]] | None:
+def fill_mask(
+    model, tokenizer, context, k, mask_token="[MASK]"
+) -> list[tuple[str, float, str]] | None:
     context = convert_lacuna_to_masks(text=context, mask_token=mask_token)
     if not context:
         return
@@ -18,6 +20,7 @@ def fill_mask(model, tokenizer, context, k, mask_token="[MASK]") -> list[tuple[s
         1
     ]  # indice del token mascherato
 
+    print(mask_token_index)
     # Inference
     with torch.no_grad():
         outputs = model(**inputs)
@@ -35,9 +38,9 @@ def fill_mask(model, tokenizer, context, k, mask_token="[MASK]") -> list[tuple[s
 
     return [
         (
+            context.replace(mask_token, token.replace("##", "")),
             token.replace("##", ""),
             score,
-            context.replace(mask_token, token.replace("##", "")),
         )
         for token, score in zip(top_k_tokens, top_k_probs.tolist())
     ]

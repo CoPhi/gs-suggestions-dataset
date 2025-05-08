@@ -3,6 +3,7 @@ import { AbstractControl, FormControl, FormGroup, ReactiveFormsModule, FormsModu
 import { ApiService, modelType, SuggestionInterface } from '../../services/api.service';
 import { ModelComponent } from '../model/model.component';
 import { SuggestComponent } from '../suggest/suggest.component';
+import { setThrowInvalidWriteToSignalError } from '@angular/core/primitives/signals';
 
 @Component({
   selector: 'app-suggests-box',
@@ -149,14 +150,14 @@ export class SuggestsBoxComponent {
         this.showAlert('Suggerimenti generati con successo', 'success');
         this.isGenerating.set(false);
       },
-      error: (error: any) => {
-        console.error('Errore:', error);
+      error: () => {
         this.showAlert('Errore durante la generazione dei suggerimenti', 'danger');
         this.isGenerating.set(false);
         this.toggleSpinner();
       },
       complete: () => {
         this.toggleSpinner();
+        this.isGenerating.set(false);
       }
     });
   }

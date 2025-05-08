@@ -420,8 +420,8 @@ async def get_predictions(
             )
 
             predictions = [
-                {"token_str": token, "score": score, "sequence": seq}
-                for (token, score, seq) in fill_mask(
+                {"sentence": prediction[0], "token_str": prediction[1], "score": prediction[2]}
+                for prediction in fill_mask(
                     decompressed_model, decompressed_tokenizer, context, num_predictions
                 )
             ]

@@ -38,8 +38,7 @@ export type modelType = BERTModelInterface | NgramsModelInterface;
 
 export interface BERTModelInterface {
   _id: string; // ID del modello
-  MODEL: string; // Nome del modello BERT da utilizzare
-  TOKENIZER: string; // Nome del tokenizer da utilizzare
+  CHECKPOINT: string; // Nome del modello BERT da utilizzare
   TYPE: "BERT"; // Tipo di modello
 }
 
@@ -47,7 +46,6 @@ export interface NgramsModelInterface {
   _id: string; // ID del modello
   LM_SCORE: string;
   GAMMA: number | null;
-  MIN_FREQ: number;
   N: number;
   CORPUS_NAMES: string[];
   TYPE: "Ngrams";
