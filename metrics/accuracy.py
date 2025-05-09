@@ -27,7 +27,6 @@ from config.settings import (
     LM_TYPE,
 )
 
-
 def get_dist_freq_words_from_context(
     lm: LanguageModel,
     context: list[str],
@@ -210,42 +209,6 @@ def loss(
         )  # Si aggiunge un valore di fallback nel caso in cui le parole della sequenza non siano presenti nel modello
 
     return -total_log_prob
-
-
-"""
-def pmi(context: tuple, word: str, lm: LanguageModel, alpha: float) -> float:
-    
-    Calcola la PMI (Pointwise Mutual Information) tra una parola e un contesto (PMI condizionata).
-
-    Args:
-        context (tuple): Contesto di parole.
-        word (str): Parola da analizzare.
-        lm (LanguageModel): Modello di linguaggio utilizzato.
-
-    Returns:
-        float: Valore della PMI.
-    
-    return log(
-        lm.score((word,) + context) / (lm.score(word) * (pow(lm.score(context), alpha)))
-    )  # PMI condizionata
-
-
-def ppmi(context: tuple, word: str, lm: LanguageModel, alpha: float = 0.75) -> float:
-    
-    Calcola la PPMI (Positive Pointwise Mutual Information) tra una parola e un contesto.
-    Alpha rappresenta il peso che normalizza le probabilità delle parole più rare con quelle più frequenti.
-
-    Args:
-        context (tuple): Contesto di parole.
-        word (str): Parola da analizzare.
-        lm (LanguageModel): Modello di linguaggio utilizzato.
-
-    Returns:
-        float: Valore della PPMI.
-    
-    return max(0, pmi(context, word, lm, alpha))  # PPMI = max(0, PMI)
-"""
-
 
 def avg_edit_distance(seq: str, others: list[str]) -> float:
     """
