@@ -5,9 +5,9 @@ import os
 
 load_dotenv()
 
-mongo_uri = os.getenv("MONGO_URI")
-
-client = MongoClient(mongo_uri)
+username = os.getenv("MONGO_USERNAME")
+password = os.getenv("MONGO_PASSWORD")
+client = MongoClient(f"mongodb://{ username }:{ password }@mongodb:27017/")
 db = client.models_db   
 collection = db['models_collection']
 fs = GridFS(db)

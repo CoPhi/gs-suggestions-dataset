@@ -24,7 +24,7 @@ def train_lm(
     min_freq: Optional[int] = MIN_FREQ,
     gamma: Optional[float] = GAMMA,
     n=N,
-) -> LanguageModel:
+) -> tuple[LanguageModel, LanguageModel]:
     """
     Addestra un modello di linguaggio sulle frasi di addestramento fornite.
 
@@ -36,7 +36,7 @@ def train_lm(
         n (int, opzionale): Ordine degli n-grammi. Default è N.
 
     Returns:
-        LanguageModel: Modello di linguaggio addestrato.
+        tupla di modelli linguistici, di cui uno globale e uno specifico di dominio
     """
 
     if lm_type not in LM_TYPES:

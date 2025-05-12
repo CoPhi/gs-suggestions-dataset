@@ -197,13 +197,15 @@ async def create_model(
                     corpus_set=model_dict["CORPUS_NAMES"]
                 )  # Carico i blocchi anonimi di default
 
-                ngram_model = train_lm(
+                global_ngram_model, domain_ngram_model = train_lm(
                     train_abs=abs,
                     lm_type=model_dict["LM_SCORE"],
                     gamma=model_dict["GAMMA"],
                     n=model_dict["N"],
                 )
-                model_dict["MODEL_FILE_ID"] = save_to_gridfs(ngram_model)
+                model_dict["GLOBAL_MODEL_FILE_ID"] = save_to_gridfs(global_ngram_model)
+                model_dict["DOMAIN_MODEL_FILE_ID"] = save_to_gridfs(domain_ngram_model)
+                
                 model_id = collection.insert_one(model_dict).inserted_id
                 return JSONResponse(status_code=201, content={"ID": str(model_id)})
             except ValueError as v:
@@ -272,14 +274,14 @@ async def create_models():
                     status_code=409, content={"message": "Model already exist in db"}
                 )
 
-            ngram_model = train_lm(
-                train_abs=abs,
-                lm_type=model_dict["LM_SCORE"],
-                gamma=model_dict["GAMMA"],
-                n=model_dict["N"],
-            )
-            model_dict["MODEL_FILE_ID"] = save_to_gridfs(ngram_model)
-            model_id = collection.insert_one(model_dict).inserted_id
+            global_ngram_model, domain_ngram_model = train_lm(
+                    train_abs=abs,
+                    lm_type=model_dict["LM_SCORE"],
+                    gamma=model_dict["GAMMA"],
+                    n=model_dict["N"],
+                )
+            model_dict["GLOBAL_MODEL_FILE_ID"] = save_to_gridfs(global_ngram_model)
+            model_dict["DOMAIN_MODEL_FILE_ID"] = save_to_gridfs(domain_ngram_model)
             ids.append(str(model_id))
         except Exception as e:
             return JSONResponse(status_code=500, content={"detail": str(e)})
@@ -370,17 +372,25 @@ async def get_predictions(
             )
 
         if dict_model["TYPE"] == "Ngrams":
-            model_filename = dict_model["MODEL_FILE_ID"]
-            file_document = fs.find_one(
-                {"filename": model_filename}
+            global_model_filename = dict_model["GLOBAL_MODEL_FILE_ID"]
+            domain_model_filename = dict_model["DOMAIN_MODEL_FILE_ID"]
+            global_model_file_document = fs.find_one(
+                {"filename": global_model_filename}
             )  # Cerca il file per nome
-            if not file_document:
+            domain_model_file_document = fs.find_one(
+                {"filename": domain_model_filename}
+            )  # Cerca il file per nome
+            
+            if not (global_model_file_document or  domain_model_file_document):
                 return JSONResponse(
                     status_code=404, content={"message": "Model not found"}
                 )
 
-            model_file = fs.get(file_document._id)  # Recupera il file usando il suo _id
-            decompressed_model = pickle.loads(zlib.decompress(model_file.read()))
+            global_model_file = fs.get(global_model_file_document._id)  # Recupera il file usando il suo _id
+            domain_model_file = fs.get(domain_model_file_document._id)
+            decompressed_global_model = pickle.loads(zlib.decompress(global_model_file.read()))
+            decompressed_domain_model = pickle.loads(zlib.decompress(domain_model_file.read()))
+            
 
             left_context = LEFT_CONTEXT_PATTERN.sub("[", context).split("[")[0]
             predictions = [
@@ -390,7 +400,8 @@ async def get_predictions(
                     "score": suggestion[1],
                 }
                 for suggestion in generate_k_suggests(
-                    lm=decompressed_model,
+                    g_lm=decompressed_global_model,
+                    d_lm=decompressed_domain_model,
                     context=context,
                     num_tokens=num_tokens,
                     lm_type=dict_model["LM_SCORE"],
