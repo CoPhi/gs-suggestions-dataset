@@ -13,7 +13,6 @@ from config.settings import (
     MIN_FREQ,
     DIMENSIONS,
     LM_TYPES,
-    GAMMAS,
     MIN_FREQS,
 )
 

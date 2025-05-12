@@ -352,7 +352,7 @@ def suppl_contain_start_space(training_text: str, start_pos: int):
     return training_text[start_pos + 1] == " "
 
 
-def get_extended_supplement(training_text: str, start_pos: int, end_pos: int):
+def get_expanded_supplement(training_text: str, start_pos: int, end_pos: int):
     """
     Estrae il supplemento dal testo di addestramento, estendendolo se necessario.
     """
@@ -389,7 +389,7 @@ def get_extended_supplement(training_text: str, start_pos: int, end_pos: int):
     return training_text[start_pos:end_pos]
 
 
-def clean_supplements(training_text: str, case_folding: bool = True) -> list[list[str]]:
+def clean_supplements(training_text: str, case_folding: bool = True) -> list[tuple[list[str], int]]:
     """
     Questa funzione cerca i supplementi (testo racchiuso tra parentesi quadre) all'interno del testo fornito,
     estende il loro contesto se necessario, li pulisce e li tokenizza. I token vengono restituiti come
@@ -399,8 +399,8 @@ def clean_supplements(training_text: str, case_folding: bool = True) -> list[lis
         training_text (str): Il testo di addestramento contenente i supplementi da estrarre.
 
     Returns:
-        list[list[str]]: Una lista di liste di stringhe, dove ogni lista interna contiene i token del
-        corrispondente supplemento.
+        list[list[str]]: Una lista di tuple, dove ogni tupla contiene una lista che contiene i token del
+        corrispondente supplemento e un conteggio dei caratteri alfabetici presenti nella lacuna.
 
     Raises:
         ValueError: Se il testo fornito non è una stringa valida.
@@ -433,20 +433,23 @@ def clean_supplements(training_text: str, case_folding: bool = True) -> list[lis
         else:
             match = matches[0]  # Prendi la prima (unica) occorrenza trovata
 
-        extended_supplement = get_extended_supplement(
+        expanded_supplement = get_expanded_supplement(
             training_text, match.start(), match.end()
         )
-
-        suppl_tokens.append(
-            [
-                token
-                for token in get_tokens_from_clean_text(
+        
+        tokens = get_tokens_from_clean_text(
                     remove_punctuation(
-                        clean_text_from_gaps(extended_supplement, case_folding)
+                        clean_text_from_gaps(expanded_supplement, case_folding)
                     )
                 )
-            ]
-        )
+        
+        if len(tokens) > 1:
+            suppl_tokens.append ((tokens, 0)) #Not implemented
+        else: 
+            non_alpha_count = sum(1 for char in suppl if char.isalpha()) #Conto i caratteri effettivi da cui è composta la lacuna da generare
+            suppl_tokens.append ((tokens, non_alpha_count))
+
+        
     return suppl_tokens
 
 
@@ -740,7 +743,7 @@ def clean_tokens(text: str) -> list[str]:
         cleaned_tokens.extend(process_token(token))
     return cleaned_tokens
 
-def test_case_contains_lacuna(test_case: str) -> bool:
+def test_case_contains_lacuna(test_case: str) -> Optional[str]:
     """
     Verifica se un caso di test contiene lacune, identificate da pattern specifici come `[...]`.
 
@@ -751,4 +754,4 @@ def test_case_contains_lacuna(test_case: str) -> bool:
         bool: True se il caso di test contiene lacune, False altrimenti.
     """
     matches = SUPPLEMENTS_REGEX.findall(test_case)
-    return len(matches) == 1
+    return matches[0] if len(matches) == 1 else None

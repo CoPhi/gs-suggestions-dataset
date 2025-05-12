@@ -27,6 +27,7 @@ def get_dist_freq_words_from_context(
     g_lm: LanguageModel,
     d_lm: LanguageModel,
     context: list[str],
+    len_lacuna: int, 
     n=N,
     head: Optional[str] = None,
     tail: Optional[str] = None,
@@ -69,41 +70,39 @@ def get_dist_freq_words_from_context(
     if n <= 1:
         return []
 
-    def get_sorted_filtered_words(df, head, tail):
+    def get_sorted_filtered_words(df, head, tail, len_lacuna):
         """Ordina e filtra le parole in base a testa e coda."""
         if head and tail:
             return sort_and_filter(
                 df,
-                lambda w: len(w) >= (len(head) + len(tail)),
+                lambda w: len(w) >= (len(head) + len(tail) + len_lacuna),
                 lambda x: edit_distance(x[0][: len(head)], head)
                 + edit_distance(x[0][-len(tail) :], tail),
             )
         elif head:
             return sort_and_filter(
                 df,
-                lambda w: len(w) >= len(head),
+                lambda w: len(w) >= len(head) + len_lacuna,
                 lambda x: edit_distance(x[0][: len(head)], head),
             )
         elif tail:
             return sort_and_filter(
                 df,
-                lambda w: len(w) >= len(tail),
+                lambda w: len(w) >= len(tail) + len_lacuna,
                 lambda x: edit_distance(x[0][-len(tail) :], tail),
             )
         else:
             # Ordina solo in base alla frequenza se non ci sono informazioni su testa o coda
-            return filter_words(
-                sorted(
-                    df,
-                    key=lambda x: x[1],
-                    reverse=True,
-                )
+            return sort_and_filter(
+                df,
+                lambda w: len(w) >= len_lacuna,
+                lambda x: x[1],
             )
 
     g_df = Counter(g_lm.context_counts(g_lm.vocab.lookup(context[-(n - 1) :])))
     d_df = Counter(d_lm.context_counts(g_lm.vocab.lookup(context[-(n - 1) :])))
     merged = g_df + d_df
-    return get_sorted_filtered_words(merged.items(), head, tail)
+    return get_sorted_filtered_words(merged.items(), head, tail, len_lacuna)
 
 
 def get_words_from_context(
@@ -111,6 +110,7 @@ def get_words_from_context(
     d_lm: LanguageModel,
     context: list[str],
     boundary: int,
+    len_lacuna: int, 
     head: Optional[str] = None,
     tail: Optional[str] = None,
     n: int = N,
@@ -142,7 +142,7 @@ def get_words_from_context(
             break
 
         for next_w in get_dist_freq_words_from_context(
-            g_lm, d_lm, context, n, head, tail
+            g_lm, d_lm, context, len_lacuna, n, head, tail
         ):
 
             if next_w in dist_words:
@@ -155,7 +155,7 @@ def get_words_from_context(
     return tokens
 
 
-def compute_log_prob(
+def interpolated_log_score(
     g_lm: LanguageModel,
     d_lm: LanguageModel,
     word: str,
@@ -184,7 +184,7 @@ def compute_log_prob(
     )
 
 
-def loss(
+def nll_score(
     g_lm: LanguageModel,
     d_lm: LanguageModel,
     lambda_weight: float,
@@ -193,7 +193,7 @@ def loss(
     lm_type=LM_TYPE,
 ) -> float:
     """
-    Funzione di perdita usata nella local beam search.
+    Funzione di scoring usata nella local beam search.
     Tale implementazione fa riferimento alla metrica NLL (Negative Log Likelihood) normalizzata per la lunghezza della frase complessiva (contesto + generazione).
 
     Args:
@@ -223,7 +223,7 @@ def loss(
 
     total_log_prob = 0
     for word in generated_seq:
-        total_log_prob += compute_log_prob(g_lm, d_lm, word, context, lambda_weight)
+        total_log_prob += interpolated_log_score(g_lm, d_lm, word, context, lambda_weight)
         context = update_context(context, word)
 
     if lm_type == "MLE":
@@ -234,25 +234,6 @@ def loss(
         )  # Si aggiunge un valore di fallback nel caso in cui le parole della sequenza non siano presenti nel modello
 
     return -total_log_prob
-
-
-def avg_edit_distance(seq: str, others: list[str]) -> float:
-    """
-    Calcola la distanza di Levensthein media tra una sequenza e le altre presenti nel beam.
-
-    Args:
-        seq (str): Sequenza di parole.
-        others (list[str]): Altre sequenze di parole.
-
-    Returns:
-        float: Distanza media di Levensthein.
-    """
-    return sum(
-        edit_distance(" ".join(seq), " ".join(other))
-        for other in others
-        if other != seq
-    ) / max(len(others) - 1, 1)
-
 
 def get_best_candidates_from_beam(
     beam: list[tuple[list[str], float]],
@@ -312,6 +293,7 @@ def get_successors(
     g_lm: LanguageModel,
     d_lm: LanguageModel,
     lambda_weight: float,
+    len_lacuna: int, 
     lm_type: str,
     context: list[str],
     candidate: tuple[list[str], float],
@@ -347,6 +329,7 @@ def get_successors(
                     g_lm,
                     d_lm,
                     lambda_weight,
+                    len_lacuna, 
                     lm_type,
                     g_lm.vocab.lookup(context[(1 - n) :]),
                     candidate[0] + [w],
@@ -363,6 +346,7 @@ def score_candidate(
     g_lm: LanguageModel,
     d_lm: LanguageModel,
     lambda_weight: float,
+    len_lacuna: int, 
     lm_type: str,
     context: tuple,
     candidate: list[str],
@@ -408,20 +392,21 @@ def score_candidate(
         Returns:
             float: Fattore di penalità da moltiplicare allo score.
         """
-        penalty = 0
-        if len_suppl_words == 1:
-            if head and tail:
-                if len(candidate[0]) < (len(head) + len(tail)):
-                    penalty += ((len(head) + len(tail)) - len(candidate[0])) / weight
-            elif head:
-                if len(candidate[0]) < len(head):
-                    penalty += (len(head) - len(candidate[0])) / weight
-            elif tail:
-                if len(candidate[0]) < len(tail):
-                    penalty += (len(tail) - len(candidate[0])) / weight
-        return penalty
+        if len_suppl_words != 1:
+            return 0
 
-    loss_score = loss(g_lm, d_lm, lambda_weight, context, candidate, lm_type)
+        target_length = len_lacuna
+        if head:
+            target_length += len(head)
+        if tail:
+            target_length += len(tail)
+
+        candidate_length = len(candidate[0])
+        length_difference = abs(candidate_length - target_length)
+
+        return length_difference / weight
+
+    loss_score = nll_score(g_lm, d_lm, lambda_weight, context, candidate, lm_type)
 
     score = loss_score
     if head and len(candidate) >= 1:
@@ -434,7 +419,7 @@ def score_candidate(
     # Applica la penalità allo score
     if len_suppl_words == 1:
         score += apply_length_penalty(
-            candidate, head, tail, len_suppl_words, weight=1.0
+            candidate, head, tail, len_suppl_words
         )
 
     return score
@@ -443,8 +428,9 @@ def score_candidate(
 def local_beam_search(
     g_lm: LanguageModel,
     d_lm: LanguageModel,
-    lambda_weight: float,
     context: list[str],
+    len_lacuna: int = 0, 
+    lambda_weight: float = LAMBDA,
     lm_type: str = LM_TYPE,
     beam_size: int = K_PRED * 2,
     n: int = N,
@@ -458,28 +444,33 @@ def local_beam_search(
     k_pred: int = K_PRED,
 ) -> list[list[str]]:
     """
-    Esegue una ricerca locale con beam search per generare le migliori K predizioni.
+    Esegue una ricerca locale utilizzando l'algoritmo di beam search per generare 
+    le migliori K predizioni basate su un contesto iniziale e su modelli di linguaggio.
 
-    Args:
-        g_lm (LanguageModel): Modello di linguaggio globale utilizzato.
-        d_lm (LanguageModel): Modello di linguaggio di dominio utilizzato.
-        context (list[str]): Contesto iniziale.
-        beam_size (int, opzionale): Dimensione del beam. Default è K_PRED * 4.
-        n (int, opzionale): Numero di parole nel contesto. Default è N.
-        suppl_words (list[str], opzionale): Parole supplementari. Default è None.
-        mod (str, opzionale): Modalità di calcolo delle predizioni. Default è "acc".
-        alpha (float, opzionale): Peso del punteggio della loss. Default è 0.
-        beta (float, opzionale): Peso del punteggio della edit distance. Default è 1.
-        k_pred (int, opzionale): Numero di predizioni da generare. Default è K_PRED.
+        g_lm (LanguageModel): Modello di linguaggio globale utilizzato per il calcolo delle probabilità.
+        d_lm (LanguageModel): Modello di linguaggio di dominio utilizzato per il calcolo delle probabilità.
+        context (list[str]): Lista di token che rappresenta il contesto iniziale.
+        len_lacuna (int): Lunghezza della lacuna da riempire.
+        lambda_weight (float, opzionale): Peso del modello di dominio rispetto al modello globale. Default è LAMBDA.
+        lm_type (str, opzionale): Tipo di modello di linguaggio utilizzato. Default è LM_TYPE.
+        beam_size (int, opzionale): Dimensione del beam, ovvero il numero massimo di stati mantenuti ad ogni iterazione. Default è K_PRED * 2.
+        n (int, opzionale): Numero di token considerati nel contesto. Default è N.
+        len_suppl_words (int, opzionale): Numero di parole supplementari da generare. Default è 0.
+        suppl_words (list[str], opzionale): Lista di parole supplementari da considerare. Default è None.
+        head_suppl (Optional[str], opzionale): Token opzionale da utilizzare come prefisso per le parole supplementari. Default è None.
+        tail_suppl (Optional[str], opzionale): Token opzionale da utilizzare come suffisso per le parole supplementari. Default è None.
+        mod (str, opzionale): Modalità di calcolo delle predizioni (ad esempio, "acc" per accuratezza). Default è "acc".
+        alpha (float, opzionale): Peso del punteggio della loss nel calcolo del ranking. Default è 0.
+        beta (float, opzionale): Peso del punteggio della edit distance nel calcolo del ranking. Default è 1.
+        k_pred (int, opzionale): Numero di predizioni finali da generare. Default è K_PRED.
 
-    Returns:
-        list[list[str]]: Lista delle migliori K sequenze generate.
+        list[list[str]]: Una lista contenente le migliori K sequenze generate, ordinate in base al punteggio.
     """
     beam = []
     # Inizializzazione K stati iniziali
     if len_suppl_words == 1:
         states = get_words_from_context(
-            g_lm, d_lm, context, beam_size, head_suppl, tail_suppl, n
+            g_lm, d_lm, context, beam_size, len_lacuna, head_suppl, tail_suppl, n
         )
         # print("Testa: ", head_suppl)
         # print("Coda: ", tail_suppl)
@@ -494,6 +485,7 @@ def local_beam_search(
                         g_lm,
                         d_lm,
                         lambda_weight,
+                        len_lacuna,
                         lm_type,
                         g_lm.vocab.lookup(context[(1 - n) :]),
                         [s],
@@ -510,11 +502,9 @@ def local_beam_search(
 
     else:
         states = get_words_from_context(
-            g_lm, d_lm, context, beam_size, head_suppl, None, n
+            g_lm, d_lm, context, beam_size, 0, head_suppl, None, n
         )
-        # print(f"Stati iniziali con sequenza di token da generare > 1: {states}")
-        # print("Testa: ", head_suppl)
-
+        
         for s in states:
             heapq.heappush(
                 beam,
@@ -524,6 +514,7 @@ def local_beam_search(
                         g_lm,
                         d_lm,
                         lambda_weight,
+                        0, #si inibisce l'informazione sulla lunghezza della lacuna 
                         lm_type,
                         g_lm.vocab.lookup(context[(1 - n) :]),
                         [s],
@@ -548,6 +539,7 @@ def local_beam_search(
                             g_lm,
                             d_lm,
                             lambda_weight,
+                            0,
                             lm_type,
                             context,
                             candidate,
@@ -571,8 +563,9 @@ def local_beam_search(
 def get_best_K_predictions_from_context(
     g_lm: LanguageModel,
     d_lm: LanguageModel,
-    lambda_weight: float,
     context: list[str],
+    len_lacuna: int, 
+    lambda_weight: float = LAMBDA,
     lm_type: str = LM_TYPE,
     len_suppl_words: int = 0,
     suppl_words: list[str] = None,
@@ -592,13 +585,19 @@ def get_best_K_predictions_from_context(
         g_lm (LanguageModel): Modello di linguaggio globale utilizzato.
         d_lm (LanguageModel): Modello di linguaggio di dominio utilizzato.
         context (list[str]): Contesto iniziale.
+        len_lacuna (int): Lunghezza della lacuna (numero di frasi).
+        lambda_weight (float, opzionale): Iperparametro per la definizione dei punteggi tramite interpolazione lineare. Default è `LAMBDA`.
+        lm_type (str, opzionale): Tipo di modello di linguaggio. Default è `LM_TYPE`.
+        len_suppl_words (int, opzionale): Lunghezza del supplemento. Default è 0.
         suppl_words (list[str], opzionale): Parole supplementari. Default è None.
-        n (int, opzionale): Numero di parole nel contesto. Default è N.
-        k_pred (int, opzionale): Numero di predizioni da generare. Default è K_PRED.
-        beam_size (int, opzionale): Dimensione del beam. Default è K_PRED * 4.
+        head_suppl (Optional[str], opzionale): Testa del supplemento. Default è None.
+        tail_suppl (Optional[str], opzionale): Coda del supplemento. Default è None.
+        n (int, opzionale): Numero di parole nel contesto. Default è `N`.
+        k_pred (int, opzionale): Numero di predizioni da generare. Default è `K_PRED`.
+        beam_size (int, opzionale): Dimensione del beam. Default è `K_PRED * 2`.
         mod (str, opzionale): Modalità di calcolo delle predizioni. Default è "acc".
         alpha (float, opzionale): Peso del punteggio della loss. Default è 0.
-        beta (float, opzionale): Peso del punteggio della edit distance. Default è 1.
+        beta (float, opzionale): Peso del punteggio della distanza di edit. Default è 1.
 
     Returns:
         list[list[str]]: Lista delle migliori K sequenze generate.
@@ -606,8 +605,9 @@ def get_best_K_predictions_from_context(
     return local_beam_search(
         g_lm,
         d_lm,
-        lambda_weight,
         context,
+        len_lacuna,
+        lambda_weight,
         lm_type,
         beam_size,
         n,
@@ -644,7 +644,8 @@ def get_context_from_test_case(
         - I token risultanti nel contesto vengono imbottiti e troncati alla dimensione specificata degli n-grammi.
     """
 
-    if not test_case_contains_lacuna(test_case):
+    match = test_case_contains_lacuna(test_case)
+    if not match:
         raise ValueError(
             "Il test case non contiene una lacuna (Assicurati di mantenere una singola lacuna dentro il testo)"
         )
@@ -666,7 +667,7 @@ def get_context_from_test_case(
         )
     )[: (1 - n)]
 
-    return (context, get_head_supplement(test_case), get_tail_supplement(test_case))
+    return (context, get_head_supplement(test_case), get_tail_supplement(test_case), match.count("."))
 
 
 def check_supplement(supplement: list[str]) -> bool:
@@ -738,10 +739,13 @@ def get_topK_accuracy(
                     if i >= len(supplements):
                         break
 
-                    if not check_supplement(supplements[i]):
+                    suppl_seq, suppl_len_lacuna = supplements[i]
+                     
+                    
+                    if not check_supplement(suppl_seq):
                         continue
 
-                    context, head_suppl, tail_suppl = get_context_from_test_case(
+                    context, head_suppl, tail_suppl, _ = get_context_from_test_case(
                         obj["test_case"], n
                     )
 
@@ -754,6 +758,7 @@ def get_topK_accuracy(
                         suppl_words=supplements[i],
                         head_suppl=head_suppl,
                         tail_suppl=tail_suppl,
+                        len_lacuna=suppl_len_lacuna,
                         n=n,
                         k_pred=k_pred,
                         beam_size=k_pred * 4,

@@ -6,7 +6,7 @@ from nltk.lm.models import LanguageModel
 from metrics.accuracy import (
     get_context_from_test_case,
     get_best_K_predictions_from_context,
-    loss,
+    nll_score,
 )
 from config.settings import N, K_PRED, LM_TYPE, LAMBDA
 from train import load_lm
@@ -41,13 +41,14 @@ def generate_k_suggests(
     if not (g_lm and d_lm):
         raise ValueError("Il modelli non sono stati caricati correttamente.")
 
-    context, head, tail = get_context_from_test_case(context, n=n, case_folding=True)
+    context, head, tail, len_lacuna = get_context_from_test_case(context, n=n, case_folding=True)
 
     predictions = get_best_K_predictions_from_context(
         g_lm=g_lm,
         d_lm=d_lm,
-        lambda_weight=lambda_weight,
         context=context,
+        len_lacuna=len_lacuna,
+        lambda_weight=lambda_weight,
         lm_type=lm_type,
         len_suppl_words=num_tokens,
         head_suppl=head,
@@ -64,7 +65,7 @@ def generate_k_suggests(
             " ".join(pred).lower(),
             pow(
                 2,
-                -loss(
+                -nll_score(
                     g_lm,
                     d_lm,
                     lambda_weight,
