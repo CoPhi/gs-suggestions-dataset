@@ -66,38 +66,10 @@ from metrics import get_topK_accuracy, perplexity
 """
 
 if __name__ == "__main__":
-    lm, test_abs = load_lm()  # carico il modello
+    g_lm, test_abs = load_lm("General_model")  # carico il modello generico 
+    d_lm, _ = load_lm("Domain_model")  # carico il modello specifico di dominio 
+    
     # KFold_cross_validation()
 
-    print("Perplexity: ", perplexity(lm, test_abs))
-    print("Accuracy: ", get_topK_accuracy(lm, test_abs))
-
-    """acc = get_topK_accuracy(lm, test_abs)
-    if LM_TYPE == "LIDSTONE":
-        pp = perplexity(lm, test_abs)
-        print("Perplexity: ", pp)
-        print("Accuracy: ", acc)
-        print_LIDSTONE_params_to_csv(
-            {
-                "K_PRED": K_PRED,
-                "TEST_SIZE": TEST_SIZE,
-                "DIMENSION": N,
-                "BATCH_SIZE": BATCH_SIZE,
-                "GAMMA": GAMMA,
-                "ACCURACY": acc,
-                "PERPLEXITY": pp,
-            }
-        )
-
-    if LM_TYPE == "MLE":
-        print("Accuracy: ", acc)
-        print_MLE_params_to_csv(
-            {
-                "K_PRED": K_PRED,
-                "DIMENSION": N,
-                "BATCH_SIZE": BATCH_SIZE,
-                "TEST_SIZE": TEST_SIZE,
-                "ACCURACY": acc,
-            }
-        )
-"""
+    print("Perplexity: ", perplexity(g_lm,d_lm, test_abs))
+    print("Accuracy: ", get_topK_accuracy(g_lm, d_lm, test_abs))

@@ -3,7 +3,7 @@ from typing import Optional
 
 from nltk.lm.models import MLE, Lidstone, LanguageModel
 from nltk.lm.preprocessing import padded_everygram_pipeline
-from train import get_sentences, split_abs, load_abs, save_lm
+from train import get_sentences, split_abs, load_abs, save_lm, load_specific_domain_abs
 
 from config.settings import (
     TEST_SIZE,
@@ -54,21 +54,29 @@ def train_lm(
 
     if lm_type == "MLE":
 
-        lm = MLE(n)
+        g_lm = MLE(n) #modello di dominio generale
+        d_lm = MLE(n) #modello di dominio specifico
     else:
         if gamma is None:
             raise ValueError("Unvalid gamma for Lidstone smoothing")
 
-        lm = Lidstone(gamma, n)
+        g_lm = Lidstone(gamma, n) #modello di dominio generale
+        d_lm = Lidstone(gamma, n) #modello di dominio specifico
 
-    train_ngrams, vocab_tokens = padded_everygram_pipeline(
+    g_train_ngrams, g_vocab_tokens = padded_everygram_pipeline(
         order=n, text=get_sentences(abs=train_abs)
     )
 
-    lm.fit(train_ngrams, vocab_tokens)
+    g_lm.fit(g_train_ngrams, g_vocab_tokens)
+    
+    d_train_ngrams, d_vocab_tokens = padded_everygram_pipeline(
+        order=n, text=get_sentences(abs=load_specific_domain_abs())
+    )
+
+    d_lm.fit(d_train_ngrams, d_vocab_tokens)
 
     gc.collect()
-    return lm
+    return g_lm, d_lm
 
 
 def pipeline_train(
@@ -95,10 +103,11 @@ def pipeline_train(
     train_abs, test_abs = split_abs(
         abs=load_abs(corpus_set, budget), test_size=test_size
     )
-    lm = train_lm(train_abs, lm_type=lm_type, min_freq=min_freq, gamma=gamma, n=n)
-    return lm, test_abs
+    g_lm, d_lm = train_lm(train_abs, lm_type=lm_type, min_freq=min_freq, gamma=gamma, n=n)
+    return g_lm, d_lm, test_abs
 
 
 if __name__ == "__main__":
-    lm, test_abs = pipeline_train()
-    save_lm(lm=lm, test_abs=test_abs)
+    g_lm, d_lm, test_abs = pipeline_train()
+    save_lm(lm=g_lm, test_abs=test_abs, checkpoint="General_model") #Salvataggio modello generale 
+    save_lm(lm=d_lm, test_abs=list(), checkpoint="Domain_model") #Salvataggio modello specifico di dominio 

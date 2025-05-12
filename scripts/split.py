@@ -9,7 +9,7 @@ def write_output_to_multiple_files(output, max_size_mb=LIM):
     è possibile rappresentare il livello di indentazione degli oggetti nei file con INDENT
     """
 
-    Path("data").mkdir(parents=True, exist_ok=True)  # creo la dir 'data' se non esiste
+    Path("data").mkdir(parents=True, exist_ok=True)  # si crea la dir `data` se non esiste
 
     file_index = 0
     current_file_size = 0

@@ -21,7 +21,7 @@ TEST_SIZE = 0.05  # Percentuale di dati di test
 MIN_FREQ = 1  # Frequenza minima per i token dentro il modello
 N = 3  # Dimensione degli ngrammi
 CORPUS_NAMES = set(["DDbDP", "DCLP", "EDH"])
-
+LAMBDA = 0.2
 
 BERT_CHECKPOINTS = ["CNR-ILC/gs-aristoBERTo", "CNR-ILC/gs-GreBerta", "CNR-ILC/gs-Logion"]
 

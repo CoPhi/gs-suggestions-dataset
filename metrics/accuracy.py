@@ -1,13 +1,13 @@
 import heapq
 import re
-import unicodedata
 from math import inf, log
-from typing import Optional
+from typing import Counter, Optional
 from tqdm import tqdm
 from metrics import FALLBACK_LOSS
 from nltk.lm.models import LanguageModel
 from nltk.lm.preprocessing import pad_both_ends, flatten
 from nltk.metrics.distance import edit_distance
+from nltk.lm.util import log_base2
 
 from utils.preprocess import (
     clean_text_from_gaps,
@@ -20,15 +20,12 @@ from utils.preprocess import (
 )
 
 from metrics import sentence_tokenizer
-from config.settings import (
-    K_PRED,
-    BATCH_SIZE,
-    N,
-    LM_TYPE,
-)
+from config.settings import K_PRED, BATCH_SIZE, N, LM_TYPE, LAMBDA
+
 
 def get_dist_freq_words_from_context(
-    lm: LanguageModel,
+    g_lm: LanguageModel,
+    d_lm: LanguageModel,
     context: list[str],
     n=N,
     head: Optional[str] = None,
@@ -38,7 +35,8 @@ def get_dist_freq_words_from_context(
     Genera la distribuzione di frequenze delle parole per un dato contesto.
 
     Args:
-        lm (LanguageModel): Modello di linguaggio con il metodo `context_counts`.
+        g_lm (LanguageModel): Modello di linguaggio globale utilizzato.
+        d_lm (LanguageModel): Modello di linguaggio di dominio utilizzato.
         context (list[str]): Lista di token che rappresenta il contesto.
         n (int): Dimensione del modello (numero di parole nel contesto).
         head (Optional[str]): Se specificato, filtra solo le parole che iniziano con questa sottostringa.
@@ -58,53 +56,59 @@ def get_dist_freq_words_from_context(
             [(w, f) for w, f in df if condition(w)],
             key=key_func,
         )
-        
+
         target_words = set(w for w, _ in target)
         remaining = sorted(
             [(w, f) for w, f in df if w not in target_words],
             key=lambda x: x[1],
             reverse=True,
         )
-        
+
         return filter_words(target + remaining)
 
     if n <= 1:
         return []
 
-    df = lm.context_counts(lm.vocab.lookup(context[-(n - 1) :])).items()
-
-    if head and tail:
-        return sort_and_filter(
-            df,
-            lambda w: len(w) >= (len(head) + len(tail)),
-            lambda x: edit_distance(x[0][: len(head)], head)
-            + edit_distance(x[0][-len(tail) :], tail),
-        )
-    elif head:
-        return sort_and_filter(
-            df,
-            lambda w: len(w) >= len(head),
-            lambda x: edit_distance(x[0][: len(head)], head),
-        )
-    elif tail:
-        return sort_and_filter(
-            df,
-            lambda w: len(w) >= len(tail),
-            lambda x: edit_distance(x[0][-len(tail) :], tail),
-        )
-    else:
-        # Ordina solo in base alla frequenza se non ci sono informazioni su testa o coda
-        return filter_words(
-            sorted(
+    def get_sorted_filtered_words(df, head, tail):
+        """Ordina e filtra le parole in base a testa e coda."""
+        if head and tail:
+            return sort_and_filter(
                 df,
-                key=lambda x: x[1],
-                reverse=True,
+                lambda w: len(w) >= (len(head) + len(tail)),
+                lambda x: edit_distance(x[0][: len(head)], head)
+                + edit_distance(x[0][-len(tail) :], tail),
             )
-        )
+        elif head:
+            return sort_and_filter(
+                df,
+                lambda w: len(w) >= len(head),
+                lambda x: edit_distance(x[0][: len(head)], head),
+            )
+        elif tail:
+            return sort_and_filter(
+                df,
+                lambda w: len(w) >= len(tail),
+                lambda x: edit_distance(x[0][-len(tail) :], tail),
+            )
+        else:
+            # Ordina solo in base alla frequenza se non ci sono informazioni su testa o coda
+            return filter_words(
+                sorted(
+                    df,
+                    key=lambda x: x[1],
+                    reverse=True,
+                )
+            )
+
+    g_df = Counter(g_lm.context_counts(g_lm.vocab.lookup(context[-(n - 1) :])))
+    d_df = Counter(d_lm.context_counts(g_lm.vocab.lookup(context[-(n - 1) :])))
+    merged = g_df + d_df
+    return get_sorted_filtered_words(merged.items(), head, tail)
 
 
 def get_words_from_context(
-    lm: LanguageModel,
+    g_lm: LanguageModel,
+    d_lm: LanguageModel,
     context: list[str],
     boundary: int,
     head: Optional[str] = None,
@@ -116,7 +120,8 @@ def get_words_from_context(
     Se la distribuzione è vuota, riduce progressivamente il contesto fino a trovare una distribuzione non vuota. (Backoff)
 
     Args:
-        lm (LanguageModel): Modello di linguaggio utilizzato.
+        g_lm (LanguageModel): Modello di linguaggio globale utilizzato.
+        d_lm (LanguageModel): Modello di linguaggio di dominio utilizzato.
         context (list[str]): Contesto di parole.
         boundary (int): Numero massimo di parole da generare.
         head (str , opzionale): Testa del supplemento, utile per far virare la ricerca verso token più rappresentativi
@@ -131,15 +136,14 @@ def get_words_from_context(
         set()
     )  # Parole già viste nelle distribuzioni di parole date dal contesto
 
-    # print (f"Contesto: {context}")
-    # Se il contesto è vuoto, esco
-
     while len(tokens) < boundary:
         # Se non ci sono più parole disponibili, esco
         if n <= 1:
             break
 
-        for next_w in get_dist_freq_words_from_context(lm, context, n, head, tail):
+        for next_w in get_dist_freq_words_from_context(
+            g_lm, d_lm, context, n, head, tail
+        ):
 
             if next_w in dist_words:
                 continue
@@ -151,15 +155,51 @@ def get_words_from_context(
     return tokens
 
 
+def compute_log_prob(
+    g_lm: LanguageModel,
+    d_lm: LanguageModel,
+    word: str,
+    context: tuple,
+    lambda_weight: float,
+) -> float:
+    """
+    Calcola la log-probabilità di una parola dato il contesto, utilizzando
+    l'interpolazione lineare delle probabilità di due modelli di linguaggio.
+    Restituisce -inf se la probabilità è zero.
+
+    Args:
+        g_lm (LanguageModel): Modello di linguaggio globale.
+        d_lm (LanguageModel): Modello di linguaggio specifico di dominio.
+        word (str): Parola di cui calcolare la probabilità.
+        context (tuple): Contesto di parole precedenti.
+        lambda_weight (float): Peso per l'interpolazione lineare.
+
+    Returns:
+        float: Log-probabilità della parola.
+    """
+
+    return log_base2(
+        lambda_weight * d_lm.score(word, context)
+        + (1 - lambda_weight) * g_lm.score(word, context)
+    )
+
+
 def loss(
-    lm: LanguageModel, context: tuple, generated_seq: list[str], lm_type=LM_TYPE
+    g_lm: LanguageModel,
+    d_lm: LanguageModel,
+    lambda_weight: float,
+    context: tuple,
+    generated_seq: list[str],
+    lm_type=LM_TYPE,
 ) -> float:
     """
     Funzione di perdita usata nella local beam search.
     Tale implementazione fa riferimento alla metrica NLL (Negative Log Likelihood) normalizzata per la lunghezza della frase complessiva (contesto + generazione).
 
     Args:
-        lm (LanguageModel): Modello di linguaggio utilizzato.
+        g_lm (LanguageModel): Modello di linguaggio globale utilizzato.
+        d_lm (LanguageModel): Modello di linguaggio di dominio utilizzato.
+        lambda_weight (float): Iperparametro da determinare per l'interpolazione
         context (tuple): Contesto di parole.
         generated_seq (list[str]): Sequenza di parole generata.
         lm_type (str, opzionale): Tipo di modello di linguaggio. Default è LM_TYPE.
@@ -167,21 +207,6 @@ def loss(
     Returns:
         float: Valore della funzione di perdita.
     """
-
-    def compute_log_prob(word: str, context: tuple) -> float:
-        """
-        Calcola la log-probabilità di una parola dato il contesto.
-        Restituisce -inf se la probabilità è zero.
-
-        Args:
-            word (str): Parola di cui calcolare la probabilità.
-            context (tuple): Contesto di parole.
-
-        Returns:
-            float: Log-probabilità della parola.
-        """
-        prob = lm.score(word, context)
-        return log(prob) if prob > 0 else -inf
 
     def update_context(context: tuple, word: str) -> tuple:
         """
@@ -198,7 +223,7 @@ def loss(
 
     total_log_prob = 0
     for word in generated_seq:
-        total_log_prob += compute_log_prob(word, context)
+        total_log_prob += compute_log_prob(g_lm, d_lm, word, context, lambda_weight)
         context = update_context(context, word)
 
     if lm_type == "MLE":
@@ -209,6 +234,7 @@ def loss(
         )  # Si aggiunge un valore di fallback nel caso in cui le parole della sequenza non siano presenti nel modello
 
     return -total_log_prob
+
 
 def avg_edit_distance(seq: str, others: list[str]) -> float:
     """
@@ -283,7 +309,9 @@ def get_best_candidates_from_beam(
 
 
 def get_successors(
-    lm: LanguageModel,
+    g_lm: LanguageModel,
+    d_lm: LanguageModel,
+    lambda_weight: float,
     lm_type: str,
     context: list[str],
     candidate: tuple[list[str], float],
@@ -297,7 +325,8 @@ def get_successors(
     Genera i successori di un candidato nel beam.
 
     Args:
-        lm (LanguageModel): Modello di linguaggio utilizzato.
+        g_lm (LanguageModel): Modello di linguaggio globale utilizzato.
+        g_lm (LanguageModel): Modello di linguaggio di dominio utilizzato.
         context (list[str]): Contesto di parole.
         candidate (tuple[list[str], float]): Candidato corrente.
         beam_size (int, opzionale): Dimensione del beam. Default è K_PRED * 4.
@@ -307,15 +336,19 @@ def get_successors(
         list[tuple[list[str], float]]: Lista di successori generati.
     """
     successors = []
-    nexts = get_words_from_context(lm, context + candidate[0], beam_size, None, tail, n)
+    nexts = get_words_from_context(
+        g_lm, d_lm, context + candidate[0], beam_size, None, tail, n
+    )
     for w in nexts:
         successors.append(
             (
                 candidate[0] + [w],
                 score_candidate(
-                    lm,
+                    g_lm,
+                    d_lm,
+                    lambda_weight,
                     lm_type,
-                    lm.vocab.lookup(context[(1 - n) :]),
+                    g_lm.vocab.lookup(context[(1 - n) :]),
                     candidate[0] + [w],
                     head,
                     tail,
@@ -327,7 +360,9 @@ def get_successors(
 
 
 def score_candidate(
-    lm: LanguageModel,
+    g_lm: LanguageModel,
+    d_lm: LanguageModel,
+    lambda_weight: float,
     lm_type: str,
     context: tuple,
     candidate: list[str],
@@ -386,7 +421,7 @@ def score_candidate(
                     penalty += (len(tail) - len(candidate[0])) / weight
         return penalty
 
-    loss_score = loss(lm, context, candidate, lm_type)
+    loss_score = loss(g_lm, d_lm, lambda_weight, context, candidate, lm_type)
 
     score = loss_score
     if head and len(candidate) >= 1:
@@ -397,13 +432,18 @@ def score_candidate(
         score += calculate_edit_distance(last_token[-len(tail) :], tail)
 
     # Applica la penalità allo score
-    if len_suppl_words == 1: 
-        score += apply_length_penalty(candidate, head, tail, len_suppl_words, weight=1.0)
+    if len_suppl_words == 1:
+        score += apply_length_penalty(
+            candidate, head, tail, len_suppl_words, weight=1.0
+        )
 
     return score
 
+
 def local_beam_search(
-    lm: LanguageModel,
+    g_lm: LanguageModel,
+    d_lm: LanguageModel,
+    lambda_weight: float,
     context: list[str],
     lm_type: str = LM_TYPE,
     beam_size: int = K_PRED * 2,
@@ -421,7 +461,8 @@ def local_beam_search(
     Esegue una ricerca locale con beam search per generare le migliori K predizioni.
 
     Args:
-        lm (LanguageModel): Modello di linguaggio utilizzato.
+        g_lm (LanguageModel): Modello di linguaggio globale utilizzato.
+        d_lm (LanguageModel): Modello di linguaggio di dominio utilizzato.
         context (list[str]): Contesto iniziale.
         beam_size (int, opzionale): Dimensione del beam. Default è K_PRED * 4.
         n (int, opzionale): Numero di parole nel contesto. Default è N.
@@ -438,7 +479,7 @@ def local_beam_search(
     # Inizializzazione K stati iniziali
     if len_suppl_words == 1:
         states = get_words_from_context(
-            lm, context, beam_size, head_suppl, tail_suppl, n
+            g_lm, d_lm, context, beam_size, head_suppl, tail_suppl, n
         )
         # print("Testa: ", head_suppl)
         # print("Coda: ", tail_suppl)
@@ -450,9 +491,11 @@ def local_beam_search(
                 (
                     [s],
                     score_candidate(
-                        lm,
+                        g_lm,
+                        d_lm,
+                        lambda_weight,
                         lm_type,
-                        lm.vocab.lookup(context[(1 - n) :]),
+                        g_lm.vocab.lookup(context[(1 - n) :]),
                         [s],
                         head_suppl,
                         tail_suppl,
@@ -466,7 +509,9 @@ def local_beam_search(
         )
 
     else:
-        states = get_words_from_context(lm, context, beam_size, head_suppl, None, n)
+        states = get_words_from_context(
+            g_lm, d_lm, context, beam_size, head_suppl, None, n
+        )
         # print(f"Stati iniziali con sequenza di token da generare > 1: {states}")
         # print("Testa: ", head_suppl)
 
@@ -476,9 +521,11 @@ def local_beam_search(
                 (
                     [s],
                     score_candidate(
-                        lm,
+                        g_lm,
+                        d_lm,
+                        lambda_weight,
                         lm_type,
-                        lm.vocab.lookup(context[(1 - n) :]),
+                        g_lm.vocab.lookup(context[(1 - n) :]),
                         [s],
                         head_suppl,
                         tail_suppl,
@@ -498,7 +545,9 @@ def local_beam_search(
                 if len(candidate[0]) == len_suppl_words - 1:
                     successors.extend(
                         get_successors(
-                            lm,
+                            g_lm,
+                            d_lm,
+                            lambda_weight,
                             lm_type,
                             context,
                             candidate,
@@ -520,7 +569,9 @@ def local_beam_search(
 
 
 def get_best_K_predictions_from_context(
-    lm: LanguageModel,
+    g_lm: LanguageModel,
+    d_lm: LanguageModel,
+    lambda_weight: float,
     context: list[str],
     lm_type: str = LM_TYPE,
     len_suppl_words: int = 0,
@@ -538,7 +589,8 @@ def get_best_K_predictions_from_context(
     Calcola le migliori K predizioni basate sulla probabilità dell'intera sequenza generata (contesto + generazione) utilizzando un algoritmo di ricerca locale (local beam search).
 
     Args:
-        lm (LanguageModel): Modello di linguaggio utilizzato.
+        g_lm (LanguageModel): Modello di linguaggio globale utilizzato.
+        d_lm (LanguageModel): Modello di linguaggio di dominio utilizzato.
         context (list[str]): Contesto iniziale.
         suppl_words (list[str], opzionale): Parole supplementari. Default è None.
         n (int, opzionale): Numero di parole nel contesto. Default è N.
@@ -552,7 +604,9 @@ def get_best_K_predictions_from_context(
         list[list[str]]: Lista delle migliori K sequenze generate.
     """
     return local_beam_search(
-        lm,
+        g_lm,
+        d_lm,
+        lambda_weight,
         context,
         lm_type,
         beam_size,
@@ -637,14 +691,22 @@ def check_supplement(supplement: list[str]) -> bool:
 
 
 def get_topK_accuracy(
-    lm: LanguageModel, test_abs: list, batch_size=BATCH_SIZE, n=N, k_pred=K_PRED
+    g_lm: LanguageModel,
+    d_lm: LanguageModel,
+    test_abs: list,
+    lambda_weight: float = LAMBDA,
+    batch_size=BATCH_SIZE,
+    n=N,
+    k_pred=K_PRED,
 ) -> float:
     """
     Calcola l'accuratezza del modello di linguaggio su un dataset di test.
 
     Args:
-        lm (LanguageModel): Il modello di linguaggio da valutare.
+        g_lm (LanguageModel): Il modello di linguaggio generico, addestrato su tutto il dataset.
+        d_lm (LanguageModel): Il modello di linguaggio di dominio, addestrato su un dominio specifico.
         test_abs (list): Lista di blocchi anonimi di testo per il test.
+        lambda_weight (float): Peso dell'interpolazione lineare, da regolare tramite EM.
         batch_size (int, opzionale): La dimensione del batch per l'elaborazione. Default è `BATCH_SIZE`.
         n (int, opzionale): Dimensioni degli ngrammi del modello linguistico. Default è `N`.
         k_pred (int, opzionale): Il numero di predizioni da generare per ogni contesto. Default è `K_PRED`.
@@ -684,7 +746,9 @@ def get_topK_accuracy(
                     )
 
                     predictions = get_best_K_predictions_from_context(
-                        lm=lm,
+                        g_lm=g_lm,
+                        d_lm=d_lm,
+                        lambda_weight=lambda_weight,
                         context=context,
                         len_suppl_words=len(supplements[i]),
                         suppl_words=supplements[i],
@@ -696,9 +760,10 @@ def get_topK_accuracy(
                         mod="acc",
                     )
 
-                    #print("testa del supplemento: ", head_suppl)
-                    #print("coda del supplemento: ", tail_suppl)
-                    #print("predizioni: ", predictions)
+                    # print("testa del supplemento: ", head_suppl)
+                    # print("coda del supplemento: ", tail_suppl)
+                    # print("predizioni: ", predictions)
+                    # print ("gold_label:", supplements[i])
 
                     if supplements[i] in predictions:
                         correct_predictions += 1

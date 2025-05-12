@@ -73,6 +73,17 @@ def load_abs(corpus_set: Optional[list[str]] = None, budget: Optional[int] = Non
 
     return dataset
 
+def load_specific_domain_abs(domain_title: str= "P.Herc.") -> list:
+    """
+    Restituisce un sottoinsieme dei blocchi anonimi il cui dominio è rappresentato dal titolo immesso in `domain_title`
+    """ 
+    def title_matches(title_field):
+        if isinstance(title_field, str):
+            if domain_title:
+                return domain_title in title_field
+        return False
+
+    return [ab for ab in load_abs() if title_matches(ab["title"]) and ab["language"] == "grc"]
 
 def split_abs(abs: list, test_size=TEST_SIZE) -> tuple:
     """
@@ -123,34 +134,33 @@ def get_sentences(
                         )
                     else:
                         sentences.append(get_tokens_from_clean_text(sent))
-    # print(sentences)
     return sentences
 
 
-def save_lm(lm: LanguageModel, test_abs: list, n=N, lm_type=LM_TYPE) -> None:
+def save_lm(lm: LanguageModel, checkpoint: str, test_abs: list, n=N) -> None:
     """
     Salva un modello di linguaggio (`LanguageModel`) su disco come file pickle.
     Args:
         lm (LanguageModel): Il modello di linguaggio da salvare.
         test_abs (list): Una lista di anonymous blocks di test.
         n (int, opzionale): Dimensione degli ngrammi del modello. Default è N.
-        lm_type (str, opzionale): Il tipo di modello linguistico da salvare su disco. Default è `LM_TYPE`.
+        checkpoint (str): Checkpoint del modello linguistico da salvare su disco.
     Returns:
         None: Questa funzione non ritorna nulla.
     """
 
     model_data = {"lm": lm, "test_ab": test_abs}
-    with open(f"{lm_type}_{n}.pkl", "wb") as f:
+    with open(f"{checkpoint}_{n}.pkl", "wb") as f:
         pickle.dump(model_data, f)
         print("Language model saved.")
 
 
-def load_lm(n=N, lm_type=LM_TYPE) -> None:
+def load_lm(checkpoint: str, n=N) -> tuple[LanguageModel, list]:
     """
     Carica un modello linguistico da un file pickle.
     Args:
         n (int, optional): Dimensione degli ngrammi del modello. Default è `N`.
-        lm_type (str, optional): Il tipo di modello linguistico da caricare. Default è `LM_TYPE`.
+        checkpoint (str, optional):Checkpoint del modello linguistico da caricare.
     Returns:
         tuple: Una tupla contenente il modello linguistico (lm) e i dati test_ab se il caricamento ha successo, altrimenti `None`.
     Raises:
@@ -158,11 +168,10 @@ def load_lm(n=N, lm_type=LM_TYPE) -> None:
         pickle.UnpicklingError: Se c'è un errore durante l'unpickling del file.
     """
 
-    with open(f"{lm_type}_{n}.pkl", "rb") as f:
+    with open(f"{checkpoint}_{n}.pkl", "rb") as f:
         model_data = pickle.load(f)
         lm = model_data["lm"]
         test_ab = model_data["test_ab"]
         print("Language model loaded.")
         return lm, test_ab
-
     return None

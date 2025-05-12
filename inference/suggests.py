@@ -9,7 +9,8 @@ from train import load_lm
 
 
 def generate_k_suggests(
-    lm: LanguageModel,
+    g_lm: LanguageModel,
+    d_lm: LanguageModel, 
     context: str,
     num_tokens: int,
     lm_type: str = LM_TYPE,
@@ -39,7 +40,8 @@ def generate_k_suggests(
     context, head, tail = get_context_from_test_case(context, n=n, case_folding=True)
 
     predictions = get_best_K_predictions_from_context(
-            lm=lm,
+            g_lm=g_lm,
+            d_lm=d_lm, 
             context=context,
             lm_type=lm_type,
             len_suppl_words=num_tokens, 
