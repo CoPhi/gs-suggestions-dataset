@@ -8,6 +8,7 @@ from nltk.lm.models import LanguageModel
 from nltk.lm.preprocessing import pad_both_ends, flatten
 from nltk.metrics.distance import edit_distance
 from nltk.lm.util import log_base2
+from functools import lru_cache
 
 from utils.preprocess import (
     clean_text_from_gaps,
@@ -23,11 +24,114 @@ from metrics import sentence_tokenizer
 from config.settings import K_PRED, BATCH_SIZE, N, LM_TYPE, LAMBDA
 
 
+@lru_cache(maxsize=None)
+def cached_edit_distance(a, b):
+    """
+    Versione cachabile di `edit_distance`
+    """
+    return edit_distance(a, b)
+
+
+def filter_words(df):
+    """Filtra parole non valide nella distribuzione di frequenza, come i token speciali."""
+    return [w for w, _ in df if w not in ["</s>", "<s>", "<UNK>"]]
+
+
+def sort_and_filter_array(arr, condition, key_func):
+    """Ordina e filtra gli elementi di un array in base a una condizione e una funzione di ordinamento."""
+    target, remaining = [], []
+    for item in arr:
+        if condition(item):
+            target.append(item)
+        else:
+            remaining.append(item)
+
+    target = sorted(target, key=key_func)
+    return target + remaining
+
+
+def get_sorted_filtered_array(arr, head, tail, len_lacuna):
+    """Ordina e filtra gli elementi di un array in base a testa e coda."""
+    if head and tail:
+        return sort_and_filter_array(
+            arr,
+            lambda item: len(item) == (len(head) + len(tail) + len_lacuna),
+            lambda x: cached_edit_distance(x[: len(head)], head)
+            + cached_edit_distance(x[-len(tail) :], tail),
+        )
+    elif head:
+        return sort_and_filter_array(
+            arr,
+            lambda item: len(item) >= len(head) + len_lacuna,
+            lambda x: cached_edit_distance(x[: len(head)], head),
+        )
+    elif tail:
+        return sort_and_filter_array(
+            arr,
+            lambda item: len(item) >= len(tail) + len_lacuna,
+            lambda x: cached_edit_distance(x[-len(tail) :], tail),
+        )
+    else:
+        # Ordina solo in base alla lunghezza se non ci sono informazioni su testa o coda
+        return sort_and_filter_array(
+            arr,
+            lambda item: len(item) == len_lacuna,
+            lambda x: abs(len(x) - len_lacuna),
+        )
+
+
+def sort_and_filter(df, condition, key_func):
+    """Ordina e filtra le parole in base a una condizione e una funzione di ordinamento."""
+    target = []
+    remaining = []
+
+    for w, f in df:
+        if condition(w):
+            target.append((w, f))
+        else:
+            remaining.append((w, f))
+
+    target_sorted = sorted(target, key=key_func)
+    remaining_sorted = sorted(remaining, key=lambda x: x[1], reverse=True)
+
+    return filter_words(target_sorted + remaining_sorted)
+
+
+def get_sorted_filtered_words(df, head, tail, len_lacuna):
+    """Ordina e filtra le parole in base a testa e coda."""
+    if head and tail:
+        return sort_and_filter(
+            df,
+            lambda w: len(w) == (len(head) + len(tail) + len_lacuna),
+            lambda x: cached_edit_distance(x[0][: len(head)], head)
+            + cached_edit_distance(x[0][-len(tail) :], tail),
+        )
+    elif head:
+        return sort_and_filter(
+            df,
+            lambda w: len(w) >= len(head) + len_lacuna,
+            lambda x: cached_edit_distance(x[0][: len(head)], head),
+        )
+    elif tail:
+        return sort_and_filter(
+            df,
+            lambda w: len(w) >= len(tail) + len_lacuna,
+            lambda x: cached_edit_distance(x[0][-len(tail) :], tail),
+        )
+    else:
+        # Ordina solo in base alla frequenza se non ci sono informazioni su testa o coda
+        return sort_and_filter(
+            df,
+            lambda w: len(w) == len_lacuna,
+            lambda x: x[1],
+        )
+
+
 def get_dist_freq_words_from_context(
     g_lm: LanguageModel,
     d_lm: LanguageModel,
     context: list[str],
-    len_lacuna: int, 
+    len_lacuna: int,
     n=N,
     head: Optional[str] = None,
     tail: Optional[str] = None,
@@ -47,60 +151,11 @@ def get_dist_freq_words_from_context(
         list[str]: Lista di parole ordinate in base alla testa, coda e frequenza.
     """
 
-    def filter_words(df):
-        """Filtra parole non valide come token speciali."""
-        return [w for w, _ in df if w not in ["</s>", "<s>", "<UNK>"]]
-
-    def sort_and_filter(df, condition, key_func):
-        """Ordina e filtra le parole in base a una condizione e una funzione di ordinamento."""
-        target = sorted(
-            [(w, f) for w, f in df if condition(w)],
-            key=key_func,
-        )
-
-        target_words = set(w for w, _ in target)
-        remaining = sorted(
-            [(w, f) for w, f in df if w not in target_words],
-            key=lambda x: x[1],
-            reverse=True,
-        )
-
-        return filter_words(target + remaining)
-
     if n <= 1:
         return []
 
-    def get_sorted_filtered_words(df, head, tail, len_lacuna):
-        """Ordina e filtra le parole in base a testa e coda."""
-        if head and tail:
-            return sort_and_filter(
-                df,
-                lambda w: len(w) >= (len(head) + len(tail) + len_lacuna),
-                lambda x: edit_distance(x[0][: len(head)], head)
-                + edit_distance(x[0][-len(tail) :], tail),
-            )
-        elif head:
-            return sort_and_filter(
-                df,
-                lambda w: len(w) >= len(head) + len_lacuna,
-                lambda x: edit_distance(x[0][: len(head)], head),
-            )
-        elif tail:
-            return sort_and_filter(
-                df,
-                lambda w: len(w) >= len(tail) + len_lacuna,
-                lambda x: edit_distance(x[0][-len(tail) :], tail),
-            )
-        else:
-            # Ordina solo in base alla frequenza se non ci sono informazioni su testa o coda
-            return sort_and_filter(
-                df,
-                lambda w: len(w) >= len_lacuna,
-                lambda x: x[1],
-            )
-
     g_df = Counter(g_lm.context_counts(g_lm.vocab.lookup(context[-(n - 1) :])))
-    d_df = Counter(d_lm.context_counts(g_lm.vocab.lookup(context[-(n - 1) :])))
+    d_df = Counter(d_lm.context_counts(d_lm.vocab.lookup(context[-(n - 1) :])))
     merged = g_df + d_df
     return get_sorted_filtered_words(merged.items(), head, tail, len_lacuna)
 
@@ -110,7 +165,7 @@ def get_words_from_context(
     d_lm: LanguageModel,
     context: list[str],
     boundary: int,
-    len_lacuna: int, 
+    len_lacuna: int,
     head: Optional[str] = None,
     tail: Optional[str] = None,
     n: int = N,
@@ -132,25 +187,26 @@ def get_words_from_context(
         list[str]: Lista di parole generate.
     """
     tokens = []
-    dist_words = (
-        set()
-    )  # Parole già viste nelle distribuzioni di parole date dal contesto
 
-    while len(tokens) < boundary:
-        # Se non ci sono più parole disponibili, esco
-        if n <= 1:
-            break
-
-        for next_w in get_dist_freq_words_from_context(
+    # Elaborazione della distribuzione finale come una lista ordinata
+    merged_df = []
+    while n > 1:
+        df_n = get_dist_freq_words_from_context(
             g_lm, d_lm, context, len_lacuna, n, head, tail
-        ):
-
-            if next_w in dist_words:
-                continue
-
-            dist_words.add(next_w)  # La aggiungo alla lista delle parole già viste
-            tokens.append(next_w)
+        )
+        merged_df.extend(df_n)
         n -= 1
+
+    merged_df = list(
+        dict.fromkeys(merged_df)
+    )  # Rimuovi i duplicati mantenendo l'ordine
+
+    # Ordina i risultati concatenati utilizzando head e tail
+    sorted_words = get_sorted_filtered_array(merged_df, head, tail, len_lacuna)
+    for next_w in sorted_words:
+        tokens.append(next_w)
+        if len(tokens) >= boundary:
+            break
 
     return tokens
 
@@ -223,7 +279,9 @@ def nll_score(
 
     total_log_prob = 0
     for word in generated_seq:
-        total_log_prob += interpolated_log_score(g_lm, d_lm, word, context, lambda_weight)
+        total_log_prob += interpolated_log_score(
+            g_lm, d_lm, word, context, lambda_weight
+        )
         context = update_context(context, word)
 
     if lm_type == "MLE":
@@ -234,6 +292,7 @@ def nll_score(
         )  # Si aggiunge un valore di fallback nel caso in cui le parole della sequenza non siano presenti nel modello
 
     return -total_log_prob
+
 
 def get_best_candidates_from_beam(
     beam: list[tuple[list[str], float]],
@@ -269,7 +328,7 @@ def get_best_candidates_from_beam(
         if not suppl_words:
             raise ValueError("Definire la gold label")
         distances = {
-            tuple(seq): edit_distance(" ".join(seq), " ".join(suppl_words))
+            tuple(seq): cached_edit_distance(" ".join(seq), " ".join(suppl_words))
             for seq in string_candidates
         }
     else:
@@ -293,7 +352,7 @@ def get_successors(
     g_lm: LanguageModel,
     d_lm: LanguageModel,
     lambda_weight: float,
-    len_lacuna: int, 
+    len_lacuna: int,
     lm_type: str,
     context: list[str],
     candidate: tuple[list[str], float],
@@ -329,7 +388,7 @@ def get_successors(
                     g_lm,
                     d_lm,
                     lambda_weight,
-                    len_lacuna, 
+                    len_lacuna,
                     lm_type,
                     g_lm.vocab.lookup(context[(1 - n) :]),
                     candidate[0] + [w],
@@ -346,7 +405,7 @@ def score_candidate(
     g_lm: LanguageModel,
     d_lm: LanguageModel,
     lambda_weight: float,
-    len_lacuna: int, 
+    len_lacuna: int,
     lm_type: str,
     context: tuple,
     candidate: list[str],
@@ -368,9 +427,6 @@ def score_candidate(
     Returns:
         float: Punteggio calcolato per il candidato.
     """
-
-    def calculate_edit_distance(segment: str, reference: str) -> float:
-        return edit_distance(segment, reference)
 
     def apply_length_penalty(
         candidate: list[str],
@@ -406,21 +462,19 @@ def score_candidate(
 
         return length_difference / weight
 
-    loss_score = nll_score(g_lm, d_lm, lambda_weight, context, candidate, lm_type)
+    nll = nll_score(g_lm, d_lm, lambda_weight, context, candidate, lm_type)
 
-    score = loss_score
+    score = nll
     if head and len(candidate) >= 1:
         first_token = candidate[0]
-        score += calculate_edit_distance(first_token[: len(head)], head)
+        score += cached_edit_distance(first_token[: len(head)], head)
     if tail and len(candidate) == len_suppl_words and candidate:
         last_token = candidate[-1]
-        score += calculate_edit_distance(last_token[-len(tail) :], tail)
+        score += cached_edit_distance(last_token[-len(tail) :], tail)
 
     # Applica la penalità allo score
     if len_suppl_words == 1:
-        score += apply_length_penalty(
-            candidate, head, tail, len_suppl_words
-        )
+        score += apply_length_penalty(candidate, head, tail, len_suppl_words)
 
     return score
 
@@ -429,10 +483,10 @@ def local_beam_search(
     g_lm: LanguageModel,
     d_lm: LanguageModel,
     context: list[str],
-    len_lacuna: int = 0, 
+    len_lacuna: int = 0,
     lambda_weight: float = LAMBDA,
     lm_type: str = LM_TYPE,
-    beam_size: int = K_PRED * 2,
+    beam_size: int = K_PRED * 4,
     n: int = N,
     len_suppl_words: int = 0,
     suppl_words: list[str] = None,
@@ -444,7 +498,7 @@ def local_beam_search(
     k_pred: int = K_PRED,
 ) -> list[list[str]]:
     """
-    Esegue una ricerca locale utilizzando l'algoritmo di beam search per generare 
+    Esegue una ricerca locale utilizzando l'algoritmo di beam search per generare
     le migliori K predizioni basate su un contesto iniziale e su modelli di linguaggio.
 
         g_lm (LanguageModel): Modello di linguaggio globale utilizzato per il calcolo delle probabilità.
@@ -504,7 +558,7 @@ def local_beam_search(
         states = get_words_from_context(
             g_lm, d_lm, context, beam_size, 0, head_suppl, None, n
         )
-        
+
         for s in states:
             heapq.heappush(
                 beam,
@@ -514,7 +568,7 @@ def local_beam_search(
                         g_lm,
                         d_lm,
                         lambda_weight,
-                        0, #si inibisce l'informazione sulla lunghezza della lacuna 
+                        0,  # si inibisce l'informazione sulla lunghezza della lacuna
                         lm_type,
                         g_lm.vocab.lookup(context[(1 - n) :]),
                         [s],
@@ -564,7 +618,7 @@ def get_best_K_predictions_from_context(
     g_lm: LanguageModel,
     d_lm: LanguageModel,
     context: list[str],
-    len_lacuna: int, 
+    len_lacuna: int,
     lambda_weight: float = LAMBDA,
     lm_type: str = LM_TYPE,
     len_suppl_words: int = 0,
@@ -573,7 +627,7 @@ def get_best_K_predictions_from_context(
     tail_suppl: Optional[str] = None,
     n: int = N,
     k_pred: int = K_PRED,
-    beam_size: int = K_PRED * 2,
+    beam_size: int = K_PRED * 4,
     mod: str = "acc",
     alpha: float = 0,
     beta: float = 1,
@@ -603,22 +657,22 @@ def get_best_K_predictions_from_context(
         list[list[str]]: Lista delle migliori K sequenze generate.
     """
     return local_beam_search(
-        g_lm,
-        d_lm,
-        context,
-        len_lacuna,
-        lambda_weight,
-        lm_type,
-        beam_size,
-        n,
-        len_suppl_words,
-        suppl_words,
-        head_suppl,
-        tail_suppl,
-        mod,
-        alpha,
-        beta,
-        k_pred,
+        g_lm=g_lm,
+        d_lm=d_lm,
+        context=context,
+        len_lacuna=len_lacuna,
+        lambda_weight=lambda_weight,
+        lm_type=lm_type,
+        beam_size=beam_size,
+        n=n,
+        len_suppl_words=len_suppl_words,
+        suppl_words=suppl_words,
+        head_suppl=head_suppl,
+        tail_suppl=tail_suppl,
+        mod=mod,
+        alpha=alpha,
+        beta=beta,
+        k_pred=k_pred,
     )
 
 
@@ -667,7 +721,12 @@ def get_context_from_test_case(
         )
     )[: (1 - n)]
 
-    return (context, get_head_supplement(test_case), get_tail_supplement(test_case), match.count("."))
+    return (
+        context,
+        get_head_supplement(test_case),
+        get_tail_supplement(test_case),
+        match.count("."),
+    )
 
 
 def check_supplement(supplement: list[str]) -> bool:
@@ -740,8 +799,7 @@ def get_topK_accuracy(
                         break
 
                     suppl_seq, suppl_len_lacuna = supplements[i]
-                     
-                    
+
                     if not check_supplement(suppl_seq):
                         continue
 
@@ -752,13 +810,13 @@ def get_topK_accuracy(
                     predictions = get_best_K_predictions_from_context(
                         g_lm=g_lm,
                         d_lm=d_lm,
-                        lambda_weight=lambda_weight,
                         context=context,
-                        len_suppl_words=len(supplements[i]),
-                        suppl_words=supplements[i],
+                        len_lacuna=suppl_len_lacuna,
+                        lambda_weight=lambda_weight,
+                        len_suppl_words=len(suppl_seq),
+                        suppl_words=suppl_seq,
                         head_suppl=head_suppl,
                         tail_suppl=tail_suppl,
-                        len_lacuna=suppl_len_lacuna,
                         n=n,
                         k_pred=k_pred,
                         beam_size=k_pred * 4,
@@ -770,7 +828,7 @@ def get_topK_accuracy(
                     # print("predizioni: ", predictions)
                     # print ("gold_label:", supplements[i])
 
-                    if supplements[i] in predictions:
+                    if suppl_seq in predictions:
                         correct_predictions += 1
 
                     total_predictions += 1
