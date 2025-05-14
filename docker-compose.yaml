@@ -10,7 +10,8 @@ services:
         - .:/app 
     environment:
       - MONGO_USERNAME=${MONGO_USERNAME}
-      - MONGO_USERNAME=${MONGO_PASSWORD}
+      - MONGO_PASSWORD=${MONGO_PASSWORD}
+      - MONGO_HOST=mongodb
 
   frontend: 
     build:
