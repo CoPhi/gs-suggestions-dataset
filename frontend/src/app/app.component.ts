@@ -1,4 +1,4 @@
-import { Component, effect, inject } from '@angular/core';
+import { Component, computed, effect, inject } from '@angular/core';
 import { Signal } from '@angular/core';
 import { ApiService, modelType } from './services/api.service';
 import { toSignal } from '@angular/core/rxjs-interop';
@@ -16,9 +16,5 @@ export class AppComponent {
   api = inject(ApiService)
 
   models = toSignal(this.api.getModels(), { initialValue: [] }) as Signal<modelType[]>;
-
-  debug = effect(() => {
-    console.log(this.models());
-  }
-  );
+  current_models = computed (() => this.models())
 }

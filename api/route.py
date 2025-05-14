@@ -126,7 +126,7 @@ async def get_models():
                 status_code=404, content={"detail": "Models are not found"}
             )
     except Exception as e:
-        raise JSONResponse(status_code=500, content={"detail": str(e)})
+        return JSONResponse(status_code=500, content={"detail": str(e)})
 
 
 @router.post(
@@ -210,8 +210,8 @@ async def create_model(
                 return JSONResponse(status_code=201, content={"ID": str(model_id)})
             except ValueError as v:
                 return JSONResponse(status_code=404, content={"detail": str(v)})
-            except Exception as e:
-                raise JSONResponse(status_code=500, content=str(e))
+            except Exception as e: 
+                return JSONResponse(status_code=500, content=str(e))
 
         case BERTModel():
             try:

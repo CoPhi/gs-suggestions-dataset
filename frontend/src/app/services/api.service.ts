@@ -3,6 +3,7 @@ import { HttpClient } from '@angular/common/http';
 import { map, Observable } from 'rxjs';
 import { toSignal } from '@angular/core/rxjs-interop';
 
+
 @Injectable({
   providedIn: 'root'
 })
@@ -22,6 +23,14 @@ export class ApiService {
     return this.http.post<{ ID: string }>(`${this.apiUrl}/model`, data).pipe(
       map(response => response.ID)
     );
+  }
+
+   deleteModel(model_id: string): Observable<string> {
+    return this.http.delete<{ description: string }>(`${this.apiUrl}/model/${model_id}`, {
+      responseType: 'json'
+    }).pipe(
+      map(response => response.description)
+    )
   }
 
   generateSuggestion(model_id: string, context: string, num_tokens: number, num_predictions: number ): Observable<SuggestionInterface[]> {
@@ -52,7 +61,7 @@ export interface NgramsModelInterface {
 }
 
 export interface SuggestionInterface {
-  sentence: string
+  sentence: string;
   token_str: string; // token suggerito
   score: number; // Punteggio del suggerimento
 }

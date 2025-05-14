@@ -1,5 +1,5 @@
-import { Component, computed, effect, input } from '@angular/core';
-import { BERTModelInterface, modelType, NgramsModelInterface } from '../../services/api.service';
+import { Component, computed, effect, inject, input, model } from '@angular/core';
+import { ApiService, BERTModelInterface, modelType, NgramsModelInterface } from '../../services/api.service';
 import { ClipboardModule } from '@angular/cdk/clipboard';
 
 @Component({
@@ -10,8 +10,10 @@ import { ClipboardModule } from '@angular/cdk/clipboard';
 })
 export class ModelComponent {
 
+  api = inject(ApiService)
 
   model = input.required<modelType>(); // Modello da visualizzare
+  models = model.required<modelType[]>() // Lista dei modelli disponibili
 
   id = computed(() => this.model()._id);
   isBERT = computed(() => this.model().TYPE === 'BERT'); // Verifica se il modello è di tipo BERT
@@ -36,4 +38,13 @@ export class ModelComponent {
       });
     }
   }
+
+  deleteModel() {
+  const id = this.id();  // oppure this.model.id se usi un oggetto
+  this.api.deleteModel(id).subscribe({
+    next: () => this.models.set(this.models().filter((m) => m._id !== id)),
+    error: (e) => console.log(e)
+  });
+  }
+
 }

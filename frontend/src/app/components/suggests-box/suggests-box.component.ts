@@ -1,9 +1,8 @@
-import { Component, computed, effect, inject, input, signal } from '@angular/core';
+import { Component, computed, effect, inject, input, model, signal } from '@angular/core';
 import { AbstractControl, FormControl, FormGroup, ReactiveFormsModule, FormsModule, ValidationErrors, Validators } from '@angular/forms';
 import { ApiService, modelType, SuggestionInterface } from '../../services/api.service';
 import { ModelComponent } from '../model/model.component';
 import { SuggestComponent } from '../suggest/suggest.component';
-import { setThrowInvalidWriteToSignalError } from '@angular/core/primitives/signals';
 
 @Component({
   selector: 'app-suggests-box',
@@ -14,7 +13,7 @@ import { setThrowInvalidWriteToSignalError } from '@angular/core/primitives/sign
 export class SuggestsBoxComponent {
 
   api = inject(ApiService);
-  models = input.required<modelType[]>()
+  models = model.required<modelType[]>()
   form: FormGroup;
 
   suggestions = signal<SuggestionInterface[]>([]);

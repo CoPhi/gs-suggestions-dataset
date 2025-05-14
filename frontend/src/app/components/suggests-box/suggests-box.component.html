@@ -94,7 +94,7 @@
             </div>
         </div>
     </div>
-
+    @if (!isGenerating()) { 
     <div class="card shadow-sm mb-5" id="modelsCard" style="display: none;">
         <div class="card-header bg-success text-white">
             <h3 class="h5 mb-0">Modelli Disponibili</h3>
@@ -102,14 +102,15 @@
         <div class="card-body">
             <div class="row row-cols-1 row-cols-sm-2 row-cols-md-4 gy-3" id="modelsContainer">
                 @for (model of models(); track $index) {
-                <app-model [model]="model"></app-model>
+                <app-model [model]="model" [models]="models()"></app-model>
                 }
             </div>
         </div>
     </div>
+    }
 
 
-    @if (suggestions().length > 0) {
+    @if (suggestions().length > 0 && !isGenerating()) {
     <div class="card rounded-4 shadow" id="resultsCard">
         <div class="card-header rounded-top-4 bg-info text-white">
             <h3 class="h5 mb-0"><i class="bi bi-lightbulb-fill"></i> Suggerimenti generati</h3>

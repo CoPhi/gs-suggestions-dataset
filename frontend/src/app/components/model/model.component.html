@@ -7,6 +7,9 @@
         <button (click)="showCopy($event)" class="btn btn-sm btn-outline-primary copy-model-id" [cdkCopyToClipboard]="id()">
           <i class="bi bi-clipboard"></i> Copia ID
         </button>
+        <button class="btn btn-sm btn-outline-danger copy-model-id" (click)="deleteModel()">
+          <i class="bi bi-trash-fill"></i>
+        </button>
       </div>
       <h6 class="card-subtitle mb-2 text-muted">ID: <code>${{ id() }}</code></h6>
       <p class="card-text">Modello BERT</p>
@@ -26,6 +29,9 @@
         <h5 class="card-title mb-0">N-grammi</h5>
         <button class="btn btn-sm btn-outline-primary copy-model-id" [cdkCopyToClipboard]="id()">
           <i class="bi bi-clipboard"></i> Copia ID
+        </button>
+        <button class="btn btn-sm btn-outline-danger copy-model-id" (click)="deleteModel()">
+          <i class="bi bi-trash-fill"></i>
         </button>
       </div>
       <h6 class="card-subtitle mb-2 text-muted">ID: <code>${{ id() }}</code></h6>
