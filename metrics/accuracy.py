@@ -39,37 +39,38 @@ def filter_words(df):
 
 def sort_and_filter_array(arr, condition, key_func):
     """Ordina e filtra gli elementi di un array in base a una condizione e una funzione di ordinamento."""
-    target, remaining = [], []
-    for item in arr:
-        if condition(item):
-            target.append(item)
-        else:
-            remaining.append(item)
+    annotated = [(item, key_func(item)) for item in arr]
+    target = [x for x in annotated if condition(x[0])]
+    remaining = [x for x in annotated if not condition(x[0])]
 
-    target = sorted(target, key=key_func)
-    return target + remaining
+    target_sorted = sorted(target, key=lambda x: x[1])
+    remaining_sorted = sorted(remaining, key=lambda x: x[1])
+    return [x[0] for x in target_sorted + remaining_sorted]
 
 
 def get_sorted_filtered_array(arr, head, tail, len_lacuna):
     """Ordina e filtra gli elementi di un array in base a testa e coda."""
+    head_len = len(head) if head else 0
+    tail_len = len(tail) if tail else 0
+
     if head and tail:
         return sort_and_filter_array(
             arr,
-            lambda item: len(item) == (len(head) + len(tail) + len_lacuna),
-            lambda x: cached_edit_distance(x[: len(head)], head)
-            + cached_edit_distance(x[-len(tail) :], tail),
+            lambda item: len(item) == (head_len + tail_len + len_lacuna),
+            lambda x: cached_edit_distance(x[:head_len], head)
+            + cached_edit_distance(x[-tail_len:], tail),
         )
     elif head:
         return sort_and_filter_array(
             arr,
-            lambda item: len(item) >= len(head) + len_lacuna,
-            lambda x: cached_edit_distance(x[: len(head)], head),
+            lambda item: len(item) >= head_len + len_lacuna,
+            lambda x: cached_edit_distance(x[:head_len], head),
         )
     elif tail:
         return sort_and_filter_array(
             arr,
-            lambda item: len(item) >= len(tail) + len_lacuna,
-            lambda x: cached_edit_distance(x[-len(tail) :], tail),
+            lambda item: len(item) >= tail_len + len_lacuna,
+            lambda x: cached_edit_distance(x[-tail_len:], tail),
         )
     else:
         # Ordina solo in base alla lunghezza se non ci sono informazioni su testa o coda
@@ -92,7 +93,7 @@ def sort_and_filter(df, condition, key_func):
             remaining.append((w, f))
 
     target_sorted = sorted(target, key=key_func)
-    remaining_sorted = sorted(remaining, key=lambda x: x[1], reverse=True)
+    remaining_sorted = sorted(remaining, key=key_func, reverse=True)
 
     return filter_words(target_sorted + remaining_sorted)
 
@@ -187,28 +188,27 @@ def get_words_from_context(
         list[str]: Lista di parole generate.
     """
     tokens = []
+    dist_words = (
+        set()
+    )  # Parole già viste nelle distribuzioni di parole date dal contesto
 
-    # Elaborazione della distribuzione finale come una lista ordinata
-    merged_df = []
-    while n > 1:
-        df_n = get_dist_freq_words_from_context(
-            g_lm, d_lm, context, len_lacuna, n, head, tail
-        )
-        merged_df.extend(df_n)
-        n -= 1
-
-    merged_df = list(
-        dict.fromkeys(merged_df)
-    )  # Rimuovi i duplicati mantenendo l'ordine
-
-    # Ordina i risultati concatenati utilizzando head e tail
-    sorted_words = get_sorted_filtered_array(merged_df, head, tail, len_lacuna)
-    for next_w in sorted_words:
-        tokens.append(next_w)
-        if len(tokens) >= boundary:
+    while len(tokens) < boundary:
+        # Se non ci sono più parole disponibili, esco
+        if n <= 1:
             break
 
-    return tokens
+        for next_w in get_dist_freq_words_from_context(
+            g_lm, d_lm, context, len_lacuna, n, head, tail
+        ):
+
+            if next_w in dist_words:
+                continue
+
+            dist_words.add(next_w)  # La aggiungo alla lista delle parole già viste
+            tokens.append(next_w)
+        n -= 1
+
+    return get_sorted_filtered_array(tokens, head, tail, len_lacuna)
 
 
 def interpolated_log_score(
@@ -298,7 +298,7 @@ def get_best_candidates_from_beam(
     beam: list[tuple[list[str], float]],
     suppl_words: list[str] = None,
     mod: str = "acc",
-    alpha: float = 0,
+    alpha: float = 1,
     beta: float = 1,
     k_pred: int = K_PRED,
 ) -> list[list[str]]:
@@ -316,6 +316,13 @@ def get_best_candidates_from_beam(
     Returns:
         list[list[str]]: Lista delle migliori sequenze generate.
     """
+
+    def normalize(values: list[float]) -> list[float]:
+        min_v, max_v = min(values), max(values)
+        if max_v - min_v == 0:
+            return [0.0 for _ in values]  # Evita divisione per zero
+        return [(v - min_v) / (max_v - min_v) for v in values]
+
     if not beam:
         return []
 
@@ -334,13 +341,19 @@ def get_best_candidates_from_beam(
     else:
         raise ValueError("Modalità non definita correttamente")
 
+    losses = [c[1] for c in sorted_candidates]
+    norm_losses = normalize(losses)
+
+    edit_dists = [distances[tuple(seq)] for seq in string_candidates]
+    norm_dists = normalize(edit_dists)
+
     ranking_candidates = sorted(
         [
             (
-                candidate[0],
-                (alpha * candidate[1] + beta * distances[tuple(candidate[0])]),
+                sorted_candidates[i][0],
+                (alpha * norm_losses[i] + beta * norm_dists[i]),
             )
-            for candidate in sorted_candidates
+            for i in range(len(sorted_candidates))
         ],
         key=lambda x: x[1],
     )

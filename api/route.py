@@ -2,7 +2,7 @@ from fastapi import APIRouter, Query, Path, Body
 from fastapi.responses import JSONResponse
 from api.schema import serial_model
 from api.database import collection, fs
-from api.models import NgramModel, BERTModel, Model, PredictionCount
+from api.models import NgramModel, BERTModel, Model, PredictionCount, PredictionsResponse, ModelsResponse
 from api import LEFT_CONTEXT_PATTERN
 from bson import ObjectId
 from train.training import train_lm
@@ -40,7 +40,8 @@ async def root():
 
 
 @router.get(
-    "/model/{id}",
+    "/models/{id}",
+    response_model=Model,
     responses={
         200: {
             "description": "ID del modello",
@@ -53,14 +54,19 @@ async def root():
                                 "LM_SCORE": "string",
                                 "GAMMA": "float | None",
                                 "N": 3,
-                                "CORPUS_NAMES": "list[string] | None",
-                                "MODEL_FILE_ID": "string",
+                                "CORPUS_NAMES": {
+                                    "type": "array",
+                                    "items": {"type": "string"},
+                                    "nullable": "true",
+                                },
+                                "GLOBAL_MODEL_FILE_ID": "string",
+                                "DOMAIN_MODEL_FILE_ID": "string",
                             },
                         },
                         "BERTModel": {
                             "summary": "Example BERT Model",
                             "value": {
-                                "MODEL": "string",
+                                "CHECKPOINT": "string",
                                 "MODEL_FILE_ID": "string",
                             },
                         },
@@ -84,6 +90,7 @@ async def get_model(id: Annotated[str, Path(title="ID", description="ID del mode
 
 @router.get(
     "/models",
+    response_model=ModelsResponse, 
     responses={
         200: {
             "description": "Lista dei modelli",
@@ -95,11 +102,16 @@ async def get_model(id: Annotated[str, Path(title="ID", description="ID del mode
                                 "LM_SCORE": "string",
                                 "GAMMA": "float | None",
                                 "N": 3,
-                                "CORPUS_NAMES": "list[string] | None",
-                                "MODEL_FILE_ID": "string",
+                                "CORPUS_NAMES": {
+                                    "type": "array",
+                                    "items": {"type": "string"},
+                                    "nullable": "true",
+                                },
+                                "GLOBAL_MODEL_FILE_ID": "string",
+                                "DOMAIN_MODEL_FILE_ID": "string",
                             },
                             {
-                                "MODEL": "string",
+                                "CHECKPOINT": "string",
                                 "MODEL_FILE_ID": "string",
                             },
                         ]
@@ -130,7 +142,7 @@ async def get_models():
 
 
 @router.post(
-    "/model",
+    "/models",
     status_code=201,
     responses={
         201: {
@@ -205,12 +217,12 @@ async def create_model(
                 )
                 model_dict["GLOBAL_MODEL_FILE_ID"] = save_to_gridfs(global_ngram_model)
                 model_dict["DOMAIN_MODEL_FILE_ID"] = save_to_gridfs(domain_ngram_model)
-                
+
                 model_id = collection.insert_one(model_dict).inserted_id
                 return JSONResponse(status_code=201, content={"ID": str(model_id)})
             except ValueError as v:
                 return JSONResponse(status_code=404, content={"detail": str(v)})
-            except Exception as e: 
+            except Exception as e:
                 return JSONResponse(status_code=500, content=str(e))
 
         case BERTModel():
@@ -242,7 +254,7 @@ async def create_model(
 
 
 @router.post(
-    "/models",
+    "/models/init/",
     status_code=201,
     responses={
         201: {
@@ -275,11 +287,11 @@ async def create_models():
                 )
 
             global_ngram_model, domain_ngram_model = train_lm(
-                    train_abs=abs,
-                    lm_type=model_dict["LM_SCORE"],
-                    gamma=model_dict["GAMMA"],
-                    n=model_dict["N"],
-                )
+                train_abs=abs,
+                lm_type=model_dict["LM_SCORE"],
+                gamma=model_dict["GAMMA"],
+                n=model_dict["N"],
+            )
             model_dict["GLOBAL_MODEL_FILE_ID"] = save_to_gridfs(global_ngram_model)
             model_dict["DOMAIN_MODEL_FILE_ID"] = save_to_gridfs(domain_ngram_model)
             ids.append(str(model_id))
@@ -293,15 +305,11 @@ async def create_models():
                 "CHECKPOINT": checkpoint,
                 "TYPE": "BERT",
             }
-            bert_model = AutoModelForMaskedLM.from_pretrained(
-                model_dict["CHECKPOINT"]
-            )
+            bert_model = AutoModelForMaskedLM.from_pretrained(model_dict["CHECKPOINT"])
             bert_tokenizer = AutoTokenizer.from_pretrained(model_dict["CHECKPOINT"])
             model_dict["MODEL_FILE_ID"] = save_to_gridfs(bert_model)
             model_dict["TOKENIZER_FILE_ID"] = save_to_gridfs(bert_tokenizer)
-            model_id = collection.insert_one(
-                {**model_dict, "TYPE": "BERT"}
-            ).inserted_id
+            model_id = collection.insert_one({**model_dict, "TYPE": "BERT"}).inserted_id
             ids.append(str(model_id))
         except Exception as e:
             return JSONResponse(status_code=500, content={"detail": str(e)})
@@ -311,16 +319,17 @@ async def create_models():
 # predictions
 @router.get(
     "/predictions",
+    response_model=PredictionsResponse, 
     responses={
         200: {
             "description": "Predictions",
             "content": {
                 "application/json": {
                     "example": {
-                        "predictions": [
-                            ["token", 0.5],
-                            ["another_token", 0.3],
-                        ]
+                        "predictions": 
+                            {
+                                "type": "array"
+                            }
                     }
                 }
             },
@@ -380,17 +389,22 @@ async def get_predictions(
             domain_model_file_document = fs.find_one(
                 {"filename": domain_model_filename}
             )  # Cerca il file per nome
-            
-            if not (global_model_file_document or  domain_model_file_document):
+
+            if not (global_model_file_document or domain_model_file_document):
                 return JSONResponse(
                     status_code=404, content={"message": "Model not found"}
                 )
 
-            global_model_file = fs.get(global_model_file_document._id)  # Recupera il file usando il suo _id
+            global_model_file = fs.get(
+                global_model_file_document._id
+            )  # Recupera il file usando il suo _id
             domain_model_file = fs.get(domain_model_file_document._id)
-            decompressed_global_model = pickle.loads(zlib.decompress(global_model_file.read()))
-            decompressed_domain_model = pickle.loads(zlib.decompress(domain_model_file.read()))
-            
+            decompressed_global_model = pickle.loads(
+                zlib.decompress(global_model_file.read())
+            )
+            decompressed_domain_model = pickle.loads(
+                zlib.decompress(domain_model_file.read())
+            )
 
             left_context = LEFT_CONTEXT_PATTERN.sub("[", context).split("[")[0]
             predictions = [
@@ -431,7 +445,11 @@ async def get_predictions(
             )
 
             predictions = [
-                {"sentence": prediction[0], "token_str": prediction[1], "score": prediction[2]}
+                {
+                    "sentence": prediction[0],
+                    "token_str": prediction[1],
+                    "score": prediction[2],
+                }
                 for prediction in fill_mask(
                     decompressed_model, decompressed_tokenizer, context, num_predictions
                 )
@@ -456,17 +474,21 @@ async def get_predictions(
     except Exception as e:
         return JSONResponse(status_code=500, content={"detail": str(e)})
 
+
 @router.delete(
-    "/model/{id}",
+    "/models/{id}",
+    response_model=Model, 
     responses={
         200: {"description": "Model deleted successfully"},
         404: {"description": "Model not found"},
         500: {"description": "Internal server error"},
     },
 )
-async def delete_model(id: Annotated[str, Path(title="ID", description="ID del modello da eliminare")]):
+async def delete_model(
+    id: Annotated[str, Path(title="ID", description="ID del modello da eliminare")],
+):
     try:
-        model = collection.find_one({"_id": ObjectId(id)})
+        model = serial_model(id)
         if not model:
             return JSONResponse(status_code=404, content={"message": "Model not found"})
 
@@ -484,7 +506,9 @@ async def delete_model(id: Annotated[str, Path(title="ID", description="ID del m
         # Rimuovi il documento dalla collezione
         collection.delete_one({"_id": ObjectId(id)})
 
-        return JSONResponse(status_code=200, content={"detail": "Model deleted successfully"})
+        return JSONResponse(
+            status_code=200, content={"model": model}
+        )
 
     except Exception as e:
         return JSONResponse(status_code=500, content={"detail": str(e)})

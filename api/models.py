@@ -1,4 +1,4 @@
-from typing import Union, Literal
+from typing import List, Union, Literal
 from pydantic import BaseModel, Field
 from enum import IntEnum
 
@@ -21,10 +21,20 @@ class BERTModel(BaseModel):
     CHECKPOINT: str = Field(description="Nome del modello BERT da utilizzare")
     TYPE: Literal["BERT"]
     
+Model = Union[NgramModel, BERTModel]
+
+class ModelsResponse(BaseModel): 
+    models: List[Model]
+
 class PredictionCount(IntEnum):
     ONE = 1
     FIVE = 5
     TEN = 10
     TWENTY = 20
+class Prediction(BaseModel):
+    sentence: str
+    token_str: str
+    score: float
 
-Model = Union[NgramModel, BERTModel]
+class PredictionsResponse(BaseModel):
+    predictions: List[Prediction]

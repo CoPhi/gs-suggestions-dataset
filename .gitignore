@@ -14,4 +14,4 @@ poetry.lock
 .env.*
 .idea/
 .vscode/
-.pkl
+*.pkl

@@ -20,13 +20,13 @@ export class ApiService {
   }
 
   createModel(data: modelType): Observable<string> {
-    return this.http.post<{ ID: string }>(`${this.apiUrl}/model`, data).pipe(
+    return this.http.post<{ ID: string }>(`${this.apiUrl}/models`, data).pipe(
       map(response => response.ID)
     );
   }
 
    deleteModel(model_id: string): Observable<string> {
-    return this.http.delete<{ description: string }>(`${this.apiUrl}/model/${model_id}`, {
+    return this.http.delete<{ description: string }>(`${this.apiUrl}/models/${model_id}`, {
       responseType: 'json'
     }).pipe(
       map(response => response.description)

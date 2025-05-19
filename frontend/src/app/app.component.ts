@@ -16,5 +16,4 @@ export class AppComponent {
   api = inject(ApiService)
 
   models = toSignal(this.api.getModels(), { initialValue: [] }) as Signal<modelType[]>;
-  current_models = computed (() => this.models())
 }
