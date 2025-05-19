@@ -9,6 +9,7 @@ from nltk.lm.preprocessing import pad_both_ends, flatten
 from nltk.metrics.distance import edit_distance
 from nltk.lm.util import log_base2
 from functools import lru_cache
+import gc
 
 from utils.preprocess import (
     clean_text_from_gaps,
@@ -818,6 +819,7 @@ def get_topK_accuracy(
         batch = test_abs[start : start + batch_size]  # batch di blocchi anonimi
         for ab in batch:
             if ab["language"] == "grc":
+                
                 supplements = clean_supplements(
                     ab["training_text"]
                 )  # supplements puliti
@@ -862,5 +864,5 @@ def get_topK_accuracy(
                         correct_predictions += 1
 
                     total_predictions += 1
-
+        
     return round((correct_predictions / total_predictions) * 100, 2)
