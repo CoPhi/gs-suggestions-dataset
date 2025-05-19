@@ -857,12 +857,7 @@ def get_topK_accuracy(
                         beta=beta,
                         delta=delta,
                     )
-
-                    print("testa del supplemento: ", head_suppl)
-                    print("coda del supplemento: ", tail_suppl)
-                    print("predizioni: ", predictions)
-                    print ("gold_label:", supplements[i])
-
+                    
                     if suppl_seq in predictions:
                         correct_predictions += 1
 
