@@ -4,6 +4,7 @@ from math import exp
 from nltk.lm.models import LanguageModel
 
 from metrics.accuracy import (
+    get_beam_size,
     get_context_from_test_case,
     get_best_K_predictions_from_context,
     nll_score,
@@ -41,12 +42,14 @@ def generate_k_suggests(
     if not (g_lm and d_lm):
         raise ValueError("Il modelli non sono stati caricati correttamente.")
 
-    context, head, tail, len_lacuna = get_context_from_test_case(context, n=n, case_folding=True)
+    seq, head, tail, len_lacuna = get_context_from_test_case(
+        context, n=n, case_folding=True
+    )
 
     predictions = get_best_K_predictions_from_context(
         g_lm=g_lm,
         d_lm=d_lm,
-        context=context,
+        context=seq,
         len_lacuna=len_lacuna,
         lambda_weight=lambda_weight,
         lm_type=lm_type,
@@ -55,28 +58,51 @@ def generate_k_suggests(
         tail_suppl=tail,
         n=n,
         k_pred=k_pred,
+        beam_size=get_beam_size(k_pred, 4),
         mod="infer",
         alpha=1,
         beta=0,
     )
+    
+    print (predictions)
+
+    print(
+        [
+            (
+                " ".join(pred).lower(),
+                pow(
+                    2,
+                    -nll_score(
+                        g_lm,
+                        d_lm,
+                        lambda_weight,
+                        seq,
+                        pred,
+                        lm_type,
+                    ),
+                ),
+            )
+            for pred in predictions
+        ]
+    )
 
     return [
-        (
-            " ".join(pred).lower(),
-            pow(
-                2,
-                -nll_score(
-                    g_lm,
-                    d_lm,
-                    lambda_weight,
-                    g_lm.vocab.lookup(context[(1 - n) :]),
-                    pred,
-                    lm_type,
+            (
+                " ".join(pred).lower(),
+                pow(
+                    2,
+                    -nll_score(
+                        g_lm,
+                        d_lm,
+                        lambda_weight,
+                        g_lm.vocab.lookup(seq[(1 - n) :]),
+                        pred,
+                        lm_type,
+                    ),
                 ),
-            ),
-        )
-        for pred in predictions
-    ]
+            )
+            for pred in predictions
+        ]
 
 
 if __name__ == "__main__":

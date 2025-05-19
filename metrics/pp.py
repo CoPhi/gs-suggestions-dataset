@@ -4,7 +4,6 @@ from nltk.lm.preprocessing import padded_everygram_pipeline
 from train.training import get_sentences
 from config.settings import N, LAMBDA
 from math import pow
-from statistics import mean
 from metrics.accuracy import interpolated_log_score
 
 
@@ -71,7 +70,7 @@ def interpolated_entropy(
     for sent in ngrams:
         valid_ngrams = (ngram for ngram in sent if len(ngram) == n)
         for ngram in valid_ngrams:
-            total_log_prob += interpolated_log_score(g_lm, d_lm, ngram[-1], ngram[:-1], lambda_weight)
+            total_log_prob += interpolated_log_score(g_lm, d_lm, ngram[-1], list(ngram[:-1]), lambda_weight)
             total_token_count += 1
 
     if total_token_count == 0:
