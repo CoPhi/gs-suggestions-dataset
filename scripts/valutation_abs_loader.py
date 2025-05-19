@@ -1,6 +1,6 @@
 import json
 import pandas as pd
-from utils import SUPPLEMENTS_REGEX
+import re 
 
 def dump_json_abs_from_csv(file_path="test_abs.csv", output_path="test_abs.json"):
     """
@@ -37,39 +37,54 @@ def dump_json_abs_from_csv(file_path="test_abs.csv", output_path="test_abs.json"
     with open(f"data/{output_path}", "w", encoding="utf-8") as json_file:
         json.dump(blocks, json_file, indent=4, ensure_ascii=False)
 
-def dump_test_cases_into_json_abs(file_path="data/test_abs.json"): 
+def dump_test_cases_into_json_abs(file_path="data/test_abs.json"):
     blocks = json.load(open(file_path, "r", encoding="utf-8"))
+    
     for block in blocks:
         training_text = block["training_text"]
-        supplements = list(SUPPLEMENTS_REGEX.finditer(training_text))
-        modified_text = training_text
-        offset = 0  # To handle shifting indices after replacements
+        # Trova tutti i restauri tra quadre
+        supplements = list(re.finditer(r"\[([^\[\]]+)\]", training_text))
+        test_cases = []
 
         for idx, match in enumerate(supplements):
             start, end = match.span()
-            content = match.group(0)
-            if idx == 0:  # Sostituisci solo il primo supplemento trovato
-                dots = "." * (end - start - 2)  # -2 per togliere le parentesi quadre
-                replacement = f"[{dots}]"
+            supplement_content = match.group(1)  # contenuto interno alle quadre
+            replacement = "[" + ("." * len(supplement_content)) + "]"
+            offset = 0
+            modified_text = training_text
+
+            for i, other in enumerate(supplements):
+                o_start, o_end = other.span()
+                o_content = other.group(1)
+
+                if i == idx:
+                    # Sostituisci questo supplemento con [...], mantenendo le quadre
+                    o_replacement = "[" + ("." * len(o_content)) + "]"
+                else:
+                    # Rimuovi le quadre per tutti gli altri
+                    o_replacement = o_content
+
+                # Calcola la posizione aggiornata tenendo conto degli offset precedenti
+                mod_start = o_start + offset
+                mod_end = o_end + offset
                 modified_text = (
-                    modified_text[:start + offset]
-                    + replacement
-                    + modified_text[end + offset:]
+                    modified_text[:mod_start] + o_replacement + modified_text[mod_end:]
                 )
-                offset += len(replacement) - len(content)
-            else:
-                # Rimuovi solo le parentesi quadre dagli altri supplementi
-                inner_content = match.group(0)[1:-1]  # Rimuove la prima e l'ultima parentesi
-                modified_text = (
-                    modified_text[:start + offset]
-                    + inner_content
-                    + modified_text[end + offset:]
-                )
-                offset += len(inner_content) - (end - start)
-            # Ora modified_text contiene il testo desiderato
-            test_case = {"id": idx, "test_case": modified_text}
-            block["test_cases"].append(test_case)
+                offset += len(o_replacement) - (o_end - o_start)
+
+            test_cases.append({
+                "case_index": idx + 1,
+                "id": f'{block["id"]}/{idx + 1}',
+                "test_case": modified_text
+            })
+
+        block["test_cases"] = test_cases
+
+    # Salva su file
+    with open(file_path, "w", encoding="utf-8") as f:
+        json.dump(blocks, f, indent=4, ensure_ascii=False)
         
 if __name__ == "__main__":
     #dump_json_abs_from_csv(file_path="test_abs.csv", output_path="test_abs.json")
+    dump_test_cases_into_json_abs()
     print("Conversione completata con successo!")
