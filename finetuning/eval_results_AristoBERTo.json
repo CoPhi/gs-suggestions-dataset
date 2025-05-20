@@ -1,0 +1,18 @@
+{
+    "eval_loss": 3.1917495727539062,
+    "eval_model_preparation_time": 0.0026,
+    "eval_top1_acc": 0.6470588235294118,
+    "eval_top5_acc": 0.6470588235294118,
+    "eval_top10_acc": 0.7058823529411765,
+    "eval_top15_acc": 0.7647058823529411,
+    "eval_top20_acc": 0.7647058823529411,
+    "eval_top25_acc": 0.8235294117647058,
+    "eval_top30_acc": 0.8235294117647058,
+    "eval_top35_acc": 0.8235294117647058,
+    "eval_top40_acc": 0.8235294117647058,
+    "eval_top45_acc": 0.8235294117647058,
+    "eval_top50_acc": 0.8235294117647058,
+    "eval_runtime": 13.2777,
+    "eval_samples_per_second": 0.603,
+    "eval_steps_per_second": 0.301
+}

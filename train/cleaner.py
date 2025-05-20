@@ -14,13 +14,15 @@ from utils.preprocess import (
 )
 
 
-def check_ab(ab: dict, corpus_set: set = None) -> bool:
-    if corpus_set is None:
-        return ab["language"] == "grc"
+def check_ab(ab: dict, corpus_set: Optional[list[str]] = None) -> bool:
+    if ab.get("language") != "grc":
+        return False
 
-    return ab["language"] == "grc" and (
-        ab["corpus_id"] in corpus_set or ab["corpus_id"] == "unknown"
-    )
+    corpus_id = ab.get("corpus_id")
+    if corpus_set is None or corpus_id is None:
+        return True  # accetta qualsiasi corpus_id
+
+    return corpus_id in corpus_set or corpus_id == "unknown"
 
 
 def load_abs(corpus_set: Optional[list[str]] = None, budget: Optional[int] = None) -> list:
@@ -46,6 +48,7 @@ def load_abs(corpus_set: Optional[list[str]] = None, budget: Optional[int] = Non
         list: Una lista contenente gli anonymous block (abs) caricati dai file JSON.
     """
 
+    #Validare i corpus dentro `corpus_set`
     if corpus_set is not None:
         for corpus_id in corpus_set:
             if corpus_id not in CORPUS_NAMES:
@@ -60,6 +63,10 @@ def load_abs(corpus_set: Optional[list[str]] = None, budget: Optional[int] = Non
         unit="file",
         leave=False,
     ):
+        
+        if "test_abs" in str(file_path): # Skip test files
+            continue
+        
         try:
             with open(file_path, "r", encoding="utf-8") as f:
                 abs = json.load(f)
@@ -73,7 +80,7 @@ def load_abs(corpus_set: Optional[list[str]] = None, budget: Optional[int] = Non
 
     return dataset
 
-def load_specific_domain_abs(domain_title: str= "P.Herc.") -> list:
+def load_specific_domain_abs(abs: list, domain_title: str= "P.Herc.") -> list:
     """
     Restituisce un sottoinsieme dei blocchi anonimi il cui dominio è rappresentato dal titolo immesso in `domain_title`
     """ 
@@ -83,7 +90,16 @@ def load_specific_domain_abs(domain_title: str= "P.Herc.") -> list:
                 return domain_title in title_field
         return False
 
-    return [ab for ab in load_abs() if title_matches(ab["title"]) and ab["language"] == "grc"]
+    return [ab for ab in abs if title_matches(ab["title"]) and ab["language"] == "grc"]
+
+def load_test_abs() -> list:
+    """
+    Carica i blocchi anonimi di test da un file JSON.
+    Returns:
+        list: Una lista di dizionari contenenti i blocchi anonimi di test.
+    """
+    with open(next(DATA_PATH.glob("test_abs.json"), None), "r", encoding="utf-8") as f:
+        return json.load(f)
 
 def split_abs(abs: list, test_size=TEST_SIZE) -> tuple:
     """
@@ -92,7 +108,7 @@ def split_abs(abs: list, test_size=TEST_SIZE) -> tuple:
         abs (list): Lista di anonymous block da dividere.
         test_size (float, opzionale): Dimensione del test set
     Returns:
-        tuple: Una tupla contenente due liste, la prima per l'addestramento e la seconda per il test.
+        tuple[list, list]: Una tupla contenente due liste, la prima per l'addestramento e la seconda per il test.
     """
 
     if test_size not in TEST_SIZES:
@@ -162,7 +178,7 @@ def load_lm(checkpoint: str, n=N) -> tuple[LanguageModel, list]:
         n (int, optional): Dimensione degli ngrammi del modello. Default è `N`.
         checkpoint (str, optional):Checkpoint del modello linguistico da caricare.
     Returns:
-        tuple: Una tupla contenente il modello linguistico (lm) e i dati test_ab se il caricamento ha successo, altrimenti `None`.
+        tuple[LanguageModel, list]: Una tupla contenente il modello linguistico (lm) e i dati test_ab se il caricamento ha successo, altrimenti `None`.
     Raises:
         FileNotFoundError: Se il file pickle specificato non esiste.
         pickle.UnpicklingError: Se c'è un errore durante l'unpickling del file.
@@ -174,4 +190,3 @@ def load_lm(checkpoint: str, n=N) -> tuple[LanguageModel, list]:
         test_ab = model_data["test_ab"]
         print("Language model loaded.")
         return lm, test_ab
-    return None

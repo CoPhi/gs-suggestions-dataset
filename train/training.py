@@ -3,7 +3,7 @@ from typing import Optional
 
 from nltk.lm.models import MLE, Lidstone, LanguageModel
 from nltk.lm.preprocessing import padded_everygram_pipeline
-from train import get_sentences, split_abs, load_abs, save_lm, load_specific_domain_abs
+from train import get_sentences, load_test_abs, load_abs, save_lm, load_specific_domain_abs
 
 from config.settings import (
     TEST_SIZE,
@@ -53,28 +53,26 @@ def train_lm(
 
     if lm_type == "MLE":
 
-        g_lm = MLE(n) #modello di dominio generale
-        d_lm = MLE(n) #modello di dominio specifico
+        g_lm = MLE(n)  # modello di dominio generale
+        d_lm = MLE(n)  # modello di dominio specifico
     else:
         if gamma is None:
             raise ValueError("Unvalid gamma for Lidstone smoothing")
 
-        g_lm = Lidstone(gamma, n) #modello di dominio generale
-        d_lm = Lidstone(gamma, n) #modello di dominio specifico
+        g_lm = Lidstone(gamma, n)  # modello di dominio generale
+        d_lm = Lidstone(gamma, n)  # modello di dominio specifico
 
     g_train_ngrams, g_vocab_tokens = padded_everygram_pipeline(
         order=n, text=get_sentences(abs=train_abs)
     )
 
     g_lm.fit(g_train_ngrams, g_vocab_tokens)
-    
+
     d_train_ngrams, d_vocab_tokens = padded_everygram_pipeline(
-        order=n, text=get_sentences(abs=load_specific_domain_abs())
+        order=n, text=get_sentences(abs=load_specific_domain_abs(abs=train_abs))
     )
 
     d_lm.fit(d_train_ngrams, d_vocab_tokens)
-
-    gc.collect()
     return g_lm, d_lm
 
 
@@ -83,7 +81,6 @@ def pipeline_train(
     gamma: Optional[float] = GAMMA,
     min_freq: Optional[int] = MIN_FREQ,
     n=N,
-    test_size=TEST_SIZE,
     corpus_set=None,
     budget: Optional[int] = None,
 ) -> tuple:
@@ -99,14 +96,23 @@ def pipeline_train(
     Returns:
         tuple: Una tupla contenente il modello linguistico (lm) ed il test set
     """
-    train_abs, test_abs = split_abs(
-        abs=load_abs(corpus_set, budget), test_size=test_size
+    g_lm, d_lm = train_lm(
+        train_abs=load_abs(corpus_set, budget),
+        lm_type=lm_type,
+        min_freq=min_freq,
+        gamma=gamma,
+        n=n,
     )
-    g_lm, d_lm = train_lm(train_abs, lm_type=lm_type, min_freq=min_freq, gamma=gamma, n=n)
+    
+    test_abs = load_test_abs()
     return g_lm, d_lm, test_abs
 
 
 if __name__ == "__main__":
     g_lm, d_lm, test_abs = pipeline_train()
-    save_lm(lm=g_lm, test_abs=test_abs, checkpoint="General_model") #Salvataggio modello generale 
-    save_lm(lm=d_lm, test_abs=list(), checkpoint="Domain_model") #Salvataggio modello specifico di dominio 
+    save_lm(
+        lm=g_lm, test_abs=test_abs, checkpoint="General_model"
+    )  # Salvataggio modello generale
+    save_lm(
+        lm=d_lm, test_abs=list(), checkpoint="Domain_model"
+    )  # Salvataggio modello specifico di dominio
