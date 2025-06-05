@@ -49,13 +49,15 @@ def plot_topK_accuracy(
     aristoberto = get_eval_result("AristoBERTo")
     greBERTa = get_eval_result("greBerta")
     logion = get_eval_result("Logion")
+    ngrams = get_eval_result("ngrams")
 
     plt.figure(figsize=(10, 6))
 
     for model_name, result, marker in [
-        ("AristoBERTo", aristoberto, "o"),
-        ("greBERTa", greBERTa, "s"),
-        ("Logion", logion, "^"),
+        ("gs-AristoBERTo", aristoberto, "o"),
+        ("gs-greBERTa", greBERTa, "s"),
+        ("gs-Logion", logion, "^"),
+        ("Ngrams", ngrams, "D"),
     ]:
         K, acc = extract_topK_accuracy(result)
         plt.plot(K, acc, marker=marker, label=model_name)
@@ -63,7 +65,7 @@ def plot_topK_accuracy(
     plt.title(title)
     plt.xlabel("K")
     plt.ylabel("Top-K Accuracy")
-    plt.legend()
+    plt.legend(loc="upper left")
     plt.grid(True)
     plt.tight_layout()
 

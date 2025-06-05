@@ -865,4 +865,4 @@ def get_topK_accuracy(
 
                     total_predictions += 1
         
-    return round((correct_predictions / total_predictions) * 100, 2)
+    return round((correct_predictions / total_predictions), 5)

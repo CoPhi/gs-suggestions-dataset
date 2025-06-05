@@ -8,7 +8,7 @@ training:
 	poetry run python -m train.training
 
 assessment: 
-	poetry run python -m eval.KFold
+	poetry run python -m eval.results
 
 run-api:
 	poetry run uvicorn api.main:app --reload 

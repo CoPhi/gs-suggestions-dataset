@@ -12,7 +12,7 @@ LIM = 50  # MAX MB per file
 INDENT = 0  # indentazione
 
 # Iperparametri per il modello
-LM_TYPE = "LIDSTONE"  # Tipo di Language Model
+LM_TYPE = "MLE"  # Tipo di Language Model
 GAMMA = 0.001  # k-smoothing
 K_PRED = 20  # Numero delle predizioni del modello 
 BATCH_SIZE = 64  # Dimensione del batch per il calcolo dell'accuracy
@@ -31,7 +31,7 @@ BERT_CHECKPOINTS = ["CNR-ILC/gs-aristoBERTo", "CNR-ILC/gs-GreBerta", "CNR-ILC/gs
 # Spazio di ricerca degli iperparametri
 LM_TYPES = ["LIDSTONE", "MLE"]
 GAMMAS = [0.001, 0.01, 0.1]
-K_PREDICTIONS = [1, 5, 10, 20]
+K_PREDICTIONS = [1, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50]
 MIN_FREQS = [1, 2, 3, 4]
 TEST_SIZES = [0.05, 0.1]
 DIMENSIONS = [2, 3]
