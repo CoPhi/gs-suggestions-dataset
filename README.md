@@ -1,28 +1,29 @@
 # gs-suggestions-dataset
 
-Questo progetto sviluppa un sistema di autosuggerimento per la ricostruzione di lacune nei testi in greco antico.  
-Si utilizzano le librerie `NLTK` e `CLTK` per l'implementazione dei modelli probabilistici basati sugli n-grammi.  
+This project aim to provide an automatic suggestion system for supplements for fill the gaps in the Herculaneum Papyri and support the process of creating new critical editions.  
+`NLTK` and `CLTK` are used for the ngrams models implementations.  
 
-Per la gestione delle dipendenze del progetto si utilizza la versione 2.1.2 di `Poetry`. Si consiglia di seguire la [documentazione ufficiale](https://python-poetry.org/docs/) per creare l'ambiente virtuale e installare le dipendenze. 
+`Poetry` 2.1.2 is used for managing the projects dependencies. Here's the [documentation](https://python-poetry.org/docs/). 
 
 ## Dataset
 
-Il dataset si basa sul [MAAT Corpus](https://zenodo.org/records/12553283) ed è stato arricchito con i seguenti testi:
-- [Primi 1000 anni del greco antico](https://github.com/OpenGreekAndLatin/First1KGreek)
-- [Perseus Digital Library](https://github.com/PerseusDL/canonical-greekLit)
+The dataset includes:
+- [MAAT Corpus](https://zenodo.org/records/12553283)
+- [First1KGreek](https://github.com/OpenGreekAndLatin/First1KGreek)
+- [PDL-canonical-greekLit](https://github.com/PerseusDL/canonical-greekLit)
 
-## Addestramento e creazione del modello
+## Training
 
-Per avviare l'addestramento, eseguire il comando:  
+Execute the command below to start the ngrams model training:  
 ```bash
 make training
 ```
 
-Per personalizzare l'addestramento impostando i parametri di creazione personali modificare i parametri presenti nella cartella `config`. 
+It is possibile to configure the hyperparameters in the `config` directory. 
 
-## Valutazione del modello 
+## Evaluation
 
-Eseguire: 
+Execute: 
 ```bash
 make assessment
 ```
