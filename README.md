@@ -12,7 +12,7 @@ The dataset includes:
 - [First1KGreek](https://github.com/OpenGreekAndLatin/First1KGreek)
 - [PDL-canonical-greekLit](https://github.com/PerseusDL/canonical-greekLit)
 
-## Training
+## Ngrams model Training
 
 Execute the command below to start the ngrams model training:  
 ```bash
@@ -21,7 +21,7 @@ make training
 
 It is possibile to configure the hyperparameters in the `config` directory. 
 
-## Evaluation
+## Ngrams model Evaluation
 
 Execute: 
 ```bash
