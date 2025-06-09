@@ -294,6 +294,9 @@ async def create_models():
             )
             model_dict["GLOBAL_MODEL_FILE_ID"] = save_to_gridfs(global_ngram_model)
             model_dict["DOMAIN_MODEL_FILE_ID"] = save_to_gridfs(domain_ngram_model)
+            model_id = collection.insert_one(
+                    {**model_dict, "TYPE": "Ngrams"}
+                ).inserted_id
             ids.append(str(model_id))
         except Exception as e:
             return JSONResponse(status_code=500, content={"detail": str(e)})
