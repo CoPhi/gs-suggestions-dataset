@@ -1,1 +1,106 @@
-<app-suggests-box [models]="models()"/>
+<!-- Toast per la notifica di copia -->
+<div class="toast-container">
+    <div class="toast align-items-center text-white bg-success" id="copyToast" role="alert" aria-live="assertive"
+        aria-atomic="true">
+        <div class="d-flex">
+            <div class="toast-body">
+                <i class="fas fa-check-circle me-2"></i> Suggerimento copiato negli appunti!
+            </div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"
+                aria-label="Close"></button>
+        </div>
+    </div>
+</div>
+
+<!-- Form Richiesta -->
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-10">
+            <div class="card shadow rounded-4 mb-5" [formGroup]="form">
+                <div class="card-header rounded-top-4 bg-primary text-white">
+                    <h2 class="h4 mb-0">Generatore di Suggerimenti</h2>
+                </div>
+                <div class="card-body">
+                    <!-- Campo di testo per inserire la sequenza con la lacuna  -->
+                    <div class="mb-4">
+                        <label for="inputText" class="form-label fw-bold">Testo con lacuna</label>
+                        <textarea class="form-control" id="inputText" formControlName="text" rows="3"
+                            placeholder="Inserisci il testo con una lacuna (es: τὰς ὀφειλομένας τῇ τοῦ Ἀνθεντίου μητρὶ [...] Σισόιτος)"></textarea>
+                        <div class="form-text">Usa [...] per indicare la lacuna da completare</div>
+                    </div>
+
+                    <!-- Modelli disponibili -->
+                    <div class="mb-4">
+                        <label for="modelId" class="form-label fw-bold">ID Modello</label>
+                        <div class="input-group">
+                            <input type="text" class="form-control" formControlName="modelID"
+                                (input)="setCurrentID($event)" id="modelId" placeholder="Inserisci l'ID del modello">
+                            <button class="btn btn-outline-secondary" type="button" id="showModelsBtn"
+                                (click)="toggleModels()">
+                                <i class="bi bi-collection"></i> Mostra Modelli
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Numero di predizioni -->
+                    <div class="mb-4">
+                        <label for="num_predictions" class="form-label fw-bold">Numero di predizioni</label>
+                        <div class="input-group">
+                            <select class="form-select" formControlName="num_predictions" id="num_predictions"
+                                placeholder="Inserisci il numero di predizioni da generare">
+                                <option value="1" selected>1</option>
+                                <option value="5">5</option>
+                                <option value="10">10</option>
+                                <option value="20">20</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Numero di token -->
+                    @if (curr_type_model() !== 'BERT') {
+                    <div class="mb-4">
+                        <label for="num_tokens" class="form-label fw-bold">Numero di token</label>
+                        <div class="input-group">
+                            <input type="number" class="form-control" formControlName="num_tokens" id="num_tokens"
+                                placeholder="Inserisci il numero di token da generare per ogni predizione">
+                        </div>
+                    </div>
+                    }
+
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <button class="btn btn-primary" (click)="generateSuggestions()" id="generateBtn"
+                            [disabled]="this.isGenerating()">
+                            <i class="bi bi-magic"></i> Genera Suggerimenti
+                        </button>
+                        <div>
+                            <button class="btn btn-outline-secondary" id="clearBtn" (click)="clearForm()" type="button">
+                                <i class="bi bi-trash"></i> Pulisci
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="text-center mt-3 loading-spinner d-none" id="loadingSpinner">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Caricamento...</span>
+                        </div>
+                        <p class="mt-2">Generazione suggerimenti in corso...</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="alert alert-info" id="previewArea" style="display: none;">
+                <strong>Anteprima richiesta:</strong>
+                <div class="mt-2 text-with-gap" id="previewText"></div>
+                <div class="mt-2"><strong>Modello:</strong> <span id="previewModel"></span></div>
+            </div>
+        </div>
+    </div>
+
+    @if (!isGenerating()) {
+    <app-models-box [models]="models()" />
+    }
+
+    @if (suggestions().length > 0 && !isGenerating()) {
+    <app-suggests-box [suggestions]="suggestions()" />
+    }
+</div>

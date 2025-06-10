@@ -20,6 +20,12 @@ export class ModelComponent {
   bertmodel = computed(() => <BERTModelInterface>this.model()); // Modello BERT
   ngramsmodel = computed(() => <NgramsModelInterface>this.model()); // Modello N-grams
 
+  constructor() {
+    // Effetto per loggare il tipo di modello quando cambia
+    effect(() => {
+      console.log(" modelli disponibili: ", this.models());
+    });
+  }
 
   showCopy(element: Event) {
     const target = <HTMLElement>element.target
@@ -40,11 +46,10 @@ export class ModelComponent {
   }
 
   deleteModel() {
-  const id = this.id();  // oppure this.model.id se usi un oggetto
-  this.api.deleteModel(id).subscribe({
-    next: () => this.models.set(this.models().filter((m) => m._id !== id)),
-    error: (e) => console.log(e)
-  });
+    this.api.deleteModel(this.id()).subscribe({
+      next: () => this.models.set(this.models().filter((m) => m._id !== this.id())),
+      error: (e) => console.log(e)
+    });
   }
 
 }

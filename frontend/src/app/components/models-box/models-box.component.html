@@ -1,0 +1,12 @@
+<div class="card shadow-sm mb-5" id="modelsCard" style="display: none;">
+        <div class="card-header bg-success text-white">
+            <h3 class="h5 mb-0">Modelli Disponibili</h3>
+        </div>
+        <div class="card-body">
+            <div class="row row-cols-1 row-cols-sm-2 row-cols-md-4 gy-3" id="modelsContainer">
+                @for (model of models(); track $index) {
+                <app-model [model]="model" [(models)]="models"></app-model>
+                }
+            </div>
+        </div>
+    </div>
