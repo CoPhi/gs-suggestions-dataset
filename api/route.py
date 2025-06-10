@@ -15,6 +15,7 @@ from config.settings import (
     N,
     BERT_CHECKPOINTS,
 )
+from utils.preprocess import test_case_contains_lacuna
 import pickle
 import zlib
 from uuid import uuid4
@@ -252,9 +253,9 @@ async def create_model(
             except Exception as e:
                 return JSONResponse(status_code=500, content={"detail": str(e)})
 
-
+@router.post("/models/init/", include_in_schema=False)
 @router.post(
-    "/models/init/",
+    "/models/init",
     status_code=201,
     responses={
         201: {
@@ -377,7 +378,7 @@ async def get_predictions(
         dict_model = dict(model)
 
         # Se non è presente la lacuna nel contesto, restituisce bad request
-        if "[" not in context:
+        if test_case_contains_lacuna(context) is None:
             return JSONResponse(
                 status_code=400,
                 content={"detail": "Context must contain a gap indicated by `[...]`"},

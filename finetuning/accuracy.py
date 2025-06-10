@@ -6,44 +6,41 @@ from finetuning import (
 )
 
 
-def fill_mask(
-    model, tokenizer, context, k, mask_token="[MASK]"
-) -> list[tuple[str, float, str]] | None:
-    context = convert_lacuna_to_masks(text=context, mask_token=mask_token)
+def fill_mask(model, tokenizer, context, k, mask_token="[MASK]"):
+
+    context = convert_lacuna_to_masks(text=context, mask_token=tokenizer.decode(tokenizer.mask_token_id))
     if not context:
-        return
+        return None
 
-    inputs = tokenizer(context, return_tensors="pt")
-    mask_token_index = (inputs["input_ids"] == tokenizer.mask_token_id).nonzero(
-        as_tuple=True
-    )[
-        1
-    ]  # indice del token mascherato
+    inputs = tokenizer(context, return_tensors="pt").to(model.device)
+    mask_token_index = (inputs["input_ids"] == tokenizer.mask_token_id).nonzero(as_tuple=True)[1]
 
-    print(mask_token_index)
-    # Inference
+    if mask_token_index.nelement() == 0:  # Se non ci sono [MASK]
+        print("Nessun token [MASK] trovato negli input_ids!")
+        return None
+
     with torch.no_grad():
-        outputs = model(**inputs)
-        logits = outputs.logits
+        logits = model(**inputs).logits
 
-    # Top-k predizioni
-    mask_logits = logits[0, mask_token_index.item()]
-    top_k_logits, top_k_ids = torch.topk(mask_logits, k)
+    top_k_tokens = []
+    for mask_pos in mask_token_index: 
+        mask_logits = logits[0, mask_pos]
+        top_k_ids = torch.topk(mask_logits, k).indices
+        top_k_probs = torch.softmax(torch.topk(mask_logits, k).values, dim=0)
+        top_k_tokens.extend(
+            [
+                (
+                context.replace(mask_token, token.replace("##", "")),  # Testo completato
+                token.replace("##", ""),  # Token predetto (senza ##)
+                prob.item()  # Probabilità
+                )
+            for token, prob in zip(
+                tokenizer.convert_ids_to_tokens(top_k_ids),
+                top_k_probs
+            )
+        ])
 
-    # Calcolo softmax sui top-k per avere probabilità relative
-    top_k_probs = torch.nn.functional.softmax(
-        top_k_logits, dim=0
-    )  # Normalizzazione dei logit mediante softmax
-    top_k_tokens = tokenizer.convert_ids_to_tokens(top_k_ids)
-
-    return [
-        (
-            context.replace(mask_token, token.replace("##", "")),
-            token.replace("##", ""),
-            score,
-        )
-        for token, score in zip(top_k_tokens, top_k_probs.tolist())
-    ]
+    return top_k_tokens
 
 
 # Script di prova
