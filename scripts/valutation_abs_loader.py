@@ -2,6 +2,7 @@ import json
 import pandas as pd
 import re
 from utils.preprocess import get_expanded_supplement
+from collections import OrderedDict
 
 
 def dump_json_abs_from_csv(file_path="test_abs.csv") -> list:
@@ -44,7 +45,7 @@ def dump_json_abs_from_csv(file_path="test_abs.csv") -> list:
 
 def get_training_text_from_suppl_text_and_context():
     blocks = dump_json_abs_from_csv()
-    for block in blocks:
+    for i, block in enumerate(blocks):
         suppl_text = block["suppl_text"]
         context = block["context"]
         if not isinstance(context, str):
@@ -62,8 +63,16 @@ def get_training_text_from_suppl_text_and_context():
             if match_suppl:
                 context = context.replace(match_suppl[0].group(0), expand)
 
-        block["training_text"] = context
-        del block["suppl_text"], block["context"]
+        # Ricostruisci l'OrderedDict con il campo training_text prima di test_cases
+        new_block = OrderedDict()
+        new_block["corpus_id"] = block["corpus_id"]
+        new_block["id"] = block["id"]
+        new_block["title"] = block["title"]
+        new_block["material"] = block["material"]
+        new_block["language"] = block["language"]
+        new_block["training_text"] = context
+        new_block["test_cases"] = block["test_cases"]  # inizialmente vuoto
+        blocks[i] = new_block
 
     return blocks
 
@@ -77,9 +86,7 @@ def dump_test_cases_into_json_abs(file_path="data/test_abs.json"):
         test_cases = []
 
         for idx, match in enumerate(supplements):
-            start, end = match.span()
             supplement_content = match.group(1)  # contenuto interno alle quadre
-            replacement = "[" + ("." * len(supplement_content)) + "]"
             offset = 0
             modified_text = training_text
 
