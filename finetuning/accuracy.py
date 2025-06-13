@@ -5,53 +5,54 @@ from finetuning import (
     convert_lacuna_to_masks,
 )
 
+def to_greek_lower(text: str) -> str:
+    return (text
+            .lower()
+            .replace("ϲ", "σ")  
+            .replace("Ϲ", "σ"))  
 
-def fill_mask(model, tokenizer, context, k, mask_token="[MASK]"):
-
-    context = convert_lacuna_to_masks(
-        text=context, mask_token=tokenizer.decode(tokenizer.mask_token_id)
-    )
+def fill_mask(model, tokenizer, context, k):
+    mask_token = tokenizer.mask_token
+    context = convert_lacuna_to_masks(text=context.upper(), mask_token=mask_token)
     if not context:
         return None
 
     inputs = tokenizer(context, return_tensors="pt").to(model.device)
-    mask_token_index = (inputs["input_ids"] == tokenizer.mask_token_id).nonzero(
+    print(tokenizer.decode(inputs["input_ids"][0]))
+    mask_positions = (inputs["input_ids"] == tokenizer.mask_token_id).nonzero(
         as_tuple=True
     )[1]
 
-    if mask_token_index.nelement() == 0:  # Se non ci sono [MASK]
-        print("Nessun token [MASK] trovato negli input_ids!")
+    if mask_positions.nelement() == 0:  # Se non ci sono [MASK]
         return None
 
     with torch.no_grad():
         logits = model(**inputs).logits
 
-    top_k_tokens = []
-    for mask_pos in mask_token_index:
+    results = []
+    for mask_pos in mask_positions:
         mask_logits = logits[0, mask_pos]
-        top_k_ids = torch.topk(mask_logits, k).indices
-        top_k_probs = torch.softmax(torch.topk(mask_logits, k).values, dim=0)
-        top_k_tokens.extend(
-            [
-                (
-                    context.replace(
-                        mask_token, token.replace("##", "")
-                    ),  # Testo completato
-                    token.replace("##", ""),  # Token predetto (senza ##)
-                    prob.item(),  # Probabilità
-                )
-                for token, prob in zip(
-                    tokenizer.convert_ids_to_tokens(top_k_ids), top_k_probs
-                )
-            ]
-        )
+        top_k = torch.topk(mask_logits, k)
 
-    return top_k_tokens
+        for token_id, prob in zip(top_k.indices, torch.softmax(top_k.values, dim=0)):
+            # Crea una copia degli input_ids con il token predetto
+            new_input_ids = inputs["input_ids"].clone()
+            new_input_ids[0, mask_pos] = token_id
+
+            # Decodifica l'intera sequenza
+            filled_text = tokenizer.decode(new_input_ids[0], skip_special_tokens=True)
+
+            # Decodifica il token singolo
+            token_str = tokenizer.decode([token_id])
+
+            results.append((to_greek_lower(filled_text), to_greek_lower(token_str), prob.item()))
+
+    return results
 
 
 # Script di prova
 if __name__ == "__main__":
-    test = "α̣λλα μην εν τωι κατ̣[.]ς̣κευαζειν"
+    test = "μὲν εὐπαρακολού̣θητ̣α̣ π̣[.]ϲιν"
     model_checkpoint = "CNR-ILC/gs-aristoBERTo"
 
     model = get_BERT_model(model_checkpoint)

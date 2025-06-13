@@ -234,7 +234,6 @@ async def create_model(
                         status_code=409,
                         content={"message": "Model already exist in db"},
                     )
-                print(model_dict)
                 bert_model = AutoModelForMaskedLM.from_pretrained(
                     model_dict["CHECKPOINT"]
                 )

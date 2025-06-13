@@ -265,7 +265,7 @@ def get_dataset(
     return load_dataset(data_checkpoint)
 
 
-def convert_lacuna_to_masks(text: str, mask_token="[MASK]") -> str:
+def convert_lacuna_to_masks(text: str, mask_token: str) -> str:
     """
     Converte le lacune nel testo in token mascherati.
 
