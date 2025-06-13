@@ -46,11 +46,6 @@ export class AppComponent {
     });
   }
 
-  debug_id = effect(() => {
-    console.log("Current model ID: ", this.curr_id());
-  }
-  )
-
   setCurrentID($event: Event) {
     const target = $event.target as HTMLInputElement;
     this.curr_id.set(target.value);
