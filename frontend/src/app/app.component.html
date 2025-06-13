@@ -97,7 +97,7 @@
     </div>
 
     @if (!isGenerating()) {
-    <app-models-box [models]="models()" />
+    <app-models-box [models]="models()" [(curr_id)]="curr_id" />
     }
 
     @if (suggestions().length > 0 && !isGenerating()) {

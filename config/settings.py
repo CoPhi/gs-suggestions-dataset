@@ -12,7 +12,7 @@ LIM = 50  # MAX MB per file
 INDENT = 0  # indentazione
 
 # Iperparametri per il modello
-LM_TYPE = "MLE"  # Tipo di Language Model
+LM_TYPE = "LIDSTONE"  # Tipo di Language Model
 GAMMA = 0.001  # k-smoothing
 K_PRED = 20  # Numero delle predizioni del modello 
 BATCH_SIZE = 64  # Dimensione del batch per il calcolo dell'accuracy

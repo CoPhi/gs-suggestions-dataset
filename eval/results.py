@@ -25,5 +25,5 @@ if __name__ == "__main__":
         results[f"eval_top{k_pred}_acc"] = get_topK_accuracy(g_lm=g_lm,d_lm=d_lm,test_abs=test_abs, lambda_weight=LAMBDA, batch_size=1, n=N, k_pred=k_pred, alpha=ALPHA, beta=BETA, delta=DELTA)
 
     # Salva i risultati in un file JSON
-    with open("finetuning/eval_results_ngrams.json", "w") as f:
+    with open("finetuning/eval_results_ngrams_LIDSTONE.json", "w") as f:
         json.dump(results, f, indent=4)

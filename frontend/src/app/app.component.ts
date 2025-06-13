@@ -16,17 +16,20 @@ export class AppComponent {
   title = 'gs-api';
 
   api = inject(ApiService)
+
   models = toSignal(this.api.getModels(), { initialValue: [] }) as Signal<modelType[]>;
   suggestions = signal<SuggestionInterface[]>([]);
   curr_id = signal<string | null>(null);
+
+
   selectedModel = computed(() => {
     return this.curr_id() ? this.models().find((model) => model._id === this.curr_id()) || null : null;
   });
   curr_type_model = computed(() => this.selectedModel()?.TYPE)
-  isGenerating =  signal<boolean>(false);
+  isGenerating = signal<boolean>(false);
 
   form: FormGroup;
-  
+
   constructor() {
     this.form = new FormGroup({
       text: new FormControl<string>('', { validators: [Validators.required, this.isContextValid, Validators.minLength(10)] }),
@@ -34,12 +37,20 @@ export class AppComponent {
         validators: [Validators.required, Validators.minLength(24),
         Validators.maxLength(24)]
       }),
-      num_tokens: new FormControl<number>(1, { validators: [Validators.min(1), Validators.max(10)] }), 
-      num_predictions: new FormControl<number>(1, { validators: [Validators.required]} )
+      num_tokens: new FormControl<number>(1, { validators: [Validators.min(1), Validators.max(10)] }),
+      num_predictions: new FormControl<number>(1, { validators: [Validators.required] })
     })
+
+    effect(() => {
+      this.form.controls['modelID'].setValue(this.curr_id() || '');
+    });
   }
 
-  
+  debug_id = effect(() => {
+    console.log("Current model ID: ", this.curr_id());
+  }
+  )
+
   setCurrentID($event: Event) {
     const target = $event.target as HTMLInputElement;
     this.curr_id.set(target.value);
@@ -48,7 +59,7 @@ export class AppComponent {
   setNumPredictions($event: Event) {
     const target = $event.target as HTMLInputElement;
     console.log(target.value);
-    }
+  }
 
   isContextValid = (c: AbstractControl): ValidationErrors | null => {
     if (!c.value) return { notvalid: true };
@@ -100,55 +111,55 @@ export class AppComponent {
     }, 5000);
   }
 
-    
+
   generateSuggestions() {
     this.form.markAllAsTouched(); // forza la validazione
     if (this.form.invalid) {
       const textErrors = this.form.controls['text'].errors;
       const modelErrors = this.form.controls['modelID'].errors;
       const tokenErrors = this.form.controls['num_tokens'].errors;
-  
+
       if (textErrors?.['required']) {
         this.showAlert('Il campo testo è obbligatorio', 'danger');
         return;
       }
-  
+
       if (textErrors?.['notMasked']) {
         this.showAlert('Il testo non contiene la lacuna [...]', 'warning');
         return;
       }
-  
+
       if (textErrors?.['minlength']) {
         this.showAlert('Il testo è troppo corto', 'danger');
         return;
       }
-  
+
       if (modelErrors?.['required']) {
         this.showAlert('Seleziona un modello', 'danger');
         return;
       }
-  
+
       if (modelErrors?.['minlength'] || modelErrors?.['maxlength']) {
         this.showAlert('L\'ID del modello deve essere di 24 caratteri', 'danger');
         return;
       }
-  
+
       if (tokenErrors?.['required']) {
         this.showAlert('Specifica il numero di token', 'danger');
         return;
       }
-  
+
       if (tokenErrors?.['min'] || tokenErrors?.['max']) {
         this.showAlert('Il numero di token deve essere tra 1 e 10', 'danger');
         return;
       }
-  
+
       return;
     }
     this.isGenerating.set(true);
     const { text, modelID, num_tokens, num_predictions } = this.form.getRawValue();
     this.toggleSpinner();
-  
+
     this.api.generateSuggestion(modelID, text, num_tokens, Number(num_predictions)).subscribe({
       next: (response) => {
         this.suggestions.set(response);

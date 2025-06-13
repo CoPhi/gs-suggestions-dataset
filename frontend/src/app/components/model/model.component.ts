@@ -1,10 +1,9 @@
 import { Component, computed, effect, inject, input, model } from '@angular/core';
 import { ApiService, BERTModelInterface, modelType, NgramsModelInterface } from '../../services/api.service';
-import { ClipboardModule } from '@angular/cdk/clipboard';
 
 @Component({
   selector: 'app-model',
-  imports: [ClipboardModule],
+  imports: [],
   templateUrl: './model.component.html',
   styleUrl: './model.component.css'
 })
@@ -12,20 +11,14 @@ export class ModelComponent {
 
   api = inject(ApiService)
 
+  curr_id = model.required<string | null>(); // ID del modello corrente usato nella richiesta
   model = input.required<modelType>(); // Modello da visualizzare
   models = model.required<modelType[]>() // Lista dei modelli disponibili
 
-  id = computed(() => this.model()._id);
+  id = computed(() => this.model()._id); // ID del modello mostrato
   isBERT = computed(() => this.model().TYPE === 'BERT'); // Verifica se il modello è di tipo BERT
   bertmodel = computed(() => <BERTModelInterface>this.model()); // Modello BERT
   ngramsmodel = computed(() => <NgramsModelInterface>this.model()); // Modello N-grams
-
-  constructor() {
-    // Effetto per loggare il tipo di modello quando cambia
-    effect(() => {
-      console.log(" modelli disponibili: ", this.models());
-    });
-  }
 
   showCopy(element: Event) {
     const target = <HTMLElement>element.target
@@ -50,6 +43,10 @@ export class ModelComponent {
       next: () => this.models.set(this.models().filter((m) => m._id !== this.id())),
       error: (e) => console.log(e)
     });
+  }
+
+  set_currentID() {
+    this.curr_id.set(this.id());
   }
 
 }

@@ -10,12 +10,6 @@ import { ModelComponent } from "../model/model.component";
 })
 export class ModelsBoxComponent {
   models = model.required<modelType[]>();
-
-  constructor() {
-    // Log the models when they are set
-    effect(() => {
-      console.log("Models available: ", this.models());
-    }
-    );
-  }
+  curr_id = model.required<string | null>();
+  
 }

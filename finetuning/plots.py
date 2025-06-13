@@ -46,21 +46,23 @@ def extract_topK_accuracy(result: dict) -> tuple[list, list]:
 def plot_topK_accuracy(
     title="Top-K Accuracy Curve", save_path="topk_accuracy_plot.png"
 ):
-    aristoberto = get_eval_result("AristoBERTo")
-    greBERTa = get_eval_result("greBerta")
-    logion = get_eval_result("Logion")
-    ngrams = get_eval_result("ngrams")
+    aristoberto = get_eval_result("aristoBERTO_gs")
+    greBERTa = get_eval_result("greBERTa_gs")
+    logion = get_eval_result("logion_gs")
+    ngrams_lidstone = get_eval_result("ngrams_LIDSTONE")
+    ngrams_mle = get_eval_result("ngrams_MLE")
 
     plt.figure(figsize=(10, 6))
 
-    for model_name, result, marker in [
-        ("gs-AristoBERTo", aristoberto, "o"),
-        ("gs-greBERTa", greBERTa, "s"),
-        ("gs-Logion", logion, "^"),
-        ("Ngrams", ngrams, "D"),
+    for model_name, result, marker, linestyle, color in [
+        ("gs-AristoBERTo", aristoberto, "o", "-", "tab:blue"),
+        ("gs-GreBerta", greBERTa, "s", "-", "tab:orange"),
+        ("gs-Logion", logion, "^", "-", "tab:green"),
+        ("Ngrams-MLE", ngrams_mle, "D", "--", "tab:red"),
+        ("Ngrams-Lidstone", ngrams_lidstone, "D", ":", "tab:purple")
     ]:
         K, acc = extract_topK_accuracy(result)
-        plt.plot(K, acc, marker=marker, label=model_name)
+        plt.plot(K, acc, marker=marker, linestyle=linestyle, color=color, label=model_name)
 
     plt.title(title)
     plt.xlabel("K")
