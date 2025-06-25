@@ -123,6 +123,33 @@ def get_processed_sentences(abs: list):
         }
     )
 
+def get_filtered_processed_sentences(abs: list):
+    """
+    Estrae e filtra le frasi di addestramento da una lista di blocchi anonimi, filtrando le frasi in modo da assicurarsi che tali frasi contengano un concetto semantico.
+        train_abs (list): Lista di abstract da cui estrarre le frasi.
+    Returns:
+        list: Una lista di frasi filtrate che soddisfano i criteri specificati.
+    Note:
+        - Le frasi vengono estratte utilizzando la funzione `get_sentences` con la punteggiatura preservata.
+        - Le frasi contenenti un numero di token sconosciuti maggiore di `MAX_UNK_TOKEN_TRESHOLD` vengono scartate.
+    """
+    sentences = []
+    for sent_tkns in tqdm(
+        get_sentences(abs, case_folding=True, remove_punct=True),
+        desc="Loading set",
+        unit="sentence",
+        leave=False,
+    ):
+        processed_text = get_cast_unk_tokens_text(get_sent_from_tokens(sent_tkns))
+        if (
+            get_num_unk_tokens(processed_text) >= (len(sent_tkns) * 0.1)
+            or len(sent_tkns) < MIN_SENT_TOKEN_TRESHOLD
+        ):
+            continue
+        sentences.append(processed_text)
+
+    return sentences
+
 
 def get_test_cases_from_abs(abs: list):
     """

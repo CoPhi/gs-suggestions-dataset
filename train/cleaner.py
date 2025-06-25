@@ -12,7 +12,7 @@ from utils.preprocess import (
     get_tokens_from_clean_text,
     remove_punctuation,
 )
-
+from nltk.lm.preprocessing import flatten
 
 def check_ab(ab: dict, corpus_set: Optional[list[str]] = None) -> bool:
     if ab.get("language") != "grc":
@@ -25,7 +25,9 @@ def check_ab(ab: dict, corpus_set: Optional[list[str]] = None) -> bool:
     return corpus_id in corpus_set or corpus_id == "unknown"
 
 
-def load_abs(corpus_set: Optional[list[str]] = None, budget: Optional[int] = None) -> list:
+def load_abs(
+    corpus_set: Optional[list[str]] = None, budget: Optional[int] = None
+) -> list:
     """
     Carica e restituisce una lista di anonymous block (ab) dai file JSON presenti nel percorso specificato.
     Il percorso dei file JSON è determinato dalla variabile globale DATA_PATH.
@@ -48,7 +50,7 @@ def load_abs(corpus_set: Optional[list[str]] = None, budget: Optional[int] = Non
         list: Una lista contenente gli anonymous block (abs) caricati dai file JSON.
     """
 
-    #Validare i corpus dentro `corpus_set`
+    # Validare i corpus dentro `corpus_set`
     if corpus_set is not None:
         for corpus_id in corpus_set:
             if corpus_id not in CORPUS_NAMES:
@@ -63,10 +65,10 @@ def load_abs(corpus_set: Optional[list[str]] = None, budget: Optional[int] = Non
         unit="file",
         leave=False,
     ):
-        
-        if "test_abs" in str(file_path): # Skip test files
+
+        if "test_abs" in str(file_path):  # Skip test files
             continue
-        
+
         try:
             with open(file_path, "r", encoding="utf-8") as f:
                 abs = json.load(f)
@@ -80,10 +82,12 @@ def load_abs(corpus_set: Optional[list[str]] = None, budget: Optional[int] = Non
 
     return dataset
 
-def load_specific_domain_abs(abs: list, domain_title: str= "P.Herc.") -> list:
+
+def load_specific_domain_abs(abs: list, domain_title: str = "P.Herc.") -> list:
     """
     Restituisce un sottoinsieme dei blocchi anonimi il cui dominio è rappresentato dal titolo immesso in `domain_title`
-    """ 
+    """
+
     def title_matches(title_field):
         if isinstance(title_field, str):
             if domain_title:
@@ -91,6 +95,7 @@ def load_specific_domain_abs(abs: list, domain_title: str= "P.Herc.") -> list:
         return False
 
     return [ab for ab in abs if title_matches(ab["title"]) and ab["language"] == "grc"]
+
 
 def load_test_abs() -> list:
     """
@@ -100,6 +105,7 @@ def load_test_abs() -> list:
     """
     with open(next(DATA_PATH.glob("test_abs.json"), None), "r", encoding="utf-8") as f:
         return json.load(f)
+
 
 def split_abs(abs: list, test_size=TEST_SIZE) -> tuple:
     """
@@ -153,19 +159,19 @@ def get_sentences(
     return sentences
 
 
-def save_lm(lm: LanguageModel, checkpoint: str, test_abs: list, n=N) -> None:
+def save_lm(lm: LanguageModel, checkpoint: str, dev_abs: list, n=N) -> None:
     """
     Salva un modello di linguaggio (`LanguageModel`) su disco come file pickle.
     Args:
         lm (LanguageModel): Il modello di linguaggio da salvare.
-        test_abs (list): Una lista di anonymous blocks di test.
+        dev_abs (list): Una lista di anonymous blocks di dev.
         n (int, opzionale): Dimensione degli ngrammi del modello. Default è N.
         checkpoint (str): Checkpoint del modello linguistico da salvare su disco.
     Returns:
         None: Questa funzione non ritorna nulla.
     """
 
-    model_data = {"lm": lm, "test_ab": test_abs}
+    model_data = {"lm": lm, "dev_abs": dev_abs}
     with open(f"{checkpoint}_{n}.pkl", "wb") as f:
         pickle.dump(model_data, f)
         print("Language model saved.")
@@ -178,7 +184,7 @@ def load_lm(checkpoint: str, n=N) -> tuple[LanguageModel, list]:
         n (int, optional): Dimensione degli ngrammi del modello. Default è `N`.
         checkpoint (str, optional):Checkpoint del modello linguistico da caricare.
     Returns:
-        tuple[LanguageModel, list]: Una tupla contenente il modello linguistico (lm) e i dati test_ab se il caricamento ha successo, altrimenti `None`.
+        tuple[LanguageModel, list]: Una tupla contenente il modello linguistico (lm) e i dati `dev_abs` se il caricamento ha successo, altrimenti `None`.
     Raises:
         FileNotFoundError: Se il file pickle specificato non esiste.
         pickle.UnpicklingError: Se c'è un errore durante l'unpickling del file.
@@ -187,6 +193,25 @@ def load_lm(checkpoint: str, n=N) -> tuple[LanguageModel, list]:
     with open(f"{checkpoint}_{n}.pkl", "rb") as f:
         model_data = pickle.load(f)
         lm = model_data["lm"]
-        test_ab = model_data["test_ab"]
+        dev_abs = model_data["dev_abs"]
         print("Language model loaded.")
-        return lm, test_ab
+        return lm, dev_abs
+
+
+if __name__ == "__main__":
+    #Voglio stampare il numero di blocchi anonimi di cui sono composti i vari set
+    train_abs = load_abs()
+    domain_abs = load_specific_domain_abs(abs=train_abs)
+    train_domain_abs, dev_domain_abs = split_abs(domain_abs, test_size=0.2)
+    test_abs = load_test_abs()
+    print(f"Total anonymous blocks loaded (training set): {len(train_abs) - len(dev_domain_abs)}")
+    print(f"Total anonymous blocks loaded (dev set): {len(dev_domain_abs)}")
+    print(f"Total anonymous blocks loaded (test set): {len(test_abs)}")
+
+    print (f"Numero di token in training set: {len(list(flatten(get_sentences([ab for ab in train_abs if ab not in dev_domain_abs]))))}")
+    print (f"Numero di token in dev set: {len(list(flatten(get_sentences(domain_abs))))}")
+    print (f"Numero di token in test set: {len(list(flatten(get_sentences(test_abs))))}")
+    
+    print (f"Numero di frasi in training set: {len(get_sentences([ab for ab in train_abs if ab not in dev_domain_abs]))}")
+    print (f"Numero di frasi in dev set: {len(get_sentences(domain_abs))}")
+    print (f"Numero di frasi in test set: {len(get_sentences(test_abs))}")

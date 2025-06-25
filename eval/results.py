@@ -1,6 +1,5 @@
 from sklearn.model_selection import KFold
 from train import load_abs, load_lm
-from train.training import train_lm
 import json
 from config.settings import (
     K_PREDICTIONS,
@@ -15,10 +14,17 @@ from config.settings import (
 )
 
 from metrics import get_topK_accuracy
+from train.cleaner import load_specific_domain_abs, load_test_abs
+from train.training import train_lm
 
 if __name__ == "__main__":
-    g_lm, test_abs = load_lm("General_model")  # carico il modello generico 
-    d_lm, _ = load_lm("Domain_model")  # carico il modello specifico di dominio 
+    
+    train_abs = load_abs()
+    domain_abs = load_specific_domain_abs(abs=train_abs)
+    test_abs = load_test_abs()
+    
+    g_lm = train_lm(train_abs=train_abs, lm_type=LM_TYPE, n=N, gamma=GAMMA)
+    d_lm = train_lm(train_abs=domain_abs, lm_type=LM_TYPE, n=N, gamma=GAMMA)
     
     results = {}
     for k_pred in K_PREDICTIONS: 
