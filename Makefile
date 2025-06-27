@@ -16,8 +16,24 @@ run-api:
 requirements:
 	poetry export -f requirements.txt -o requirements.txt --without-hashes
 
-build-images: 
-	docker compose build --no-cache
+build-api: 
+	docker buildx build \
+		--platform linux/amd64,linux/arm64 \
+		--no-cache \
+		-t $(API_CONTAINER_NAME):$(VERSION) \
+		-t $(API_CONTAINER_NAME):latest \
+		-f ./Dockerfile \
+		--push \
+		.
+build-frontend:
+	docker buildx build \
+		--platform linux/amd64,linux/arm64 \
+		--no-cache \
+		-t $(FRONTEND_CONTAINER_NAME):$(VERSION) \
+		-t $(FRONTEND_CONTAINER_NAME):latest \
+		-f ./frontend/Dockerfile \
+  		--push \
+  		./frontend
 	
 run: 
 	docker compose up
