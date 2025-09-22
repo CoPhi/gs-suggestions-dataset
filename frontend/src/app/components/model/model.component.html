@@ -1,56 +1,47 @@
-@if (isBERT()) {
+<!-- @if (isBERT()) { -->
 <div class="col rounded-3 mb-3 h-100 ">
   <div class="card model-card shadow-sm h-100">
     <div class="card-body">
-      <div class="d-flex justify-content-between align-items-start mb-3">
-        <h5 class="card-title mb-0">BERT</h5>
-        <button (click)="showCopy($event)" class="btn btn-sm btn-outline-primary copy-model-id" (click)="set_currentID()">
-          <i class="bi bi-clipboard"></i> Copia ID
-        </button>
-        <button class="btn btn-sm btn-outline-danger copy-model-id" (click)="deleteModel()">
-          <i class="bi bi-trash-fill"></i>
-        </button>
+      <div class="d-flex flex-row align-items-center mb-3">
+        <div class="flex-grow-0">
+          @if (isBERT()) {
+          <h5 class="card-title mb-0">BERT</h5>
+          } @else {
+          <h5 class="card-title mb-0">N-grammi</h5>
+          }
+        </div>
+
+        <!-- Delete e copy dei modelli -->
+         <div class="flex-wrap justify-content-end ms-auto d-flex gap-2">
+           <button class="btn btn-sm btn-outline-primary copy-model-id"
+             (click)="set_currentID()">
+             <i class="bi bi-clipboard"></i> Seleziona
+           </button>
+           <button class="btn btn-sm btn-outline-danger copy-model-id" (click)="deleteModel()">
+             <i class="bi bi-trash-fill"></i>
+           </button>
+         </div>
       </div>
-      <h6 class="card-subtitle mb-2 text-muted">ID: <code>${{ id() }}</code></h6>
-      <p class="card-text">Modello BERT</p>
+
+
       <ul class="list-group list-group-flush mb-3">
-        <li class="list-group-item"><strong>Tipo:</strong> BERT</li>
-        <li class="list-group-item"><strong>Checkpoint:</strong> {{ bertmodel().CHECKPOINT }} </li>
-      </ul>
-    </div>
-  </div>
-</div>
-}
-@else{
-<div class="col rounded-3 mb-3 h-100">
-  <div class="card p-1 model-card shadow-sm h-100">
-    <div class="card-body">
-      <div class="d-flex justify-content-between align-items-start mb-3">
-        <h5 class="card-title mb-0">N-grammi</h5>
-        <button class="btn btn-sm btn-outline-primary copy-model-id" (click)="set_currentID()">
-          <i class="bi bi-clipboard"></i> Copia ID
-        </button>
-        <button class="btn btn-sm btn-outline-danger copy-model-id" (click)="deleteModel()">
-          <i class="bi bi-trash-fill"></i>
-        </button>
-      </div>
-      <h6 class="card-subtitle mb-2 text-muted">ID: <code>${{ id() }}</code></h6>
-      <p class="card-text">Modello N-grammi</p>
-      <ul class="list-group list-group-flush mb-3">
-        <li class="list-group-item"><strong>Tipo:</strong> Ngrams</li>
-        @if (ngramsmodel().LM_SCORE == "LIDSTONE") {
-        <li class="list-group-item"><strong>Tipo di score:</strong> {{ ngramsmodel().LM_SCORE }} ( Gamma: {{
-          ngramsmodel().GAMMA }}) </li>
-        }
-        @else {
-        <li class="list-group-item"><strong>Tipo di score:</strong> {{ ngramsmodel().LM_SCORE }} </li>
-        }
-        <li class="list-group-item"><strong>Dimensionalità del modello (N-grammi):</strong> {{ ngramsmodel().N }}</li>
-        @if (ngramsmodel().CORPUS_NAMES) {
-          <li class="list-group-item"><strong>Lista di corpus di addestramento:</strong> {{ ngramsmodel().CORPUS_NAMES }}</li>
+        @if (isBERT()) {
+          <li class="list-group-item"><strong>Tipo:</strong> BERT</li>
+          <li class="list-group-item"><strong>Checkpoint:</strong> {{ bertmodel().CHECKPOINT }} </li>
+        }@else {
+          @if (ngramsmodel().LM_SCORE == "LIDSTONE") {
+            <li class="list-group-item"><strong>Tipo di score:</strong> {{ ngramsmodel().LM_SCORE }} ( Gamma: {{
+              ngramsmodel().GAMMA }}) </li>
+          } @else {
+            <li class="list-group-item"><strong>Tipo di score:</strong> {{ ngramsmodel().LM_SCORE }} </li>
+          }
+          <li class="list-group-item"><strong>Dimensionalità del modello (N-grammi):</strong> {{ ngramsmodel().N }}</li>
+          @if (ngramsmodel().CORPUS_NAMES) {
+            <li class="list-group-item"><strong>Lista di corpus di addestramento:</strong> {{ ngramsmodel().CORPUS_NAMES }}
+            </li>
+          }
         }
       </ul>
     </div>
   </div>
 </div>
-}

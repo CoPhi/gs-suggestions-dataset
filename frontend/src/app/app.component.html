@@ -13,35 +13,52 @@
 </div>
 
 <!-- Form Richiesta -->
-<div class="container py-5">
-    <div class="row justify-content-center">
-        <div class="col-lg-10">
-            <div class="card shadow rounded-4 mb-5" [formGroup]="form">
+<div class="container-fluid py-5">
+    <div class="d-flex justify-content-center">
+        <div class="col-10">
+            <div class="card border-0 shadow-lg rounded-4 mb-5" [formGroup]="form">
                 <div class="card-header rounded-top-4 bg-primary text-white">
                     <h2 class="h4 mb-0">Generatore di Suggerimenti</h2>
                 </div>
                 <div class="card-body">
                     <!-- Campo di testo per inserire la sequenza con la lacuna  -->
                     <div class="mb-4">
-                        <label for="inputText" class="form-label fw-bold">Testo con lacuna</label>
                         <textarea class="form-control" id="inputText" formControlName="text" rows="3"
-                            placeholder="Inserisci il testo con una lacuna (es: τὰς ὀφειλομένας τῇ τοῦ Ἀνθεντίου μητρὶ [...] Σισόιτος)"></textarea>
-                        <div class="form-text">Usa [...] per indicare la lacuna da completare</div>
+                            placeholder="Inserisci il testo con una lacuna (es: τὰς ὀφειλομένας τῇ τοῦ Ἀνθεντίου μητρὶ [...] Σισόιτος)">
+                                            </textarea>
+
+                        <div class="d-flex flex-row align-items-center mt-2">
+                            <div class="form-text">
+                                Usa [...] per indicare la lacuna da completare
+                            </div>
+                            @if (form.get('text')?.value?.length > 0) {
+                            <button class="btn btn-outline-primary ms-auto" id="clearBtn" (click)="clearForm()"
+                                type="button">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                            }
+                        </div>
                     </div>
 
                     <!-- Modelli disponibili -->
                     <div class="mb-4">
-                        <label for="modelId" class="form-label fw-bold">ID Modello</label>
-                        <div class="input-group">
-                            <input type="text" class="form-control" formControlName="modelID"
-                                (input)="setCurrentID($event)" id="modelId" placeholder="Inserisci l'ID del modello">
+                        <div class="d-flex flex-row align-items-center">
+
+                            @if (selectedModel() !== null) {
+                            <span class="fs-5">Modello selezionato: {{ curr_type_model() }} </span>
+                            <button class="btn border-0" (click)="curr_id.set(null)" type="button">
+                                <i class="bi bi-x-lg text-danger ms-auto p-1"></i>
+                            </button>
+                            }@else {
                             <button class="btn btn-outline-secondary" type="button" id="showModelsBtn"
                                 (click)="toggleModels()">
-                                <i class="bi bi-collection"></i> Mostra Modelli
+                                <i class="bi bi-collection"></i> Seleziona modello
                             </button>
+                            }
                         </div>
                     </div>
 
+                    @if (selectedModel() !== null) {
                     <!-- Numero di predizioni -->
                     <div class="mb-4">
                         <label for="num_predictions" class="form-label fw-bold">Numero di predizioni</label>
@@ -66,16 +83,15 @@
                         </div>
                     </div>
                     }
+                    }
 
                     <div class="d-flex justify-content-between align-items-center mb-3">
                         <button class="btn btn-primary" (click)="generateSuggestions()" id="generateBtn"
-                            [disabled]="this.isGenerating()">
+                            [disabled]="isGenerating() || !selectedModel()">
                             <i class="bi bi-magic"></i> Genera Suggerimenti
                         </button>
                         <div>
-                            <button class="btn btn-outline-secondary" id="clearBtn" (click)="clearForm()" type="button">
-                                <i class="bi bi-trash"></i> Pulisci
-                            </button>
+
                         </div>
                     </div>
 
@@ -86,21 +102,21 @@
                         <p class="mt-2">Generazione suggerimenti in corso...</p>
                     </div>
                 </div>
+
+                <div class="alert alert-info" id="previewArea" style="display: none;">
+                    <strong>Anteprima richiesta:</strong>
+                    <div class="mt-2 text-with-gap" id="previewText"></div>
+                    <div class="mt-2"><strong>Modello:</strong> <span id="previewModel"></span></div>
+                </div>
             </div>
 
-            <div class="alert alert-info" id="previewArea" style="display: none;">
-                <strong>Anteprima richiesta:</strong>
-                <div class="mt-2 text-with-gap" id="previewText"></div>
-                <div class="mt-2"><strong>Modello:</strong> <span id="previewModel"></span></div>
-            </div>
+            @if (!isGenerating() && !selectedModel() && models().length > 0) {
+            <app-models-box [models]="models()" [(curr_id)]="curr_id" />
+            }
+
+            @if (suggestions().length > 0 && !isGenerating()) {
+            <app-suggests-box [suggestions]="suggestions()" />
+            }
         </div>
     </div>
-
-    @if (!isGenerating()) {
-    <app-models-box [models]="models()" [(curr_id)]="curr_id" />
-    }
-
-    @if (suggestions().length > 0 && !isGenerating()) {
-    <app-suggests-box [suggestions]="suggestions()" />
-    }
 </div>

@@ -20,24 +20,6 @@ export class ModelComponent {
   bertmodel = computed(() => <BERTModelInterface>this.model()); // Modello BERT
   ngramsmodel = computed(() => <NgramsModelInterface>this.model()); // Modello N-grams
 
-  showCopy(element: Event) {
-    const target = <HTMLElement>element.target
-    const modelId = target.getAttribute('data-model-id')
-    if (modelId) {
-      navigator.clipboard.writeText(modelId).then(() => {
-        const originalText = target.innerHTML;
-        target.innerHTML = '<i class="bi bi-check2"></i> Copiato!';
-        target.classList.remove('btn-outline-primary');
-        target.classList.add('btn-outline-success');
-        setTimeout(() => {
-          target.innerHTML = originalText;
-          target.classList.remove('btn-outline-success');
-          target.classList.add('btn-outline-primary');
-        }, 2000);
-      });
-    }
-  }
-
   deleteModel() {
     this.api.deleteModel(this.id()).subscribe({
       next: () => this.models.set(this.models().filter((m) => m._id !== this.id())),
@@ -45,6 +27,7 @@ export class ModelComponent {
     });
   }
 
+  // Imposta il modello corrente nell'input dell'app principale per la produzione dei suggerimenti
   set_currentID() {
     this.curr_id.set(this.id());
   }

@@ -21,10 +21,10 @@ export class AppComponent {
   suggestions = signal<SuggestionInterface[]>([]);
   curr_id = signal<string | null>(null);
 
-
   selectedModel = computed(() => {
     return this.curr_id() ? this.models().find((model) => model._id === this.curr_id()) || null : null;
   });
+
   curr_type_model = computed(() => this.selectedModel()?.TYPE)
   isGenerating = signal<boolean>(false);
 
