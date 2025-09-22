@@ -1,6 +1,6 @@
 import heapq
 import re
-from math import inf, log
+from math import inf
 from typing import Counter, Optional
 from tqdm import tqdm
 from metrics import FALLBACK_LOSS, MIN_BEAM_SIZE, MAX_BEAM_SIZE
@@ -9,7 +9,6 @@ from nltk.lm.preprocessing import pad_both_ends, flatten
 from nltk.metrics.distance import edit_distance
 from nltk.lm.util import log_base2
 from functools import lru_cache
-import gc
 
 from utils.preprocess import (
     clean_text_from_gaps,
@@ -28,7 +27,7 @@ from config.settings import K_PRED, BATCH_SIZE, N, LM_TYPE, LAMBDA, ALPHA, BETA,
 @lru_cache(maxsize=None)
 def cached_edit_distance(a, b):
     """
-    Versione cachabile di `edit_distance`
+    Versione cachable di `edit_distance`
     """
     return edit_distance(a, b)
 

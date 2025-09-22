@@ -64,7 +64,7 @@ def generate_k_suggests(
         beta=0,
     )
     
-    print (predictions)
+    print (predictions) # capire come mai le probabilità sono 0
 
     print(
         [
