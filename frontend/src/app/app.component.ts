@@ -5,6 +5,7 @@ import { toSignal } from '@angular/core/rxjs-interop';
 import { SuggestsBoxComponent } from './components/suggests-box/suggests-box.component';
 import { AbstractControl, FormControl, FormGroup, ReactiveFormsModule, ValidationErrors, Validators } from '@angular/forms';
 import { ModelsBoxComponent } from "./components/models-box/models-box.component";
+import { NotificationService } from './services/notification.service';
 
 @Component({
   selector: 'app-root',
@@ -16,6 +17,7 @@ export class AppComponent {
   title = 'gs-api';
 
   api = inject(ApiService)
+  notifications = inject(NotificationService)
 
   models = toSignal(this.api.getModels(), { initialValue: [] }) as Signal<modelType[]>;
   suggestions = signal<SuggestionInterface[]>([]);
@@ -158,8 +160,9 @@ export class AppComponent {
     this.api.generateSuggestion(modelID, text, num_tokens, Number(num_predictions)).subscribe({
       next: (response) => {
         this.suggestions.set(response);
-        this.showAlert('Suggerimenti generati con successo', 'success');
+        // this.showAlert('Suggerimenti generati con successo', 'success');
         this.isGenerating.set(false);
+        this.notifications.showLocalNotification()
       },
       error: () => {
         this.showAlert('Errore durante la generazione dei suggerimenti', 'danger');

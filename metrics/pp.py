@@ -4,7 +4,7 @@ from nltk.lm.preprocessing import padded_everygram_pipeline
 from train.training import get_sentences
 from config.settings import N, LAMBDA
 from math import pow
-from metrics.accuracy import interpolated_log_score
+from predictions.ngrams import interpolated_log_score
 
 
 def perplexity(

@@ -8,7 +8,7 @@ from bson import ObjectId
 from train.training import train_lm
 from train import load_abs
 from inference import generate_k_suggests
-from finetuning import fill_mask
+from predictions.bert import fill_mask
 from config.settings import (
     LM_TYPES,
     GAMMA,

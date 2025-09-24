@@ -15,4 +15,3 @@ MIN_MASK_TOKEN_TRESHOLD=1
 LACUNAE_REGEX = re.compile(r"\[([. ]+)\]")
 
 from .utils import *
-from.accuracy import *

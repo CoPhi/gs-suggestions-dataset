@@ -3,7 +3,7 @@ from math import exp
 
 from nltk.lm.models import LanguageModel
 
-from metrics.accuracy import (
+from predictions.ngrams import (
     get_beam_size,
     get_context_from_test_case,
     get_best_K_predictions_from_context,
