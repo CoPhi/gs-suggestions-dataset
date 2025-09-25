@@ -1,3 +1,4 @@
+import re
 from fastapi import APIRouter, Query, Path, Body
 from fastapi.responses import JSONResponse
 from api.schema import serial_model
@@ -12,7 +13,7 @@ from api.models import (
 )
 from api import LEFT_CONTEXT_PATTERN
 from bson import ObjectId
-from train.training import train_lm
+from train.training import pipeline_train, train_lm
 from train import load_abs
 from inference.suggests import generate_k_suggests
 from predictions.bert import fill_mask
@@ -172,7 +173,7 @@ async def create_model(
             openapi_examples={
                 "MLE": {
                     "summary": "Esempio creazione modello MLE",
-                    "description": "Parametri di esempio per la creazione di un modello linguistico che usa MLE.",
+                    "description": "Parametri di esempio per la creazione di un modello linguistico che usa `MLE` come tipo di smoothing. [MLE](https://it.wikipedia.org/wiki/Metodo_della_massima_verosimiglianza)",
                     "value": {
                         "LM_SCORE": "MLE",
                         "N": 3,
@@ -181,7 +182,7 @@ async def create_model(
                 },
                 "Lidstone": {
                     "summary": "Esempio creazione modello Lidstone",
-                    "description": "Parametri di esempio per la creazione di un modello linguistico che usa Lidstone.",
+                    "description": "Parametri di esempio per la creazione di un modello linguistico che usa `LIDSTONE` come tipo di smoothing. [Lidstone](https://en.wikipedia.org/wiki/Additive_smoothing)",
                     "value": {
                         "LM_SCORE": "LIDSTONE",
                         "GAMMA": 0.1,
@@ -201,63 +202,56 @@ async def create_model(
         ),
     ],
 ):
-
-    match model:
-        case NgramModel():
-            try:
-                model_dict = dict(model)
-
-                if collection.find_one(model_dict):
-                    return JSONResponse(
-                        status_code=409,
-                        content={"detail": "Model already exist in db"},
-                    )
-
-                abs = load_abs(
-                    corpus_set=model_dict["CORPUS_NAMES"]
-                )  # Carico i blocchi anonimi di default
-
-                global_ngram_model, domain_ngram_model = train_lm(
-                    train_abs=abs,
-                    lm_type=model_dict["LM_SCORE"],
-                    gamma=model_dict["GAMMA"],
-                    n=model_dict["N"],
+    
+    if isinstance(model, NgramModel):
+        try:
+            model_dict = model.model_dump()
+            if collection.find_one(model_dict):
+                return JSONResponse(
+                    status_code=409,
+                    content={"detail": "Model already exist in db"},
                 )
-                model_dict["GLOBAL_MODEL_FILE_ID"] = save_to_gridfs(global_ngram_model)
-                model_dict["DOMAIN_MODEL_FILE_ID"] = save_to_gridfs(domain_ngram_model)
+            
+            global_ngram_model, domain_ngram_model, _ = pipeline_train(
+                lm_type=model_dict["LM_SCORE"],
+                gamma=model_dict["GAMMA"],
+                n=model_dict["N"],
+            )
+            model_dict["GLOBAL_MODEL_FILE_ID"] = save_to_gridfs(global_ngram_model)
+            model_dict["DOMAIN_MODEL_FILE_ID"] = save_to_gridfs(domain_ngram_model)
+            model_id = collection.insert_one(model_dict).inserted_id
+            return JSONResponse(status_code=201, content={"ID": str(model_id)})
+        except ValueError as v:
+            return JSONResponse(status_code=404, content={"detail": str(v)})
+        except Exception as e:
+            return JSONResponse(status_code=500, content=str(e))
+        
+    elif isinstance(model, BERTModel):
+        model_dict = model.model_dump()
+        try:
+            if collection.find_one(model_dict):
+                        return JSONResponse(
+                            status_code=409,
+                            content={"message": "Model already exist in db"},
+                        )
+            bert_model = AutoModelForMaskedLM.from_pretrained(
+                model_dict["CHECKPOINT"])
+            
+            bert_tokenizer = AutoTokenizer.from_pretrained(model_dict["CHECKPOINT"])
+            model_dict["MODEL_FILE_ID"] = save_to_gridfs(bert_model)
+            model_dict["TOKENIZER_FILE_ID"] = save_to_gridfs(bert_tokenizer)
+            model_id = collection.insert_one(
+                {**model_dict, "TYPE": "BERT"}
+            ).inserted_id
+            return JSONResponse(status_code=201, content={"ID": str(model_id)})
 
-                model_id = collection.insert_one(model_dict).inserted_id
-                return JSONResponse(status_code=201, content={"ID": str(model_id)})
-            except ValueError as v:
-                return JSONResponse(status_code=404, content={"detail": str(v)})
-            except Exception as e:
-                return JSONResponse(status_code=500, content=str(e))
-
-        case BERTModel():
-            try:
-                model_dict = dict(model)
-                if collection.find_one(model_dict):
-                    return JSONResponse(
-                        status_code=409,
-                        content={"message": "Model already exist in db"},
-                    )
-                bert_model = AutoModelForMaskedLM.from_pretrained(
-                    model_dict["CHECKPOINT"]
-                )
-
-                bert_tokenizer = AutoTokenizer.from_pretrained(model_dict["CHECKPOINT"])
-                model_dict["MODEL_FILE_ID"] = save_to_gridfs(bert_model)
-                model_dict["TOKENIZER_FILE_ID"] = save_to_gridfs(bert_tokenizer)
-
-                model_id = collection.insert_one(
-                    {**model_dict, "TYPE": "BERT"}
-                ).inserted_id
-                return JSONResponse(status_code=201, content={"ID": str(model_id)})
-
-            except ValueError as v:
-                return JSONResponse(status_code=404, content={"message": str(v)})
-            except Exception as e:
-                return JSONResponse(status_code=500, content={"detail": str(e)})
+        except ValueError as v:
+            return JSONResponse(status_code=404, content={"message": str(v)})
+        except Exception as e:
+            return JSONResponse(status_code=500, content={"detail": str(e)})
+        
+    else:
+        return JSONResponse(status_code=400, content={"detail": "Invalid model type"})
 
 
 @router.post("/models/init/", include_in_schema=False)
@@ -275,9 +269,6 @@ async def create_model(
 )
 async def create_models():
     ids = []
-
-    # Ngrams models
-    abs = load_abs()  # Carico i blocchi anonimi di default
     # Selezione migliori iperparametri tramite BO (WIP)
     for lm_score in LM_TYPES:
         try:
@@ -294,8 +285,7 @@ async def create_models():
                     status_code=409, content={"message": "Model already exist in db"}
                 )
 
-            global_ngram_model, domain_ngram_model = train_lm(
-                train_abs=abs,
+            global_ngram_model, domain_ngram_model, _  = pipeline_train(
                 lm_type=model_dict["LM_SCORE"],
                 gamma=model_dict["GAMMA"],
                 n=model_dict["N"],
@@ -411,10 +401,9 @@ async def get_predictions(
                 zlib.decompress(domain_model_file.read())
             )
 
-            left_context = LEFT_CONTEXT_PATTERN.sub("[", context).split("[")[0]
             predictions = [
                 {
-                    "sentence": left_context + suggestion[0],
+                    "sentence": re.sub(r"\S*\[.*?\]\S*", suggestion[0], context, count=1),
                     "token_str": suggestion[0],
                     "score": suggestion[1],
                 }

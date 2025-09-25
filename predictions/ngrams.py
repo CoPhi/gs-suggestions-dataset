@@ -575,15 +575,11 @@ def local_beam_search(
         beam = heapq.nsmallest(beam_size, beam, key=lambda x: x[1])
 
         return get_best_candidates_from_beam(
-            g_lm,
-            d_lm,
-            context,
-            beam,
-            len_suppl_words,
-            suppl_words,
-            lambda_weight,
-            k_pred,
-            mod,
+            beam=beam,
+            len_suppl_words=len_suppl_words,
+            suppl_words=suppl_words,
+            k_pred=k_pred,
+            mod=mod,
         )
 
     else:
@@ -645,7 +641,11 @@ def local_beam_search(
             beam = heapq.nsmallest(beam_size, successors, key=lambda x: x[1])
 
         return get_best_candidates_from_beam(
-            g_lm, d_lm, context, beam, len_suppl_words, lambda_weight, k_pred
+            beam=beam,
+            len_suppl_words=len_suppl_words,
+            suppl_words=suppl_words,
+            k_pred=k_pred,
+            mod=mod,
         )
 
 

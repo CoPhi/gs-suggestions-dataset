@@ -28,9 +28,23 @@
                                             </textarea>
 
                         <div class="d-flex flex-row align-items-center mt-2">
-                            <div class="form-text">
-                                Usa [...] per indicare la lacuna da completare
-                            </div>
+                            @if (form.get('text')?.dirty && form.get('text')?.invalid) {
+                            @if (form.get('text')?.hasError('notvalid')) {
+                            <small class="form-text text-danger"> Inserisci un testo valido </small>
+                            }
+                            @if (form.get('text')?.hasError('notMasked')) {
+                            <small class="form-text text-danger"> Inserisci un testo con una lacuna </small>
+                            }
+                            }@else if(form.get('text')?.dirty && form.get('text')?.valid){
+                            <small class="form-text text-success"> Testo valido per la generazione </small>
+                            }
+                            @else {
+                             <div class="form-text">
+                                Inserisci una frase con una lacuna da completare. <br>
+                                Utilizza la notazione con le parentesi quadre <code>[...]</code> per definire la lacuna su cui
+                                generare i suggerimenti.
+                            </div> 
+                            }
                             @if (form.get('text')?.value?.length > 0) {
                             <button class="btn btn-outline-danger ms-auto" id="clearBtn" (click)="clearForm()"
                                 type="button">
@@ -87,7 +101,7 @@
 
                     <div class="d-flex justify-content-between align-items-center mb-3">
                         <button class="btn btn-primary" (click)="generateSuggestions()" id="generateBtn"
-                            [disabled]="isGenerating() || !selectedModel()">
+                            [disabled]="isGenerating() || !selectedModel() || form.get('text')?.invalid" type="button">
                             <i class="bi bi-magic"></i> Genera Suggerimenti
                         </button>
                         <div>

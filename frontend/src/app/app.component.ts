@@ -34,7 +34,7 @@ export class AppComponent {
 
   constructor() {
     this.form = new FormGroup({
-      text: new FormControl<string>('', { validators: [Validators.required, this.isContextValid, Validators.minLength(10)] }),
+      text: new FormControl<string>('', { validators: [Validators.required, this.isContextValid] }),
       modelID: new FormControl<string>('', {
         validators: [Validators.required, Validators.minLength(24),
         Validators.maxLength(24)]
@@ -58,9 +58,17 @@ export class AppComponent {
     console.log(target.value);
   }
 
+  /**
+   * Valida il valore di un controllo astratto verificando che sia presente
+   * e che contenga una lacuna, nel formato `[....]`.
+   *
+   * @param c Il controllo astratto da validare.
+   * @returns Un oggetto `ValidationErrors` se il valore non è valido, altrimenti `null`.
+   */
   isContextValid = (c: AbstractControl): ValidationErrors | null => {
     if (!c.value) return { notvalid: true };
-    return c.value.search("[...]") !== -1 ? null : { notMasked: true };
+    const regex = /\[\.{1,}\]/;
+    return regex.test(c.value) ? null : { notMasked: true };
   }
 
   toggleModels() {
