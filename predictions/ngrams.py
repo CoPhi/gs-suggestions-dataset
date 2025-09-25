@@ -320,13 +320,9 @@ def nll_score(
 
 
 def get_best_candidates_from_beam(
-    g_lm: LanguageModel,
-    d_lm: LanguageModel,
-    context: tuple[str],
     beam: list[tuple[list[str], float]],
     len_suppl_words: int,
     suppl_words: list[str] = None,
-    lambda_weight: float = LAMBDA,
     k_pred: int = K_PRED,
     mod="acc",
 ) -> list[list[str]]:
@@ -347,8 +343,6 @@ def get_best_candidates_from_beam(
 
     if not beam:
         return []
-
-    print (beam[:10])
     
     if len_suppl_words > 1:
         raise ValueError("Ranking for `len_suppl_words > 1` not implemented yet")
@@ -361,9 +355,7 @@ def get_best_candidates_from_beam(
         )
         return [tkn for tkn in sorted_candidates][:k_pred]
     else:
-        sorted_candidates = sorted(beam, key=lambda x: x[1])
-        string_candidates = [candidate[0] for candidate in sorted_candidates]
-        return [tkn for tkn in string_candidates][:k_pred]
+        return [candidate[0] for candidate in beam][:k_pred]
 
 
 def get_successors(
