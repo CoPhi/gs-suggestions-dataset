@@ -198,20 +198,20 @@ def load_lm(checkpoint: str, n=N) -> tuple[LanguageModel, list]:
         return lm, dev_abs
 
 
-if __name__ == "__main__":
+# if __name__ == "__main__": 
     #Voglio stampare il numero di blocchi anonimi di cui sono composti i vari set
-    train_abs = load_abs()
-    domain_abs = load_specific_domain_abs(abs=train_abs)
-    train_domain_abs, dev_domain_abs = split_abs(domain_abs, test_size=0.2)
-    test_abs = load_test_abs()
-    print(f"Total anonymous blocks loaded (training set): {len(train_abs) - len(dev_domain_abs)}")
-    print(f"Total anonymous blocks loaded (dev set): {len(dev_domain_abs)}")
-    print(f"Total anonymous blocks loaded (test set): {len(test_abs)}")
+    # train_abs = load_abs()
+    # domain_abs = load_specific_domain_abs(abs=train_abs)
+    # train_domain_abs, dev_domain_abs = split_abs(domain_abs, test_size=0.2)
+    # test_abs = load_test_abs()
+    # print(f"Total anonymous blocks loaded (training set): {len(train_abs) - len(dev_domain_abs)}")
+    # print(f"Total anonymous blocks loaded (dev set): {len(dev_domain_abs)}")
+    # print(f"Total anonymous blocks loaded (test set): {len(test_abs)}")
 
-    print (f"Numero di token in training set: {len(list(flatten(get_sentences([ab for ab in train_abs if ab not in dev_domain_abs]))))}")
-    print (f"Numero di token in dev set: {len(list(flatten(get_sentences(domain_abs))))}")
-    print (f"Numero di token in test set: {len(list(flatten(get_sentences(test_abs))))}")
+    # print (f"Numero di token in training set: {len(list(flatten(get_sentences([ab for ab in train_abs if ab not in dev_domain_abs]))))}")
+    # print (f"Numero di token in dev set: {len(list(flatten(get_sentences(domain_abs))))}")
+    # print (f"Numero di token in test set: {len(list(flatten(get_sentences(test_abs))))}")
     
-    print (f"Numero di frasi in training set: {len(get_sentences([ab for ab in train_abs if ab not in dev_domain_abs]))}")
-    print (f"Numero di frasi in dev set: {len(get_sentences(domain_abs))}")
-    print (f"Numero di frasi in test set: {len(get_sentences(test_abs))}")
+    # print (f"Numero di frasi in training set: {len(get_sentences([ab for ab in train_abs if ab not in dev_domain_abs]))}")
+    # print (f"Numero di frasi in dev set: {len(get_sentences(domain_abs))}")
+    # print (f"Numero di frasi in test set: {len(get_sentences(test_abs))}")

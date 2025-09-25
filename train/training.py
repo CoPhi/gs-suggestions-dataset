@@ -110,7 +110,7 @@ def pipeline_train(
     train_domain_abs, dev_domain_abs = split_abs(domain_abs, test_size=0.2)
 
     g_lm = train_lm(
-        train_abs=list(set(train_abs) - set(dev_domain_abs)),
+        train_abs=[ab for ab in train_abs if ab not in dev_domain_abs],
         lm_type=lm_type,
         min_freq=min_freq,
         gamma=gamma,
@@ -131,8 +131,8 @@ def pipeline_train(
 if __name__ == "__main__":
     g_lm, d_lm, dev_abs = pipeline_train()
     save_lm(
-        lm=g_lm, test_abs=dev_abs, checkpoint="General_model"
+        lm=g_lm, dev_abs=dev_abs, checkpoint="General_model"
     )  # Salvataggio modello generale
     save_lm(
-        lm=d_lm, test_abs=list(), checkpoint="Domain_model"
+        lm=d_lm, dev_abs=list(), checkpoint="Domain_model"
     )  # Salvataggio modello specifico di dominio

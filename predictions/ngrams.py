@@ -34,57 +34,75 @@ def filter_words(df):
     return [w for w, _ in df if w not in ["</s>", "<s>", "<UNK>"]]
 
 
-def sort_and_filter_array(arr, condition, key_func):
-    """Ordina e filtra gli elementi di un array in base a una condizione e una funzione di ordinamento."""
-    annotated = [(item, key_func(item)) for item in arr]
-    target = [x for x in annotated if condition(x[0])]
-    remaining = [x for x in annotated if not condition(x[0])]
+# def sort_and_filter_array(arr, condition, key_func):
+#     """Ordina e filtra gli elementi di un array in base a una condizione e una funzione di ordinamento."""
 
-    target_sorted = sorted(target, key=lambda x: x[1])
-    remaining_sorted = sorted(remaining, key=lambda x: x[1])
-    return [x[0] for x in target_sorted + remaining_sorted]
+#     annotated = [(item, key_func(item)) for item in arr]
+
+#     target = [x for x in annotated if condition(x[0])]
+#     remaining = [x for x in annotated if not condition(x[0])]
+
+#     return [
+#         x[0]
+#         for x in sorted(target, key=lambda x: x[1])
+#         + sorted(remaining, key=lambda x: x[1])
+#     ]
 
 
-def get_sorted_filtered_array(arr, head, tail, len_lacuna):
-    """Ordina e filtra gli elementi di un array in base a testa e coda."""
-    head_len = len(head) if head else 0
-    tail_len = len(tail) if tail else 0
+# def get_sorted_filtered_array(arr, head, tail, len_lacuna):
+#     """Ordina e filtra gli elementi di un array in base a testa e coda."""
+#     head_len = len(head) if head else 0
+#     tail_len = len(tail) if tail else 0
 
-    if head and tail:
-        return sort_and_filter_array(
-            arr,
-            lambda item: (len(item) == (head_len + tail_len + len_lacuna))
-            and (
-                (item.startswith(head) and item.endswith(tail))
-                or (item.startswith(head))
-                or item.endswith(tail)
-            ),
-            lambda x: cached_edit_distance(x[:head_len], head)
-            + cached_edit_distance(x[-tail_len:], tail),
-        )
-    elif head:
-        return sort_and_filter_array(
-            arr,
-            lambda item: (len(item) >= head_len + len_lacuna) and item.startswith(head),
-            lambda x: cached_edit_distance(x[:head_len], head),
-        )
-    elif tail:
-        return sort_and_filter_array(
-            arr,
-            lambda item: (len(item) >= tail_len + len_lacuna) and item.endswith(tail),
-            lambda x: cached_edit_distance(x[-tail_len:], tail),
-        )
-    else:
-        # Ordina solo in base alla lunghezza se non ci sono informazioni su testa o coda
-        return sort_and_filter_array(
-            arr,
-            lambda item: len(item) == len_lacuna,
-            lambda x: abs(len(x) - len_lacuna),
-        )
+#     if head and tail:
+#         return sort_and_filter_array(
+#             arr,
+#             lambda item: (len(item) == (head_len + tail_len + len_lacuna))
+#             and (
+#                 (item.startswith(head) and item.endswith(tail))
+#                 or (item.startswith(head))
+#                 or item.endswith(tail)
+#             ),
+#             lambda x: cached_edit_distance(x[:head_len], head)
+#             + cached_edit_distance(x[-tail_len:], tail),
+#         )
+#     elif head:
+#         return sort_and_filter_array(
+#             arr,
+#             lambda item: (len(item) == head_len + len_lacuna) and item.startswith(head),
+#             lambda x: cached_edit_distance(x[:head_len], head),
+#         )
+#     elif tail:
+#         return sort_and_filter_array(
+#             arr,
+#             lambda item: (len(item) == tail_len + len_lacuna) and item.endswith(tail),
+#             lambda x: cached_edit_distance(x[-tail_len:], tail),
+#         )
+#     else:
+#         # Ordina solo in base alla lunghezza se non ci sono informazioni su testa o coda
+#         return sort_and_filter_array(
+#             arr,
+#             lambda item: len(item) == len_lacuna,
+#             lambda x: abs(len(x) - len_lacuna),
+#         )
 
 
 def sort_and_filter(df, condition, key_func):
-    """Ordina e filtra le parole in base a una condizione e una funzione di ordinamento."""
+    """
+    Ordina e filtra le parole di una distribuzione di frequenza.
+
+    Questa funzione prende una distribuzione di frequenza (df), separa le parole che soddisfano una condizione da quelle che non la soddisfano,
+    ordina entrambe le liste secondo una funzione di ordinamento (key_func), e restituisce la lista finale delle parole filtrate e ordinate.
+    Le parole che soddisfano la condizione vengono ordinate in modo crescente, mentre le altre in modo decrescente.
+
+    Args:
+        df (iterable): Distribuzione di frequenza, tipicamente una lista di tuple (parola, frequenza).
+        condition (callable): Prende in input una stringa. Funzione che determina se una parola va nel gruppo target.
+        key_func (callable): Prende in input una tupla (word, frequency). Funzione di ordinamento da applicare agli elementi.
+
+    Returns:
+        list[str]: Lista di parole filtrate e ordinate.
+    """
     target = []
     remaining = []
 
@@ -94,10 +112,7 @@ def sort_and_filter(df, condition, key_func):
         else:
             remaining.append((w, f))
 
-    target_sorted = sorted(target, key=key_func)
-    remaining_sorted = sorted(remaining, key=key_func, reverse=True)
-
-    return filter_words(target_sorted + remaining_sorted)
+    return filter_words(sorted(target, key=key_func) + sorted(remaining, key=key_func))
 
 
 def get_sorted_filtered_words(df, head, tail, len_lacuna):
@@ -120,13 +135,13 @@ def get_sorted_filtered_words(df, head, tail, len_lacuna):
     elif head:
         return sort_and_filter(
             df,
-            lambda w: (len(w) >= head_len + len_lacuna) and w.startswith(head),
+            lambda w: (len(w) == head_len + len_lacuna) and w.startswith(head),
             lambda x: cached_edit_distance(x[0][:head_len], head),
         )
     elif tail:
         return sort_and_filter(
             df,
-            lambda w: (len(w) >= tail_len + len_lacuna) and w.endswith(tail),
+            lambda w: (len(w) == tail_len + len_lacuna) and w.endswith(tail),
             lambda x: cached_edit_distance(x[0][-tail_len:], tail),
         )
     else:
@@ -218,7 +233,7 @@ def get_words_from_context(
             tokens.append(next_w)
         n -= 1
 
-    return get_sorted_filtered_array(tokens, head, tail, len_lacuna)
+    return tokens
 
 
 def interpolated_log_score(
@@ -333,6 +348,8 @@ def get_best_candidates_from_beam(
     if not beam:
         return []
 
+    print (beam[:10])
+    
     if len_suppl_words > 1:
         raise ValueError("Ranking for `len_suppl_words > 1` not implemented yet")
 
@@ -467,10 +484,13 @@ def score_candidate(
         float: Punteggio calcolato per il candidato.
     """
 
-    nll = nll_score(g_lm, d_lm, lambda_weight, context, candidate, lm_type)
+    nll = 0
     edit_dist_head = 0
     edit_dist_tail = 0
-
+    length_pen = 0
+    
+    if alpha > 0: 
+        nll = nll_score(g_lm, d_lm, lambda_weight, context, candidate, lm_type)
     if head and len(candidate) >= 1:
         first_token = candidate[0]
         edit_dist_head += cached_edit_distance(first_token[: len(head)], head)
@@ -478,13 +498,13 @@ def score_candidate(
         last_token = candidate[-1]
         edit_dist_tail += cached_edit_distance(last_token[-len(tail) :], tail)
 
-    length_pen = 0
     if len_suppl_words == 1:
         length_pen = apply_length_penalty(
             candidate, head, tail, len_lacuna, len_suppl_words
         )
 
-    return alpha * nll + beta * (edit_dist_head + edit_dist_tail) + delta * length_pen
+    prova = 0
+    return (alpha * nll) + (beta * (edit_dist_head + edit_dist_tail)) + (delta * length_pen)
 
 
 def local_beam_search(
@@ -536,9 +556,6 @@ def local_beam_search(
         states = get_words_from_context(
             g_lm, d_lm, context, beam_size, len_lacuna, head_suppl, tail_suppl, n
         )
-        # print("Testa: ", head_suppl)
-        # print("Coda: ", tail_suppl)
-        # print(f"Stati iniziali con sequenza di token da generare pari a 1: {states}")
 
         for s in states:
             heapq.heappush(
@@ -546,22 +563,24 @@ def local_beam_search(
                 (
                     [s],
                     score_candidate(
-                        g_lm,
-                        d_lm,
-                        lambda_weight,
-                        len_lacuna,
-                        lm_type,
-                        g_lm.vocab.lookup(context[(1 - n) :]),
-                        [s],
-                        head_suppl,
-                        tail_suppl,
-                        len_suppl_words,
-                        alpha,
-                        beta,
-                        delta,
+                        g_lm=g_lm,
+                        d_lm=d_lm,
+                        lambda_weight=lambda_weight,
+                        len_lacuna=len_lacuna,
+                        lm_type=lm_type,
+                        context=context,
+                        candidate=[s],
+                        head=head_suppl,
+                        tail=tail_suppl,
+                        alpha=alpha,
+                        beta=beta,
+                        len_suppl_words=len_suppl_words,
+                        delta=delta,
                     ),
                 ),
             )
+            
+        beam = heapq.nsmallest(beam_size, beam, key=lambda x: x[1])
 
         return get_best_candidates_from_beam(
             g_lm,
@@ -589,7 +608,7 @@ def local_beam_search(
                         g_lm,
                         d_lm,
                         lambda_weight,
-                        0,  # si inibisce l'informazione sulla lunghezza della lacuna
+                        0,  # si trascura l'informazione sulla lunghezza della lacuna
                         lm_type,
                         g_lm.vocab.lookup(context[(1 - n) :]),
                         [s],

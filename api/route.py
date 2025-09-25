@@ -2,12 +2,19 @@ from fastapi import APIRouter, Query, Path, Body
 from fastapi.responses import JSONResponse
 from api.schema import serial_model
 from api.database import collection, fs
-from api.models import NgramModel, BERTModel, Model, PredictionCount, PredictionsResponse, ModelsResponse
+from api.models import (
+    NgramModel,
+    BERTModel,
+    Model,
+    PredictionCount,
+    PredictionsResponse,
+    ModelsResponse,
+)
 from api import LEFT_CONTEXT_PATTERN
 from bson import ObjectId
 from train.training import train_lm
 from train import load_abs
-from inference import generate_k_suggests
+from inference.suggests import generate_k_suggests
 from predictions.bert import fill_mask
 from config.settings import (
     LM_TYPES,
@@ -91,7 +98,7 @@ async def get_model(id: Annotated[str, Path(title="ID", description="ID del mode
 
 @router.get(
     "/models",
-    response_model=ModelsResponse, 
+    response_model=ModelsResponse,
     responses={
         200: {
             "description": "Lista dei modelli",
@@ -252,6 +259,7 @@ async def create_model(
             except Exception as e:
                 return JSONResponse(status_code=500, content={"detail": str(e)})
 
+
 @router.post("/models/init/", include_in_schema=False)
 @router.post(
     "/models/init",
@@ -295,8 +303,8 @@ async def create_models():
             model_dict["GLOBAL_MODEL_FILE_ID"] = save_to_gridfs(global_ngram_model)
             model_dict["DOMAIN_MODEL_FILE_ID"] = save_to_gridfs(domain_ngram_model)
             model_id = collection.insert_one(
-                    {**model_dict, "TYPE": "Ngrams"}
-                ).inserted_id
+                {**model_dict, "TYPE": "Ngrams"}
+            ).inserted_id
             ids.append(str(model_id))
         except Exception as e:
             return JSONResponse(status_code=500, content={"detail": str(e)})
@@ -322,21 +330,15 @@ async def create_models():
 # predictions
 @router.get(
     "/predictions",
-    response_model=PredictionsResponse, 
+    response_model=PredictionsResponse,
     responses={
         200: {
             "description": "Predictions",
             "content": {
-                "application/json": {
-                    "example": {
-                        "predictions": 
-                            {
-                                "type": "array"
-                            }
-                    }
-                }
+                "application/json": {"example": {"predictions": {"type": "array"}}}
             },
         },
+        204: {"description": "No content"},  # quando non ci sono predizioni
         400: {"description": "Invalid request"},
         404: {"description": "Model not found"},
         500: {"description": "Internal server error"},
@@ -458,14 +460,6 @@ async def get_predictions(
                 )
             ]
 
-            if not predictions:
-                return JSONResponse(
-                    status_code=500,
-                    content={
-                        "detail": str("No predictions generated, check the context")
-                    },
-                )
-
             return JSONResponse(
                 status_code=200,
                 content={"predictions": predictions},
@@ -480,7 +474,7 @@ async def get_predictions(
 
 @router.delete(
     "/models/{id}",
-    response_model=Model, 
+    response_model=Model,
     responses={
         200: {"description": "Model deleted successfully"},
         404: {"description": "Model not found"},
@@ -509,9 +503,7 @@ async def delete_model(
         # Rimuovi il documento dalla collezione
         collection.delete_one({"_id": ObjectId(id)})
 
-        return JSONResponse(
-            status_code=200, content={"model": model}
-        )
+        return JSONResponse(status_code=200, content={"model": model})
 
     except Exception as e:
         return JSONResponse(status_code=500, content={"detail": str(e)})

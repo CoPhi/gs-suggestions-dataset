@@ -9,7 +9,7 @@ from predictions.ngrams import (
     get_best_K_predictions_from_context,
     nll_score,
 )
-from config.settings import N, K_PRED, LM_TYPE, LAMBDA
+from config.settings import ALPHA, BETA, DELTA, N, K_PRED, LM_TYPE, LAMBDA
 from train import load_lm
 
 
@@ -60,32 +60,11 @@ def generate_k_suggests(
         k_pred=k_pred,
         beam_size=get_beam_size(k_pred, 4),
         mod="infer",
-        alpha=1,
-        beta=0,
+        alpha=ALPHA,
+        beta=BETA,
+        delta=DELTA, 
     )
     
-    print (predictions) # capire come mai le probabilità sono 0
-
-    print(
-        [
-            (
-                " ".join(pred).lower(),
-                pow(
-                    2,
-                    -nll_score(
-                        g_lm,
-                        d_lm,
-                        lambda_weight,
-                        seq,
-                        pred,
-                        lm_type,
-                    ),
-                ),
-            )
-            for pred in predictions
-        ]
-    )
-
     return [
             (
                 " ".join(pred).lower(),

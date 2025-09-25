@@ -9,7 +9,8 @@ from datasets import (
 from utils import SUPPLEMENTS_REGEX
 from utils.preprocess import strip_diacritics
 from transformers import AutoModelForMaskedLM, AutoTokenizer, pipeline
-from typing import Union
+from typing import Optional, Tuple, Union
+
 
 def get_BERT_model(model_checkpoint: str):
     return AutoModelForMaskedLM.from_pretrained(model_checkpoint)
@@ -29,16 +30,16 @@ def get_dataset(
     return load_dataset(data_checkpoint)
 
 
-def convert_lacuna_to_masks(text: str, mask_token: str) -> str:
+def convert_lacuna_to_masks(text: str, mask_token: str) -> Optional[Tuple[str, int]]:
     """
     Converte le lacune nel testo in token mascherati.
 
     Args:
         text (str): Il testo contenente lacune da convertire.
-        mask_token (str, opzionale): Il token mascherato da utilizzare. Default è "<mask>".
+        mask_token (str): Il token mascherato da utilizzare.
 
     Returns:
-        str: Il testo con la lacuna sostituita dal token mascherato.
+        Optional[Tuple[str, int]]: Una tupla contenente il testo con la lacuna sostituita dal token mascherato e la lunghezza della lacuna, oppure None se non viene trovata una singola lacuna.
     """
 
     gap_matches = list(SUPPLEMENTS_REGEX.finditer(text))
@@ -46,6 +47,10 @@ def convert_lacuna_to_masks(text: str, mask_token: str) -> str:
         return
 
     seq = gap_matches[0]
+
     start, end = seq.start(), seq.end()
 
-    return strip_diacritics(text.replace(text[start:end], mask_token))
+    return (
+        strip_diacritics(text.replace(text[start:end], mask_token)),
+        end - start - 2,
+    )

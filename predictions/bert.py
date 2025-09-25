@@ -22,25 +22,16 @@ def to_greek_lower(text: str) -> str:
 
 
 def fill_mask(model, tokenizer, context, k):
-    """
-    Riempie i token [MASK] presenti nel testo di input utilizzando un modello di language modeling.
-    Args:
-        model: Modello BERT, preso da HuggingFace.
-        tokenizer: Il tokenizer associato al modello.
-        context (str): Il testo di input contenente uno o più lacune da riempire (indicate con la notazione tra parentesi quadre `[...]`), che verranno convertite in token [MASK].
-        k (int): Il numero di predizioni top-k da restituire per ciascun token [MASK].
-    Returns:
-        list of tuple or None: Una lista di tuple per ciascun token [MASK] trovato, dove ogni tupla contiene:
-            - Il testo completo con il token predetto inserito.
-            - Il token predetto come stringa.
-            - La probabilità associata alla predizione.
-        Restituisce None se il testo di input è vuoto o non contiene alcun token [MASK].
-    """
-    mask_token = tokenizer.mask_token
 
-    context = convert_lacuna_to_masks(text=context.upper(), mask_token=mask_token)
     if not context:
-        return None
+        return []
+
+    mask_token = tokenizer.mask_token
+    result = convert_lacuna_to_masks(text=context.upper(), mask_token=mask_token)
+    if result is None:
+        return []
+    
+    context, lacuna_length = result # faccio unpack della tupla
 
     inputs = tokenizer(context, return_tensors="pt").to(model.device)
     mask_positions = (inputs["input_ids"] == tokenizer.mask_token_id).nonzero(
@@ -61,11 +52,15 @@ def fill_mask(model, tokenizer, context, k):
             top_k.indices.tolist(), torch.softmax(top_k.values, dim=0)
         ):
             token_raw = tokenizer.convert_ids_to_tokens([int(token_id)])[0]
-
             token_str = tokenizer.convert_tokens_to_string([token_raw]).strip()
 
+            # fallback se inizia con ##
             if token_str == "" or token_str.startswith("##"):
                 token_str = token_raw.replace("##", "").strip()
+
+            # 🔹 filtro per lunghezza
+            if len(token_str) != lacuna_length:
+                continue
 
             filled_text = normalize_greek(context.replace(mask_token, token_str, 1))
 
@@ -83,7 +78,7 @@ def fill_mask(model, tokenizer, context, k):
 # Script di prova
 if __name__ == "__main__":
     # μὲ]ν εὐπαρακολού̣θητ̣α̣ π̣[ᾶ]ϲιν
-    test = "μὲν εὐπαρακολού̣θητ̣α̣ π̣[.]ϲιν"
+    test = "μὲν εὐπαρακολού̣θητ̣α̣ π̣[...]ϲιν"
     model_checkpoint = "CNR-ILC/gs-GreBerta"
 
     model = get_BERT_model(model_checkpoint)

@@ -20,7 +20,7 @@ export class AppComponent {
   notifications = inject(NotificationService)
 
   models = toSignal(this.api.getModels(), { initialValue: [] }) as Signal<modelType[]>;
-  suggestions = signal<SuggestionInterface[]>([]);
+  suggestions = signal<SuggestionInterface[] | null>(null);
   curr_id = signal<string | null>(null);
 
   selectedModel = computed(() => {
@@ -122,7 +122,7 @@ export class AppComponent {
       }
 
       if (textErrors?.['notMasked']) {
-        this.showAlert('Il testo non contiene la lacuna [...]', 'warning');
+        this.showAlert('Il testo non contiene la lacuna', 'warning');
         return;
       }
 
