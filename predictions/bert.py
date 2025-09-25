@@ -21,7 +21,29 @@ def to_greek_lower(text: str) -> str:
     return text.lower().replace("ϲ", "σ").replace("Ϲ", "σ")
 
 
-def fill_mask(model, tokenizer, context, k):
+def fill_mask(model, tokenizer, context, k, alpha=3):
+    """
+    Riempie le maschere presenti nel testo fornito utilizzando un modello BERT.
+    Le maschere nel testo in input sono individuate da `convert_lacuna_to_masks`, che attua una conversione
+    delle lacune (indicate da "[...]" o simili) nel mask token del tokenizer.
+    Args:
+        model: Il modello BERT pre-addestrato utilizzato per la predizione delle maschere.
+        tokenizer: Il tokenizer associato al modello, utilizzato per tokenizzare il testo e gestire il token di maschera.
+        context (str): Il testo di input contenente lacune da riempire, che verranno convertite in token di maschera.
+        k (int): Il numero massimo di predizioni da restituire per ogni maschera individuata.
+        alpha (int, opzionale): Fattore di espansione per la generazione dei suggerimenti (default=3).
+    Returns:
+        list: Una lista di tuple, ciascuna contenente:
+            - Il testo con la maschera riempita (in minuscolo e normalizzato),
+            - Il token suggerito per la maschera (in minuscolo e normalizzato),
+            - La probabilità associata alla predizione.
+        Se il contesto è vuoto o non contiene maschere, restituisce una lista vuota.
+        Se non vengono trovate posizioni di maschera, restituisce None.
+    Note:
+        - La funzione filtra i suggerimenti in base alla lunghezza del token rispetto alla lacuna originale.
+        - Utilizza funzioni di normalizzazione specifiche per il greco.
+        - Gestisce i token che iniziano con "##" (subword tokens) per garantire la correttezza del suggerimento.
+    """
 
     if not context:
         return []
@@ -46,7 +68,7 @@ def fill_mask(model, tokenizer, context, k):
     results = []
     for mask_pos in mask_positions:
         mask_logits = logits[0, mask_pos]
-        top_k = torch.topk(mask_logits, k)
+        top_k = torch.topk(mask_logits, k * alpha)
 
         for token_id, prob in zip(
             top_k.indices.tolist(), torch.softmax(top_k.values, dim=0)
@@ -58,7 +80,7 @@ def fill_mask(model, tokenizer, context, k):
             if token_str == "" or token_str.startswith("##"):
                 token_str = token_raw.replace("##", "").strip()
 
-            # 🔹 filtro per lunghezza
+            # filtro per lunghezza
             if len(token_str) != lacuna_length:
                 continue
 
@@ -71,6 +93,9 @@ def fill_mask(model, tokenizer, context, k):
                     float(prob.item()),
                 )
             )
+            
+            if len(results) >= k:
+                break
 
     return results
 
