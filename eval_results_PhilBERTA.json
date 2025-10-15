@@ -1,0 +1,18 @@
+{
+    "eval_loss": 2.9088711738586426,
+    "eval_model_preparation_time": 0.0034,
+    "eval_top1_acc": 0.3333333333333333,
+    "eval_top5_acc": 0.6666666666666666,
+    "eval_top10_acc": 1.0,
+    "eval_top15_acc": 1.0,
+    "eval_top20_acc": 1.0,
+    "eval_top25_acc": 1.0,
+    "eval_top30_acc": 1.0,
+    "eval_top35_acc": 1.0,
+    "eval_top40_acc": 1.0,
+    "eval_top45_acc": 1.0,
+    "eval_top50_acc": 1.0,
+    "eval_runtime": 46.9318,
+    "eval_samples_per_second": 0.895,
+    "eval_steps_per_second": 0.895
+}

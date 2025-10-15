@@ -1,3 +1,4 @@
+import re
 import torch
 from predictions.utils import (
     get_BERT_model,
@@ -20,8 +21,11 @@ def to_greek_lower(text: str) -> str:
 
     return text.lower().replace("ϲ", "σ").replace("Ϲ", "σ")
 
+def string_to_regex(pattern: str) -> str:
+    regex = ''.join(['.' if char == '.' else re.escape(char) for char in pattern])
+    return regex
 
-def fill_mask(model, tokenizer, context, k, alpha=3):
+def fill_mask(model, tokenizer, context, k, alpha=500):
     """
     Riempie le maschere presenti nel testo fornito utilizzando un modello BERT.
     Le maschere nel testo in input sono individuate da `convert_lacuna_to_masks`, che attua una conversione
@@ -45,15 +49,22 @@ def fill_mask(model, tokenizer, context, k, alpha=3):
         - Gestisce i token che iniziano con "##" (subword tokens) per garantire la correttezza del suggerimento.
     """
 
+    print(f"Filling masks in context: {context} {k} {alpha}")
+
     if not context:
         return []
 
     mask_token = tokenizer.mask_token
     result = convert_lacuna_to_masks(text=context.upper(), mask_token=mask_token)
+
+    print(f"Converted lacuna to masks: {result}")
+
     if result is None:
         return []
     
-    context, lacuna_length = result # faccio unpack della tupla
+    context, lacuna_length, maskWithChars = result # faccio unpack della tupla
+
+    print(f"Context after conversion: {context}, lacuna_length: {lacuna_length}, maskWithChars: {maskWithChars}")
 
     inputs = tokenizer(context, return_tensors="pt").to(model.device)
     mask_positions = (inputs["input_ids"] == tokenizer.mask_token_id).nonzero(
@@ -76,12 +87,20 @@ def fill_mask(model, tokenizer, context, k, alpha=3):
             token_raw = tokenizer.convert_ids_to_tokens([int(token_id)])[0]
             token_str = tokenizer.convert_tokens_to_string([token_raw]).strip()
 
+            print(f"Token string after conversion: {token_str}")
+
             # fallback se inizia con ##
             if token_str == "" or token_str.startswith("##"):
                 token_str = token_raw.replace("##", "").strip()
 
             # filtro per lunghezza
             if len(token_str) != lacuna_length:
+                continue
+            
+            regex_pattern = string_to_regex(maskWithChars)
+            print(f"Regex pattern: {regex_pattern} {bool(re.match(regex_pattern, token_str))}")
+
+            if not bool(re.match(regex_pattern, token_str)):
                 continue
 
             filled_text = normalize_greek(context.replace(mask_token, token_str, 1))
