@@ -7,6 +7,7 @@ services:
     ports:
         - "8000:8000"
     volumes:
+        - ./data:/app/data
         - .:/app 
     environment:
       - MONGO_USERNAME=${MONGO_USERNAME}
@@ -31,5 +32,6 @@ services:
     environment:
       - MONGODB_INITDB_ROOT_USERNAME=${MONGO_USERNAME}
       - MONGODB_INITDB_ROOT_PASSWORD=${MONGO_PASSWORD}
+
 volumes:
   mongodb_data:
