@@ -1,18 +1,15 @@
-import gc
 from typing import Optional
 
 from nltk.lm.models import MLE, Lidstone, LanguageModel
 from nltk.lm.preprocessing import padded_everygram_pipeline
 from train import (
     get_sentences,
-    load_test_abs,
     load_abs,
     save_lm,
     load_specific_domain_abs,
 )
 
 from config.settings import (
-    TEST_SIZE,
     LM_TYPE,
     N,
     GAMMA,

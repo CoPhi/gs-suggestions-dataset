@@ -1,6 +1,4 @@
 import argparse
-from math import exp
-
 from nltk.lm.models import LanguageModel
 
 from predictions.ngrams import (
