@@ -8,9 +8,18 @@ RUN apt-get update && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-COPY . . 
+COPY train/ ./train/
+COPY inference/ ./inference/
+COPY predictions/ ./predictions/
+COPY config/ ./config/
+COPY data/ ./data/
+COPY utils/ ./utils/
+COPY api/ ./api/
+COPY metrics/ ./metrics/
+COPY requirements.txt ./
 
 #Si installano le dipendenze
-RUN pip install -r requirements.txt
+RUN pip install -U pip && \
+    pip install --no-cache-dir -r requirements.txt
 
 CMD ["uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "8000"]
