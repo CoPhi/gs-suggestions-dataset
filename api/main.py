@@ -2,6 +2,8 @@ import tomllib
 from pathlib import Path
 from fastapi import FastAPI
 from api.route import router
+from api.routes import predictions, models
+
 from fastapi.middleware.cors import CORSMiddleware
 
 
@@ -30,4 +32,5 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(router, include_in_schema=True)
+app.include_router(models.router, include_in_schema=True)
+app.include_router(predictions.router, include_in_schema=True)
