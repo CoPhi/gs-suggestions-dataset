@@ -16,6 +16,12 @@ run-api:
 requirements:
 	poetry export -f requirements.txt -o requirements.txt --without-hashes
 
+requirements-api:
+	pipreqs . --force --ignore tests,migrations,docs
+	mv requirements.txt requirements.txt.tmp
+	grep -v "pkg-resources" requirements.txt.tmp > requirements.txt
+	rm requirements.txt.tmp
+
 build-api: 
 	docker buildx build \
 		--platform linux/amd64,linux/arm64 \
