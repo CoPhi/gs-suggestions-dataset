@@ -9,7 +9,6 @@ from transformers import AutoModelForMaskedLM, AutoTokenizer
 from api.database import collection, fs
 from api.exceptions import ModelAlreadyExistsError, ModelNotFoundError
 from api.models import BERTModel, NgramModel, Model
-from api.schema import serial_model
 from config.settings import BERT_CHECKPOINTS, GAMMA, LM_TYPES, N
 from train.training import pipeline_train
 
@@ -23,7 +22,7 @@ class ModelService:
 
     def get_model(self, model_id: str) -> dict:
         """Restituisce un singolo modello serializzato oppure solleva ModelNotFoundError."""
-        model = serial_model(model_id)
+        model = self._serial_model(model_id)
         if model is None:
             raise ModelNotFoundError(f"Model '{model_id}' not found")
         return model
@@ -33,7 +32,7 @@ class ModelService:
         models = list(self._collection.find())
         if not models:
             raise ModelNotFoundError("No models found")
-        return [serial_model(str(m["_id"])) for m in models]
+        return [self._serial_model(str(m["_id"])) for m in models]
 
     def create_model(self, model: Model) -> str:
         """Crea un modello Ngram o BERT, lo memorizza nel db e restituisce il suo ID."""
@@ -54,7 +53,7 @@ class ModelService:
 
     def delete_model(self, model_id: str) -> dict:
         """Elimina un modello e i file GridFS associati; restituisce il modello eliminato."""
-        model = serial_model(model_id)
+        model = self._serial_model(model_id)
         if not model:
             raise ModelNotFoundError(f"Model '{model_id}' not found")
 
@@ -63,6 +62,17 @@ class ModelService:
         return model
 
     # Private helpers
+
+    def _serial_model(self, id: str) -> dict:
+        """
+        Serializza un documento del database in un dizionario Python, convertendo l'ObjectId in stringa, e lo cerca nel db.
+        """
+        document = self._collection.find_one({"_id": ObjectId(id)})
+        if not document:
+            return {}
+
+        document["_id"] = str(document["_id"])
+        return document
 
     def _save_to_gridfs(self, data: Any, file_id: str | None = None) -> str:
         """Serializza, comprime e salva un oggetto su GridFS; restituisce il filename."""
@@ -121,8 +131,12 @@ class ModelService:
 
     def _delete_gridfs_files(self, model: dict) -> None:
         """Rimuove da GridFS tutti i file associati al modello."""
-        file_keys = ["MODEL_FILE_ID", "TOKENIZER_FILE_ID",
-                     "GLOBAL_MODEL_FILE_ID", "DOMAIN_MODEL_FILE_ID"]
+        file_keys = [
+            "MODEL_FILE_ID",
+            "TOKENIZER_FILE_ID",
+            "GLOBAL_MODEL_FILE_ID",
+            "DOMAIN_MODEL_FILE_ID",
+        ]
         for key in file_keys:
             if key in model:
                 doc = self._fs.find_one({"filename": model[key]})
