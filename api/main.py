@@ -1,7 +1,6 @@
 import tomllib
 from pathlib import Path
 from fastapi import FastAPI
-from api.route import router
 from api.routes import predictions, models
 
 from fastapi.middleware.cors import CORSMiddleware

@@ -1,6 +1,6 @@
 from typing import List, Union, Literal
 from pydantic import BaseModel, Field
-from enum import IntEnum
+from enum import Enum, IntEnum
 
 # Model
 class NgramModel(BaseModel):
@@ -38,3 +38,7 @@ class Prediction(BaseModel):
 
 class PredictionsResponse(BaseModel):
     predictions: List[Prediction]
+    
+class ModelType(str, Enum):
+    NGRAMS = "Ngrams"
+    BERT = "BERT"
