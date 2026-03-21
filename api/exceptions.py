@@ -1,5 +1,11 @@
-class ModelNotFoundError(Exception):
-    """Raised when a model or its associated files cannot be located."""
+class GreekSchoolsError(Exception):
+    """Eccezione base del progetto."""
 
-class InvalidContextError(Exception):
-    """Raised when the input context does not contain a lacuna marker."""
+class ModelNotFoundError(GreekSchoolsError):
+    """Modello o file associato non trovato."""
+
+class InvalidContextError(GreekSchoolsError):
+    """Il contesto fornito non contiene un marcatore di lacuna."""
+
+class ModelAlreadyExistsError(GreekSchoolsError):
+    """Sollevata quando si tenta di creare un modello già presente in MongoDB."""
