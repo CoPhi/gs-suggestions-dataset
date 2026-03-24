@@ -21,7 +21,7 @@ class SuggestionsService:
         self._collection = db_collection
         self._fs = gridfs
 
-    def get_predictions(
+    async def get_predictions(
         self,
         model_id: str,
         context: str,
@@ -29,7 +29,7 @@ class SuggestionsService:
         num_predictions: Any,
     ) -> list[dict]:
         """Return a ranked list of predictions for the given lacuna context."""
-        model = self._fetch_model(model_id)
+        model = await self._fetch_model(model_id)
         self._validate_context(context)
 
         model_type = model.get("TYPE")
@@ -42,10 +42,10 @@ class SuggestionsService:
         raise ModelNotFoundError(f"Unsupported model type: {model_type!r}")
 
     # Private helper methods
-    def _fetch_model(self, model_id: str) -> dict:
+    async def _fetch_model(self, model_id: str) -> dict:
         """Retrieve and return the model document from MongoDB."""
         try:
-            model = self._collection.find_one({"_id": ObjectId(model_id)})
+            model = await self._collection.find_one({"_id": ObjectId(model_id)})
         except Exception as exc:
             raise ModelNotFoundError(f"Invalid model ID: {model_id!r}") from exc
 
@@ -61,15 +61,15 @@ class SuggestionsService:
                 "Context must contain a gap indicated by `[...]`"
             )
 
-    def _load_compressed_file(self, filename: str) -> Any:
+    async def _load_compressed_file(self, filename: str) -> Any:
         """Fetch a GridFS file, decompress it, and deserialise with pickle."""
-        document = self._fs.find_one({"filename": filename})
+        document = await self._fs.find_one({"filename": filename})
         if document is None:
             raise ModelNotFoundError(f"Model file '{filename}' not found in GridFS")
-        raw = self._fs.get(document._id).read()
+        raw = await self._fs.get(document._id).read()
         return pickle.loads(zlib.decompress(raw))
 
-    def _predict_ngrams(
+    async def _predict_ngrams(
         self,
         model: dict,
         context: str,
@@ -77,8 +77,8 @@ class SuggestionsService:
         num_predictions: Any,
     ) -> list[dict]:
         """Generate predictions using the N-gram language model."""
-        global_model = self._load_compressed_file(model["GLOBAL_MODEL_FILE_ID"])
-        domain_model = self._load_compressed_file(model["DOMAIN_MODEL_FILE_ID"])
+        global_model = await self._load_compressed_file(model["GLOBAL_MODEL_FILE_ID"])
+        domain_model = await self._load_compressed_file(model["DOMAIN_MODEL_FILE_ID"])
 
         suggestions = generate_k_suggests(
             g_lm=global_model,
@@ -99,15 +99,15 @@ class SuggestionsService:
             for suggestion in suggestions
         ]
 
-    def _predict_bert(
+    async def _predict_bert(
         self,
         model: dict,
         context: str,
         num_predictions: Any,
     ) -> list[dict]:
         """Generate predictions using a fine-tuned BERT model."""
-        bert_model = self._load_compressed_file(model["MODEL_FILE_ID"])
-        tokenizer = self._load_compressed_file(model["TOKENIZER_FILE_ID"])
+        bert_model = await self._load_compressed_file(model["MODEL_FILE_ID"])
+        tokenizer = await self._load_compressed_file(model["TOKENIZER_FILE_ID"])
 
         return [
             {

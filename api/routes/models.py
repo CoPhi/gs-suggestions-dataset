@@ -53,7 +53,7 @@ async def get_model(
     service: ModelService = Depends(get_service),
 ):
     try:
-        return JSONResponse(status_code=200, content={"model": service.get_model(id)})
+        return JSONResponse(status_code=200, content={"model": await service.get_model(id)})
     except ModelNotFoundError as e:
         return JSONResponse(status_code=404, content={"detail": str(e)})
     except Exception as e:
@@ -72,7 +72,7 @@ async def get_model(
 async def get_models(service: ModelService = Depends(get_service)):
     try:
         return JSONResponse(
-            status_code=200, content={"models": service.get_all_models()}
+            status_code=200, content={"models": await service.get_all_models()}
         )
     except ModelNotFoundError as e:
         return JSONResponse(status_code=404, content={"detail": str(e)})
@@ -127,7 +127,7 @@ async def create_model(
     service: ModelService = Depends(get_service),
 ):
     try:
-        model_id = service.create_model(model)
+        model_id = await service.create_model(model)
         return JSONResponse(status_code=201, content={"ID": model_id})
     except ModelAlreadyExistsError as e:
         return JSONResponse(status_code=409, content={"detail": str(e)})
@@ -152,7 +152,7 @@ async def create_model(
 )
 async def create_models(service: ModelService = Depends(get_service)):
     try:
-        ids = service.init_models()
+        ids = await service.init_models()
         return JSONResponse(status_code=201, content={"IDs": ids})
     except ModelAlreadyExistsError as e:
         return JSONResponse(status_code=409, content={"detail": str(e)})
@@ -174,7 +174,7 @@ async def delete_model(
     service: ModelService = Depends(get_service),
 ):
     try:
-        deleted = service.delete_model(id)
+        deleted = await service.delete_model(id)
         return JSONResponse(status_code=200, content={"model": deleted})
     except ModelNotFoundError as e:
         return JSONResponse(status_code=404, content={"detail": str(e)})
