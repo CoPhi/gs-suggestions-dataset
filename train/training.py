@@ -123,13 +123,3 @@ def pipeline_train(
     )
 
     return g_lm, d_lm, dev_domain_abs
-
-
-if __name__ == "__main__":
-    g_lm, d_lm, dev_abs = pipeline_train()
-    save_lm(
-        lm=g_lm, dev_abs=dev_abs, checkpoint="General_model"
-    )  # Salvataggio modello generale
-    save_lm(
-        lm=d_lm, dev_abs=list(), checkpoint="Domain_model"
-    )  # Salvataggio modello specifico di dominio
