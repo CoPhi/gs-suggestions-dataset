@@ -1,18 +1,18 @@
 [tool.poetry]
 name = "gs-suggestions-dataset"
-version = "0.3.0"
+version = "1.0.0"
 description = ""
 package-mode = false
 authors = ["Gabriele <gabrielegiannessi@gmail.com>"]
 readme = "README.md"
 
 [tool.poetry.dependencies]
-python =  ">=3.11,<3.12"
+python =  ">=3.11,<3.13"
 maat = {git = "https://github.com/WMU-Herculaneum-Project/maat"}
 nltk = "^3.9.1"
 fastapi = "^0.115.11"
 uvicorn = "^0.34.0"
-cltk = "^1.4.0"
+cltk = "^1.5.0"
 pandas = "^2.2.3"
 matplotlib = "^3.10.1"
 datasets = "^3.4.1"
