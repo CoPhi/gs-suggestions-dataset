@@ -8,6 +8,7 @@ __pycac
 poetry.lock
 .cache/
 **/__pycache__/
+.python-version
 
 # Configurazioni locali
 *.env

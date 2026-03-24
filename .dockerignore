@@ -20,6 +20,7 @@ Dockerfile
 *.log
 *.tmp
 *.swp
+.python-version
 
 # File di dati
 *.csv
