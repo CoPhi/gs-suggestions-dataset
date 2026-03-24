@@ -63,7 +63,7 @@ async def get_predictions(
     service: SuggestionsService = Depends(get_service),
 ):
     try:
-        predictions = service.get_predictions(
+        predictions = await service.get_predictions(
             model_id=model_id,
             context=context,
             num_tokens=num_tokens,

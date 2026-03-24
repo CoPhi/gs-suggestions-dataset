@@ -4,7 +4,6 @@ from typing import Any
 from uuid import uuid4
 
 from bson import ObjectId
-from rich.prompt import result
 from transformers import AutoModelForMaskedLM, AutoTokenizer
 
 from api.database import collection, fs
@@ -126,11 +125,8 @@ class ModelService:
     async def _create_bert_model_from_checkpoint(self, checkpoint: str) -> str:
         model_dict = {"CHECKPOINT": checkpoint, "TYPE": "BERT"}
         await self._check_duplicate(model_dict)
-        bert_model = AutoModelForMaskedLM.from_pretrained(checkpoint)
-        bert_tokenizer = AutoTokenizer.from_pretrained(checkpoint)
-        model_dict["MODEL_FILE_ID"] = await self._save_to_gridfs(bert_model)
-        model_dict["TOKENIZER_FILE_ID"] = await self._save_to_gridfs(bert_tokenizer)
-        return str(await self._collection.insert_one(model_dict).inserted_id)
+        result = await self._collection.insert_one(model_dict)
+        return str(result.inserted_id)
 
     async def _delete_gridfs_files(self, model: dict) -> None:
         """Rimuove da GridFS tutti i file associati al modello."""
