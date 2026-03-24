@@ -4,7 +4,6 @@ from typing import Any
 from uuid import uuid4
 
 from bson import ObjectId
-from transformers import AutoModelForMaskedLM, AutoTokenizer
 
 from api.database import collection, fs
 from api.exceptions import ModelAlreadyExistsError, ModelNotFoundError
@@ -28,10 +27,8 @@ class ModelService:
         return model
 
     async def get_all_models(self) -> list[dict]:
-        """Restituisce tutti i modelli disponibili oppure solleva ModelNotFoundError."""
+        """Restituisce tutti i modelli disponibili"""
         models = [model async for model in self._collection.find()]
-        if not models:
-            raise ModelNotFoundError("No models found")
         return [await self._serial_model(str(m["_id"])) for m in models]
 
     async def create_model(self, model: Model) -> str:
@@ -57,7 +54,9 @@ class ModelService:
         if not model:
             raise ModelNotFoundError(f"Model '{model_id}' not found")
 
-        await self._delete_gridfs_files(model)
+        if model["TYPE"] == "Ngrams":
+            await self._delete_gridfs_files(model)
+
         await self._collection.delete_one({"_id": ObjectId(model_id)})
         return model
 
@@ -115,7 +114,7 @@ class ModelService:
         model_dict.setdefault("TYPE", "Ngrams")
         result = await self._collection.insert_one(model_dict)
         return str(result.inserted_id)
-    
+
     async def _create_bert_model(self, model: BERTModel) -> str:
         model_dict = model.model_dump()
         await self._check_duplicate(model_dict)
@@ -131,8 +130,6 @@ class ModelService:
     async def _delete_gridfs_files(self, model: dict) -> None:
         """Rimuove da GridFS tutti i file associati al modello."""
         file_keys = [
-            "MODEL_FILE_ID",
-            "TOKENIZER_FILE_ID",
             "GLOBAL_MODEL_FILE_ID",
             "DOMAIN_MODEL_FILE_ID",
         ]

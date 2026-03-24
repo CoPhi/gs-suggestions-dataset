@@ -1,11 +1,17 @@
+import asyncio
 import pickle
 import re
 import zlib
 from typing import Any
+from concurrent.futures import ThreadPoolExecutor
 
 from bson import ObjectId
 from gridfs.errors import NoFile
-from transformers import AutoModelForMaskedLM, AutoTokenizer  
+
+from huggingface_hub import HfApi
+from huggingface_hub.utils import RepositoryNotFoundError
+
+from transformers import AutoModelForMaskedLM, AutoTokenizer
 
 from api.database import collection, fs
 from api.exceptions import InvalidContextError, ModelNotFoundError
@@ -17,12 +23,24 @@ from utils.preprocess import test_case_contains_lacuna
 LACUNA_PATTERN = r"\S*\[.*?\]\S*"
 
 
+def _load_bert_checkpoint(checkpoint: str) -> tuple:
+    """Funzione pickle-able per caricare un modello BERT e il suo tokenizer, da eseguire in un thread separato."""
+    try:
+        model = AutoModelForMaskedLM.from_pretrained(checkpoint)
+        tokenizer = AutoTokenizer.from_pretrained(checkpoint)
+        return model, tokenizer
+    except OSError as e:
+        raise ModelNotFoundError(
+            f"Impossibile caricare il checkpoint '{checkpoint}': {e}"
+        )
+
+
 class SuggestionsService:
     """Service layer for generating textual suggestions via N-gram or BERT models."""
 
     def __init__(self, db_collection=collection, gridfs=fs) -> None:
         self._collection = db_collection
-        self._fs = gridfs  
+        self._fs = gridfs
 
     async def get_predictions(
         self,
@@ -36,9 +54,16 @@ class SuggestionsService:
         model_type = model.get("TYPE")
 
         if model_type == ModelType.NGRAMS:
-            return await self._predict_ngrams(model, context, num_tokens, num_predictions)
-        if model_type == ModelType.BERT:
-            return await self._predict_bert(model, context, num_predictions)
+            return await self._predict_ngrams(
+                model, context, num_tokens, num_predictions
+            )
+        try:
+            if model_type == ModelType.BERT:
+                return await self._predict_bert(model, context, num_predictions)
+        except RepositoryNotFoundError:
+            raise ModelNotFoundError(
+                f"Checkpoint '{model['CHECKPOINT']}' not found on HuggingFace Hub"
+            )
 
         raise ModelNotFoundError(f"Unsupported model type: {model_type!r}")
 
@@ -94,11 +119,27 @@ class SuggestionsService:
         self, model: dict, context: str, num_predictions: Any
     ) -> list[dict]:
         """Genera predizioni usando un modello BERT pre-addestrato specificato dal checkpoint."""
-        checkpoint = model["CHECKPOINT"] 
-        bert_model = AutoModelForMaskedLM.from_pretrained(checkpoint)
-        tokenizer = AutoTokenizer.from_pretrained(checkpoint)
+        checkpoint = model["CHECKPOINT"]
 
+        await self._validate_hf_checkpoint(checkpoint)
+
+        loop = asyncio.get_running_loop()
+        with ThreadPoolExecutor() as executor:
+            bert_model, tokenizer = await loop.run_in_executor(
+                executor, _load_bert_checkpoint, checkpoint
+            )
         return [
             {"sentence": p[0], "token_str": p[1], "score": p[2]}
             for p in fill_mask(bert_model, tokenizer, context, num_predictions)
         ]
+
+    async def _validate_hf_checkpoint(self, checkpoint: str) -> None:
+        """Verifica che il checkpoint esista su HuggingFace Hub e sia un modello fill-mask."""
+        loop = asyncio.get_running_loop()
+        with ThreadPoolExecutor() as executor:
+            info = await loop.run_in_executor(executor, HfApi().model_info, checkpoint)
+        pipeline_tag = getattr(info, "pipeline_tag", None)
+        if pipeline_tag and pipeline_tag != "fill-mask":
+            raise ValueError(
+                f"Checkpoint '{checkpoint}' ha task '{pipeline_tag}', atteso 'fill-mask'"
+            )
