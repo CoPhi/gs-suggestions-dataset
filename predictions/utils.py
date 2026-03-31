@@ -87,3 +87,10 @@ def convert_lacuna_to_masks(text: str, mask_token: str) -> Optional[Tuple[str, i
         end - start - 2,
         clean_text[start+1:end-1]
     )
+
+if __name__ == "__main__":
+    # Esempio di utilizzo
+    text = "Ἀριστοτέλης ἐστὶν ὁ [..]ξαν ἀληθῆ φαίνε."
+    mask_token = "[MASK]"
+    result = convert_lacuna_to_masks(text, mask_token)
+    print(result)
