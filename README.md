@@ -3,7 +3,7 @@
 This project aim to provide an automatic suggestion system for supplements for fill the gaps in the Herculaneum Papyri and support the process of creating new critical editions.  
 `NLTK` and `CLTK` are used for the ngrams models implementations.  
 
-`Poetry` 2.1.3 is used for managing the projects dependencies. Here there is the [documentation](https://python-poetry.org/docs/). 
+`Poetry` 2.3 is used for managing the projects dependencies. Here there is the [documentation](https://python-poetry.org/docs/). 
 
 ## Dataset
 
