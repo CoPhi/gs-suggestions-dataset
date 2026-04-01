@@ -1,4 +1,4 @@
-FROM python:3.11.11-slim
+FROM python:3.12-slim
 
 WORKDIR /app
 
@@ -13,6 +13,9 @@ COPY requirements.txt ./
 # Installing dependencies
 RUN pip install -U pip && \
     pip install --no-cache-dir -r requirements.txt
+
+# Per leggere la versione del progetto da API
+COPY pyproject.toml ./ 
 
 COPY backend/ ./backend/
 COPY models/ ./models/
