@@ -14,15 +14,11 @@ COPY requirements.txt ./
 RUN pip install -U pip && \
     pip install --no-cache-dir -r requirements.txt
 
-COPY train/ ./train/
-COPY inference/ ./inference/
-COPY predictions/ ./predictions/
-COPY config/ ./config/
-COPY utils/ ./utils/
-COPY api/ ./api/
-COPY metrics/ ./metrics/
+COPY backend/ ./backend/
+COPY models/ ./models/
+COPY packages/ ./packages/
 
 # docker run -v ./data:/app/data gabrielegiannessi/gs-api:latest
 VOLUME ["/app/data"]
 
-CMD ["uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "backend.api.main:app", "--host", "0.0.0.0", "--port", "8000"]
