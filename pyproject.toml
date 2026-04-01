@@ -5,10 +5,14 @@ description = ""
 package-mode = false
 authors = ["Gabriele <gabrielegiannessi@gmail.com>"]
 readme = "README.md"
+packages = [
+    { include = "backend" },
+    { include = "models" }
+]
 
 [tool.poetry.dependencies]
 python =  ">=3.11,<3.13"
-maat = { path = "maat", develop = true}
+maat = { path = "packages/maat", develop = true}
 nltk = "^3.9.1"
 fastapi = "^0.115.11"
 uvicorn = "^0.34.0"
@@ -27,3 +31,14 @@ python-dotenv = "^1.1.0"
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
+
+[dependency-groups]
+dev = [
+    "pytest (>=9.0.2,<10.0.0)"
+]
+
+[tool.pytest.ini_options]
+pythonpath = [
+  "."
+]
+
