@@ -102,12 +102,12 @@ def clean_lacunae(token: str) -> str:
                         and all(char.isalpha() or char.isspace() for char in tkn[:-1])
                         and "NONE" not in tkn.upper()
                     ):
-                        clean_seq = clean_seq + [tkn]
+                        clean_seq.append(tkn)
                     else:
                         next_seq = clean_lacunae(" ".join(seq[i:])).replace(
                             " <UNK> ", GAP_TOKEN
                         )
-                        clean_seq = clean_seq + next_seq.split()
+                        clean_seq.extend(next_seq.split())
         return " ".join(clean_seq).strip()
 
     return UNK_TOKEN  # Caso in cui contiene punti o None (lacune di lunghezza approssimata o definita)
@@ -539,157 +539,119 @@ def clean_text_from_gaps(text: str, case_folding: bool = True) -> str:
     return normalize_greek(result_text, case_folding)
 
 
+def process_integrations(text: str) -> str:
+    """
+    Rimuove le integrazioni `||` presenti nel testo.
+    Args:
+    text (str): Il testo da processare.
+    Returns:
+    str: Il testo processato senza le doppie stanghe `||` e con le parole unite.
+    """
+    return text.replace("||", " ").replace("‖", " ")
+
+def process_dactyl_patterns(text: str) -> str:
+    """
+    Rimuove i pattern che identificano i dattili o sequenze di dattili in versi incompleti presenti nei testi poetici.
+    Args:
+    text (str): Il testo da processare.
+    Returns:
+    str: Il testo senza i modelli di dactilo.
+    """
+    return COMBINED_DACTYL_PATTERNS.sub("<gap/>", text)
+
+def process_leiden_lb(text: str) -> str:
+    """
+    Rimuove i *line breaks* di leiden `|` presenti nel testo.
+    Args:
+    text (str): Il testo da processare.
+    Returns:
+    str: Il testo senza *line breaks* `|`.
+    """
+    return text.replace("|", " ")
+
+def process_unclear_signs(text: str) -> str:
+    """
+    Rimuove i segni che rappresentano incertezze ('+' e '*') dal testo.
+    Args:
+        text (str): Il testo da processare.
+    Returns:
+        str: Il testo senza i segni '+' e '*'.
+    """
+    return text.replace("+", "").replace("*", "")
+
+def process_vacat_text(text: str) -> str:
+    """
+    Rimuove i tag `vac.` e `vacat` dal testo, che rappresentano secondo le convenzioni di Leiden
+    del testo mancante non inciso sulla pietra o non presente sul papiro.
+    """
+    return VACAT_REGEX.sub("", text)
+
+def process_brackets(text: str) -> str:
+    """
+    Rimuove le parentesi quadre mantenendo il contenuto interno.
+    Prima della rimozione viene applicata una sostituzione nel testo per rimuovere i gap di lunghezza sconosciuta che
+    rappresentano frasi.
+    """
+    return remove_brackets(
+        re.sub(
+            r"\.\s*<gap/>\s*\.", ".", text
+        )  # Rimuove gap di lunghezza sconosciuta che rappresentano frasi
+    )
+
+def process_missing_lines(text: str) -> str:
+    """
+    Rimuove linee mancanti dal testo.
+    """
+    return MISSING_LINES_REGEX.sub("", text)
+
+def process_parentheses(text: str) -> str:
+    """
+    Estensione delle abbreviazioni (a(bc)) -> (abc).
+    """
+    return text.replace("(", "").replace(")", "")
+
+def process_markers(text: str) -> str:
+    """
+    Processa aggiunte di testo <abc> -> abc.
+    """
+    text = MARKER_REGEX.sub(r"\1", text)
+    text = UNKNOWN_LEFT_MARKER_REGEX.sub(r"<gap/>\1", text)
+    text = EXTENDED_LINE_RIGHT_MARKER_REGEX.sub("", text)
+    return text.replace("&gt;", "").replace("&lt;", "")
+
+def process_expunctions(text: str) -> str:
+    """
+    Rimuove espunzioni {abc} -> "".
+    """
+    return EXPUNCTION_REGEX.sub("", text)
+
+def process_parallel_text(text: str) -> str:
+    """
+    Rimuove testo fornito in parallelo
+    """
+    text = OBELISK_REGEX.sub("", text)  # processazione parole morte
+    return text.replace("†", "").replace("_", "")
+
+def process_double_obelisks(text: str) -> str:
+    return NOTES_REGEX.sub("", text)
+
+def process_doubts(text: str) -> str:
+    """
+    Rimuove i punti interrogativi da una stringa di testo.
+    Args:
+        text (str): La stringa di input da elaborare.
+    Returns:
+        str: La stringa risultante con i punti interrogativi rimossi.
+    """
+    return text.replace("?", "")
+
+def process_dash_if_needed(text: str) -> str:
+    return filter_dash(text) if "-" in text else text
+
 def process_editorial_marks(text: str) -> str:
     """
     Processa le annotazioni editoriali presenti nel testo.
     """
-
-    def process_integrations(text: str) -> str:
-        """
-        Rimuove le integrazioni `||` presenti nel testo.
-
-        Args:
-        text (str): Il testo da processare.
-
-        Returns:
-        str: Il testo processato senza le doppie stanghe `||` e con le parole unite.
-        """
-        text = text.replace("||", " ") if "||" in text else text
-        text = text.replace("‖", " ") if "‖" in text else text
-        return text
-
-    def process_dactyl_patterns(text: str) -> str:
-        """
-        Rimuove i pattern che identificano i dattili o sequenze di dattili in versi incompleti presenti nei testi poetici.
-
-        Args:
-        text (str): Il testo da processare.
-
-        Returns:
-        str: Il testo senza i modelli di dactilo.
-        """
-        return (
-            COMBINED_DACTYL_PATTERNS.sub("<gap/>", text)
-            if COMBINED_DACTYL_PATTERNS.search(text)
-            else text
-        )
-
-    def process_leiden_lb(text: str) -> str:
-        """
-        Rimuove i *line breaks* di leiden `|` presenti nel testo.
-
-        Args:
-        text (str): Il testo da processare.
-
-        Returns:
-        str: Il testo senza *line breaks* `|`.
-        """
-        return text.replace("|", " ") if "|" in text else text
-
-    def process_unclear_signs(text: str) -> str:
-        """
-        Rimuove i segni che rappresentano incertezze ('+' e '*') dal testo.
-
-        Args:
-            text (str): Il testo da processare.
-
-        Returns:
-            str: Il testo senza i segni '+' e '*'.
-        """
-        text = text.replace("+", "") if "+" in text else text
-        text = text.replace("*", "") if "*" in text else text
-        return text
-
-    def process_vacat_text(text: str) -> str:
-        """
-        Rimuove i tag `vac.` e `vacat` dal testo, che rappresentano secondo le convenzioni di Leiden
-        del testo mancante non inciso sulla pietra o non presente sul papiro.
-        """
-        return VACAT_REGEX.sub("", text) if VACAT_REGEX.search(text) else text
-
-    def process_brackets(text: str) -> str:
-        """
-        Rimuove le parentesi quadre mantenendo il contenuto interno.
-        Prima della rimozione viene applicata una sostituzione nel testo per rimuovere i gap di lunghezza sconosciuta che
-        rappresentano frasi.
-        """
-        return remove_brackets(
-            re.sub(
-                r"\.\s*<gap/>\s*\.", ".", text
-            )  # Rimuove gap di lunghezza sconosciuta che rappresentano frasi
-        )
-
-    def process_missing_lines(text: str) -> str:
-        """
-        Rimuove linee mancanti dal testo.
-        """
-        return (
-            MISSING_LINES_REGEX.sub("", text)
-            if MISSING_LINES_REGEX.search(text)
-            else text
-        )
-
-    def process_parentheses(text: str) -> str:
-        """
-        Estensione delle abbreviazioni (a(bc)) -> (abc).
-        """
-        return text.replace("(", "").replace(")", "")
-
-    def process_markers(text: str) -> str:
-        """
-        Processa aggiunte di testo <abc> -> abc.
-        """
-        if MARKER_REGEX.search(text):
-            text = MARKER_REGEX.sub(r"\1", text)
-
-        if UNKNOWN_LEFT_MARKER_REGEX.search(text):
-            text = UNKNOWN_LEFT_MARKER_REGEX.sub(r"<gap/>\1", text)
-
-        if EXTENDED_LINE_RIGHT_MARKER_REGEX.search(text):
-            text = EXTENDED_LINE_RIGHT_MARKER_REGEX.sub("", text)
-
-        if "&gt;" in text:
-            text = text.replace("&gt;", "")
-
-        if "&lt;" in text:
-            text = text.replace("&lt;", "")
-
-        return text
-
-    def process_expunctions(text: str) -> str:
-        """
-        Rimuove espunzioni {abc} -> "".
-        """
-        return EXPUNCTION_REGEX.sub("", text) if EXPUNCTION_REGEX.search(text) else text
-
-    def process_parallel_text(text: str) -> str:
-        """
-        Rimuove testo fornito in parallelo
-        """
-        text = (
-            OBELISK_REGEX.sub("", text) if OBELISK_REGEX.search(text) else text
-        )  # processazione parole morte
-        text = text.replace("†", "") if "†" in text else text
-        text = text.replace("_", "") if "_" in text else text
-        return text
-
-    def process_double_obelisks(text: str) -> str:
-        return NOTES_REGEX.sub("", text) if NOTES_REGEX.search(text) else text
-
-    def process_doubts(text: str) -> str:
-        """
-        Rimuove i punti interrogativi da una stringa di testo.
-
-        Args:
-            text (str): La stringa di input da elaborare.
-
-        Returns:
-            str: La stringa risultante con i punti interrogativi rimossi.
-        """
-        return text.replace("?", "")
-
-    def process_dash_if_needed(text: str) -> str:
-        return filter_dash(text) if "-" in text else text
 
     # Applica le varie trasformazioni
     trasformations = [
