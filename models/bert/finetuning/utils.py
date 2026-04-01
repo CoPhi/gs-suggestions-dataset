@@ -5,7 +5,7 @@ from datasets import (
     load_dataset,
     Dataset,
 )
-from finetuning import (
+from models.bert.finetuning import (
     CHUNK_SIZE,
     BERT_UNK_TOKEN,
     MAX_UNK_TOKEN_TRESHOLD,

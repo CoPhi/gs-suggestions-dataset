@@ -9,13 +9,13 @@ Le gold label sono usate per confrontare l'accuracy del modello BERT sul test_se
 """
 
 from datasets import DatasetDict, Dataset
-from finetuning import (
+from models.bert.finetuning import (
     load_and_split_sentences,
     get_processed_sentences,
 )
-from finetuning.utils import get_filtered_processed_sentences
+from models.bert.finetuning.utils import get_filtered_processed_sentences
 from models.ngrams.train import load_test_abs, get_sentences
-from finetuning import (
+from models.bert.finetuning import (
     TRAIN_DATASET_CHECKPOINT,
     TEST_DATASET_CHECKPOINT,
     get_cast_unk_tokens_text,
