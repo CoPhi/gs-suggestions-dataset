@@ -1,7 +1,7 @@
 from sklearn.model_selection import KFold
-from train import load_abs, load_lm
+from models.ngrams.train import load_abs, load_lm
 import json
-from config.settings import (
+from backend.config.settings import (
     K_PREDICTIONS,
     ALPHA,
     DELTA,
@@ -13,9 +13,9 @@ from config.settings import (
     TEST_SIZE,
 )
 
-from metrics.accuracy import get_topK_accuracy
-from train.cleaner import load_specific_domain_abs, load_test_abs
-from train.training import train_lm
+from models.ngrams.metrics.accuracy import get_topK_accuracy
+from models.ngrams.train.cleaner import load_specific_domain_abs, load_test_abs
+from models.ngrams.train.training import train_lm
 
 if __name__ == "__main__":
 

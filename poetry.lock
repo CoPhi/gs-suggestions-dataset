@@ -1825,17 +1825,15 @@ optional = false
 python-versions = "^3.11"
 groups = ["main"]
 files = []
-develop = false
+develop = true
 
 [package.dependencies]
 lingua-language-detector = "^2.0.2"
 lxml = "^5.2.2"
 
 [package.source]
-type = "git"
-url = "https://github.com/WMU-Herculaneum-Project/maat"
-reference = "HEAD"
-resolved_reference = "83508a033ba6bb17f263a1ce9b97bda4e3615a7f"
+type = "directory"
+url = "maat"
 
 [[package]]
 name = "markdown-it-py"
@@ -5212,4 +5210,4 @@ propcache = ">=0.2.1"
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.11,<3.13"
-content-hash = "edb476ab955db6b05f28e8cc0bb25b6cf323a6167f1af9016b93fcd0bad2b1d8"
+content-hash = "71d886de4183f569f9504058531cbfbf928cb1e60682f5e2299a029dfc27f1b7"

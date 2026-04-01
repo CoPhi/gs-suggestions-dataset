@@ -1,7 +1,7 @@
 import os
 import json
 from pathlib import Path
-from config.settings import CORPUS_PATHS, LIM, INDENT
+from backend.config.settings import CORPUS_PATHS, LIM, INDENT
 
 def write_output_to_multiple_files(output, max_size_mb=LIM):
     """

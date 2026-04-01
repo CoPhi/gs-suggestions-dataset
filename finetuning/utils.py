@@ -1,6 +1,6 @@
-from utils.preprocess import clean_supplements, clean_text_from_gaps
+from backend.core.preprocess import clean_supplements, clean_text_from_gaps
 from tqdm import tqdm
-from train import load_abs, split_abs, get_sentences, get_tokens_from_clean_text
+from models.ngrams.train import load_abs, split_abs, get_sentences, get_tokens_from_clean_text
 from datasets import (
     load_dataset,
     Dataset,

@@ -14,7 +14,7 @@ from finetuning import (
     get_processed_sentences,
 )
 from finetuning.utils import get_filtered_processed_sentences
-from train import load_test_abs, get_sentences
+from models.ngrams.train import load_test_abs, get_sentences
 from finetuning import (
     TRAIN_DATASET_CHECKPOINT,
     TEST_DATASET_CHECKPOINT,
@@ -23,7 +23,7 @@ from finetuning import (
 )
 from nltk.lm.preprocessing import flatten
 
-from train.cleaner import load_abs, load_specific_domain_abs, split_abs
+from models.ngrams.train.cleaner import load_abs, load_specific_domain_abs, split_abs
 
 
 def push_trainset_to_huggingface_hub(dataset: DatasetDict, message: str) -> None:
