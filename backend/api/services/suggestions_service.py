@@ -17,7 +17,7 @@ from backend.api.database import collection, fs
 from backend.api.exceptions import InvalidContextError, ModelNotFoundError
 from backend.api.models import ModelType
 from models.ngrams.inference.suggests import generate_k_suggests
-from models.bert.inference.bert import fill_mask
+from models.bert.inference.predict import fill_mask
 from backend.core.preprocess import test_case_contains_lacuna
 
 LACUNA_PATTERN = r"\S*\[.*?\]\S*"
