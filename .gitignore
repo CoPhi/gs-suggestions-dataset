@@ -16,3 +16,7 @@ poetry.lock
 .idea/
 .vscode/
 *.pkl
+
+# Dati pesanti pre-elaborati
+data/*
+!data/tlg_*.json
