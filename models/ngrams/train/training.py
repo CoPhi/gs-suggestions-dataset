@@ -5,7 +5,6 @@ from nltk.lm.preprocessing import padded_everygram_pipeline
 from models.ngrams.train import (
     get_sentences,
     load_abs,
-    save_lm,
     load_specific_domain_abs,
 )
 
@@ -82,7 +81,7 @@ def pipeline_train(
     budget: Optional[int] = None,
 ) -> tuple:
     """
-    Esegue il processo di addestramento del modello linguistico.
+    Esegue il processo di addestramento del modello linguistico a n-grammi.
     Questa funzione segue i seguenti passaggi:
     1. Carica i dati dagli anonymous blocks specificati.
     2. Filtra i dati per dominio specifico.
@@ -92,7 +91,7 @@ def pipeline_train(
         - Un modello di dominio (d_lm) sui dati di addestramento di dominio.
     5. Restituisce entrambi i modelli addestrati e il set di validazione di dominio.
     Args:
-         lm_type (str, opzionale): Tipo di modello linguistico da addestrare.
+         lm_type (str, opzionale): Tipo di smoothing delmodello linguistico a n-grammi da addestrare.
          gamma (float, opzionale): Parametro di smoothing per il modello linguistico.
          min_freq (int, opzionale): Frequenza minima per includere un token nel vocabolario.
          n (int): Ordine del modello n-gram.
@@ -106,8 +105,13 @@ def pipeline_train(
     domain_abs = load_specific_domain_abs(abs=train_abs)
     train_domain_abs, dev_domain_abs = split_abs(domain_abs, test_size=0.2)
 
+    # Ottimizzazione: invece di fare un lookup lineare su ciascun dizionario presente
+    # nella lista 'dev_domain_abs' (complessità O(N*M)), mappiamo gli ID di memoria dei dizionari 
+    # di validazione in un set. Il tempo di risoluzione crolla a O(1) per lookup -> complessità totale O(N).
+    dev_ids = {id(ab) for ab in dev_domain_abs}
+
     g_lm = train_lm(
-        train_abs=[ab for ab in train_abs if ab not in dev_domain_abs],
+        train_abs=[ab for ab in train_abs if id(ab) not in dev_ids],
         lm_type=lm_type,
         min_freq=min_freq,
         gamma=gamma,

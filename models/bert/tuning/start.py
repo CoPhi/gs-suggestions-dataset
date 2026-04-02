@@ -1,4 +1,4 @@
-from backend.config.settings import K_PRED, N
+from backend.config.settings import K_PRED, N, RANDOM_SEED
 from models.ngrams.metrics import get_topK_accuracy
 from models.ngrams.train.cleaner import split_abs
 from models.ngrams.train.training import train_lm
@@ -7,12 +7,17 @@ from bayes_opt import BayesianOptimization
 import json
 
 def objective_function_factory(dev_domain_abs, train_domain_abs, train_abs_all):
+    # Pre-calcoliamo il mapping O(1) con l'id() all'esterno della funzione obiettivo 
+    # così da eseguirlo un'unica volta invece di ripeterlo ad ogni iterazione di Opt
+    dev_ids = {id(ab) for ab in dev_domain_abs}
+    train_abs_filtered = [ab for ab in train_abs_all if id(ab) not in dev_ids]
+
     def objective_function(gamma, lambda_weight, alpha, beta, delta):
         """
         Funzione obiettivo per ottimizzare i parametri.
         """
         g_lm = train_lm(
-            train_abs=[ab for ab in train_abs_all if ab not in dev_domain_abs],
+            train_abs=train_abs_filtered,
             gamma=gamma,
         )
         
@@ -58,7 +63,7 @@ if __name__ == "__main__":
     optimizer = BayesianOptimization(
         f=objective_function,
         pbounds=pbounds,
-        random_state=42,
+        random_state=RANDOM_SEED,
     )
 
     optimizer.maximize(

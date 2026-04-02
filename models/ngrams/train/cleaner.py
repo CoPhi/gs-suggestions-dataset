@@ -6,13 +6,20 @@ from nltk.lm.api import LanguageModel
 from sklearn.model_selection import train_test_split
 from models.ngrams.train import sentence_tokenizer
 from tqdm import tqdm
-from backend.config.settings import CORPUS_NAMES, DATA_PATH, TEST_SIZE, TEST_SIZES, LM_TYPE, N
+from backend.config.settings import (
+    CORPUS_NAMES,
+    DATA_PATH,
+    TEST_SIZE,
+    TEST_SIZES,
+    N,
+    RANDOM_SEED,
+)
 from backend.core.preprocess import (
     clean_text_from_gaps,
     get_tokens_from_clean_text,
     remove_punctuation,
 )
-from nltk.lm.preprocessing import flatten
+
 
 def check_ab(ab: dict, corpus_set: Optional[list[str]] = None) -> bool:
     if ab.get("language") != "grc":
@@ -20,7 +27,7 @@ def check_ab(ab: dict, corpus_set: Optional[list[str]] = None) -> bool:
 
     corpus_id = ab.get("corpus_id")
     if corpus_set is None or corpus_id is None:
-        return True  # accetta qualsiasi corpus_id
+        return True
 
     return corpus_id in corpus_set or corpus_id == "unknown"
 
@@ -50,35 +57,35 @@ def load_abs(
         list: Una lista contenente gli anonymous block (abs) caricati dai file JSON.
     """
 
-    # Validare i corpus dentro `corpus_set`
+    corpus_set_fast = None
     if corpus_set is not None:
-        for corpus_id in corpus_set:
+        corpus_set_fast = set(corpus_set)
+        for corpus_id in corpus_set_fast:
             if corpus_id not in CORPUS_NAMES:
                 raise ValueError(
                     f"Corpus ID {corpus_id} not found in available corpus names"
                 )
 
     dataset = []
+
+    json_files = [f for f in DATA_PATH.glob("*.json") if f.name != "test_abs.json"]
+
     for file_path in tqdm(
-        list(DATA_PATH.glob("*.json")),
+        json_files,
         desc="Processing MAAT corpus",
         unit="file",
         leave=False,
     ):
-
-        if "test_abs" in str(file_path):  # Skip test files
-            continue
-
         try:
             with open(file_path, "r", encoding="utf-8") as f:
-                abs = json.load(f)
-                dataset.extend([ab for ab in abs if check_ab(ab, corpus_set)])
+                abs_data = json.load(f)
+                dataset.extend(ab for ab in abs_data if check_ab(ab, corpus_set_fast))
         except (json.JSONDecodeError, FileNotFoundError) as e:
             print(f"Error reading {file_path}: {e}")
 
     if budget is not None:
         subset_size = int(len(dataset) * (budget / 100))
-        return random.sample(dataset, subset_size)
+        return random.Random(RANDOM_SEED).sample(dataset, subset_size)
 
     return dataset
 
@@ -88,13 +95,16 @@ def load_specific_domain_abs(abs: list, domain_title: str = "P.Herc.") -> list:
     Restituisce un sottoinsieme dei blocchi anonimi il cui dominio è rappresentato dal titolo immesso in `domain_title`
     """
 
-    def title_matches(title_field):
-        if isinstance(title_field, str):
-            if domain_title:
-                return domain_title in title_field
-        return False
+    if not domain_title:
+        return []
 
-    return [ab for ab in abs if title_matches(ab["title"]) and ab["language"] == "grc"]
+    return [
+        ab
+        for ab in abs
+        if ab.get("language") == "grc"
+        and isinstance(ab.get("title"), str)
+        and domain_title in ab["title"]
+    ]
 
 
 def load_test_abs() -> list:
@@ -103,7 +113,7 @@ def load_test_abs() -> list:
     Returns:
         list: Una lista di dizionari contenenti i blocchi anonimi di test.
     """
-    with open(next(DATA_PATH.glob("test_abs.json"), None), "r", encoding="utf-8") as f:
+    with open(DATA_PATH / "test_abs.json", "r", encoding="utf-8") as f:
         return json.load(f)
 
 
@@ -120,7 +130,9 @@ def split_abs(abs: list, test_size=TEST_SIZE) -> tuple:
     if test_size not in TEST_SIZES:
         raise ValueError(f"Test size {test_size} not found in available test sizes")
 
-    train_abs, test_abs = train_test_split(abs, test_size=test_size)
+    train_abs, test_abs = train_test_split(
+        abs, test_size=test_size, random_state=RANDOM_SEED
+    )
     return train_abs, test_abs
 
 
@@ -142,20 +154,23 @@ def get_sentences(
         list: Una lista di frasi di addestramento tokenizzate.
     """
     sentences = []
+
+    if remove_punct:
+        def process_sent(s):
+            return get_tokens_from_clean_text(remove_punctuation(s))
+    else:
+        process_sent = get_tokens_from_clean_text
+
     for obj in tqdm(abs, desc="Processing anonymous blocks", unit="ab", leave=False):
-        if obj["training_text"] and obj["language"] == "grc":
-            for sent in sentence_tokenizer.tokenize(
-                text=clean_text_from_gaps(
-                    obj["training_text"], case_folding=case_folding
-                )
-            ):
+        training_text = obj.get("training_text")
+
+        # obj.get e check string per il fail fast.
+        if obj.get("language") == "grc" and training_text:
+            clean_text = clean_text_from_gaps(training_text, case_folding=case_folding)
+            for sent in sentence_tokenizer.tokenize(text=clean_text):
                 if sent:
-                    if remove_punct:
-                        sentences.append(
-                            get_tokens_from_clean_text(remove_punctuation(sent))
-                        )
-                    else:
-                        sentences.append(get_tokens_from_clean_text(sent))
+                    sentences.append(process_sent(sent))
+
     return sentences
 
 
