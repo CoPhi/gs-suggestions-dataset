@@ -1,5 +1,7 @@
 # gs-suggestions-dataset
 
+[![GreekSchools Logo][gs-logo]][gs]
+
 This project aim to provide an automatic suggestion system for supplements for fill the gaps in the Herculaneum Papyri and support the process of creating new critical editions.  
 `NLTK` and `CLTK` are used for the ngrams models implementations.  
 
@@ -32,3 +34,6 @@ poetry run python -m scripts.tei_pipeline <path_to_your_tei_folder>
 ```
 
 *Note: Both pipelines will populate the `data/` directory in sections separated by up to 50 MB in machine-actionable JSON format, ready for use in subsequent tasks.*
+
+[gs]: https://greekschools.eu
+[gs-logo]: https://greekschools.eu/wp-content/uploads/2021/01/logo-gs.png
