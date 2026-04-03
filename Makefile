@@ -4,6 +4,10 @@ FRONTEND_CONTAINER_NAME := gabrielegiannessi/gs-frontend
 
 .PHONY: requirements build-images run-api run tag-api tag-frontend push-api push-frontend
 
+data:
+	poetry run python -m scripts.corpus_downloader
+	poetry run python -m scripts.split
+
 run-api:
 	poetry run uvicorn backend.api.main:app --reload 
 

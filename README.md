@@ -19,19 +19,13 @@ All collaborators, once the repository has been cloned, must independently rebui
 
 ### Steps to download and integrate data:
 
-1. **Install Dependencies and Download Original Corpora**:
-Make sure you have `poetry install`, then run the automatic downloader that retrieves the necessary XML documents for the configured databases:
+1. **Donwload and integrate corpora**:
+Make sure you have `poetry install`, then run the automatic pipeline that downloads and integrates the corpora in the `data/` folder:
 ```bash
-poetry run python -m scripts.corpus_downloader
+make data
 ```
 
-2. **Parsing EpiDoc Files**:
-Use this command to process classic files mapped to the EpiDoc schema. The script will automatically create chunks in the `data/` directory:
-```bash
-poetry run python -m scripts.split
-```
-
-3. **Parsing standard TEI XML files**:
+2. **Parsing standard TEI XML files**:
 If you have text archives that use standard TEI without complex gaps in EpiDoc format, use the dedicated converter by pointing it to the directory:
 ```bash
 poetry run python -m scripts.tei_pipeline <path_to_your_tei_folder>
