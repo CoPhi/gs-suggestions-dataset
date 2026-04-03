@@ -114,7 +114,7 @@ Le 14 trasformazioni sono applicate **in quest'ordine esatto**. Ogni riga è una
 |----------|--------|------|
 | `\|` | ` ` (spazio) | Singola stanghetta che separa le righe in Leiden |
 
-> ⚠ **Dipendenza d'ordine**: T1 deve precedere T2. Se T2 fosse applicato prima, `||` verrebbe trattato come due `|` separati producendo due spazi invece di uno.
+> **Dipendenza d'ordine**: T1 deve precedere T2. Se T2 fosse applicato prima, `||` verrebbe trattato come due `|` separati producendo due spazi invece di uno.
 
 #### T3 · Segni di incertezza — `process_unclear_signs`
 
@@ -143,7 +143,7 @@ Questa trasformazione è composita (3 sotto-passi):
 | `[contenuto]` | `contenuto` | `\[(.*?)\]` → `\1` (non-greedy) |
 | `[` o `]` isolati | ε (rimosso) | `[\[\]]` → ε |
 
-> ⚠ **Effetto collaterale critico**: dopo T4c, la distinzione tra testo conservato e testo restaurato (supplemento)
+> **Effetto collaterale critico**: dopo T4c, la distinzione tra testo conservato e testo restaurato (supplemento)
 > viene **persa**. Il contenuto delle parentesi si fonde con il testo circostante.
 > Per le lacune note `[..]`, i punti diventano parte del token adiacente (es. `uxo[..]` → `uxo..`),
 > che verrà gestito in Fase 2.
@@ -154,7 +154,7 @@ Questa trasformazione è composita (3 sotto-passi):
 |----------|--------|------|
 | `⏑⏑‒`, `‒⏑⏑‒`, `‒⏑⏑`, `⏑`, `‒`, e combinazioni | `<gap/>` | Sequenze metriche in versi incompleti |
 
-> ⚠ **Produce `<gap/>`**: questa trasformazione _introduce_ nuovi token `<gap/>` nel testo. Verranno
+> **Produce `<gap/>`**: questa trasformazione _introduce_ nuovi token `<gap/>` nel testo. Verranno
 > consumati in Fase 2 da `clean_lacunae`.
 
 #### T6 · Vacat — `process_vacat_text`
@@ -275,7 +275,7 @@ Applicata all'intero testo risultante dalla Fase 2.
 
 ### Fase 4 — Segmentazione e tokenizzazione (`get_sentences`)
 
-Applicata in `cleaner.py` quando si preparano dati per l'LM.
+Applicata in `cleaner.py` quando si preparano dati per i modelli linguistici.
 
 | Passo | Operazione | Funzione | Input → Output |
 |-------|-----------|----------|----------------|
