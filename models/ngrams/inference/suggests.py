@@ -1,15 +1,12 @@
-import argparse
 from nltk.lm.models import LanguageModel
 
-from models.ngrams.inference.predict import (
+from models.ngrams.metrics.utils import (
     get_beam_size,
     get_context_from_test_case,
     get_best_K_predictions_from_context,
     nll_score,
 )
 from backend.config.settings import ALPHA, BETA, DELTA, N, K_PRED, LM_TYPE, LAMBDA
-from models.ngrams.train import load_lm
-
 
 def generate_k_suggests(
     g_lm: LanguageModel,

@@ -14,7 +14,7 @@ from backend.config.settings import (
 )
 
 from models.ngrams.metrics.accuracy import get_topK_accuracy
-from models.ngrams.train.cleaner import load_specific_domain_abs, load_test_abs
+from backend.core.cleaner import load_specific_domain_abs, load_test_abs
 from models.ngrams.train.training import train_lm
 
 if __name__ == "__main__":

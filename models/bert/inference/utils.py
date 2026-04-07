@@ -1,34 +1,8 @@
-from datasets import (
-    load_dataset,
-    DatasetDict,
-    IterableDatasetDict,
-    IterableDataset,
-    Dataset,
-)
+import re 
 
 from backend.core import SUPPLEMENTS_REGEX
-from backend.core.preprocess import strip_diacritics
-from transformers import AutoModelForMaskedLM, AutoTokenizer, pipeline
-from typing import Optional, Tuple, Union
+from typing import Optional, Tuple
 import unicodedata
-
-def get_BERT_model(model_checkpoint: str):
-    return AutoModelForMaskedLM.from_pretrained(model_checkpoint)
-
-
-def get_tokenizer(model_checkpoint: str):
-    return AutoTokenizer.from_pretrained(model_checkpoint)
-
-
-def get_masker(model: AutoModelForMaskedLM, tokenizer: AutoTokenizer):
-    return pipeline("fill-mask", model=model, tokenizer=tokenizer)
-
-
-def get_dataset(
-    data_checkpoint: str,
-) -> Union[DatasetDict, Dataset, IterableDatasetDict, IterableDataset]:
-    return load_dataset(data_checkpoint)
-
 
 def to_24letters_greek_lower(s: str) -> str:
     """
@@ -87,6 +61,24 @@ def convert_lacuna_to_masks(text: str, mask_token: str) -> Optional[Tuple[str, i
         end - start - 2,
         clean_text[start+1:end-1]
     )
+
+def to_greek_lower(text: str) -> str:
+    """
+    Converte una stringa in minuscolo e sostituisce i caratteri greci 'ϲ' e 'Ϲ' con 'σ'.
+
+    Args:
+        text (str): La stringa di input da convertire.
+
+    Returns:
+        str: La stringa convertita in minuscolo con i caratteri 'ϲ' e 'Ϲ' sostituiti da 'σ'.
+    """
+
+    return text.lower().replace("ϲ", "σ").replace("Ϲ", "σ")
+
+def string_to_regex(pattern: str) -> str:
+    regex = ''.join(['.' if char == '.' else re.escape(char) for char in pattern])
+    return regex
+
 
 if __name__ == "__main__":
     # Esempio di utilizzo

@@ -2,29 +2,11 @@ import re
 import torch
 import torch.nn.functional as F
 from models.bert.inference.utils import (
-    get_BERT_model,
-    get_tokenizer,
     convert_lacuna_to_masks,
+    to_greek_lower,
+    string_to_regex,
 )
 from backend.core.preprocess import normalize_greek
-
-
-def to_greek_lower(text: str) -> str:
-    """
-    Converte una stringa (teoricamente in greco antico) in minuscolo e sostituisce i caratteri greci 'ϲ' e 'Ϲ' con 'σ'.
-
-    Args:
-        text (str): La stringa di input da convertire.
-
-    Returns:
-        str: La stringa convertita in minuscolo con i caratteri 'ϲ' e 'Ϲ' sostituiti da 'σ'.
-    """
-
-    return text.lower().replace("ϲ", "σ").replace("Ϲ", "σ")
-
-def string_to_regex(pattern: str) -> str:
-    regex = ''.join(['.' if char == '.' else re.escape(char) for char in pattern])
-    return regex
 
 def fill_mask(model, tokenizer, context, k, alpha=500):
     """
@@ -132,15 +114,3 @@ def fill_mask(model, tokenizer, context, k, alpha=500):
     results = sorted(results, key=lambda x: x["score"], reverse=True)[:k]
 
     return [(r["text"], r["token"], r["score"]) for r in results]
-
-
-# Script di prova
-if __name__ == "__main__":
-    # μὲ]ν εὐπαρακολού̣θητ̣α̣ π̣[ᾶ]ϲιν
-    test = "μὲν εὐπαρακολού̣θητ̣α̣ π̣[...]ϲιν"
-    model_checkpoint = "CNR-ILC/gs-GreBerta"
-
-    model = get_BERT_model(model_checkpoint)
-    tokenizer = get_tokenizer(model_checkpoint)
-
-    print(fill_mask(model, tokenizer, test, 10))

@@ -1,8 +1,8 @@
 from backend.config.settings import K_PRED, N, RANDOM_SEED
 from models.ngrams.metrics import get_topK_accuracy
-from models.ngrams.train.cleaner import split_abs
+from backend.core.cleaner import split_abs
 from models.ngrams.train.training import train_lm
-from models.ngrams.train import load_abs, load_specific_domain_abs
+from backend.core.cleaner import load_abs, load_specific_domain_abs
 from bayes_opt import BayesianOptimization
 import json
 

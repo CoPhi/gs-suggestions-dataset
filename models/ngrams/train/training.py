@@ -2,10 +2,11 @@ from typing import Optional
 
 from nltk.lm.models import MLE, Lidstone, LanguageModel
 from nltk.lm.preprocessing import padded_everygram_pipeline
-from models.ngrams.train import (
+from backend.core.cleaner import (
     get_sentences,
     load_abs,
     load_specific_domain_abs,
+    split_abs
 )
 
 from backend.config.settings import (
@@ -17,7 +18,6 @@ from backend.config.settings import (
     LM_TYPES,
     MIN_FREQS,
 )
-from models.ngrams.train.cleaner import split_abs
 
 
 def train_lm(
