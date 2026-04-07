@@ -389,7 +389,9 @@ def get_expanded_supplement(training_text: str, start_pos: int, end_pos: int):
     return training_text[start_pos:end_pos]
 
 
-def clean_supplements(training_text: str, case_folding: bool = True) -> list[tuple[list[str], int]]:
+def clean_supplements(
+    training_text: str, case_folding: bool = True
+) -> list[tuple[list[str], int]]:
     """
     Questa funzione cerca i supplementi (testo racchiuso tra parentesi quadre) all'interno del testo fornito,
     estende il loro contesto se necessario, li pulisce e li tokenizza. I token vengono restituiti come
@@ -436,20 +438,19 @@ def clean_supplements(training_text: str, case_folding: bool = True) -> list[tup
         expanded_supplement = get_expanded_supplement(
             training_text, match.start(), match.end()
         )
-        
-        tokens = get_tokens_from_clean_text(
-                    remove_punctuation(
-                        clean_text_from_gaps(expanded_supplement, case_folding)
-                    )
-                )
-        
-        if len(tokens) > 1:
-            suppl_tokens.append ((tokens, 0)) #Not implemented
-        else: 
-            non_alpha_count = sum(1 for char in suppl if char.isalpha()) #Conto i caratteri effettivi da cui è composta la lacuna da generare
-            suppl_tokens.append ((tokens, non_alpha_count))
 
-        
+        tokens = get_tokens_from_clean_text(
+            remove_punctuation(transpile(expanded_supplement, case_folding))
+        )
+
+        if len(tokens) > 1:
+            suppl_tokens.append((tokens, 0))  # Not implemented
+        else:
+            non_alpha_count = sum(
+                1 for char in suppl if char.isalpha()
+            )  # Conto i caratteri effettivi da cui è composta la lacuna da generare
+            suppl_tokens.append((tokens, non_alpha_count))
+
     return suppl_tokens
 
 
@@ -465,7 +466,7 @@ def get_head_supplement(text_case: str) -> Optional[str]:
             start -= 1
         substring = text_case[start:end]
         return (
-            remove_punctuation(clean_text_from_gaps(substring, True).strip())
+            remove_punctuation(transpile(substring, True).strip())
             if not contains_lacunae(substring)
             else None
         )
@@ -484,7 +485,7 @@ def get_tail_supplement(text_case: str) -> Optional[str]:
             end += 1
         substring = text_case[start:end]
         return (
-            remove_punctuation(clean_text_from_gaps(substring, True).strip())
+            remove_punctuation(transpile(substring, True).strip())
             if not contains_lacunae(substring)
             else None
         )
@@ -493,7 +494,7 @@ def get_tail_supplement(text_case: str) -> Optional[str]:
 
 def get_tokens_from_clean_text(text: str) -> list[str]:
     """
-    Estrae i token da un testo pulito tramite il metodo `clean_text_from_gaps()`.
+    Estrae i token da un testo pulito tramite il metodo `transpile()`.
 
     Args:
         text (str): Il testo pulito da cui estrarre i token.
@@ -504,38 +505,65 @@ def get_tokens_from_clean_text(text: str) -> list[str]:
     return text.split()
 
 
-def process_token(token: str) -> list[str]:
+def process_token(
+    token: str,
+    strip_diacritics: bool = True,
+    normalize: bool = True,
+) -> list[str]:
     """
-    Funzione usata all'interno di `clean_text_from_gaps` per restituire i token puliti.
     Pulisce o normalizza un token greco se non sono presenti lacune.
-    Questa funzione verifica se il token contiene lacune e, in tal caso, applica la funzione `clean_lacunae`.
-    Se il token non contiene lacune, applica la funzione `normalize_greek` per normalizzare il caso.
-        token (str): Il token da processare.
-        str: Il token pulito o normalizzato.
 
     Args:
-        token (str): The token to be processed.
+        token (str): Il token da processare.
+        strip_diacritics (bool): Se `True`, rimuove i diacritici. Default è `True`.
+        normalize (bool): Se `True`, applica normalize_greek (include strip_diacritics
+                          e case folding). Se `False`, il token viene restituito as-is
+                          (salvo pulizia lacune). Default è `True`.
 
     Returns:
         list[str]: Lista di token puliti o normalizzati.
     """
-    return clean_lacunae(token).split() if contains_lacunae(token) else token.split()
+    if contains_lacunae(token):
+        return clean_lacunae(token).split()
+    if normalize:
+        return normalize_greek(token, case_folding=strip_diacritics).split()
+    return token.split()
 
 
-def clean_text_from_gaps(text: str, case_folding: bool = True) -> str:
+def transpile(
+    text: str,
+    case_folding: bool = True,
+    strip_diacritics: bool = True,
+    normalize: bool = True,
+) -> str:
     """
     Pulisce il testo dalle lacune, lasciando invariata la punteggiatura.
-    Viene usato questo metodo per pulire i testi di addestramento, per poi suddividerlo in frasi.
 
     Args:
-        text (str): testo di addestramento
+        text (str): Testo di addestramento.
+        case_folding (bool): Se `True`, converte in maiuscolo. Default è `True`.
+                             Ignorato se `normalize=False`.
+        strip_diacritics (bool): Se `True`, rimuove spiriti e accenti. Default è `True`.
+                                 Ignorato se `normalize=False`.
+        normalize (bool): Se `True`, applica la normalizzazione completa via
+                          `normalize_greek`. Se `False`, il testo viene restituito
+                          dopo la sola pulizia editoriale e delle lacune,
+                          preservando diacritici e casing originale. Default è `True`.
 
     Returns:
-        clean_text (str): testo pulito dalle lacune
+        str: Testo pulito dalle lacune, eventualmente normalizzato.
     """
     cleaned_text = process_editorial_marks(text)
-    tokens = clean_tokens(cleaned_text)
+    tokens = clean_tokens(
+        cleaned_text,
+        strip_diacritics=strip_diacritics,
+        normalize=normalize,
+    )
     result_text = " ".join(tokens).strip()
+
+    if not normalize:
+        return result_text
+
     return normalize_greek(result_text, case_folding)
 
 
@@ -549,6 +577,7 @@ def process_integrations(text: str) -> str:
     """
     return text.replace("||", " ").replace("‖", " ")
 
+
 def process_dactyl_patterns(text: str) -> str:
     """
     Rimuove i pattern che identificano i dattili o sequenze di dattili in versi incompleti presenti nei testi poetici.
@@ -558,6 +587,7 @@ def process_dactyl_patterns(text: str) -> str:
     str: Il testo senza i modelli di dactilo.
     """
     return COMBINED_DACTYL_PATTERNS.sub("<gap/>", text)
+
 
 def process_leiden_lb(text: str) -> str:
     """
@@ -569,6 +599,7 @@ def process_leiden_lb(text: str) -> str:
     """
     return text.replace("|", " ")
 
+
 def process_unclear_signs(text: str) -> str:
     """
     Rimuove i segni che rappresentano incertezze ('+' e '*') dal testo.
@@ -579,12 +610,14 @@ def process_unclear_signs(text: str) -> str:
     """
     return text.replace("+", "").replace("*", "")
 
+
 def process_vacat_text(text: str) -> str:
     """
     Rimuove i tag `vac.` e `vacat` dal testo, che rappresentano secondo le convenzioni di Leiden
     del testo mancante non inciso sulla pietra o non presente sul papiro.
     """
     return VACAT_REGEX.sub("", text)
+
 
 def process_brackets(text: str) -> str:
     """
@@ -598,17 +631,20 @@ def process_brackets(text: str) -> str:
         )  # Rimuove gap di lunghezza sconosciuta che rappresentano frasi
     )
 
+
 def process_missing_lines(text: str) -> str:
     """
     Rimuove linee mancanti dal testo.
     """
     return MISSING_LINES_REGEX.sub("", text)
 
+
 def process_parentheses(text: str) -> str:
     """
     Estensione delle abbreviazioni (a(bc)) -> (abc).
     """
     return text.replace("(", "").replace(")", "")
+
 
 def process_markers(text: str) -> str:
     """
@@ -619,11 +655,13 @@ def process_markers(text: str) -> str:
     text = EXTENDED_LINE_RIGHT_MARKER_REGEX.sub("", text)
     return text.replace("&gt;", "").replace("&lt;", "")
 
+
 def process_expunctions(text: str) -> str:
     """
     Rimuove espunzioni {abc} -> "".
     """
     return EXPUNCTION_REGEX.sub("", text)
+
 
 def process_parallel_text(text: str) -> str:
     """
@@ -632,8 +670,10 @@ def process_parallel_text(text: str) -> str:
     text = OBELISK_REGEX.sub("", text)  # processazione parole morte
     return text.replace("†", "").replace("_", "")
 
+
 def process_double_obelisks(text: str) -> str:
     return NOTES_REGEX.sub("", text)
+
 
 def process_doubts(text: str) -> str:
     """
@@ -645,8 +685,10 @@ def process_doubts(text: str) -> str:
     """
     return text.replace("?", "")
 
+
 def process_dash_if_needed(text: str) -> str:
     return filter_dash(text) if "-" in text else text
+
 
 def process_editorial_marks(text: str) -> str:
     """
@@ -675,21 +717,30 @@ def process_editorial_marks(text: str) -> str:
 
     return text
 
-def clean_tokens(text: str) -> list[str]:
+
+def clean_tokens(
+    text: str,
+    strip_diacritics: bool = True,
+    normalize: bool = True,
+) -> list[str]:
     """
     Pulisce e normalizza i token estratti dal testo.
 
     Args:
-        text (str): Il testo da cui estrarre i token, si assume essere "pulito".
+        text (str): Il testo da cui estrarre i token.
+        strip_diacritics (bool): Propagato a `process_token`.
+        normalize (bool): Propagato a `process_token`.
 
     Returns:
         list[str]: Lista di token puliti e normalizzati.
     """
-
     cleaned_tokens = []
     for token in get_tokens_from_clean_text(text):
-        cleaned_tokens.extend(process_token(token))
+        cleaned_tokens.extend(
+            process_token(token, strip_diacritics=strip_diacritics, normalize=normalize)
+        )
     return cleaned_tokens
+
 
 def test_case_contains_lacuna(test_case: str) -> Optional[str]:
     """

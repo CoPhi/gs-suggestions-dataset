@@ -17,7 +17,7 @@ import pytest
 
 from backend.core import GAP_TOKEN, UNK_TOKEN
 from backend.core.preprocess import (
-    clean_text_from_gaps,
+    transpile,
     process_editorial_marks,
 )
 
@@ -107,9 +107,9 @@ class TestIdempotency:
 
     @pytest.mark.parametrize("text", SYNTHETIC_TEXTS)
     def test_full_pipeline_idempotency(self, text: str):
-        """Pipeline completa: clean_text_from_gaps(clean_text_from_gaps(x)) == clean_text_from_gaps(x)"""
-        once = clean_text_from_gaps(text)
-        twice = clean_text_from_gaps(once)
+        """Pipeline completa: transpile(transpile(x)) == transpile(x)"""
+        once = transpile(text)
+        twice = transpile(once)
         assert once == twice, (
             f"Pipeline non idempotente:\n"
             f"  Input:  {text!r}\n"
@@ -120,8 +120,8 @@ class TestIdempotency:
     @pytest.mark.parametrize("text", SYNTHETIC_TEXTS)
     def test_full_pipeline_idempotency_no_case_folding(self, text: str):
         """Pipeline con case_folding=False."""
-        once = clean_text_from_gaps(text, case_folding=False)
-        twice = clean_text_from_gaps(once, case_folding=False)
+        once = transpile(text, case_folding=False)
+        twice = transpile(once, case_folding=False)
         assert once == twice
 
 
@@ -175,7 +175,7 @@ class TestEndToEnd:
         ],
     )
     def test_spec_examples(self, input_text: str, expected: str):
-        result = clean_text_from_gaps(input_text)
+        result = transpile(input_text)
         assert result == expected
 
     # Casi reali aggiuntivi
@@ -303,17 +303,17 @@ class TestEndToEnd:
         ],
     )
     def test_additional_cases(self, input_text: str, expected: str):
-        result = clean_text_from_gaps(input_text)
+        result = transpile(input_text)
         assert result == expected
 
     def test_case_folding_disabled(self):
         """Con case_folding=False, le lettere restano minuscole."""
-        result = clean_text_from_gaps("κ[ώμη]ς", case_folding=False)
+        result = transpile("κ[ώμη]ς", case_folding=False)
         assert result == "κωμης"
 
     def test_empty_input(self):
         """Stringa vuota produce stringa vuota."""
-        assert clean_text_from_gaps("") == ""
+        assert transpile("") == ""
 
 
 # ─────────────────────────────────────────────────────────────────────
@@ -328,39 +328,39 @@ class TestCombinedConstructs:
     """
 
     def test_supplement_plus_gap_plus_vacat(self):
-        result = clean_text_from_gaps(
+        result = transpile(
             f"[τοῦ] {GAP_TOKEN} vac. τ(ῆ)ς"
         )
         assert result == f"ΤΟΥ {UNK_TOKEN} ΤΗΣ"
 
     def test_integration_with_brackets(self):
-        result = clean_text_from_gaps("a || [bc] ‖ d")
+        result = transpile("a || [bc] ‖ d")
         assert result == "A BC D"
 
     def test_expunction_inside_and_outside_brackets(self):
-        result = clean_text_from_gaps("a{bc}[de]f")
+        result = transpile("a{bc}[de]f")
         assert result == "ADEF"
 
     def test_markers_with_gap(self):
-        result = clean_text_from_gaps(f"&lt;abc&gt; {GAP_TOKEN} def")
+        result = transpile(f"&lt;abc&gt; {GAP_TOKEN} def")
         assert result == f"ABC {UNK_TOKEN} DEF"
 
     def test_dactyl_after_supplement(self):
-        result = clean_text_from_gaps("[πωλοῦντα] ‒⏑⏑‒ [τινα]")
+        result = transpile("[πωλοῦντα] ‒⏑⏑‒ [τινα]")
         assert result == f"ΠΩΛΟΥΝΤΑ {UNK_TOKEN} ΤΙΝΑ"
 
     def test_multiple_supplements_multiline(self):
         text = "[πρῶτος]\n[δεύτερος]\n[τρίτος]"
-        result = clean_text_from_gaps(text)
+        result = transpile(text)
         assert result == "ΠΡΩΤΟΣ ΔΕΥΤΕΡΟΣ ΤΡΙΤΟΣ"
 
     def test_dash_across_supplement(self):
-        result = clean_text_from_gaps("πα[ρα]-\nλαμβάνω")
+        result = transpile("πα[ρα]-\nλαμβάνω")
         assert result == "ΠΑΡΑΛΑΜΒΑΝΩ"
 
     def test_parentheses_with_brackets(self):
         """Abbreviazione sciolta dentro supplemento."""
-        result = clean_text_from_gaps("[στρατηγ(ός)]")
+        result = transpile("[στρατηγ(ός)]")
         assert result == "ΣΤΡΑΤΗΓΟΣ"
 
 
@@ -486,7 +486,7 @@ class TestPostConditions:
     @pytest.mark.parametrize("text", SYNTHETIC_TEXTS)
     def test_phase3_no_gap_tokens(self, text: str):
         """P2.1: nessun <gap/> rimasto dopo la pipeline completa."""
-        result = clean_text_from_gaps(text)
+        result = transpile(text)
         assert GAP_TOKEN not in result, (
             f"P2.1 violata: '{GAP_TOKEN}' in output: {result!r}"
         )
@@ -494,7 +494,7 @@ class TestPostConditions:
     @pytest.mark.parametrize("text", SYNTHETIC_TEXTS)
     def test_phase3_unk_separated_by_spaces(self, text: str):
         """P2.3: ogni <UNK> è separato da spazi."""
-        result = clean_text_from_gaps(text)
+        result = transpile(text)
         for i, token in enumerate(result.split()):
             if UNK_TOKEN in token:
                 assert token == UNK_TOKEN, (
@@ -504,7 +504,7 @@ class TestPostConditions:
     @pytest.mark.parametrize("text", SYNTHETIC_TEXTS)
     def test_phase3_no_combining_characters(self, text: str):
         """P3.1: nessun carattere combining (diacritici rimossi)."""
-        result = clean_text_from_gaps(text)
+        result = transpile(text)
         combining = [
             c for c in result if unicodedata.combining(c)
         ]
@@ -515,7 +515,7 @@ class TestPostConditions:
     @pytest.mark.parametrize("text", SYNTHETIC_TEXTS)
     def test_phase3_all_uppercase(self, text: str):
         """P3.2: tutte le lettere alfabetiche sono maiuscole (case_folding=True)."""
-        result = clean_text_from_gaps(text, case_folding=True)
+        result = transpile(text, case_folding=True)
         # Rimuoviamo i token <UNK> prima del check
         text_without_unk = result.replace(UNK_TOKEN, "")
         for char in text_without_unk:
@@ -585,7 +585,7 @@ class TestPostConditionsOnRealData:
     def test_phase3_no_gap_tokens_real(self, real_training_texts: list[str]):
         """P2.1 su dati reali."""
         for text in real_training_texts:
-            result = clean_text_from_gaps(text)
+            result = transpile(text)
             assert GAP_TOKEN not in result
 
     @pytest.mark.xfail(
@@ -596,7 +596,7 @@ class TestPostConditionsOnRealData:
     def test_phase3_all_uppercase_real(self, real_training_texts: list[str]):
         """P3.2 su dati reali."""
         for text in real_training_texts:
-            result = clean_text_from_gaps(text, case_folding=True)
+            result = transpile(text, case_folding=True)
             text_no_unk = result.replace(UNK_TOKEN, "")
             for char in text_no_unk:
                 if char.isalpha():
@@ -610,7 +610,7 @@ class TestPostConditionsOnRealData:
     def test_phase3_no_combining_real(self, real_training_texts: list[str]):
         """P3.1 su dati reali."""
         for text in real_training_texts:
-            result = clean_text_from_gaps(text)
+            result = transpile(text)
             assert not any(unicodedata.combining(c) for c in result)
 
     @pytest.mark.xfail(
@@ -622,6 +622,6 @@ class TestPostConditionsOnRealData:
     def test_idempotency_real(self, real_training_texts: list[str]):
         """Idempotenza su dati reali."""
         for text in real_training_texts:
-            once = clean_text_from_gaps(text)
-            twice = clean_text_from_gaps(once)
+            once = transpile(text)
+            twice = transpile(once)
             assert once == twice

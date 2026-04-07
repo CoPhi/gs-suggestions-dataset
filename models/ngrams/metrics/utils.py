@@ -20,7 +20,7 @@ from typing import Counter
 
 from backend.config.settings import ALPHA, BETA, DELTA, K_PRED, LAMBDA, LM_TYPE, N
 from backend.core.preprocess import (
-    clean_text_from_gaps,
+    transpile,
     get_head_supplement,
     get_tail_supplement,
     get_tokens_from_clean_text,
@@ -741,7 +741,7 @@ def get_context_from_test_case(
 
     # Testo a sinistra della `[` — rimuove tutto ciò che precede la `[` stessa
     left_of_lacuna = re.sub(r"[^\s]+\[", "[", test_case).split("[")[0]
-    cleaned = clean_text_from_gaps(left_of_lacuna, case_folding=case_folding)
+    cleaned = transpile(left_of_lacuna, case_folding=case_folding)
 
     context = list(
         flatten(

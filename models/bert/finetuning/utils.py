@@ -26,11 +26,8 @@ from backend.core.cleaner import (
     get_tokens_from_clean_text,
 )
 from backend.core.preprocess import (
-    process_editorial_marks,
     strip_diacritics,
-    normalize_greek,
     remove_punctuation,
-    clean_tokens,
 )
 from cltk.alphabet.grc.grc import normalize_grc
 from datasets import Dataset, DatasetDict, load_dataset
@@ -204,8 +201,13 @@ def build_raw_dataset(abs_: list) -> Dataset:
     """
     sentences: list[str] = []
     for sent_tkns in tqdm(
-        # case_folding=False e remove_punct=False → testo grezzo
-        get_sentences(abs_, case_folding=False, remove_punct=False),
+        get_sentences(
+            abs_,
+            case_folding=False,
+            remove_punct=False,
+            normalize=False,
+            strip_diacritics=False,
+        ),
         desc="Building raw dataset",
         unit="sentence",
         leave=False,
@@ -240,7 +242,7 @@ def _normalize_example(example: dict, config: dict) -> dict:
         text = strip_diacritics(text)
 
     text = normalize_grc(text)
-    text = text.upper() if config["strip_diacritics"] else text.lower()
+    text = strip_diacritics(text) if config["strip_diacritics"] else text.lower()
 
     if config["remove_punct"]:
         text = remove_punctuation(text)
@@ -338,9 +340,7 @@ def prepare_dataset_for_model(
     return tokenized
 
 
-# ---------------------------------------------------------------------------
 # Retrocompatibilità
-# ---------------------------------------------------------------------------
 
 
 def get_processed_sentences(

@@ -12,7 +12,7 @@ from backend.config.settings import (
     RANDOM_SEED,
 )
 from backend.core.preprocess import (
-    clean_text_from_gaps,
+    transpile,
     get_tokens_from_clean_text,
     remove_punctuation,
 )
@@ -154,7 +154,12 @@ def split_abs_herc_dev(
         (train_abs, dev_abs)
     """
     herc_abs = load_specific_domain_abs(abs, domain_title)
-    non_herc_abs = [ab for ab in abs if ab not in set(map(id, herc_abs))]
+
+    def ab_key(ab: dict) -> tuple:
+        return (ab.get("corpus_id"), ab.get("abs_id"))
+
+    herc_keys = set(map(ab_key, herc_abs))
+    non_herc_abs = [ab for ab in abs if ab_key(ab) not in herc_keys]
 
     herc_train, herc_dev = train_test_split(
         herc_abs,
@@ -167,7 +172,11 @@ def split_abs_herc_dev(
 
 
 def get_sentences(
-    abs: list, remove_punct: bool = True, case_folding: bool = True
+    abs: list,
+    remove_punct: bool = True,
+    case_folding: bool = True,
+    normalize: bool = True,
+    strip_diacritics: bool = True,
 ) -> list[list[str]]:
     """
     Estrae e processa le frasi di addestramento da una lista di blocchi anonimi fornita.
@@ -178,6 +187,8 @@ def get_sentences(
         ab (list): Una lista di oggetti, ciascuno contenente le chiavi 'training_text' e 'language'.
         remove_punct (bool, opzionale): Se `True`, rimuove la punteggiatura dalle frasi. Default è `True`.
         case_folding (bool, opzionale): Se `True`, applica il case folding al testo. Default è `True`.
+        normalize (bool, opzionale): Se `True`, normalizza il testo. Default è `True`.
+        strip_diacritics (bool, opzionale): Se `True`, rimuove i diacritici dal testo. Default è `True`.
     Raises:
         ValueError: Se il testo di addestramento è vuoto o se la lingua non è 'grc'.
     Returns:
@@ -198,7 +209,12 @@ def get_sentences(
 
         # obj.get e check string per il fail fast.
         if obj.get("language") == _LANGUAGE and training_text:
-            clean_text = clean_text_from_gaps(training_text, case_folding=case_folding)
+            clean_text = transpile(
+                training_text,
+                case_folding=case_folding,
+                normalize=normalize,
+                strip_diacritics=strip_diacritics,
+            )
             for sent in sentence_tokenizer.tokenize(text=clean_text):
                 if sent:
                     sentences.append(process_sent(sent))
