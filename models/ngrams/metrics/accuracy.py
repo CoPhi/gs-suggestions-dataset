@@ -8,15 +8,13 @@ from tqdm import tqdm
 
 from backend.config.settings import ALPHA, BATCH_SIZE, BETA, DELTA, K_PRED, LAMBDA, N
 from backend.core.preprocess import clean_supplements
+from models.ngrams.metrics import _LANGUAGE
 from models.ngrams.metrics.utils import (
     check_supplement,
     get_beam_size,
     get_best_K_predictions_from_context,
     get_context_from_test_case,
 )
-
-_LANGUAGE = "grc"
-
 
 def get_topK_accuracy(
     g_lm: LanguageModel,

@@ -59,7 +59,7 @@ class Converter:
         self.tag_handlers = {}
         self.raise_on_error = raise_on_error
         self.errors = []
-        self.iniitalize_tag_handlers()
+        self.initialize_tag_handlers()
         self.depth = 0
 
     def error(self, e):
@@ -73,7 +73,7 @@ class Converter:
         self.tag_handlers[tag] = func
         return func
 
-    def iniitalize_tag_handlers(self):
+    def initialize_tag_handlers(self):
         # TODO: There must be a way to create decorators for this
         self.register_tag_handler("ab")
         self.register_tag_handler("abbr")

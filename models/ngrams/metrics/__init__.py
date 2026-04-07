@@ -6,4 +6,5 @@ MIN_BEAM_SIZE = 10
 MAX_BEAM_SIZE = 100
 
 _SPECIAL_TOKENS = {"<s>", "</s>", "<UNK>"}
+_LANGUAGE = "grc"
 
