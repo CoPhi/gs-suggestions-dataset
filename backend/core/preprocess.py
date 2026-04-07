@@ -533,7 +533,7 @@ def clean_text_from_gaps(text: str, case_folding: bool = True) -> str:
     Returns:
         clean_text (str): testo pulito dalle lacune
     """
-    cleaned_text = clean_text_content(text)
+    cleaned_text = process_editorial_marks(text)
     tokens = clean_tokens(cleaned_text)
     result_text = " ".join(tokens).strip()
     return normalize_greek(result_text, case_folding)
@@ -674,20 +674,6 @@ def process_editorial_marks(text: str) -> str:
         text = transform(text)
 
     return text
-
-
-def clean_text_content(text: str) -> str:
-    """
-    Applica una serie di pulizie al testo, come la rimozione di parentesi, la gestione dei trattini e la sostituzione di linee mancanti.
-
-    Args:
-        text (str): Il testo da pulire.
-
-    Returns:
-        str: Il testo pulito.
-    """
-    return process_editorial_marks(text)
-
 
 def clean_tokens(text: str) -> list[str]:
     """

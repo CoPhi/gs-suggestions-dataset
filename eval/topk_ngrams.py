@@ -14,14 +14,14 @@ from backend.config.settings import (
 )
 
 from models.ngrams.metrics.accuracy import get_topK_accuracy
-from backend.core.cleaner import load_specific_domain_abs, load_test_abs
+from backend.core.cleaner import load_specific_domain_abs, load_test_set
 from models.ngrams.train.training import train_lm
 
 if __name__ == "__main__":
 
     train_abs = load_abs()
     domain_abs = load_specific_domain_abs(abs=train_abs)
-    test_abs = load_test_abs()
+    test_abs = load_test_set()
 
     # assumiamo che gli iperparametri siano ottimizzati
     g_lm = train_lm(train_abs=train_abs, lm_type=LM_TYPE, n=N, gamma=GAMMA)

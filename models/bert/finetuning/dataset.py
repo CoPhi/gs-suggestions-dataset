@@ -9,12 +9,15 @@ Le gold label sono usate per confrontare l'accuracy del modello BERT sul test_se
 """
 
 from datasets import DatasetDict, Dataset
+from tqdm import tqdm
+from backend.core.preprocess import clean_tokens, process_editorial_marks
 from models.bert.finetuning import (
-    load_and_split_sentences,
+    load_train_and_dev_set,
     get_processed_sentences,
+    sentence_tokenizer, 
 )
 
-from backend.core.cleaner import load_test_abs, get_sentences
+from backend.core.cleaner import load_test_set, get_sentences
 from models.bert.finetuning import (
     TRAIN_DATASET_CHECKPOINT,
     TEST_DATASET_CHECKPOINT,
@@ -33,10 +36,30 @@ def push_testset_to_huggingface_hub(dataset: DatasetDict, message: str) -> None:
 def push_set_to_huggingface_hub(dataset: DatasetDict, message: str) -> None:
     dataset.push_to_hub("CNR-ILC/gs-maat-corpus", commit_message=message)
 
+def build_raw_dataset(abs: list) -> Dataset:
+    """
+    Produce il dataset grezzo: markup editoriale rimosso, lacune → <UNK>,
+    ma NESSUNA normalizzazione model-specific (case, diacritici, punteggiatura).
+    """
+    sentences = []
+    for obj in tqdm(abs, desc="Building raw dataset", unit="ab", leave=False):
+        if obj.get("language") != "grc" or not obj.get("training_text"):
+            continue
+        # Fase A: solo markup editoriale + clean lacune
+        text = process_editorial_marks(obj["training_text"])
+        tokens = clean_tokens(text)           # lacune → <UNK>
+        text = " ".join(tokens).strip()
+        if not text:
+            continue
+        for sent in sentence_tokenizer.tokenize(text):
+            if sent:
+                sentences.append(sent)
+
+    return Dataset.from_dict({"text": sentences})
 
 def main():
-    train_abs, dev_abs = load_and_split_sentences()
-    test_abs = load_test_abs()
+    train_abs, dev_abs = load_train_and_dev_set(test_size=0.2)
+    test_abs = load_test_set()
     dataset = DatasetDict(
         {
             "train": get_processed_sentences(train_abs),

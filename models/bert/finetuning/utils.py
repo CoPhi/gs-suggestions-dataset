@@ -1,67 +1,110 @@
-from backend.core.preprocess import clean_supplements, clean_text_from_gaps
+"""
+Utility per il finetuning di modelli BERT su testi in greco antico.
+
+Il modulo espone due livelli di pipeline:
+  1. build_raw_dataset   – produce un Dataset grezzo (markup editoriale rimosso,
+                           diacritici e punteggiatura preservati) uguale per tutti
+                           i modelli.
+  2. prepare_dataset_for_model – normalizza e tokenizza il dataset grezzo secondo
+                                 la configurazione specifica del checkpoint BERT.
+
+Flusso consigliato
+------------------
+  raw = build_raw_dataset(abs)
+  tokenized_train = prepare_dataset_for_model(raw["train"], checkpoint)
+  tokenized_dev   = prepare_dataset_for_model(raw["dev"],   checkpoint)
+"""
+
+from functools import partial
+
 from tqdm import tqdm
-from models.ngrams.train import load_abs, split_abs, get_sentences, get_tokens_from_clean_text
-from datasets import (
-    load_dataset,
-    Dataset,
+
+from backend.core.cleaner import (
+    load_abs,
+    split_abs_herc_dev,
+    get_sentences,
+    get_tokens_from_clean_text,
 )
+from backend.core.preprocess import (
+    process_editorial_marks,
+    strip_diacritics,
+    normalize_greek,
+    remove_punctuation,
+    clean_tokens,
+)
+from cltk.alphabet.grc.grc import normalize_grc
+from datasets import Dataset, DatasetDict, load_dataset
 from models.bert.finetuning import (
     CHUNK_SIZE,
     BERT_UNK_TOKEN,
     BERT_MAX_SEQ_LENGTH,
-    MAX_UNK_TOKEN_TRESHOLD,
-    MAX_MASK_TOKEN_TRESHOLD,
-    MIN_MASK_TOKEN_TRESHOLD,
     MIN_SENT_TOKEN_TRESHOLD,
     get_model_config,
 )
+from transformers import AutoTokenizer
 
-import re
+# Helpers di base
 
-"""UTILS DATASET"""
 
-def get_db():
+def get_db() -> DatasetDict:
+    """Carica il dataset MAAT dal HuggingFace Hub."""
     return load_dataset("GabrieleGiannessi/maat-corpus")
 
 
 def generate_mask_tokens(num: int) -> str:
-    mask_str = " "
-    for _ in range(num):
-        mask_str += "[MASK] "
-    return mask_str
+    """Restituisce una stringa con *num* token [MASK] separati da spazio."""
+    return (" [MASK]" * num).lstrip()
 
 
-def load_and_split_sentences(test_size: float = 0.1) -> tuple[list, list]:
-    """
-    Carica i blocchi anonimi e li divide in due set: uno per l'addestramento e uno per il test.
-    I blocchi anonimi vengono caricati dai file JSON presenti nella cartella `data/` e suddivisi in due set: uno per l'addestramento e uno per il test.
-
-        Args:
-        test_size (float): La proporzione del set di test rispetto al totale. Default è 0.1 (10%).
-    Returns:
-        tuple: Due liste di frasi, una per l'addestramento e una per il test.
-    """
-    abs = load_abs()
-    train_abs, test_abs = split_abs(abs, test_size)
-    return train_abs, test_abs
-
-
-def get_sent_from_tokens(tokens: list[str]):
+def get_sent_from_tokens(tokens: list[str]) -> str:
     return " ".join(tokens)
+
+
+def get_cast_unk_tokens_text(text: str) -> str:
+    """Sostituisce il tag <UNK> interno con il token speciale BERT [UNK]."""
+    return text.replace("<UNK>", BERT_UNK_TOKEN)
+
+
+def get_num_unk_tokens(text: str) -> int:
+    """Conta i token [UNK] presenti in *text*."""
+    return sum(1 for tkn in get_tokens_from_clean_text(text) if tkn == BERT_UNK_TOKEN)
+
+
+# Caricamento e split del corpus
+
+
+def load_train_and_dev_set(test_size: float = 0.1) -> tuple[list, list]:
+    """
+    Carica i blocchi anonimi e li suddivide in train e dev set.
+
+    Il dev set contiene esclusivamente blocchi dei Papiri di Ercolano
+    (P.Herc.), garantendo la stratificazione per dominio.
+
+    Args:
+        test_size: Proporzione del dev set rispetto ai soli blocchi P.Herc.
+
+    Returns:
+        (train_abs, dev_abs)
+    """
+    abs_ = load_abs()
+    return split_abs_herc_dev(abs_, test_size)
+
+
+# Chunking
 
 
 def chunk_sentences(sentences: list[str], chunk_size: int = CHUNK_SIZE) -> list[str]:
     """
-    Divide una lista di frasi in blocchi più piccoli di token con una dimensione specificata.
-    Chunking basato su word token, adatto per modelli a n-grammi.
+    Divide le frasi in blocchi di *chunk_size* word token (per modelli n-grammi).
 
-    Argomenti:
-        sentences (list[str]): Una lista di frasi da suddividere in blocchi.
-        chunk_size (int, opzionale): Il numero di token per blocco. Valore predefinito CHUNK_SIZE.
+    I blocchi che non raggiungono la dimensione esatta vengono scartati.
 
-    Restituisce:
-        list[str]: Una lista di blocchi, dove ogni blocco è una stringa contenente `chunk_size` token.
-                   Solo i blocchi con una dimensione esatta di `chunk_size` sono inclusi nell'output.
+    Args:
+        sentences:  Lista di frasi già normalizzate.
+        chunk_size: Numero di word token per blocco.
+
+    Returns:
+        Lista di stringhe, ciascuna contenente esattamente *chunk_size* token.
     """
     chunked = []
     for sentence in sentences:
@@ -73,250 +116,258 @@ def chunk_sentences(sentences: list[str], chunk_size: int = CHUNK_SIZE) -> list[
     return chunked
 
 
-def chunk_for_bert(sentences: list[str], tokenizer, max_length: int = BERT_MAX_SEQ_LENGTH) -> list[str]:
+def chunk_for_bert(
+    sentences: list[str],
+    tokenizer,
+    max_length: int = BERT_MAX_SEQ_LENGTH,
+) -> list[str]:
     """
-    Divide una lista di frasi in blocchi rispettando il limite massimo di sub-word token di BERT.
-    Le frasi vengono aggregate fino a raggiungere il limite, evitando di spezzare una frase a metà.
+    Aggrega frasi in blocchi che rispettano il limite di sub-word token di BERT.
 
-    Argomenti:
-        sentences (list[str]): Una lista di frasi da suddividere in blocchi.
-        tokenizer: Il tokenizer del modello BERT, usato per calcolare la lunghezza in sub-word token.
-        max_length (int, opzionale): Il numero massimo di sub-word token per blocco.
-                                      Valore predefinito BERT_MAX_SEQ_LENGTH (510 = 512 - [CLS] - [SEP]).
+    Le frasi che singolarmente superano *max_length* vengono troncate.
 
-    Restituisce:
-        list[str]: Una lista di blocchi, dove ogni blocco rispetta il limite di sub-word token.
-                   Le frasi che singolarmente superano il limite vengono troncate.
+    Args:
+        sentences:  Lista di frasi normalizzate.
+        tokenizer:  Tokenizer HuggingFace del modello target.
+        max_length: Limite di sub-word token (default 510 = 512 − [CLS] − [SEP]).
+
+    Returns:
+        Lista di stringhe pronte per la tokenizzazione finale.
     """
-    chunks = []
-    current_chunk_tokens = []
+    chunks: list[str] = []
+    current_tokens: list[str] = []
     current_length = 0
 
     for sent in sentences:
         sent_tokens = tokenizer.tokenize(sent)
 
-        # Se una singola frase supera il limite, la tronchiamo
         if len(sent_tokens) > max_length:
-            if current_chunk_tokens:
-                chunks.append(tokenizer.convert_tokens_to_string(current_chunk_tokens))
-                current_chunk_tokens = []
+            if current_tokens:
+                chunks.append(tokenizer.convert_tokens_to_string(current_tokens))
+                current_tokens = []
                 current_length = 0
             chunks.append(tokenizer.convert_tokens_to_string(sent_tokens[:max_length]))
             continue
 
-        # Se aggiungere la frase supera il limite, chiudiamo il chunk corrente
         if current_length + len(sent_tokens) > max_length:
-            if current_chunk_tokens:
-                chunks.append(tokenizer.convert_tokens_to_string(current_chunk_tokens))
-            current_chunk_tokens = sent_tokens
+            if current_tokens:
+                chunks.append(tokenizer.convert_tokens_to_string(current_tokens))
+            current_tokens = sent_tokens
             current_length = len(sent_tokens)
         else:
-            current_chunk_tokens.extend(sent_tokens)
+            current_tokens.extend(sent_tokens)
             current_length += len(sent_tokens)
 
-    # Salva l'ultimo chunk
-    if current_chunk_tokens:
-        chunks.append(tokenizer.convert_tokens_to_string(current_chunk_tokens))
+    if current_tokens:
+        chunks.append(tokenizer.convert_tokens_to_string(current_tokens))
 
     return chunks
 
 
-def get_cast_unk_tokens_text(text: str) -> str:
-    return text.replace("<UNK>", BERT_UNK_TOKEN)
+# Dataset grezzo (model-agnostic)
 
 
-def get_num_unk_tokens(text: str) -> int:
-    c = 0
-    for tkn in get_tokens_from_clean_text(text):
-        if tkn == BERT_UNK_TOKEN:
-            c += 1
-
-    return c
-
-
-def _filter_sentences(abs: list, remove_punct: bool = True) -> list[str]:
+def _is_quality_sentence_word_level(
+    tokens: list[str],
+    unk_ratio_threshold: float = 0.1,
+) -> bool:
     """
-    Logica di filtraggio condivisa per l'estrazione di frasi dai blocchi anonimi.
-    Filtra le frasi che non soddisfano i criteri di qualità per il finetuning:
-    - Soglia minima di token (MIN_SENT_TOKEN_TRESHOLD)
-    - Soglia massima di token sconosciuti (10% della frase)
-
-    La rimozione della punteggiatura è parametrizzata per supportare modelli
-    con requisiti diversi:
-    - AristoBERTo (GreekBERT): remove_punct=True (tokenizer per greco moderno)
-    - GreBerta / Logion: remove_punct=False (tokenizer per greco antico)
+    Verifica i criteri di qualità su word token (usato per il dataset grezzo).
 
     Args:
-        abs (list): Lista di blocchi anonimi da cui estrarre le frasi.
-        remove_punct (bool): Se True, rimuove la punteggiatura dalle frasi.
-                             Default True per retrocompatibilità.
+        tokens:               Lista di word token della frase.
+        unk_ratio_threshold:  Frazione massima di token [UNK] consentita.
 
     Returns:
-        list[str]: Una lista di frasi filtrate che soddisfano i criteri specificati.
+        True se la frase supera entrambe le soglie.
     """
-    sentences = []
+    if len(tokens) < MIN_SENT_TOKEN_TRESHOLD:
+        return False
+    text = get_sent_from_tokens(tokens)
+    unk_count = get_num_unk_tokens(get_cast_unk_tokens_text(text))
+    return unk_count < len(tokens) * unk_ratio_threshold
+
+
+def build_raw_dataset(abs_: list) -> Dataset:
+    """
+    Produce il dataset grezzo: markup editoriale rimosso, lacune → [UNK],
+    diacritici e punteggiatura **preservati**.
+
+    Questa rappresentazione è model-agnostic: può essere caricata una sola
+    volta dal Hub e poi normalizzata on-the-fly per ogni modello BERT.
+
+    Args:
+        abs_: Lista di blocchi anonimi (già filtrati per language == "grc").
+
+    Returns:
+        Dataset HuggingFace con colonna 'text'.
+    """
+    sentences: list[str] = []
     for sent_tkns in tqdm(
-        get_sentences(abs, case_folding=True, remove_punct=remove_punct),
+        # case_folding=False e remove_punct=False → testo grezzo
+        get_sentences(abs_, case_folding=False, remove_punct=False),
+        desc="Building raw dataset",
+        unit="sentence",
+        leave=False,
+    ):
+        if not _is_quality_sentence_word_level(sent_tkns):
+            continue
+        text = get_cast_unk_tokens_text(get_sent_from_tokens(sent_tkns))
+        sentences.append(text)
+
+    return Dataset.from_dict({"text": sentences})
+
+
+# Normalizzazione e tokenizzazione model-specific
+
+
+def _normalize_example(example: dict, config: dict) -> dict:
+    """
+    Applica la normalizzazione model-specific a un singolo esempio del Dataset.
+
+    Chiamata tramite Dataset.map(); non deve essere invocata direttamente.
+
+    Args:
+        example: Dizionario con chiave 'text'.
+        config:  Configurazione del modello (da get_model_config).
+
+    Returns:
+        Dizionario con chiave 'text' normalizzata.
+    """
+    text = example["text"]
+
+    if config["strip_diacritics"]:
+        text = strip_diacritics(text)
+
+    text = normalize_grc(text)
+    text = text.upper() if config["strip_diacritics"] else text.lower()
+
+    if config["remove_punct"]:
+        text = remove_punctuation(text)
+
+    text = text.replace("<UNK>", BERT_UNK_TOKEN)
+    return {"text": text}
+
+
+def _tokenize_example(example: dict, tokenizer) -> dict:
+    """
+    Tokenizza un esempio con il tokenizer del modello specifico.
+
+    Chiamata tramite Dataset.map() dopo _normalize_example; il padding è
+    delegato al DataCollatorForLanguageModeling durante il training.
+
+    Args:
+        example:   Dizionario con chiave 'text' già normalizzata.
+        tokenizer: Tokenizer HuggingFace del modello target.
+
+    Returns:
+        Dizionario con 'input_ids' e 'attention_mask'.
+    """
+    return tokenizer(
+        example["text"],
+        truncation=True,
+        max_length=512,
+        padding=False,
+    )
+
+
+def _quality_filter_subword(example: dict, tokenizer) -> bool:
+    """
+    Verifica i criteri di qualità su sub-word token reali del modello.
+
+    A differenza di _is_quality_sentence_word_level, opera sui sub-word token
+    prodotti dal tokenizer specifico, garantendo coerenza con il vocabolario
+    del modello.
+
+    Args:
+        example:   Dizionario con chiave 'text' già normalizzata.
+        tokenizer: Tokenizer HuggingFace del modello target.
+
+    Returns:
+        True se la frase supera entrambe le soglie.
+    """
+    tokens = tokenizer.tokenize(example["text"])
+    if len(tokens) < MIN_SENT_TOKEN_TRESHOLD:
+        return False
+    unk_count = tokens.count(tokenizer.unk_token)
+    return unk_count / max(len(tokens), 1) < 0.1
+
+
+def prepare_dataset_for_model(
+    raw_dataset: Dataset,
+    checkpoint: str,
+    num_proc: int = 4,
+) -> Dataset:
+    """
+    Pipeline completa per un modello BERT specifico:
+      1. Normalizzazione (case folding, diacritici, punteggiatura)
+      2. Filtraggio qualitativo su sub-word token reali
+      3. Tokenizzazione con il tokenizer del checkpoint
+
+    Args:
+        raw_dataset: Dataset grezzo prodotto da build_raw_dataset().
+        checkpoint:  Es. "CNR-ILC/gs-aristoBERTo".
+        num_proc:    Numero di processi paralleli per Dataset.map().
+
+    Returns:
+        Dataset con colonne 'input_ids' e 'attention_mask'.
+    """
+    config = get_model_config(checkpoint)
+    tokenizer = AutoTokenizer.from_pretrained(checkpoint)
+
+    normalized = raw_dataset.map(
+        partial(_normalize_example, config=config),
+        desc=f"Normalizing [{checkpoint}]",
+        num_proc=num_proc,
+    )
+
+    filtered = normalized.filter(
+        partial(_quality_filter_subword, tokenizer=tokenizer),
+        desc=f"Filtering [{checkpoint}]",
+        num_proc=num_proc,
+    )
+
+    tokenized = filtered.map(
+        partial(_tokenize_example, tokenizer=tokenizer),
+        batched=True,
+        remove_columns=["text"],
+        desc=f"Tokenizing [{checkpoint}]",
+        num_proc=num_proc,
+    )
+
+    return tokenized
+
+
+# ---------------------------------------------------------------------------
+# Retrocompatibilità
+# ---------------------------------------------------------------------------
+
+
+def get_processed_sentences(
+    abs_: list,
+    remove_punct: bool = True,
+    case_folding: bool = True,
+) -> Dataset:
+    """
+    .. deprecated::
+        Usare build_raw_dataset() + prepare_dataset_for_model() per separare
+        la costruzione del dataset dalla normalizzazione model-specific.
+
+    Estrae e filtra le frasi da *abs_* restituendo un Dataset HuggingFace.
+    """
+    sentences: list[str] = []
+    for sent_tkns in tqdm(
+        get_sentences(abs_, case_folding=case_folding, remove_punct=remove_punct),
         desc="Loading set",
         unit="sentence",
         leave=False,
     ):
         processed_text = get_cast_unk_tokens_text(get_sent_from_tokens(sent_tkns))
         if (
-            get_num_unk_tokens(processed_text) >= (len(sent_tkns) * 0.1)
+            get_num_unk_tokens(processed_text) >= len(sent_tkns) * 0.1
             or len(sent_tkns) < MIN_SENT_TOKEN_TRESHOLD
         ):
             continue
         sentences.append(processed_text)
 
-    return sentences
-
-
-def get_processed_sentences(abs: list, remove_punct: bool = True) -> Dataset:
-    """
-    Estrae e filtra le frasi di addestramento da una lista di blocchi anonimi,
-    restituendo un Dataset HuggingFace.
-
-    Args:
-        abs (list): Lista di blocchi anonimi da cui estrarre le frasi.
-        remove_punct (bool): Se True, rimuove la punteggiatura.
-
-    Returns:
-        Dataset: Dataset HuggingFace con colonna 'text'.
-    """
-    return Dataset.from_dict({"text": _filter_sentences(abs, remove_punct)})
-
-
-# def get_filtered_processed_sentences(abs: list, remove_punct: bool = True) -> list[str]:
-#     """
-#     Estrae e filtra le frasi di addestramento da una lista di blocchi anonimi,
-#     restituendo una lista di stringhe.
-
-#     Args:
-#         abs (list): Lista di blocchi anonimi da cui estrarre le frasi.
-#         remove_punct (bool): Se True, rimuove la punteggiatura.
-
-#     Returns:
-#         list[str]: Lista di frasi filtrate.
-#     """
-#     return _filter_sentences(abs, remove_punct)
-
-
-def get_test_cases_from_abs(abs: list):
-    """
-    Estrae i test_case dai blocchi anonimi, sostituendo la/e parola/e da predire con [MASK]
-    Ci si assicura che le frasi contengono un solo token sconosciuto
-    """
-
-    blocks = []
-
-    for ab in tqdm(
-        abs,
-        desc="Loading test cases",
-        unit="test case",
-        leave=False,
-    ):
-        supplements = clean_supplements(ab["training_text"])
-        if not supplements:
-            continue
-
-        # devo individuare le parole da predire e sostituirle con [MASK]
-        for i, obj in enumerate(ab["test_cases"]):
-
-            if i >= len(supplements):
-                break
-
-            if (
-                len(supplements[i]) == 0
-                or (
-                    len(supplements[i]) > MAX_MASK_TOKEN_TRESHOLD
-                    or len(supplements[i]) < MIN_MASK_TOKEN_TRESHOLD
-                )
-                or "<UNK>" in supplements[i]
-            ):
-                continue
-
-            obj["test_case"] = re.sub(
-                r"\S*\[(\S*)\]\S*", r"[\1]", obj["test_case"], count=1
-            )  # inquadro l'insieme delle parole influenzate dal supplemento
-            test_case = get_cast_unk_tokens_text(
-                clean_text_from_gaps(obj["test_case"].split("[")[0])
-                + generate_mask_tokens(len(supplements[i]))
-                + clean_text_from_gaps(obj["test_case"].split("]")[1])
-            )
-
-            # Controllo da rifare
-            if (
-                get_num_unk_tokens(test_case) > MAX_UNK_TOKEN_TRESHOLD
-                or len(test_case) > 512
-            ):  # prendiamo solo i casi di test con un numero di token sconosciuti inferiori alla soglia per non confondere troppo il modello
-                continue
-
-            if (
-                len(supplements[i]) > 1
-            ):  # se la parola da predire è composta da più di una parola, divido il test_case in più test_case per predire una parola alla volta
-                blocks.extend(
-                    split_test_case_with_multiple_mask_tokens(
-                        obj["test_case"], supplements[i]
-                    )
-                )
-            else:
-                blocks.append(
-                    {
-                        "text": test_case,  # caso di test in cui la/e parola/e da predire sono state sostituite con [MASK]
-                        "label": get_sent_from_tokens(
-                            supplements[i]
-                        ),  # la parola da predire
-                    }
-                )
-
-    return Dataset.from_dict(
-        {
-            "text": [test_case["text"] for test_case in blocks],
-            "label": [test_case["label"] for test_case in blocks],
-        }
-    )
-
-
-def split_test_case_with_multiple_mask_tokens(
-    test_case: str, supplements: list[str]
-) -> list[dict]:
-    """
-    Genera una lista di casi di test con un singolo token mascherato e la relativa etichetta,
-    sostituendo gli altri token mascherati con le rispettive etichette.
-
-    Args:
-        test_case (str): Frase contenente una sequenza mascherata ([MASK]).
-        supplements (list[str]): Lista di etichette associate ai token mascherati.
-
-    Returns:
-        list[dict]: Lista di dizionari, ciascuno contenente un test_case con un solo token mascherato
-        e gli altri token mascherati sostituiti con le rispettive etichette.
-    """
-    match = re.search(
-        r"(\[MASK\](?:\s+\[MASK\])*)", test_case
-    )  # Trova la sequenza completa di token [MASK]
-    if not match:
-        return []  # Nessun token mascherato trovato
-
-    mask_seq = match.group().split()  # Lista dei token [MASK]
-
-    if len(mask_seq) != len(supplements):
-        raise ValueError(
-            "La lista delle etichette deve avere la stessa lunghezza dei token [MASK]."
-        )
-
-    # Genera i test case sostituendo uno per volta ogni [MASK]
-    blocks = [
-        {
-            "test_case": test_case[: match.start()]
-            + " ".join(
-                supplements[j] if i != j else "[MASK]" for j in range(len(mask_seq))
-            )
-            + test_case[match.end() :],
-            "label": supplements[i],
-        }
-        for i in range(len(mask_seq))
-    ]
-
-    return blocks
+    return Dataset.from_dict({"text": sentences})

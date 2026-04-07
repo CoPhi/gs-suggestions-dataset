@@ -1,9 +1,13 @@
 import re
+from cltk.sentence.grc import GreekRegexSentenceTokenizer
+
+sentence_tokenizer = GreekRegexSentenceTokenizer()
+
+
 TRAIN_DATASET_CHECKPOINT = "CNR-ILC/maat-corpus-train"
 TEST_DATASET_CHECKPOINT = "CNR-ILC/maat-corpus-test"
-BERT_TOKENS_PER_WORD = 1.77
 
-CHUNK_SIZE = 50  # Define the desired chunk size
+CHUNK_SIZE = 50  # Dimensione del chunk per il push su Hugging Face Hub
 BERT_UNK_TOKEN = "[UNK]"
 BERT_MAX_SEQ_LENGTH = 510  # 512 - 2 ([CLS] + [SEP])
 
@@ -12,8 +16,6 @@ MAX_UNK_TOKEN_TRESHOLD = 5
 MIN_SENT_TOKEN_TRESHOLD = 10
 MAX_MASK_TOKEN_TRESHOLD = 10
 MIN_MASK_TOKEN_TRESHOLD = 1
-
-LACUNAE_REGEX = re.compile(r"\[([. ]+)\]")
 
 # Configurazione specifica per modello BERT.
 # AristoBERTo si basa su GreekBERT (tokenizer per greco moderno):

@@ -3,6 +3,7 @@ from cltk.sentence.grc import GreekRegexSentenceTokenizer
 
 # Tokenizer testo -> frasi (str -> list[str])
 sentence_tokenizer = GreekRegexSentenceTokenizer()
+_LANGUAGE = "grc"
 
 GAP_TOKEN = "<gap/>"
 UNK_TOKEN = "<UNK>"

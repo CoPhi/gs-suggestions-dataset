@@ -2,7 +2,7 @@ import json
 import random
 from typing import Optional
 from sklearn.model_selection import train_test_split
-from backend.core import sentence_tokenizer
+from backend.core import sentence_tokenizer, _LANGUAGE
 from tqdm import tqdm
 from backend.config.settings import (
     CORPUS_NAMES,
@@ -19,7 +19,7 @@ from backend.core.preprocess import (
 
 
 def check_ab(ab: dict, corpus_set: Optional[list[str]] = None) -> bool:
-    if ab.get("language") != "grc":
+    if ab.get("language") != _LANGUAGE:
         return False
 
     corpus_id = ab.get("corpus_id")
@@ -98,13 +98,13 @@ def load_specific_domain_abs(abs: list, domain_title: str = "P.Herc.") -> list:
     return [
         ab
         for ab in abs
-        if ab.get("language") == "grc"
+        if ab.get("language") == _LANGUAGE
         and isinstance(ab.get("title"), str)
         and domain_title in ab["title"]
     ]
 
 
-def load_test_abs() -> list:
+def load_test_set() -> list:
     """
     Carica i blocchi anonimi di test da un file JSON.
     Returns:
@@ -112,6 +112,9 @@ def load_test_abs() -> list:
     """
     with open(DATA_PATH / "test_abs.json", "r", encoding="utf-8") as f:
         return json.load(f)
+
+
+# Metodi per la divisione dei blocchi anonimi in train e test
 
 
 def split_abs(abs: list, test_size=TEST_SIZE) -> tuple:
@@ -131,6 +134,36 @@ def split_abs(abs: list, test_size=TEST_SIZE) -> tuple:
         abs, test_size=test_size, random_state=RANDOM_SEED
     )
     return train_abs, test_abs
+
+
+def split_abs_herc_dev(
+    abs: list,
+    test_size: float = TEST_SIZE,
+    domain_title: str = "P.Herc.",
+) -> tuple[list, list]:
+    """
+    Divide i blocchi anonimi in train e dev, assicurando che il dev set
+    contenga esclusivamente testi dei Papiri di Ercolano.
+
+    Args:
+        abs: tutti i blocchi anonimi caricati da load_abs()
+        test_size: proporzione del dev set rispetto ai soli blocchi P.Herc.
+        domain_title: prefisso del titolo usato per identificare i P.Herc.
+
+    Returns:
+        (train_abs, dev_abs)
+    """
+    herc_abs = load_specific_domain_abs(abs, domain_title)
+    non_herc_abs = [ab for ab in abs if ab not in set(map(id, herc_abs))]
+
+    herc_train, herc_dev = train_test_split(
+        herc_abs,
+        test_size=test_size,
+        random_state=RANDOM_SEED,
+    )
+
+    train_abs = non_herc_abs + herc_train
+    return train_abs, herc_dev
 
 
 def get_sentences(
@@ -153,8 +186,10 @@ def get_sentences(
     sentences = []
 
     if remove_punct:
+
         def process_sent(s):
             return get_tokens_from_clean_text(remove_punctuation(s))
+
     else:
         process_sent = get_tokens_from_clean_text
 
@@ -162,7 +197,7 @@ def get_sentences(
         training_text = obj.get("training_text")
 
         # obj.get e check string per il fail fast.
-        if obj.get("language") == "grc" and training_text:
+        if obj.get("language") == _LANGUAGE and training_text:
             clean_text = clean_text_from_gaps(training_text, case_folding=case_folding)
             for sent in sentence_tokenizer.tokenize(text=clean_text):
                 if sent:
