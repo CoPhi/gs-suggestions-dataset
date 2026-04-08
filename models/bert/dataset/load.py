@@ -66,11 +66,8 @@ def dev_set_to_hf_dataset(dev_set: list[DevCase]) -> Dataset:
             "x": case.x,
             "y": case.y,
             "gap_length": case.gap_length,
-            "left_context": case.left_context,
-            "right_context": case.right_context,
             "corpus_id": case.corpus_id,
             "abs_id": case.abs_id,
-            "raw_supplement": case.raw_supplement,
         }
         for case in dev_set
     ]

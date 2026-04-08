@@ -1,5 +1,5 @@
-[submodule "maat"]
-	path = maat
+[submodule "packages/maat"]
+	path = packages/maat
 	url = https://github.com/GabrieleGiannessi/maat.git
 [submodule "packages/hcb_infilling"]
 	path = packages/hcb_infilling

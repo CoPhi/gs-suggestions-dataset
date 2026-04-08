@@ -6,6 +6,7 @@ from backend.core.preprocess import (
     normalize_greek,
     get_tokens_from_clean_text,
     remove_punctuation,
+    transpile,
 )
 from backend.core import SUPPLEMENTS_REGEX
 import re
@@ -15,11 +16,8 @@ class DevCase:
     x: str  # training text con lacuna [MASK-placeholder]
     y: list[str]  # gold labels normalizzate
     gap_length: int  # caratteri alfabetici della lacuna
-    left_context: str  # sottostringa sinistra della lacuna
-    right_context: str  # sottostringa destra della lacuna
     corpus_id: str
     abs_id: str
-    raw_supplement: str  # supplemento originale non normalizzato
 
 
 def build_dev_case(
@@ -31,8 +29,9 @@ def build_dev_case(
 
     Args:
         ab: blocco anonimo MAAT (dict con 'training_text', 'corpus_id', ecc.)
-        normalize: se True, normalizza X e Y con `normalize_greek` (rimozione diacritici)
+        normalize: se True, normalizza X e Y (case folding)
         strip_diacritics: se True, rimuove i diacritici da X e Y
+        case_folding: se True, converte il testo in maiuscolo
 
     Returns:
         lista di DevCase, uno per ogni supplemento trovato nel blocco
@@ -49,7 +48,7 @@ def build_dev_case(
     # Calcola le gold label tramite clean_supplements (già normalizzate)
     gold_labels = clean_supplements(
         training_text,
-        case_folding=normalize,
+        case_folding=case_folding,
         strip_diacritics=strip_diacritics,
         normalize=normalize,
     )
@@ -59,50 +58,43 @@ def build_dev_case(
         if not gold_tokens or gap_len == 0:
             continue
 
+        #placeholder temporaneo per la lacuna
+        tgt_placeholder = "ΩΩΩMASKΩΩΩ"
         placeholder = "." * gap_len
+        target_lacuna_repr = f"[{placeholder}]"
+
         x_raw = (
             training_text[: match.start()]
-            + f"[{placeholder}]"
+            + tgt_placeholder
             + training_text[match.end() :]
         )
 
-        x_clean = process_editorial_marks(x_raw)
-        if normalize:
-            x_clean = normalize_greek(x_clean, case_folding=case_folding)
+        # Transpile si occupa di ripulire i markup editoriali e trasformare
+        # le altre lacune in <UNK> tramite `clean_tokens`
+        x_clean = transpile(
+            x_raw,
+            case_folding=case_folding,
+            strip_diacritics=strip_diacritics,
+            normalize=normalize,
+        )
 
-        # Estrai left/right context rispetto al placeholder
-        left, right = _split_context(x_clean)
+        # Il placeholder dopo eventuale normalizzazione e case folding
+        search_target = tgt_placeholder.upper() if (case_folding and normalize) else tgt_placeholder
+        
+        # Sostituisce il marker temporaneo con la lacuna fedelmente riprodotta
+        x_clean = x_clean.replace(search_target, target_lacuna_repr)
 
         cases.append(
             DevCase(
                 x=x_clean,
-                y=gold_tokens,
+                y=match.group(0),
                 gap_length=gap_len,
-                left_context=left,
-                right_context=right,
                 corpus_id=ab.get("corpus_id", ""),
-                abs_id=ab.get("abs_id", ""),
-                raw_supplement=match.group(0),
+                abs_id=ab.get("file_id", ""),
             )
         )
 
     return cases
-
-
-def _split_context(x_clean: str) -> tuple[str, str]:
-    """
-    Separa il contesto sinistro e destro rispetto al placeholder della lacuna.
-    """
-    # Il placeholder dopo normalize potrebbe essere alterato: cerca i punti
-    gap_pattern = re.compile(r"\[\.+\]")
-    m = gap_pattern.search(x_clean)
-    if not m:
-        return x_clean, ""
-
-    left = x_clean[: m.start()].strip()
-    right = x_clean[m.end() :].strip()
-    return left, right
-
 
 def build_dev_set(
     herc_abs: list[dict],
