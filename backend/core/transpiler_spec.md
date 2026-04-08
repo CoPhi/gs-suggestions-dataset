@@ -90,7 +90,7 @@ training_text (MAAT Leiden)
 
 | Entry point | Copre fasi | Contesto d'uso |
 |-------------|-----------|----------------|
-| `clean_text_from_gaps(text)` | 1 → 2 → 3 | Training text → stringa normalizzata |
+| `transpile(text)` | 1 → 2 → 3 | Training text → stringa normalizzata |
 | `get_sentences(abs)` | 1 → 2 → 3 → 4 | Blocchi anonimi → frasi tokenizzate per LM |
 
 ---
@@ -472,4 +472,4 @@ FASE 3  "ΑΡΤΟΥΣ ΤΟΥΣ Ε"
 
 ---
 
-*Specifica derivata dall'implementazione in [preprocess.py](./preprocess.py) e [cleaner.py](../../models/ngrams/train/cleaner.py), verificata empiricamente sulla base dati MAAT.*
+*Specifica derivata dall'implementazione in [preprocess.py](./preprocess.py) e [cleaner.py](./cleaner.py), verificata empiricamente sulla base dati MAAT.*

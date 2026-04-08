@@ -390,7 +390,10 @@ def get_expanded_supplement(training_text: str, start_pos: int, end_pos: int):
 
 
 def clean_supplements(
-    training_text: str, case_folding: bool = True
+    training_text: str,
+    case_folding: bool = True,
+    strip_diacritics: bool = True,
+    normalize: bool = True,
 ) -> list[tuple[list[str], int]]:
     """
     Questa funzione cerca i supplementi (testo racchiuso tra parentesi quadre) all'interno del testo fornito,
@@ -440,7 +443,11 @@ def clean_supplements(
         )
 
         tokens = get_tokens_from_clean_text(
-            remove_punctuation(transpile(expanded_supplement, case_folding))
+            remove_punctuation(
+                transpile(
+                    expanded_supplement, case_folding, strip_diacritics, normalize
+                )
+            )
         )
 
         if len(tokens) > 1:

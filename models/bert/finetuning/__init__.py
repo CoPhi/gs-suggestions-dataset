@@ -57,6 +57,3 @@ def get_model_config(checkpoint: str) -> dict:
             f"Checkpoint disponibili: {list(BERT_MODEL_CONFIG.keys())}"
         )
     return BERT_MODEL_CONFIG[checkpoint]
-
-
-from .utils import *

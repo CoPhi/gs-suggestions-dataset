@@ -1,0 +1,2 @@
+MAAT_CORPUS_CHECKPOINT = "CNR-ILC/gs-maat-corpus"
+MAAT_EVAL_CHECKPOINT = "CNR-ILC/gs-maat-eval"
