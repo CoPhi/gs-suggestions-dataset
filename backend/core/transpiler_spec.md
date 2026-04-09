@@ -59,13 +59,13 @@ training_text (MAAT Leiden)
       ▼
  ┌─────────────────────────────────┐
  │  FASE 1: Strip markup editoriale│  process_editorial_marks()
- │  14 trasformazioni in sequenza  │  preprocess.py:651–676
+ │  14 trasformazioni in sequenza  │  preprocess.py:700-726
  └──────────────┬──────────────────┘
                 │
                 ▼
  ┌─────────────────────────────────┐
  │  FASE 2: Risoluzione lacune    │  clean_tokens()
- │  Per ogni token: lacuna → <UNK>│  preprocess.py:692–706
+ │  Per ogni token: lacuna → <UNK>│  preprocess.py:728-749
  └──────────────┬──────────────────┘
                 │
                 ▼
@@ -77,7 +77,7 @@ training_text (MAAT Leiden)
                 ▼
  ┌─────────────────────────────────┐
  │  FASE 4: Segmentazione frasi   │  get_sentences()
- │  Sentence split + tokenizzaz.  │  cleaner.py:139–174
+ │  Sentence split + tokenizzaz.  │  cleaner.py:174-222
  │  + rimozione punteggiatura     │
  └──────────────┬──────────────────┘
                 │
