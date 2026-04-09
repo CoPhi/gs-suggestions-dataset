@@ -17,7 +17,7 @@ class DevCase:
     y: list[str]  # gold labels normalizzate
     gap_length: int  # caratteri alfabetici della lacuna
     corpus_id: str
-    abs_id: str
+    file_id: str
 
 
 def build_dev_case(
@@ -36,7 +36,7 @@ def build_dev_case(
     Returns:
         lista di DevCase, uno per ogni supplemento trovato nel blocco
     """
-    training_text = ab.get("training_text", "")
+    training_text = ab.get("training_text", ab.get("text", ""))
     if not training_text:
         return []
 
@@ -90,7 +90,7 @@ def build_dev_case(
                 y=match.group(0),
                 gap_length=gap_len,
                 corpus_id=ab.get("corpus_id", ""),
-                abs_id=ab.get("file_id", ""),
+                file_id=ab.get("file_id", ""),
             )
         )
 
