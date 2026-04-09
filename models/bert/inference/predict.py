@@ -1,116 +1,159 @@
 import re
+import math
 import torch
-import torch.nn.functional as F
-from models.bert.inference.utils import (
-    convert_lacuna_to_masks,
-    to_greek_lower,
-    string_to_regex,
+import numpy as np
+from typing import List, Tuple, Dict
+from transformers import PreTrainedModel, PreTrainedTokenizer
+
+from packages.hcb_infilling.hcb_infilling.decode import (
+    decode_modified_BestToWorst_vectorized,
+    decode_modified_LeftToRight_vectorized,
+    decode_standard_LeftToRight_vectorized,
+    decode_standard_BestToWorst_vectorized
 )
+
 from backend.core.preprocess import normalize_greek
+from models.bert.inference import GAP_TOKEN
 
-def fill_mask(model, tokenizer, context, k, alpha=500):
+def p_gaptoks_prior(k: int, k_min: int, k_max: int, n_chars: int) -> float:
     """
-    Riempie le maschere presenti nel testo fornito utilizzando un modello BERT con ri-ordinamento semantico.
-    
-    Le maschere nel testo in input sono individuate da `convert_lacuna_to_masks` e convertite con il token mascherato usato dal modello BERT utilizzato (`model`).
-    Utilizza la similarità del coseno tra gli embedding del contesto e i candidati per migliorare il ranking.
-    In particolare, calcola un vettore centroide del contesto (escludendo i token speciali) e confronta ogni candidato con questo centroide per ottenere una misura di similarità semantica con il contesto.
-    
+    Step 5 baseline: Prior P(gaptoks = k | n_chars).
+    Usa una distribuzione uniforme tra k_min e k_max.
+    Futuri sviluppi: Implementare la FCNN (Multi-layer perceptron) stile Logion, in futuro questa funzione può 
+    inviare n_chars in one-hot ad un modello PyTorch / scikit-learn.
+    """
+    return 1.0 / (k_max - k_min + 1) # Uniform baseline
 
+def fill_mask(
+    text: str, 
+    n_chars: int, 
+    model: PreTrainedModel, 
+    tokenizer: PreTrainedTokenizer, 
+    K: int = 10, 
+    beam_size: int = 10, 
+    method: str = "modified_best_to_worst",
+    case_folding: bool = True
+) -> List[Tuple[str, float]]:
+    """
+    Esegue il processo di text infilling tramite HCB (Hammersley-Clifford-Besag) su 
+    `k` maschere variabili.
+    Il processo è articolato in 5 step: 
+    1. Sostituzione lacuna con `<GAP_TOKEN>`.
+        Questo placeholder viene aggiunto al vocabolario del tokenizer
+        del modello usato per la generazione e sostituito con la lacuna presente nel testo.
+        La sostituzione nel testo avviene tramite regex. 
+    2. Calcolo range di `k` (numero di [MASK] consecutivi)
+        Il range di `k` è calcolato in base al numero di caratteri presenti nella lacuna (n_chars).
+        Limitiamo k_max empiricamente per via della degradazione di BERT sui mask consecutivi (k <= 3)
+
+    3. Costruzione sequenza mascherata
+        La lacuna viene sostituita con `k` [MASK] consecutivi.
+        Dopodichè avviene la tokenizzazione del modello. 
+
+    4. HCB Beam Search
+        Viene eseguito il beam search per trovare i migliori suggerimenti.
+        `decode_modified_BestToWorst_vectorized` usa `hcb_update` internamente
+        `hcb_update` fa: f_HCB(x_i) = log p(x_i | x_!=i) - log p(MASK | x_!=i)
+
+    5. Aggregazione e Scoring (log p(HCB) + log p(k | n_chars))
+        Viene calcolato lo score finale combinando il log p(HCB) e il log p(k | n_chars).
+    
     Args:
-        model: Il modello BERT pre-addestrato utilizzato per la predizione delle maschere.
-        tokenizer: Il tokenizer associato al modello.
-        context (str): Il testo di input contenente lacune.
-        k (int): Il numero massimo di predizioni da restituire.
-        alpha (int, opzionale): Fattore di espansione per la generazione dei candidati (default=500).
-
+        text (str): Testo di input con lacuna definita da '[...]', es. "ΑΛΛΑ [.....] ΕΧΕΙ"
+        n_chars (int): Numero atteso di caratteri nella lacuna
+        model (PreTrainedModel): Modello HuggingFace (es. GreBERTa)
+        tokenizer (PreTrainedTokenizer): Tokenizer del modello
+        K (int): Numero finale di suggerimenti da ritornare (top-K)
+        beam_size (int): Beam size per il beam search
+        
     Returns:
-        list: Una lista di tuple (testo_riempito, token_suggerito, score_combinato).
+        List[Tuple[str, float]]: Lista di tuple (suggerimento_in_testo, score)
     """
+    device = next(model.parameters()).device
+    model.eval()
 
-    if not context:
-        return []
-
-    mask_token = tokenizer.mask_token
-    result = convert_lacuna_to_masks(text=context.upper(), mask_token=mask_token)
-
-    if result is None:
-        return []
+    # STEP 1
+    if GAP_TOKEN not in tokenizer.get_vocab():
+        tokenizer.add_special_tokens({'additional_special_tokens': [GAP_TOKEN]})
+        model.resize_token_embeddings(len(tokenizer))
+        
+    text = re.sub(r'\[\.+\]', GAP_TOKEN, text, count=1)
     
-    context, lacuna_length, maskWithChars = result
-    inputs = tokenizer(context, return_tensors="pt").to(model.device)
+    # STEP 2
+    k_min = 1
+    k_max_theoretical = math.ceil(n_chars / 2) + 1
+    k_max = min(k_max_theoretical, 3) # k <= 3 (o fino a 5 a discrezione)
     
-    mask_token_id = tokenizer.mask_token_id
-    mask_positions = (inputs["input_ids"] == mask_token_id).nonzero(as_tuple=True)[1]
-    
-    if mask_positions.nelement() == 0:
-        return None
+    all_candidates: List[Tuple[str, float]] = []
 
-    # 1. Inference con output_hidden_states per il reranking semantico
-    with torch.no_grad():
-        outputs = model(**inputs, output_hidden_states=True)
-        logits = outputs.logits
-        # Prendiamo l'ultimo layer degli hidden states per rappresentare il contesto
-        last_hidden_state = outputs.hidden_states[-1] 
-
-    # 2. Calcolo del Centroide del Contesto (escludendo token speciali [CLS], [SEP], [MASK])
-    special_tokens = [tokenizer.cls_token_id, tokenizer.sep_token_id, mask_token_id]
-    context_mask = ~torch.isin(inputs["input_ids"], torch.tensor(special_tokens).to(model.device))
-    
-    if context_mask.any():
-        context_embeddings = last_hidden_state[0][context_mask[0]]
-        context_centroid = torch.mean(context_embeddings, dim=0, keepdim=True)
+    # Scelta del metodo di generazione
+    if method == "modified_best_to_worst":
+        decode_fn = decode_modified_BestToWorst_vectorized
+    elif method == "modified_left_to_right":
+        decode_fn = decode_modified_LeftToRight_vectorized
+    elif method == "standard_left_to_right":
+        decode_fn = decode_standard_LeftToRight_vectorized
+    elif method == "standard_best_to_worst":
+        decode_fn = decode_standard_BestToWorst_vectorized
     else:
-        context_centroid = None
+        raise ValueError(f"Metodo {method} non supportato.")
 
-    # Otteniamo la matrice degli embedding statici (word embeddings) per il confronto
-    word_embeddings = model.get_input_embeddings().weight
-
-    results = []
-    mask_pos = mask_positions[0] 
-    
-    mask_logits = logits[0, mask_pos]
-    
-    top_k_raw = torch.topk(mask_logits, k * alpha) # Usiamo `alpha` alto per pescare molti candidati da riordinare semanticamente
-    probs = torch.softmax(top_k_raw.values, dim=0)
-
-    regex_pattern = string_to_regex(maskWithChars) #Si escapano i caratteri speciali
-
-    for token_id, prob in zip(top_k_raw.indices.tolist(), probs):
-        token_raw = tokenizer.convert_ids_to_tokens([int(token_id)])[0]
-        token_str = tokenizer.convert_tokens_to_string([token_raw]).strip()
-
-        if token_str == "" or token_str.startswith("##"):
-            token_str = token_raw.replace("##", "").strip()
-
-        # Filtro lunghezza rigido
-        if len(token_str) != lacuna_length:
-            continue
+    for k in range(k_min, k_max + 1):
         
-        # Filtro Regex (Head/Tail)
-        if not bool(re.match(regex_pattern, token_str)):
-            continue
-
-        # 3. Calcolo della Cosine Similarity semantica
-        current_token_embedding = word_embeddings[token_id].unsqueeze(0)
-        if context_centroid is not None:
-            semantic_sim = F.cosine_similarity(context_centroid, current_token_embedding).item()
-        else:
-            semantic_sim = 0.0
-
-        # 4. Scoring Ponderato (40% probabilità MLM, 60% similarità semantica)
-        # La similarità viene clippata a 0 per evitare contributi negativi
-        final_score = (prob.item() * 0.4) + (max(0, semantic_sim) * 0.6)
-
-        filled_text = normalize_greek(context.replace(mask_token, token_str, 1))
+        # STEP 3
+        mask_str = " ".join([tokenizer.mask_token] * k)
+        masked_text = text.replace(GAP_TOKEN, mask_str)
         
-        results.append({
-            "text": to_greek_lower(filled_text),
-            "token": to_greek_lower(token_str),
-            "score": float(final_score)
-        })
+        # Tokenizzazione finale
+        inputs = tokenizer(masked_text, return_tensors="pt").to(device)
+        input_ids = inputs["input_ids"]
+        attention_mask = inputs["attention_mask"]
+        
+        mask_id = tokenizer.mask_token_id or tokenizer.convert_tokens_to_ids(tokenizer.mask_token)
+        
+        # Verifica se i mask ci sono (sanity check)
+        if (input_ids == mask_id).sum().item() != k:
+            continue # Salta se tokenizer ha fatto merge strano (raro)
 
-    # 5. Reranking finale basato sullo score combinato e restituzione dei top k
-    results = sorted(results, key=lambda x: x["score"], reverse=True)[:k]
+        # STEP 4
+        with torch.no_grad():
+            out = decode_fn(
+                model=model,
+                input_ids=input_ids,
+                attention_mask=attention_mask,
+                beam_size=beam_size,
+                mask_id=mask_id
+            )
+        
+        batch_output = out[0] # out ha batch_dim=0
+        
+        # Iterazione candidati generati per questo k
+        for cand in batch_output:
+            log_p_hcb = cand[0]
+            token_ids = cand[1:]
+            
+            suggestion = tokenizer.decode(token_ids, skip_special_tokens=True).replace(" ", "")
+            
+            # STEP 5
+            prior_prob = p_gaptoks_prior(k, k_min, k_max_theoretical, n_chars)
+            log_prior = math.log(prior_prob + 1e-12) # con l'addizione si evita log(0)
+            
+            # Score combinato
+            final_score = log_p_hcb + log_prior
+            
+            all_candidates.append((suggestion, final_score))
 
-    return [(r["text"], r["token"], r["score"]) for r in results]
+    # Ordiniamo e riportiamo Top-K
+    all_candidates.sort(key=lambda x: x[1], reverse=True)
+    
+    # Rimuoviamo duplicati mantenendo il migliore
+    seen = set()
+    unique_candidates = []
+    for sugg, score in all_candidates:
+        if sugg not in seen:
+            seen.add(sugg)
+            unique_candidates.append((normalize_greek(sugg, case_folding=case_folding), score))
+            if len(unique_candidates) == K:
+                break
+                
+    return unique_candidates

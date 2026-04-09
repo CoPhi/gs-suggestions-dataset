@@ -7,6 +7,9 @@ sentence_tokenizer = GreekRegexSentenceTokenizer()
 TRAIN_DATASET_CHECKPOINT = "CNR-ILC/maat-corpus-train"
 TEST_DATASET_CHECKPOINT = "CNR-ILC/maat-corpus-test"
 
+OUTPUT_DIR = "./models/bert/finetuning/gs/gs-greBERTa"
+LOGS_DIR = "./models/bert/finetuning/gs/gs-greBERTa-logs"
+
 CHUNK_SIZE = 50  # Dimensione del chunk per il push su Hugging Face Hub
 BERT_UNK_TOKEN = "[UNK]"
 BERT_MAX_SEQ_LENGTH = 510  # 512 - 2 ([CLS] + [SEP])
