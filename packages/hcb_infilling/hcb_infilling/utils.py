@@ -5,7 +5,7 @@ import torch
 import numpy as np
 
 def get_masked_positions(inputs, mask_id):
-  masked_positions = [(inputs[i] == mask_id).nonzero().squeeze() for i in range(len(inputs))]
+  masked_positions = [(inputs[i] == mask_id).nonzero().squeeze(-1) for i in range(len(inputs))]
   num_masked_per_input = [len(x) for x in masked_positions]
   # Currently require that all inputs have the same number of masked positions.
   # Could probably relax this in the future if need be.
@@ -22,7 +22,7 @@ def get_best_masked_positions(log_probs, remaining_masked_positions):
   # with the highest prob option.
   max_pos_idx = torch.gather(max_per_pos, 1, remaining_masked_positions).argmax(dim=-1)
   # Map back to what the actual masked position is.
-  best_mask_positions = torch.gather(remaining_masked_positions, 1, max_pos_idx.unsqueeze(1)).squeeze().detach().cpu()
+  best_mask_positions = torch.gather(remaining_masked_positions, 1, max_pos_idx.unsqueeze(1)).squeeze(-1).detach().cpu()
 
   # Remove the selected masked positions from the tensor of remaining masked
   # positions.
