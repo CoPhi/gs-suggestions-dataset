@@ -1,6 +1,6 @@
 import torch
 from transformers import AutoModelForMaskedLM, AutoTokenizer
-from models.bert.inference.fill_mask import fill_mask
+from models.bert.inference.predict import fill_mask
 
 def test_inference_pipeline():
     print("Caricamento del modello (bowphs/GreBerta)...")
