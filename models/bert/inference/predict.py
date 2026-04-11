@@ -32,8 +32,10 @@ def fill_mask(
     K: int = 10, 
     beam_size: int = 10, 
     method: str = "modified_best_to_worst",
-    case_folding: bool = True
-) -> List[Tuple[str, float]]:
+    case_folding: bool = True,
+    return_raw: bool = False,
+    normalize_probs: bool = False
+) -> List[Tuple[str | List[int], float]]:
     """
     Esegue il processo di text infilling tramite HCB (Hammersley-Clifford-Besag) su 
     `k` maschere variabili.
@@ -132,8 +134,6 @@ def fill_mask(
             log_p_hcb = cand[0]
             token_ids = cand[1:]
             
-            suggestion = tokenizer.decode(token_ids, skip_special_tokens=True).replace(" ", "")
-            
             # STEP 5
             prior_prob = p_gaptoks_prior(k, k_min, k_max_theoretical, n_chars)
             log_prior = math.log(prior_prob + 1e-12) # con l'addizione si evita log(0)
@@ -141,7 +141,11 @@ def fill_mask(
             # Score combinato
             final_score = log_p_hcb + log_prior
             
-            all_candidates.append((suggestion, final_score))
+            if return_raw:
+                all_candidates.append((token_ids, final_score))
+            else:
+                suggestion = tokenizer.decode(token_ids, skip_special_tokens=True).replace(" ", "")
+                all_candidates.append((suggestion, final_score))
 
     # Ordiniamo e riportiamo Top-K
     all_candidates.sort(key=lambda x: x[1], reverse=True)
@@ -149,11 +153,20 @@ def fill_mask(
     # Rimuoviamo duplicati mantenendo il migliore
     seen = set()
     unique_candidates = []
-    for sugg, score in all_candidates:
-        if sugg not in seen:
-            seen.add(sugg)
-            unique_candidates.append((normalize_greek(sugg, case_folding=case_folding), score))
+    for item, score in all_candidates:
+        hashable_item = tuple(item) if return_raw else normalize_greek(item, case_folding=case_folding)
+        
+        if hashable_item not in seen:
+            seen.add(hashable_item)
+            unique_candidates.append((item if return_raw else hashable_item, score))
             if len(unique_candidates) == K:
                 break
+                
+    if normalize_probs and len(unique_candidates) > 0:
+        max_score = max(score for _, score in unique_candidates)
+        unnorm_probs = [math.exp(score - max_score) for _, score in unique_candidates]
+        sum_probs = sum(unnorm_probs)
+        norm_probs = [p / sum_probs for p in unnorm_probs]
+        unique_candidates = [(item, norm_prob) for (item, _), norm_prob in zip(unique_candidates, norm_probs)]
                 
     return unique_candidates

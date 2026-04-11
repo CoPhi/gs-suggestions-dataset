@@ -36,13 +36,14 @@ class HCBEvaluationCallback(TrainerCallback):
         for case in self.dev_cases_pool:
             try:
                 suggestions = fill_mask(
-                    case=case,
-                    tokenizer=self.tokenizer,
+                    text=case.x,
+                    n_chars=case.gap_length,
                     model=model,
-                    num_suggestions=10,
-                    mask_token=self.tokenizer.mask_token or "[MASK]",
+                    tokenizer=self.tokenizer,
+                    K=10,
+                    beam_size=10,
                     method="modified_best_to_worst",
-                    device=device
+                    return_raw=True
                 )
                 
                 y_tokens_ids = self.tokenizer(case.y, add_special_tokens=False)["input_ids"]

@@ -24,7 +24,8 @@ def test_inference_pipeline():
         tokenizer=tokenizer,
         K=5,                # Restituisce la TOP 5
         beam_size=10,       # Ampiezza del check 
-        method="modified_best_to_worst"
+        method="modified_best_to_worst",
+        case_folding=False
     )
     
     print("--- TOP 5 SUGGERIMENTI ---")

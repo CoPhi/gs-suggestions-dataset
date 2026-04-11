@@ -19,6 +19,8 @@ def decode_base(
 ):
 
   device = next(model.parameters()).device
+  input_ids = input_ids.cpu()
+  attention_mask = attention_mask.cpu()
   masked_positions = get_masked_positions(input_ids, mask_id=mask_id)
   remaining_masked_positions = masked_positions.clone()
   num_masked_positions = masked_positions.shape[1]
@@ -27,7 +29,7 @@ def decode_base(
   log_softmax = nn.LogSoftmax(dim=-1)
 
   # Get initial pool of candidates by considering first masked position separately.
-  initial_logits = model(input_ids=input_ids.to(device), attention_mask=attention_mask).logits
+  initial_logits = model(input_ids=input_ids.to(device), attention_mask=attention_mask.to(device)).logits
   log_probs = log_softmax(initial_logits)
   if best_to_worst:
     mask_ids, remaining_masked_positions = get_best_masked_positions(
@@ -66,7 +68,7 @@ def decode_base(
   # Do the rest of the beam search given the initial candidates.
   for _  in range(num_masked_positions - 1):
     # Token probabilities for all candidates for all inputs.
-    logits = model(input_ids=candidates.to(device), attention_mask=attn_mask_beam_search).logits
+    logits = model(input_ids=candidates.to(device), attention_mask=attn_mask_beam_search.to(device)).logits
     log_probs = log_softmax(logits)
     if best_to_worst:
       mask_ids, remaining_mask_ids_repeated = get_best_masked_positions(
