@@ -14,9 +14,9 @@ This is the easiest way to run the entire stack (API, Frontend, and MongoDB) sea
 
 ### 2. For Local Development (Optional)
 If you prefer to run services manually or develop locally without Docker:
-- **Python+**
-- **Poetry+**: Dependency management for the Python backend. [Install Poetry](https://python-poetry.org/docs/#installation)
-- **Node.js+** & **npm**: Required for the Angular frontend. [Install Node.js](https://nodejs.org/)
+- **Python**
+- **Poetry**: Dependency management for the Python backend. [Install Poetry](https://python-poetry.org/docs/#installation)
+- **Node.js** & **npm**: Required for the Angular frontend. [Install Node.js](https://nodejs.org/)
 - **Angular CLI**: Install globally via `npm install -g @angular/cli`.
 
 ---
@@ -27,7 +27,7 @@ Follow these steps to set up and run the project on your machine.
 
 ### 1. Clone the Repository
 ```bash
-git clone <repository-url>
+git clone https://github.com/CoPhi/gs-suggestions-dataset.git
 cd gs-suggestions-dataset
 ```
 
