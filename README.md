@@ -3,7 +3,6 @@
 [![GreekSchools Logo][gs-logo]][gs]
 
 This project aims to provide an automatic suggestion system for supplements to fill the gaps in the Herculaneum Papyri and support the process of creating new critical editions.
----
 
 ## Prerequisites & System Requirements
 
@@ -83,8 +82,6 @@ Once the containers are running, you can access the services at:
 - **Frontend App**: [http://localhost:4200](http://localhost:4200)
 - **Backend API**: [http://localhost:8000](http://localhost:8000)
 - **MongoDB**: `localhost:27017`
-
----
 
 ---
 
