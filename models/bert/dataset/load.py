@@ -137,9 +137,17 @@ def _quality_filter_subword(
 
 def _normalize_example(example: dict, config: dict) -> dict:
     text = normalize_grc(example["text"])
-    text = strip_diacritics(text) if config["strip_diacritics"] else text.lower()
+    if config["strip_diacritics"]:
+        text = strip_diacritics(text)
     if config["remove_punct"]:
         text = remove_punctuation(text)
+
+    case_folding = config.get("case_folding")
+    if case_folding == "upper":
+        text = text.upper()
+    elif case_folding == "lower":
+        text = text.lower()
+
     return {"text": text.replace("<UNK>", BERT_UNK_TOKEN)}
 
 
@@ -165,7 +173,7 @@ def prepare_dataset_for_model(
 
     return (
         raw_dataset.map(
-            partial(_normalize_example, config=config),
+            partial(_normalize_example, config=config), #applica normalizzazione
             desc=f"Normalizing [{checkpoint}]",
             num_proc=num_proc,
         )

@@ -3,7 +3,6 @@ from cltk.sentence.grc import GreekRegexSentenceTokenizer
 
 sentence_tokenizer = GreekRegexSentenceTokenizer()
 
-
 TRAIN_DATASET_CHECKPOINT = "CNR-ILC/maat-corpus-train"
 TEST_DATASET_CHECKPOINT = "CNR-ILC/maat-corpus-test"
 
@@ -21,23 +20,41 @@ MAX_MASK_TOKEN_TRESHOLD = 10
 MIN_MASK_TOKEN_TRESHOLD = 1
 
 # Configurazione specifica per modello BERT.
+#
+# case_folding: "upper" | "lower" | None
+#   - "upper": converte in maiuscolo (AristoBERTo, GreBerta per il fine-tuning GS)
+#   - "lower": converte in minuscolo (Logion, come da paper Cowen-Breen et al. 2023)
+#   - None:    preserva il casing originale del testo
+#
 # AristoBERTo si basa su GreekBERT (tokenizer per greco moderno):
 #   non riconosce punteggiatura e spiriti diacritici del greco antico → vanno rimossi.
-# GreBerta e Logion hanno tokenizer addestrati specificamente per il greco antico:
-#   riconoscono punteggiatura e diacritici → vanno preservati.
+# GreBerta ha un tokenizer addestrato specificamente per il greco antico:
+#   riconosce punteggiatura e diacritici politonici, ma il fine-tuning GS usa uppercase
+#   e strip_diacritics per coerenza con il formato dei papiri.
+# Logion (Cowen-Breen et al. 2023): lowercase + strip diacritics, punteggiatura preservata.
 BERT_MODEL_CONFIG = {
     "CNR-ILC/gs-aristoBERTo": {
         "remove_punct": True,
         "strip_diacritics": True,
+        "case_folding": "upper",
     },
     "CNR-ILC/gs-GreBerta": {
         "remove_punct": False,
-        "strip_diacritics": False,
+        "strip_diacritics": True,
+        "case_folding": "upper",
     },
     "CNR-ILC/gs-Logion": {
         "remove_punct": False,
-        "strip_diacritics": False,
+        "strip_diacritics": True,
+        "case_folding": "lower",
     },
+}
+
+# Mappa checkpoint fine-tuned → checkpoint base di partenza per i pesi
+BASE_MODEL_MAP = {
+    "CNR-ILC/gs-aristoBERTo": "Jacobo/aristoBERTo",
+    "CNR-ILC/gs-GreBerta": "bowphs/GreBerta",
+    "CNR-ILC/gs-Logion": "cabrooks/LOGION-50k_wordpiece",
 }
 
 

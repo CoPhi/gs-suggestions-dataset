@@ -64,6 +64,11 @@ class HCBEvaluationCallback(TrainerCallback):
                 tokenizer=self.tokenizer
             )
             
+            # LOG nel Trainer state (visibile in log_history)
+            hcb_logs = {f"eval_hcb_{k}": v for k, v in top_k_metrics.items()}
+            state.log_history[-1].update(hcb_logs)
+
+
             # Log su wandb se abilitato e stampiamo su CLI
             print(f"[HCB Val] Top1: {top_k_metrics.get('top1', 0):.2f}% | Top5: {top_k_metrics.get('top5', 0):.2f}%")
             

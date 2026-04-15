@@ -26,9 +26,9 @@ def p_gaptoks_prior(k: int, k_min: int, k_max: int, n_chars: int) -> float:
 
 def fill_mask(
     text: str, 
-    n_chars: int, 
     model: PreTrainedModel, 
     tokenizer: PreTrainedTokenizer, 
+    n_chars: int = None,
     K: int = 10, 
     beam_size: int = 10, 
     method: str = "modified_best_to_worst",
@@ -79,9 +79,17 @@ def fill_mask(
         tokenizer.add_special_tokens({'additional_special_tokens': [GAP_TOKEN]})
         model.resize_token_embeddings(len(tokenizer))
         
+    if n_chars is None:
+        match = re.search(r'\[(\.+)\]', text)
+        if match:
+            n_chars = len(match.group(1))
+        else:
+            raise ValueError("n_chars non fornito e non trovato nel testo")
+
     text = re.sub(r'\[\.+\]', GAP_TOKEN, text, count=1)
     
     # STEP 2
+
     k_min = 1
     k_max_theoretical = math.ceil(n_chars / 2) + 1
     k_max = min(k_max_theoretical, 3) # k <= 3 (o fino a 5 a discrezione)

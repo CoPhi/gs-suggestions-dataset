@@ -18,9 +18,11 @@ from backend.api.exceptions import InvalidContextError, ModelNotFoundError
 from backend.api.models import ModelType
 from models.ngrams.inference.suggests import generate_k_suggests
 from models.bert.inference.predict import fill_mask
-from backend.core.preprocess import test_case_contains_lacuna
+from models.bert.finetuning import get_model_config
+from backend.core.preprocess import test_case_contains_lacuna, normalize_greek
 
 LACUNA_PATTERN = r"\S*\[.*?\]\S*"
+BERT_LACUNA_PATTERN = r"\[.*?\]"
 
 
 def _load_bert_checkpoint(checkpoint: str) -> tuple:
@@ -128,9 +130,36 @@ class SuggestionsService:
             bert_model, tokenizer = await loop.run_in_executor(
                 executor, _load_bert_checkpoint, checkpoint
             )
+
+        config = get_model_config(checkpoint)
+        processed_text = normalize_greek(context, case_folding=False)
+        if config.get("strip_diacritics"):
+            from backend.core.preprocess import strip_diacritics
+            processed_text = strip_diacritics(processed_text)
+
+        case_folding = config.get("case_folding")
+        if case_folding == "upper":
+            processed_text = processed_text.upper()
+        elif case_folding == "lower":
+            processed_text = processed_text.lower()
+
+        suggestions = fill_mask(
+            text=processed_text,
+            model=bert_model,
+            tokenizer=tokenizer,
+            K=num_predictions.value,
+            normalize_probs=True
+        )
+
+
+
         return [
-            {"sentence": p[0], "token_str": p[1], "score": p[2]}
-            for p in fill_mask(bert_model, tokenizer, context, num_predictions)
+            {
+                "sentence": re.sub(BERT_LACUNA_PATTERN, p[0], context, count=1).lower(),
+                "token_str": p[0].lower(),
+                "score": float(p[1])
+            }
+            for p in suggestions
         ]
 
     async def _validate_hf_checkpoint(self, checkpoint: str) -> None:
