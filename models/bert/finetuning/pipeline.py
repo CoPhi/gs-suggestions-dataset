@@ -17,6 +17,8 @@ La configurazione model-specific è centralizzata in
 `models.bert.finetuning.BERT_MODEL_CONFIG`.
 """
 
+import math
+
 import torch
 from itertools import chain
 from datasets import load_dataset, DatasetDict
@@ -33,6 +35,9 @@ from models.bert.dataset.load import prepare_dataset_for_model
 from models.bert.dataset.dev_set import DevCase
 from models.bert.finetuning import get_model_config
 from models.bert.finetuning.callback import HCBEvaluationCallback
+from models.bert.inference.predict import fill_mask
+
+import wandb
 
 
 def prepare_data(checkpoint: str, chunk_size: int = 128):
@@ -45,7 +50,8 @@ def prepare_data(checkpoint: str, chunk_size: int = 128):
         chunk_size: Lunghezza dei blocchi di input_ids per MLM.
 
     Returns:
-        (lm_datasets, dev_cases): DatasetDict pronti per il Trainer e lista DevCase.
+        (lm_datasets, dev_cases, test_cases): DatasetDict pronti per il Trainer,
+        lista DevCase per il dev set e lista DevCase per il test set.
     """
     tokenizer = AutoTokenizer.from_pretrained(checkpoint)
 
@@ -88,24 +94,93 @@ def prepare_data(checkpoint: str, chunk_size: int = 128):
         }
     )
 
-    # --- Eval set per HCB callback ---
     print(f"Loading eval set from '{MAAT_EVAL_CHECKPOINT}'...")
     eval_dataset = load_dataset(MAAT_EVAL_CHECKPOINT)
 
-    dev_cases = []
-    for row in eval_dataset["dev"].to_list():
-        if 1 <= row["gap_length"] <= 5:
-            dev_cases.append(
-                DevCase(
-                    x=row["x"],
-                    y=row["y"],
-                    gap_length=row["gap_length"],
-                    corpus_id=row["corpus_id"],
-                    file_id=row["file_id"],
+    def _load_eval_split(split_name: str) -> list[DevCase]:
+        cases = []
+        for row in eval_dataset[split_name].to_list():
+            if 1 <= row["gap_length"] <= 5:
+                cases.append(
+                    DevCase(
+                        x=row["x"],
+                        y=row["y"],
+                        gap_length=row["gap_length"],
+                        corpus_id=row["corpus_id"],
+                        file_id=row["file_id"],
+                    )
                 )
-            )
+        return cases
 
-    return lm_datasets, dev_cases
+    dev_cases = _load_eval_split("dev")
+    test_cases = _load_eval_split("test")
+
+    return lm_datasets, dev_cases, test_cases
+
+
+def _evaluate_hcb_on_split(
+    split_name: str,
+    cases: list[DevCase],
+    model,
+    tokenizer,
+    max_cases: int | None = None,
+) -> dict[str, float]:
+    """
+    Esegue la valutazione HCB (TopK + BERTscore) su un insieme di DevCase.
+
+    Args:
+        split_name: Nome dello split ("dev" o "test"), usato per il logging.
+        cases: Lista di DevCase su cui valutare.
+        model: Modello HuggingFace in eval mode.
+        tokenizer: Tokenizer del modello.
+        max_cases: Numero massimo di casi da valutare (None = tutti).
+
+    Returns:
+        Dizionario con tutte le metriche (topK + bertscore).
+    """
+    from models.bert.evaluation.metrics import (
+        evaluate_topK_text,
+        evaluate_bertscore_text,
+    )
+
+    pool = cases[:max_cases] if max_cases else cases
+    model.eval()
+
+    predictions_text: list[list[tuple[str, float]]] = []
+    gold_labels: list[str] = []
+
+    for case in pool:
+        try:
+            suggestions = fill_mask(
+                text=case.x,
+                n_chars=case.gap_length,
+                model=model,
+                tokenizer=tokenizer,
+                K=10,
+                beam_size=10,
+                method="modified_best_to_worst",
+                return_raw=False,
+                case_folding=False,
+            )
+            predictions_text.append(suggestions)
+            gold_labels.append(case.y)
+        except Exception:
+            pass
+
+    if not predictions_text:
+        return {}
+
+    top_k = evaluate_topK_text(predictions_text, gold_labels)
+    bert_s = evaluate_bertscore_text(predictions_text, gold_labels)
+    all_metrics = {**top_k, **bert_s}
+
+    print(
+        f"[HCB {split_name}] "
+        f"Top1: {top_k.get('top1', 0):.2f}% | "
+        f"Top5: {top_k.get('top5', 0):.2f}% | "
+        f"BERTscore F1: {bert_s.get('bertscore_f1', 0):.2f}%"
+    )
+    return all_metrics
 
 
 def pipeline_finetuning(
@@ -140,7 +215,9 @@ def pipeline_finetuning(
     tokenizer.model_max_length = 512
 
     print("Preparazione Dataset...")
-    lm_datasets, hcb_dev_cases = prepare_data(checkpoint, chunk_size=chunk_size)
+    lm_datasets, hcb_dev_cases, hcb_test_cases = prepare_data(
+        checkpoint, chunk_size=chunk_size
+    )
 
     data_collator = DataCollatorForLanguageModeling(
         tokenizer=tokenizer, mlm_probability=0.15
@@ -180,7 +257,6 @@ def pipeline_finetuning(
         max_eval_cases=50,
     )
 
-
     trainer = Trainer(
         model=model,
         args=training_args,
@@ -193,12 +269,30 @@ def pipeline_finetuning(
     print(f"Avvio Finetuning MLM [{checkpoint}] (con check HCB epochs callback)")
     trainer.train()
 
-    # Salvataggio metriche
+    # Salvataggio metriche di training
     trainer.save_metrics("train", trainer.state.log_history[-1])
     metrics = trainer.evaluate()
     metrics["eval_perplexity"] = math.exp(metrics["eval_loss"])
     trainer.save_metrics("eval", metrics)
     trainer.save_state()
+
+    # Valutazione finale HCB sul test set 
+    print("\n" + "=" * 60)
+    print("Valutazione HCB finale sul TEST set...")
+    print("=" * 60)
+    test_metrics = _evaluate_hcb_on_split(
+        split_name="test",
+        cases=hcb_test_cases,
+        model=model,
+        tokenizer=tokenizer,
+    )
+
+    if test_metrics:
+        test_logs = {f"test_hcb_{k}": v for k, v in test_metrics.items()}
+        trainer.save_metrics("test_hcb", test_logs)
+
+        if wandb.run is not None:
+            wandb.log(test_logs)
 
     if push_to_hub:
         print(f"Push del modello su HuggingFace Hub [{checkpoint}]...")
