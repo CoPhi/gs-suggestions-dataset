@@ -3,6 +3,7 @@
 *.pyo
 *.pyd
 __pycac
+*.log
 
 # File e directory generati da pip e Poetry
 poetry.lock
@@ -20,3 +21,6 @@ poetry.lock
 # Dati pesanti pre-elaborati
 data/*
 !data/tlg_*.json
+
+# wandb logs
+wandb/
