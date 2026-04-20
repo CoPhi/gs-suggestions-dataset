@@ -1,6 +1,7 @@
 import re
 from cltk.sentence.grc import GreekRegexSentenceTokenizer
-
+import wandb
+import os
 sentence_tokenizer = GreekRegexSentenceTokenizer()
 
 TRAIN_DATASET_CHECKPOINT = "CNR-ILC/maat-corpus-train"
@@ -18,6 +19,12 @@ MAX_UNK_TOKEN_TRESHOLD = 5
 MIN_SENT_TOKEN_TRESHOLD = 10
 MAX_MASK_TOKEN_TRESHOLD = 10
 MIN_MASK_TOKEN_TRESHOLD = 1
+
+# API key per wandb (da .env o variabile d'ambiente)
+API_KEY = os.getenv("WANDB_API_KEY")
+
+# Lunghezza massima dello span da mascherare (per il collator MLM)
+MAX_SPAN_LENGTH = 3
 
 # Configurazione specifica per modello BERT.
 #
@@ -77,3 +84,13 @@ def get_model_config(checkpoint: str) -> dict:
             f"Checkpoint disponibili: {list(BERT_MODEL_CONFIG.keys())}"
         )
     return BERT_MODEL_CONFIG[checkpoint]
+
+
+def wandb_login(api_key: str) -> str:
+    if not api_key.strip():
+        return "Inserisci una API key valida."
+    try:
+        wandb.login(key=api_key.strip(), relogin=True)
+        return "Login wandb effettuato con successo."
+    except Exception as e:
+        return f"Errore: {e}"

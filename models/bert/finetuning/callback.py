@@ -20,6 +20,7 @@ class HCBEvaluationCallback(TrainerCallback):
     Il confronto tra suggerimenti e gold label avviene in modalità normalizzata
     (lowercase, spazi rimossi) per garantire invarianza al casing del modello.
     """
+
     def __init__(self, dev_cases_pool, tokenizer, max_eval_cases=50):
         super().__init__()
         # Limitiamo il pool per non far durare ore ogni validazione
@@ -39,7 +40,7 @@ class HCBEvaluationCallback(TrainerCallback):
             return
 
         predictions_text = []  # list[list[tuple[str, float]]]
-        gold_labels = []       # list[str]
+        gold_labels = []  # list[str]
 
         for case in self.dev_cases_pool:
             try:

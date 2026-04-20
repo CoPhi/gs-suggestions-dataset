@@ -4,10 +4,10 @@ Pipeline di finetuning MLM per modelli BERT su testi in greco antico.
 Il flusso di preprocessing è:
 1. Caricamento del dataset grezzo (model-agnostic) da HuggingFace Hub
 2. Normalizzazione model-specific via `prepare_dataset_for_model`:
-   - normalize_grc (normalizzazione Unicode)
-   - strip_diacritics (rimozione spiriti/accenti) se previsto dalla config
-   - remove_punctuation se previsto dalla config
-   - case_folding ("upper"/"lower"/None) secondo la config del modello
+   - `normalize_grc` (normalizzazione Unicode)
+   - `strip_diacritics` (rimozione spiriti/accenti) se previsto dalla config
+   - `remove_punctuation` se previsto dalla config
+   - `case_folding` ("upper"/"lower"/None) secondo la config del modello
    - Filtraggio qualità (soglia UNK token)
    - Tokenizzazione sub-word con il tokenizer del modello target
 3. Chunking in blocchi di lunghezza fissa per MLM
@@ -35,26 +35,30 @@ from models.bert.dataset.load import prepare_dataset_for_model
 from models.bert.dataset.dev_set import DevCase
 from models.bert.finetuning import get_model_config
 from models.bert.finetuning.callback import HCBEvaluationCallback
+from models.bert.finetuning.collator import DataCollatorForSpanMLM
 from models.bert.inference.predict import fill_mask
 
 import wandb
 
 
-def prepare_data(checkpoint: str, chunk_size: int = 128):
+def prepare_data(
+    checkpoint: str,
+    tokenizer,
+    chunk_size: int = 128,
+):
     """
     Carica il corpus MAAT e l'eval set da HuggingFace Hub, applica la
     normalizzazione model-specific e raggruppa in chunk per il training MLM.
 
     Args:
         checkpoint: Checkpoint fine-tuned target (es. "CNR-ILC/gs-GreBerta").
+        tokenizer: Tokenizer già istanziato, coerente con il checkpoint.
         chunk_size: Lunghezza dei blocchi di input_ids per MLM.
 
     Returns:
         (lm_datasets, dev_cases, test_cases): DatasetDict pronti per il Trainer,
         lista DevCase per il dev set e lista DevCase per il test set.
     """
-    tokenizer = AutoTokenizer.from_pretrained(checkpoint)
-
     # --- Corpus MLM ---
     print(f"Loading raw corpus from '{MAAT_CORPUS_CHECKPOINT}'...")
     corpus_dataset = load_dataset(MAAT_CORPUS_CHECKPOINT)
@@ -63,13 +67,15 @@ def prepare_data(checkpoint: str, chunk_size: int = 128):
     normalized_datasets = {}
     for split_name in corpus_dataset:
         normalized_datasets[split_name] = prepare_dataset_for_model(
-            corpus_dataset[split_name], checkpoint
+            corpus_dataset[split_name],
+            checkpoint,
         )
 
     # Chunking: raggruppa i blocchi tokenizzati in sequenze di lunghezza fissa
     def group_texts(examples):
         concatenated = {k: list(chain(*examples[k])) for k in examples.keys()}
         total_length = len(concatenated["input_ids"])
+
         # Padding per arrivare a multiplo di chunk_size
         if total_length % chunk_size != 0:
             padding_length = chunk_size - (total_length % chunk_size)
@@ -82,13 +88,17 @@ def prepare_data(checkpoint: str, chunk_size: int = 128):
             k: [t[i : i + chunk_size] for i in range(0, total_length, chunk_size)]
             for k, t in concatenated.items()
         }
+
+        # Etichette per MLM
         result["labels"] = result["input_ids"].copy()
         return result
 
     lm_datasets = DatasetDict(
         {
             split_name: ds.map(
-                group_texts, batched=True, desc=f"Chunking [{split_name}]"
+                group_texts,
+                batched=True,
+                desc=f"Chunking [{split_name}]",
             ).select_columns(["input_ids", "attention_mask", "labels"])
             for split_name, ds in normalized_datasets.items()
         }
@@ -100,7 +110,8 @@ def prepare_data(checkpoint: str, chunk_size: int = 128):
     def _load_eval_split(split_name: str) -> list[DevCase]:
         cases = []
         for row in eval_dataset[split_name].to_list():
-            if 1 <= row["gap_length"] <= 5:
+            # gap_length è in CARATTERI, non in token: filtriamo per lunghezza del gap in caratteri
+            if 1 <= row["gap_length"] <= 6:
                 cases.append(
                     DevCase(
                         x=row["x"],
@@ -216,11 +227,16 @@ def pipeline_finetuning(
 
     print("Preparazione Dataset...")
     lm_datasets, hcb_dev_cases, hcb_test_cases = prepare_data(
-        checkpoint, chunk_size=chunk_size
+        checkpoinZt=checkpoint,
+        tokenizer=tokenizer,
+        chunk_size=chunk_size,
     )
 
-    data_collator = DataCollatorForLanguageModeling(
-        tokenizer=tokenizer, mlm_probability=0.15
+    # Data collator per MLM con span masking contigui (lunghezza 1..3)
+    data_collator = DataCollatorForSpanMLM(
+        tokenizer=tokenizer,
+        mlm_probability=0.25,
+        max_span_length=3,
     )
 
     # Directory di output basate sul nome del checkpoint
@@ -276,10 +292,8 @@ def pipeline_finetuning(
     trainer.save_metrics("eval", metrics)
     trainer.save_state()
 
-    # Valutazione finale HCB sul test set 
-    print("\n" + "=" * 60)
+    # Valutazione finale HCB sul test set
     print("Valutazione HCB finale sul TEST set...")
-    print("=" * 60)
     test_metrics = _evaluate_hcb_on_split(
         split_name="test",
         cases=hcb_test_cases,
