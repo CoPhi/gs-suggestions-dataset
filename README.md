@@ -1,3 +1,5 @@
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/CoPhi/gs-suggestions-dataset)
+
 # gs-suggestions-dataset
 
 [![GreekSchools Logo][gs-logo]][gs]
