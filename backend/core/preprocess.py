@@ -3,6 +3,8 @@ import unicodedata
 from typing import Optional
 from cltk.alphabet.grc.grc import normalize_grc
 from backend.core import (
+    _CASE_FOLDING,
+    _DIACRITIC_TABLE,
     GAP_TOKEN,
     UNK_TOKEN,
     PUNCTUATION_REGEX,
@@ -38,26 +40,82 @@ def contains_lacunae(token: str) -> bool:
 
 def strip_diacritics(text: str) -> str:
     """
-    Rimuove tutti i segni diacritici da una stringa Unicode usando decomposizione canonica.
+    Rimuove tutti i segni diacritici da una stringa Unicode usando decomposizione
+    canonica NFD + filtro dei combining characters.
+
+    Questa funzione è indipendente da `normalize_greek`: può essere chiamata
+    da sola o in combinazione con essa.
+
+    Args:
+        text (str): Il testo da cui rimuovere i diacritici.
+
+    Returns:
+        str: Il testo privo di diacritici (accenti, spiriti, iota sottoscritto, ecc.).
     """
-    return "".join(
-        c for c in unicodedata.normalize("NFD", text) if not unicodedata.combining(c)
-    )
+    return unicodedata.normalize("NFD", text).translate(_DIACRITIC_TABLE)
 
 
-def normalize_greek(text: str, case_folding: bool = True) -> str:
+def normalize_greek(
+    text: str,
+    case_folding: _CASE_FOLDING = "upper",
+    strip_diacritics_flag: bool = True,
+) -> str:
     """
-    Normalizza il testo in greco antico rimuovendo i segni diacritici e applicando il case folding.
+    Normalizza il testo in greco antico applicando, nell'ordine:
+      1. Rimozione dei diacritici (opzionale, controllata da ``strip_diacritics``).
+      2. Normalizzazione CLTK via ``normalize_grc``.
+      3. Case folding (opzionale, controllato da ``case_folding``).
 
     Args:
         text (str): Il testo in greco da normalizzare.
-        case_folding (bool): Se `True`, converte il testo in maiuscolo. Default è `True`.
+        case_folding (_CASE_FOLDING): Modalità di case folding da applicare al testo
+            dopo la normalizzazione.  Valori ammessi:
+              - ``"upper"`` : converte in maiuscolo (comportamento originale con
+                              ``case_folding=True``).
+              - ``"lower"`` : converte in minuscolo.
+              - ``"none"``  : lascia il casing invariato (comportamento originale
+                              con ``case_folding=False``).
+            Default: ``"upper"``.
+        strip_diacritics (bool): Se ``True``, rimuove i diacritici prima di
+            applicare ``normalize_grc``.  Se ``False``, la normalizzazione CLTK
+            viene applicata al testo originale conservando accenti e spiriti.
+            Default: ``True``.
 
     Returns:
         str: Il testo normalizzato.
+
+    Raises:
+        ValueError: Se ``case_folding`` non è uno dei valori ammessi
+                    (``"upper"``, ``"lower"``, ``"none"``).
+
+    Examples:
+        >>> normalize_greek("ἀγαθός")
+        'ΑΓΑΘΟΣ'
+        >>> normalize_greek("ἀγαθός", case_folding="lower")
+        'αγαθος'
+        >>> normalize_greek("ἀγαθός", case_folding="none", strip_diacritics=False)
+        'ἀγαθός'
+        >>> normalize_greek("ἀγαθός", case_folding="none")
+        'αγαθος'
     """
-    normalized_text = normalize_grc(strip_diacritics(text))
-    return normalized_text.upper() if case_folding else normalized_text
+    if case_folding not in ("upper", "lower", "none"):
+        raise ValueError(
+            f"Valore non valido per case_folding: {case_folding!r}. "
+            "Valori ammessi: 'upper', 'lower', 'none'."
+        )
+
+    # Passo 1 (opzionale): rimozione diacritici
+    processed = strip_diacritics(text) if strip_diacritics_flag else text
+
+    # Passo 2: normalizzazione CLTK
+    normalized = normalize_grc(processed)
+
+    # Passo 3 (opzionale): case folding
+    if case_folding == "upper":
+        return normalized.upper()
+    if case_folding == "lower":
+        return normalized.lower()
+    return normalized  # "none": nessuna modifica al casing
 
 
 def clean_lacunae(token: str) -> str:
@@ -192,16 +250,27 @@ def remove_lb(text: str) -> str:
     return re.sub(r"\n\d*", " ", text)
 
 
-def remove_punctuation(text: str) -> str:
+def remove_punctuation(text: str, preserve_lacunae: bool = False) -> str:
     """
     Rimuove la punteggiatura da una stringa di testo.
+
     Args:
         text (str): La stringa di testo da cui rimuovere la punteggiatura.
+        preserve_lacunae (bool): Se ``True``, non rimuove la punteggiatura
+            all'interno di sequenze ``[...]``, preservando le lacune intatte.
+            Default: ``False``.
+
     Returns:
         str: La stringa di testo senza punteggiatura.
     """
-    return PUNCTUATION_REGEX.sub("", text)
+    if not preserve_lacunae:
+        return PUNCTUATION_REGEX.sub("", text)
 
+    parts = re.split(r"(\[.*?\])", text)
+    return "".join(
+        PUNCTUATION_REGEX.sub("", part) if i % 2 == 0 else part
+        for i, part in enumerate(parts)
+    )
 
 def process_dash(words: list[str], result: list[str], i: int) -> tuple[list[str], int]:
     """
@@ -391,37 +460,32 @@ def get_expanded_supplement(training_text: str, start_pos: int, end_pos: int):
 
 def clean_supplements(
     training_text: str,
-    case_folding: bool = True,
+    case_folding: _CASE_FOLDING = "upper",
     strip_diacritics: bool = True,
     normalize: bool = True,
 ) -> list[tuple[list[str], int]]:
     """
-    Questa funzione cerca i supplementi (testo racchiuso tra parentesi quadre) all'interno del testo fornito,
-    estende il loro contesto se necessario, li pulisce e li tokenizza. I token vengono restituiti come
-    una lista di liste, dove ogni sotto-lista rappresenta i token di un supplemento.
+    Cerca i supplementi (testo racchiuso tra parentesi quadre) all'interno del testo
+    fornito, estende il loro contesto se necessario, li pulisce e li tokenizza.
 
     Args:
-        training_text (str): Il testo di addestramento contenente i supplementi da estrarre.
+        training_text (str): Il testo di addestramento contenente i supplementi.
+        case_folding (_CASE_FOLDING): Modalità di case folding da propagare a
+            ``normalize_greek``.  Valori ammessi: ``"upper"``, ``"lower"``, ``"none"``.
+            Default: ``"upper"``.
+        strip_diacritics (bool): Se ``True``, rimuove i diacritici. Default: ``True``.
+        normalize (bool): Se ``True``, applica la normalizzazione completa.
+            Default: ``True``.
 
     Returns:
-        list[list[str]]: Una lista di tuple, dove ogni tupla contiene una lista che contiene i token del
-        corrispondente supplemento e un conteggio dei caratteri alfabetici presenti nella lacuna.
-
-    Raises:
-        ValueError: Se il testo fornito non è una stringa valida.
+        list[tuple[list[str], int]]: Lista di tuple (token_list, char_count).
     """
-    supplements = SUPPLEMENTS_REGEX.findall(training_text)  # supplementi da pulire
-    suppl_dict = get_supplement_dict(
-        supplements
-    )  # dizionario dei supplementi a cui affianco un numero di occorrenze (da incrementare)
+    supplements = SUPPLEMENTS_REGEX.findall(training_text)
+    suppl_dict = get_supplement_dict(supplements)
     suppl_tokens = []
 
     for suppl in supplements:
-        matches = list(
-            re.finditer(
-                re.escape(suppl), training_text
-            )  # Si usa re.escape per trattare il supplemento come stringa
-        )  # Occorrenze del supplemento nel testo
+        matches = list(re.finditer(re.escape(suppl), training_text))
         if not matches:
             suppl_tokens.append([])
             continue
@@ -436,7 +500,7 @@ def clean_supplements(
                     suppl_dict, matches[0].group(0)
                 )
         else:
-            match = matches[0]  # Prendi la prima (unica) occorrenza trovata
+            match = matches[0]
 
         expanded_supplement = get_expanded_supplement(
             training_text, match.start(), match.end()
@@ -449,13 +513,10 @@ def clean_supplements(
                 )
             )
         )
-
         if len(tokens) > 1:
-            suppl_tokens.append((tokens, 0))  # Not implemented
+            suppl_tokens.append((tokens, 0))
         else:
-            non_alpha_count = sum(
-                1 for char in suppl if char.isalpha()
-            )  # Conto i caratteri effettivi da cui è composta la lacuna da generare
+            non_alpha_count = sum(1 for char in suppl if char.isalpha())
             suppl_tokens.append((tokens, non_alpha_count))
 
     return suppl_tokens
@@ -514,6 +575,7 @@ def get_tokens_from_clean_text(text: str) -> list[str]:
 
 def process_token(
     token: str,
+    case_folding: _CASE_FOLDING = "upper",
     strip_diacritics: bool = True,
     normalize: bool = True,
 ) -> list[str]:
@@ -522,10 +584,14 @@ def process_token(
 
     Args:
         token (str): Il token da processare.
-        strip_diacritics (bool): Se `True`, rimuove i diacritici. Default è `True`.
-        normalize (bool): Se `True`, applica normalize_greek (include strip_diacritics
-                          e case folding). Se `False`, il token viene restituito as-is
-                          (salvo pulizia lacune). Default è `True`.
+        case_folding (_CASE_FOLDING): Modalità di case folding propagata a
+            ``normalize_greek``.  Valori ammessi: ``"upper"``, ``"lower"``, ``"none"``.
+            Default: ``"upper"``.
+        strip_diacritics (bool): Se ``True``, rimuove i diacritici prima della
+            normalizzazione CLTK.  Default: ``True``.
+        normalize (bool): Se ``True``, applica ``normalize_greek`` (include
+            ``strip_diacritics`` e case folding). Se ``False``, il token viene
+            restituito as-is (salvo pulizia lacune). Default: ``True``.
 
     Returns:
         list[str]: Lista di token puliti o normalizzati.
@@ -533,29 +599,35 @@ def process_token(
     if contains_lacunae(token):
         return clean_lacunae(token).split()
     if normalize:
-        return normalize_greek(token, case_folding=strip_diacritics).split()
+        return normalize_greek(
+            token,
+            case_folding=case_folding,
+            strip_diacritics_flag=strip_diacritics,
+        ).split()
     return token.split()
 
 
 def transpile(
     text: str,
-    case_folding: bool = True,
+    case_folding: _CASE_FOLDING = "upper",
     strip_diacritics: bool = True,
     normalize: bool = True,
 ) -> str:
     """
-    Pulisce il testo dalle lacune, lasciando invariata la punteggiatura.
+    Pulisce il testo dalle lacune e applica la normalizzazione richiesta.
 
     Args:
         text (str): Testo di addestramento.
-        case_folding (bool): Se `True`, converte in maiuscolo. Default è `True`.
-                             Ignorato se `normalize=False`.
-        strip_diacritics (bool): Se `True`, rimuove spiriti e accenti. Default è `True`.
-                                 Ignorato se `normalize=False`.
-        normalize (bool): Se `True`, applica la normalizzazione completa via
-                          `normalize_greek`. Se `False`, il testo viene restituito
-                          dopo la sola pulizia editoriale e delle lacune,
-                          preservando diacritici e casing originale. Default è `True`.
+        case_folding (_CASE_FOLDING): Modalità di case folding da applicare.
+            Valori ammessi: ``"upper"``, ``"lower"``, ``"none"``.
+            Ignorato se ``normalize=False``.  Default: ``"upper"``.
+        strip_diacritics (bool): Se ``True``, rimuove spiriti e accenti prima
+            della normalizzazione CLTK.  Ignorato se ``normalize=False``.
+            Default: ``True``.
+        normalize (bool): Se ``True``, applica la normalizzazione completa via
+            ``normalize_greek``. Se ``False``, il testo viene restituito dopo
+            la sola pulizia editoriale e delle lacune, preservando diacritici
+            e casing originale.  Default: ``True``.
 
     Returns:
         str: Testo pulito dalle lacune, eventualmente normalizzato.
@@ -563,6 +635,7 @@ def transpile(
     cleaned_text = process_editorial_marks(text)
     tokens = clean_tokens(
         cleaned_text,
+        case_folding=case_folding,
         strip_diacritics=strip_diacritics,
         normalize=normalize,
     )
@@ -571,7 +644,7 @@ def transpile(
     if not normalize:
         return result_text
 
-    return normalize_greek(result_text, case_folding)
+    return normalize_greek(result_text, case_folding, strip_diacritics)
 
 
 def process_integrations(text: str) -> str:
@@ -697,7 +770,7 @@ def process_dash_if_needed(text: str) -> str:
     return filter_dash(text) if "-" in text else text
 
 
-def process_editorial_marks(text: str) -> str:
+def process_editorial_marks(text: str, preserve_lacunae: bool = False) -> str:
     """
     Processa le annotazioni editoriali presenti nel testo.
     """
@@ -707,7 +780,7 @@ def process_editorial_marks(text: str) -> str:
         process_integrations,
         process_leiden_lb,
         process_unclear_signs,
-        process_brackets,
+        *([process_brackets] if not preserve_lacunae else []),
         process_dactyl_patterns,
         process_vacat_text,
         process_double_obelisks,
@@ -727,6 +800,7 @@ def process_editorial_marks(text: str) -> str:
 
 def clean_tokens(
     text: str,
+    case_folding: _CASE_FOLDING = "upper",
     strip_diacritics: bool = True,
     normalize: bool = True,
 ) -> list[str]:
@@ -735,8 +809,9 @@ def clean_tokens(
 
     Args:
         text (str): Il testo da cui estrarre i token.
-        strip_diacritics (bool): Propagato a `process_token`.
-        normalize (bool): Propagato a `process_token`.
+        case_folding (_CASE_FOLDING): Propagato a ``process_token``.
+        strip_diacritics (bool): Propagato a ``process_token``.
+        normalize (bool): Propagato a ``process_token``.
 
     Returns:
         list[str]: Lista di token puliti e normalizzati.
@@ -744,7 +819,12 @@ def clean_tokens(
     cleaned_tokens = []
     for token in get_tokens_from_clean_text(text):
         cleaned_tokens.extend(
-            process_token(token, strip_diacritics=strip_diacritics, normalize=normalize)
+            process_token(
+                token,
+                case_folding=case_folding,
+                strip_diacritics=strip_diacritics,
+                normalize=normalize,
+            )
         )
     return cleaned_tokens
 

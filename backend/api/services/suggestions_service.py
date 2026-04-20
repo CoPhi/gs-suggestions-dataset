@@ -19,11 +19,16 @@ from backend.api.models import ModelType
 from models.ngrams.inference.suggests import generate_k_suggests
 from models.bert.inference.predict import fill_mask
 from models.bert.finetuning import get_model_config
-from backend.core.preprocess import test_case_contains_lacuna, normalize_greek
+from backend.core.preprocess import (
+    remove_punctuation,
+    process_editorial_marks,
+    test_case_contains_lacuna,
+    normalize_greek,
+)
 
 LACUNA_PATTERN = r"\S*\[.*?\]\S*"
 BERT_LACUNA_PATTERN = r"\[.*?\]"
-
+INTRA_WORD_LACUNA_PATTERN = re.compile(r'(\S+)\[\.+\](\S+)')
 
 def _load_bert_checkpoint(checkpoint: str) -> tuple:
     """Funzione pickle-able per caricare un modello BERT e il suo tokenizer, da eseguire in un thread separato."""
@@ -132,32 +137,38 @@ class SuggestionsService:
             )
 
         config = get_model_config(checkpoint)
-        processed_text = normalize_greek(context, case_folding=False)
-        if config.get("strip_diacritics"):
-            from backend.core.preprocess import strip_diacritics
-            processed_text = strip_diacritics(processed_text)
+        remove_punctuation_model = config.get("remove_punct")
 
-        case_folding = config.get("case_folding")
-        if case_folding == "upper":
-            processed_text = processed_text.upper()
-        elif case_folding == "lower":
-            processed_text = processed_text.lower()
+        cleaned = process_editorial_marks(context, preserve_lacunae=True)
+
+        normalized = normalize_greek(
+            cleaned,
+            case_folding=config.get("case_folding", "upper"),
+            strip_diacritics_flag=config.get("strip_diacritics", True),
+        )
+        
+        meta = self._prepare_bert_input(normalized)
 
         suggestions = fill_mask(
-            text=processed_text,
+            text=(
+                remove_punctuation(normalized, preserve_lacunae=True)
+                if remove_punctuation_model
+                else normalized
+            ),
+            intra_word=meta["intra_word"],
+            prefix=meta["prefix"],
+            suffix=meta["suffix"],
             model=bert_model,
             tokenizer=tokenizer,
             K=num_predictions.value,
-            normalize_probs=True
+            normalize_probs=True,
         )
-
-
 
         return [
             {
                 "sentence": re.sub(BERT_LACUNA_PATTERN, p[0], context, count=1).lower(),
                 "token_str": p[0].lower(),
-                "score": float(p[1])
+                "score": float(p[1]),
             }
             for p in suggestions
         ]
@@ -172,3 +183,48 @@ class SuggestionsService:
             raise ValueError(
                 f"Checkpoint '{checkpoint}' ha task '{pipeline_tag}', atteso 'fill-mask'"
             )
+            
+    def _prepare_bert_input(self, normalized_text: str) -> dict:
+        """
+        Rileva se la lacuna è intra-parola (es. "ΚΑΤ[.]ΣΚΕΥΑΖΕΙΝ") 
+        o inter-parola (es. "ΑΛΛΑ [..] ΕΧΕΙ").
+
+        Ritorna un dict con:
+        - bert_text:   testo con [MASK] al posto della lacuna
+        - n_chars:     numero di caratteri nella lacuna
+        - intra_word:  bool
+        - prefix:      parte sinistra della parola (solo se intra_word)
+        - suffix:      parte destra della parola (solo se intra_word)
+        """
+        intra_match = INTRA_WORD_LACUNA_PATTERN.search(normalized_text)
+
+        if intra_match:
+            prefix = intra_match.group(1)          # "ΚΑΤ"
+            suffix = intra_match.group(2)          # "ΣΚΕΥΑΖΕΙΝ"
+            dots   = re.search(r'\[(\.+)\]', intra_match.group(0)).group(1)
+            n_chars = len(dots)                    # 1
+
+            # Per WordPiece: sostituisce l'intera parola con [MASK]
+            # Per BPE: idem, fill_mask gestirà internamente k maschere
+            bert_text = INTRA_WORD_LACUNA_PATTERN.sub("[MASK]", normalized_text, count=1)
+
+            return {
+                "bert_text": bert_text,
+                "n_chars": n_chars,
+                "intra_word": True,
+                "prefix": prefix,
+                "suffix": suffix,
+            }
+
+        # Lacuna inter-parola
+        dots_match = re.search(r'\[(\.+)\]', normalized_text)
+        n_chars = len(dots_match.group(1)) if dots_match else 1
+        bert_text = re.sub(r'\[\.+\]', "[MASK]", normalized_text, count=1)
+
+        return {
+            "bert_text": bert_text,
+            "n_chars": n_chars,
+            "intra_word": False,
+            "prefix": "",
+            "suffix": "",
+        }

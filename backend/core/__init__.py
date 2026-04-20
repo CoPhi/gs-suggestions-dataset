@@ -1,5 +1,8 @@
 import re
 from cltk.sentence.grc import GreekRegexSentenceTokenizer
+import unicodedata
+
+from typing import Literal
 
 # Tokenizer testo -> frasi (str -> list[str])
 sentence_tokenizer = GreekRegexSentenceTokenizer()
@@ -41,3 +44,13 @@ EXPUNCTION_REGEX = re.compile(r"\{\{(.*?)\}\}|\{(.*?)\}")
 VACAT_REGEX = re.compile(r"vac\.|vacat")
 NOTES_REGEX = re.compile(r"‡\d+")
 OBELISK_REGEX = re.compile(r"†.*?†")
+
+# Tabella dei diacritici
+_DIACRITIC_TABLE = {
+    cp: None
+    for cp in range(0x0300, 0x1FFF)  # Greek Extended + Combining Diacritical Marks
+    if unicodedata.combining(chr(cp))
+}
+
+# Case Folding type 
+_CASE_FOLDING = Literal["upper", "lower", "none"]
