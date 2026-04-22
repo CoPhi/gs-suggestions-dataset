@@ -1,11 +1,16 @@
 import os
 import re
 import lxml.etree as ET
+from packages.maat.maat.converter import Converter
+from packages.maat.maat.create import create_training_text, create_test_cases
+from scripts import RE_WHITESPACE, RE_SENTENCE_SPLIT, RE_TEST_CASE
 
 our_namespaces = {
     "tei": "http://www.tei-c.org/ns/1.0",
     "xml": "http://www.w3.org/XML/1998/namespace",
 }
+
+SHARED_CONVERTER = Converter()
 
 def idno(doc, file_path):
     idno_elem = doc.find(".//tei:idno[@type='filename']", namespaces=our_namespaces)
@@ -38,29 +43,20 @@ def language(doc):
     if xml_lang:
         return xml_lang
         
-    return "grc"  # default
+    return "grc"  
 
 def parse_element_text(element):
     """
-    Recursively extract text from the element.
-    Handle <gap> tag correctly.
+    Delegates to maat Converter to process the element text,
+    ensuring we strictly follow its logic.
     """
-    if element.tag == "{http://www.tei-c.org/ns/1.0}gap":
-        quantity = element.get("quantity")
-        if quantity and quantity.isdigit():
-            text = "." * int(quantity)
-        else:
-            text = "<gap/>"
-        
-        tail = element.tail or ""
-        return text + tail
-
-    # For other elements, join text, children's text, and tail
-    text = element.text or ""
-    for child in element:
-        text += parse_element_text(child)
-    text += element.tail or ""
-    return text
+    converted_ab = SHARED_CONVERTER(element)
+    training_ab = create_training_text(converted_ab)
+    
+    # Extract inner XML from the <ab> wrapper preserving tags like <gap/>
+    parts = [training_ab.text or ""]
+    parts.extend(ET.tostring(child, encoding='unicode', with_tail=True) for child in training_ab)
+    return "".join(parts)
 
 def convert_tei_to_json(file_path):
     try:
@@ -82,6 +78,9 @@ def convert_tei_to_json(file_path):
     if body is None:
         return []
 
+    # i tag label devono essere assenti
+    ET.strip_elements(body, f"{{{our_namespaces['tei']}}}label", with_tail=False)
+
     # Try to find paragraph-like structural elements
     blocks = body.xpath(".//tei:p | .//tei:ab | .//tei:l", namespaces=our_namespaces)
     
@@ -94,27 +93,70 @@ def convert_tei_to_json(file_path):
         blocks = [body]
 
     results = []
+    global_block_index = 1
     
-    for idx, block in enumerate(blocks):
+    for block in blocks:
         raw_text = parse_element_text(block)
         
         # Clean up text
-        clean_text = re.sub(r'\s+', ' ', raw_text).strip()
+        clean_text = RE_WHITESPACE.sub(' ', raw_text).strip()
         if not clean_text or len(clean_text) < 5:
             continue
             
-        d = {
-            "corpus_id": corpus_identifier,
-            "file_id": _file_id,
-            "block_index": idx + 1,
-            "id": f"{corpus_identifier}/{_file_id}/{idx + 1}",
-            "title": _title,
-            "material": _material,
-            "language": _lang,
-            "training_text": clean_text,
-            "test_cases": []
-        }
-        results.append(d)
+        parts = RE_SENTENCE_SPLIT.split(clean_text)
+        
+        sentences = []
+        current_sentence = []
+        for part in parts:
+            if part is None:
+                continue
+            current_sentence.append(part)
+            if part in {'.', ';', '·', '°'}:
+                s = "".join(current_sentence).strip()
+                if s:
+                    sentences.append(s)
+                current_sentence.clear()
+        
+        if current_sentence:
+            s = "".join(current_sentence).strip()
+            if s:
+                sentences.append(s)
+
+        for sentence in sentences:
+            if not sentence or len(sentence) < 5:
+                continue
+
+            test_cases = []
+            matches = RE_TEST_CASE.finditer(sentence)
+            for i, match in enumerate(matches):
+                start, end = match.start(), match.end()
+                expected = match.group(1)
+                
+                #formazione test_case
+                pre_masked = sentence[:start].replace("[", "").replace("]", "")
+                post_masked = sentence[end:].replace("[", "").replace("]", "")
+                mask = "." * len(expected)
+                masked_text = f"{pre_masked}[{mask}]{post_masked}"
+                
+                test_cases.append({
+                    "case_index": i, 
+                    "id": f"{corpus_identifier}/{_file_id}/{global_block_index}/{i}", 
+                    "test_case": masked_text,  
+                })
+                
+            d = {
+                "corpus_id": corpus_identifier,
+                "file_id": _file_id,
+                "block_index": global_block_index,
+                "id": f"{corpus_identifier}/{_file_id}/{global_block_index}",
+                "title": _title,
+                "material": _material,
+                "language": _lang,
+                "training_text": sentence,
+                "test_cases": test_cases
+            }
+            results.append(d)
+            global_block_index += 1
 
     return results
 
