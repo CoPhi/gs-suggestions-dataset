@@ -12,138 +12,40 @@
     </div>
 </div>
 
-<!-- Form Richiesta -->
-<div class="container-fluid py-5">
-    <div class="d-flex justify-content-center">
-        <div class="col-10">
-            <div class="card border-0 shadow-lg rounded-4 mb-5" [formGroup]="form">
-                <div class="card-header rounded-top-4 bg-primary text-white">
-                    <h2 class="h4 mb-0">Generatore di Suggerimenti</h2>
-                </div>
-                <div class="card-body">
-                    <!-- Campo di testo per inserire la sequenza con la lacuna  -->
-                    <div class="mb-4">
-                        <textarea class="form-control" id="inputText" formControlName="text" rows="3"
-                            placeholder="Inserisci il testo con una lacuna (es: τὰς ὀφειλομένας τῇ τοῦ Ἀνθεντίου μητρὶ [...] Σισόιτος)">
-                                            </textarea>
+<div class="container-fluid py-5 d-flex flex-column align-items-center min-vh-100 bg-light-modern">
+    <div class="col-12 col-md-10 col-lg-8">
+        
+        <h1 class="text-center mb-5 fw-bold" style="color: #2d2d2d; font-size: 2.5rem; letter-spacing: -0.03em;">Generatore di Suggerimenti</h1>
 
-                        <div class="d-flex flex-row align-items-center mt-2">
-                            @if (form.get('text')?.dirty && form.get('text')?.invalid) {
-                            @if (form.get('text')?.hasError('notvalid')) {
-                            <small class="form-text text-danger"> Inserisci un testo valido </small>
-                            }
-                            @if (form.get('text')?.hasError('notMasked')) {
-                            <small class="form-text text-danger"> Inserisci un testo con una lacuna </small>
-                            }
-                            }@else if(form.get('text')?.dirty && form.get('text')?.valid){
-                            <small class="form-text text-success"> Testo valido per la generazione </small>
-                            }
-                            @else {
-                             <div class="form-text">
-                                Inserisci una frase con una lacuna da completare. <br>
-                                Utilizza la notazione con le parentesi quadre <code>[...]</code> per definire la lacuna su cui
-                                generare i suggerimenti.
-                            </div> 
-                            }
-                            @if (form.get('text')?.value?.length > 0) {
-                            <button class="btn btn-outline-danger ms-auto" id="clearBtn" (click)="clearForm()"
-                                type="button">
-                                <i class="bi bi-trash"></i>
-                            </button>
-                            }
-                        </div>
-                    </div>
+        <!-- Prompt Box Component -->
+        <app-prompt-box 
+            [models]="models()" 
+            [(curr_id)]="curr_id" 
+            [isGenerating]="isGenerating()"
+            (toggleModels)="toggleModels()"
+            (onGenerate)="generateSuggestions($event)">
+        </app-prompt-box>
 
-                    <!-- Modelli disponibili -->
-                    <div class="mb-4">
-                        <div class="d-flex flex-row align-items-center justify-content-between">
-                            @if (selectedModel() !== null) {
-                            <span class="fs-5">Modello selezionato: {{ curr_type_model() }}</span>
-                            <button class="btn btn-outline-danger py-0 px-2" (click)="curr_id.set(null)" type="button">
-                                <i class="bi bi-x-lg px-1"></i>
-                            </button>
-                            } @else {
-                            <button class="btn btn-outline-secondary" type="button" id="showModelsBtn"
-                                (click)="toggleModels()">
-                                <i class="bi bi-collection"></i> Seleziona modello
-                            </button>
-                            }
-                        </div>
-                    </div>
-
-
-                    @if (selectedModel() !== null) {
-                    <!-- Numero di predizioni -->
-                    <div class="mb-4">
-                        <label for="num_predictions" class="form-label fw-bold">Numero di predizioni</label>
-                        <div class="input-group">
-                            <select class="form-select" formControlName="num_predictions" id="num_predictions"
-                                placeholder="Inserisci il numero di predizioni da generare">
-                                <option value="1" selected>1</option>
-                                <option value="5">5</option>
-                                <option value="10">10</option>
-                                <option value="20">20</option>
-                            </select>
-                        </div>
-                    </div>
-
-                    <!-- Numero di token -->
-                    @if (curr_type_model() !== 'BERT') {
-                    <div class="mb-4">
-                        <label for="num_tokens" class="form-label fw-bold">Numero di token</label>
-                        <div class="input-group">
-                            <input type="number" class="form-control" formControlName="num_tokens" id="num_tokens"
-                                placeholder="Inserisci il numero di token da generare per ogni predizione">
-                        </div>
-                    </div>
-                    }
-                    }
-
-                    <div class="d-flex justify-content-between align-items-center mb-3">
-                        <button class="btn btn-primary" (click)="generateSuggestions()" id="generateBtn"
-                            [disabled]="isGenerating() || !selectedModel() || form.get('text')?.invalid" type="button">
-                            <i class="bi bi-magic"></i> Genera Suggerimenti
-                        </button>
-                        <div>
-
-                        </div>
-                    </div>
-
-                    <div class="text-center mt-3 loading-spinner d-none" id="loadingSpinner">
-                        <div class="spinner-border text-primary" role="status">
-                            <span class="visually-hidden">Caricamento...</span>
-                        </div>
-                        <p class="mt-2">Generazione suggerimenti in corso...</p>
-                    </div>
-                </div>
-
-                <div class="alert alert-info" id="previewArea" style="display: none;">
-                    <strong>Anteprima richiesta:</strong>
-                    <div class="mt-2 text-with-gap" id="previewText"></div>
-                    <div class="mt-2"><strong>Modello:</strong> <span id="previewModel"></span></div>
-                </div>
+        @if (!isGenerating() && !selectedModel() && models().length > 0) {
+            <div class="mt-4" id="modelsCard" style="display: none;">
+                <app-models-box [models]="models()" [(curr_id)]="curr_id" />
             </div>
+        }
 
-            @if (!isGenerating() && !selectedModel() && models().length > 0) {
-            <app-models-box [models]="models()" [(curr_id)]="curr_id" />
-            }
-
-            @if (suggestions() !== null && !isGenerating()) {
-            @if (suggestions()!.length > 0) {
-            <app-suggests-box [suggestions]="suggestions()!" />
-            }
-            @else {
-            <div class="card border-0 bg-transparent text-center p-4 my-3">
-                <div class="card-body">
-                    <i class="bi bi-emoji-frown fs-1 text-warning mb-3"></i>
-                    <h5 class="card-title text-dark">Nessun suggerimento trovato</h5>
-                    <p class="card-text text-muted">
-                        Riprova con un’altra richiesta o scegli un altro modello.
-                    </p>
+        @if (suggestions() !== null && !isGenerating()) {
+            <div class="mt-4">
+                @if (suggestions()!.length > 0) {
+                <app-suggests-box [suggestions]="suggestions()!" />
+                }
+                @else {
+                <div class="text-center p-5 text-muted bg-white rounded-4 shadow-sm mt-3">
+                    <i class="bi bi-emoji-frown fs-1 mb-3 d-block text-warning"></i>
+                    <h5 class="fw-bold">Nessun suggerimento trovato</h5>
+                    <p>Riprova con un’altra richiesta o scegli un altro modello.</p>
                 </div>
+                }
             </div>
-            }
-            }
-        </div>
+        }
+
     </div>
 </div>

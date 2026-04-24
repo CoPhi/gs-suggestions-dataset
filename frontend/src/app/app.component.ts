@@ -1,23 +1,23 @@
-import { Component, computed, effect, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import { Signal } from '@angular/core';
 import { ApiService, modelType, SuggestionInterface } from './services/api.service';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { SuggestsBoxComponent } from './components/suggests-box/suggests-box.component';
-import { AbstractControl, FormControl, FormGroup, ReactiveFormsModule, ValidationErrors, Validators } from '@angular/forms';
 import { ModelsBoxComponent } from "./components/models-box/models-box.component";
 import { NotificationService } from './services/notification.service';
+import { PromptBoxComponent } from './components/prompt-box/prompt-box.component';
 
 @Component({
   selector: 'app-root',
-  imports: [SuggestsBoxComponent, ModelsBoxComponent, ReactiveFormsModule],
+  imports: [SuggestsBoxComponent, ModelsBoxComponent, PromptBoxComponent],
   templateUrl: './app.component.html',
   styleUrl: './app.component.css'
 })
 export class AppComponent {
   title = 'gs-api';
 
-  api = inject(ApiService)
-  notifications = inject(NotificationService)
+  api = inject(ApiService);
+  notifications = inject(NotificationService);
 
   models = toSignal(this.api.getModels(), { initialValue: [] }) as Signal<modelType[]>;
   suggestions = signal<SuggestionInterface[] | null>(null);
@@ -27,48 +27,11 @@ export class AppComponent {
     return this.curr_id() ? this.models().find((model) => model._id === this.curr_id()) || null : null;
   });
 
-  curr_type_model = computed(() => this.selectedModel()?.TYPE)
   isGenerating = signal<boolean>(false);
-
-  form: FormGroup;
-
-  constructor() {
-    this.form = new FormGroup({
-      text: new FormControl<string>('', { validators: [Validators.required, this.isContextValid] }),
-      modelID: new FormControl<string>('', {
-        validators: [Validators.required, Validators.minLength(24),
-        Validators.maxLength(24)]
-      }),
-      num_tokens: new FormControl<number>(1, { validators: [Validators.min(1), Validators.max(10)] }),
-      num_predictions: new FormControl<number>(1, { validators: [Validators.required] })
-    })
-
-    effect(() => {
-      this.form.controls['modelID'].setValue(this.curr_id() || '');
-    });
-  }
 
   setCurrentID($event: Event) {
     const target = $event.target as HTMLInputElement;
     this.curr_id.set(target.value);
-  }
-
-  setNumPredictions($event: Event) {
-    const target = $event.target as HTMLInputElement;
-    console.log(target.value);
-  }
-
-  /**
-   * Valida il valore di un controllo astratto verificando che sia presente
-   * e che contenga una lacuna, nel formato `[....]`.
-   *
-   * @param c Il controllo astratto da validare.
-   * @returns Un oggetto `ValidationErrors` se il valore non è valido, altrimenti `null`.
-   */
-  isContextValid = (c: AbstractControl): ValidationErrors | null => {
-    if (!c.value) return { notvalid: true };
-    const regex = /\[\.{1,}\]/;
-    return regex.test(c.value) ? null : { notMasked: true };
   }
 
   toggleModels() {
@@ -82,33 +45,16 @@ export class AppComponent {
     });
   }
 
-  toggleSpinner() {
-    const spinner = <HTMLElement>document.querySelector('#loadingSpinner');
-    if (spinner.classList.contains('d-none')) {
-      spinner.classList.remove('d-none')
-    } else {
-      spinner.classList.add('d-none')
-    }
-  }
-
-  clearForm() {
-    this.form.reset();
-    this.form.get('modelID')?.setValue('');
-    this.form.get('text')?.setValue('');
-    this.form.get('text')?.setErrors(null);
-    this.form.get('modelID')?.setErrors(null);
-  }
-
   showAlert(message: string, type: string) {
     const alert = document.createElement('div');
-    alert.className = `alert alert-${type} alert-dismissible fade show mt-3`;
+    alert.className = `alert alert-${type} alert-dismissible fade show mt-3 fixed-top w-50 mx-auto shadow-sm`;
+    alert.style.zIndex = '9999';
     alert.innerHTML = `
           ${message}
           <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
       `;
 
-    const container = document.querySelector('.card-body');
-    container!.appendChild(alert);
+    document.body.appendChild(alert);
 
     setTimeout(() => {
       alert.classList.remove('show');
@@ -116,72 +62,24 @@ export class AppComponent {
     }, 5000);
   }
 
-
-  generateSuggestions() {
-    this.form.markAllAsTouched(); // forza la validazione
-    if (this.form.invalid) {
-      const textErrors = this.form.controls['text'].errors;
-      const modelErrors = this.form.controls['modelID'].errors;
-      const tokenErrors = this.form.controls['num_tokens'].errors;
-
-      if (textErrors?.['required']) {
-        this.showAlert('Il campo testo è obbligatorio', 'danger');
-        return;
-      }
-
-      if (textErrors?.['notMasked']) {
-        this.showAlert('Il testo non contiene la lacuna', 'warning');
-        return;
-      }
-
-      if (textErrors?.['minlength']) {
-        this.showAlert('Il testo è troppo corto', 'danger');
-        return;
-      }
-
-      if (modelErrors?.['required']) {
-        this.showAlert('Seleziona un modello', 'danger');
-        return;
-      }
-
-      if (modelErrors?.['minlength'] || modelErrors?.['maxlength']) {
-        this.showAlert('L\'ID del modello deve essere di 24 caratteri', 'danger');
-        return;
-      }
-
-      if (tokenErrors?.['required']) {
-        this.showAlert('Specifica il numero di token', 'danger');
-        return;
-      }
-
-      if (tokenErrors?.['min'] || tokenErrors?.['max']) {
-        this.showAlert('Il numero di token deve essere tra 1 e 10', 'danger');
-        return;
-      }
-
-      return;
-    }
+  generateSuggestions(payload: { text: string, modelID: string, num_tokens: number, num_predictions: number }) {
     this.isGenerating.set(true);
-    const { text, modelID, num_tokens, num_predictions } = this.form.getRawValue();
-    this.toggleSpinner();
+    const { text, modelID, num_tokens, num_predictions } = payload;
 
-    this.api.generateSuggestion(modelID, text, num_tokens, Number(num_predictions)).subscribe({
+    this.api.generateSuggestion(modelID, text, num_tokens, num_predictions).subscribe({
       next: (response) => {
         this.suggestions.set(response);
-        // this.showAlert('Suggerimenti generati con successo', 'success');
         this.isGenerating.set(false);
         this.notifications.showLocalNotification()
       },
       error: () => {
         this.showAlert('Errore durante la generazione dei suggerimenti', 'danger');
         this.isGenerating.set(false);
-        this.toggleSpinner();
       },
       complete: () => {
-        this.toggleSpinner();
         this.isGenerating.set(false);
       }
     });
   }
-
 }
+
