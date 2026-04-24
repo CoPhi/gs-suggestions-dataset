@@ -8,20 +8,19 @@ RUN apt-get update && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-COPY requirements.txt ./
+COPY pyproject.toml uv.lock ./
+COPY packages/ ./packages/
 
 # Installing dependencies
-RUN pip install -U pip && \
-    pip install --no-cache-dir -r requirements.txt
-
-# Per leggere la versione del progetto da API
-COPY pyproject.toml ./ 
+RUN pip install uv && \
+    uv sync --frozen --no-cache
 
 COPY backend/ ./backend/
 COPY models/ ./models/
-COPY packages/ ./packages/
+
+ENV PATH="/app/.venv/bin:$PATH"
 
 # docker run -v ./data:/app/data gabrielegiannessi/gs-api:latest
 VOLUME ["/app/data"]
 
-CMD ["uvicorn", "backend.api.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uv", "run", "uvicorn", "backend.api.main:app", "--host", "0.0.0.0", "--port", "8000"]
