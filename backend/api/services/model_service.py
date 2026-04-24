@@ -4,6 +4,7 @@ from typing import Any
 from uuid import uuid4
 
 from bson import ObjectId
+from pymongo.errors import DuplicateKeyError
 
 from backend.api.database import collection, fs
 from backend.api.exceptions import ModelAlreadyExistsError, ModelNotFoundError
@@ -22,12 +23,12 @@ class ModelService:
     async def get_model(self, model_id: str) -> dict:
         """Restituisce un singolo modello serializzato oppure solleva ModelNotFoundError."""
         model = await self._serial_model(model_id)
-        if model is None:
+        if not model:
             raise ModelNotFoundError(f"Model '{model_id}' not found")
         return model
 
     async def get_all_models(self) -> list[dict]:
-        """Restituisce tutti i modelli disponibili"""
+        """Restituisce tutti i modelli disponibili."""
         models = [model async for model in self._collection.find()]
         return [await self._serial_model(str(m["_id"])) for m in models]
 
@@ -40,12 +41,23 @@ class ModelService:
         raise ValueError("Unsupported model type")
 
     async def init_models(self) -> list[str]:
-        """Crea l'insieme di modelli di default definiti nella configurazione."""
+        """
+        Crea l'insieme di modelli di default definiti nella configurazione.
+
+        L'operazione è idempotente: i modelli già presenti vengono silenziosamente
+        ignorati e non causano l'interruzione della procedura.
+        """
         ids: list[str] = []
         for lm_score in LM_TYPES:
-            ids.append(await self._create_ngram_model_from_params(lm_score, GAMMA, N))
+            try:
+                ids.append(await self._create_ngram_model_from_params(lm_score, GAMMA, N))
+            except ModelAlreadyExistsError:
+                pass  # modello già presente, si prosegue
         for checkpoint in BERT_CHECKPOINTS:
-            ids.append(await self._create_bert_model_from_checkpoint(checkpoint))
+            try:
+                ids.append(await self._create_bert_model_from_checkpoint(checkpoint))
+            except ModelAlreadyExistsError:
+                pass  # modello già presente, si prosegue
         return ids
 
     async def delete_model(self, model_id: str) -> dict:
@@ -64,7 +76,8 @@ class ModelService:
 
     async def _serial_model(self, id: str) -> dict:
         """
-        Serializza un documento del database in un dizionario Python, convertendo l'ObjectId in stringa, e lo cerca nel db.
+        Serializza un documento del database in un dizionario Python,
+        convertendo l'ObjectId in stringa, e lo cerca nel db.
         """
         document = await self._collection.find_one({"_id": ObjectId(id)})
         if not document:
@@ -80,19 +93,51 @@ class ModelService:
         await self._fs.upload_from_stream(filename, compressed)
         return filename
 
-    async def _check_duplicate(self, model_dict: dict) -> None:
-        """Solleva ModelAlreadyExistsError se il modello è già presente in MongoDB."""
-        if await self._collection.find_one(model_dict):
+    async def _check_duplicate(self, identity_filter: dict) -> None:
+        """
+        Solleva ModelAlreadyExistsError se esiste già un documento che corrisponde
+        al filtro identitario fornito.
+
+        Args:
+            identity_filter: dizionario contenente SOLO le chiavi identificative
+                             del modello (es. TYPE + CHECKPOINT per BERT,
+                             TYPE + LM_SCORE + N per Ngram). Non includere campi
+                             che variano tra creazione e persistenza (es. file ID).
+        """
+        if await self._collection.find_one(identity_filter):
             raise ModelAlreadyExistsError("Model already exists in db")
+
+    async def _insert_one_safe(self, document: dict) -> str:
+        """
+        Esegue insert_one gestendo DuplicateKeyError come ModelAlreadyExistsError.
+
+        Protegge dalla race condition TOCTOU: anche se due richieste concorrenti
+        superano _check_duplicate, solo una avrà successo nell'insert grazie
+        all'indice unico MongoDB; l'altra riceverà ModelAlreadyExistsError.
+        """
+        try:
+            result = await self._collection.insert_one(document)
+            return str(result.inserted_id)
+        except DuplicateKeyError as e:
+            raise ModelAlreadyExistsError("Model already exists in db") from e
 
     async def _create_ngram_model(self, model: NgramModel) -> str:
         model_dict = model.model_dump()
-        await self._check_duplicate(model_dict)
+        # Filtro identitario: solo i campi che identificano univocamente il modello.
+        # Non si include GLOBAL/DOMAIN_MODEL_FILE_ID perché non sono ancora valorizzati.
+        identity_filter = {
+            "TYPE": "Ngrams",
+            "LM_SCORE": model_dict["LM_SCORE"],
+            "N": model_dict["N"],
+        }
+        await self._check_duplicate(identity_filter)
         return await self._train_and_persist_ngram(model_dict)
 
     async def _create_ngram_model_from_params(
         self, lm_score: str, gamma: float, n: int
     ) -> str:
+        identity_filter = {"TYPE": "Ngrams", "LM_SCORE": lm_score, "N": n}
+        await self._check_duplicate(identity_filter)
         model_dict = {
             "LM_SCORE": lm_score,
             "GAMMA": gamma,
@@ -100,7 +145,6 @@ class ModelService:
             "CORPUS_NAMES": None,
             "TYPE": "Ngrams",
         }
-        await self._check_duplicate(model_dict)
         return await self._train_and_persist_ngram(model_dict)
 
     async def _train_and_persist_ngram(self, model_dict: dict) -> str:
@@ -112,20 +156,19 @@ class ModelService:
         model_dict["GLOBAL_MODEL_FILE_ID"] = await self._save_to_gridfs(global_model)
         model_dict["DOMAIN_MODEL_FILE_ID"] = await self._save_to_gridfs(domain_model)
         model_dict.setdefault("TYPE", "Ngrams")
-        result = await self._collection.insert_one(model_dict)
-        return str(result.inserted_id)
+        return await self._insert_one_safe(model_dict)
 
     async def _create_bert_model(self, model: BERTModel) -> str:
         model_dict = model.model_dump()
-        await self._check_duplicate(model_dict)
-        result = await self._collection.insert_one(model_dict)
-        return str(result.inserted_id)
+        identity_filter = {"TYPE": "BERT", "CHECKPOINT": model_dict["CHECKPOINT"]}
+        await self._check_duplicate(identity_filter)
+        return await self._insert_one_safe(model_dict)
 
     async def _create_bert_model_from_checkpoint(self, checkpoint: str) -> str:
+        identity_filter = {"TYPE": "BERT", "CHECKPOINT": checkpoint}
+        await self._check_duplicate(identity_filter)
         model_dict = {"CHECKPOINT": checkpoint, "TYPE": "BERT"}
-        await self._check_duplicate(model_dict)
-        result = await self._collection.insert_one(model_dict)
-        return str(result.inserted_id)
+        return await self._insert_one_safe(model_dict)
 
     async def _delete_gridfs_files(self, model: dict) -> None:
         """Rimuove da GridFS tutti i file associati al modello."""
