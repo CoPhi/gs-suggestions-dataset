@@ -3,22 +3,28 @@ Pipeline per la pubblicazione del corpus MAAT su HuggingFace Hub.
 
 Flusso consigliato
 ------------------
-raw   = build_raw_dataset(abs_)          # da train_set.py
-tok   = prepare_dataset_for_model(raw, checkpoint)
+raw = build_raw_dataset(abs_)           # da train_set.py
+tok = prepare_dataset_for_model(raw, checkpoint)
 """
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from functools import partial
 
 from cltk.alphabet.grc.grc import normalize_grc
-from datasets import Dataset, DatasetDict, load_dataset
+from datasets import Dataset, DatasetDict, DatasetInfo, load_dataset
 from transformers import AutoTokenizer
 
 from backend.core.cleaner import load_abs, load_test_set, split_abs_herc_dev
 from backend.core.preprocess import remove_punctuation, strip_diacritics
-from models.bert.dataset import MAAT_CORPUS_CHECKPOINT, MAAT_EVAL_CHECKPOINT
-from models.bert.dataset.dev_set import DevCase, build_dev_case, build_dev_set
+from models.bert.dataset import (
+    CORPUS_CHECKPOINT,
+    EVAL_CHECKPOINT,
+    _CORPUS_DESCRIPTION,
+    _EVAL_DESCRIPTION,
+)
+from models.bert.dataset.dev_set import DevCase, build_dev_set
 from models.bert.dataset.train_set import build_train_set
 from models.bert.finetuning import (
     BERT_MAX_SEQ_LENGTH,
@@ -27,22 +33,32 @@ from models.bert.finetuning import (
     MIN_SENT_TOKEN_TRESHOLD,
     get_model_config,
 )
+from huggingface_hub import login
+from dotenv import load_dotenv
+import os
 
 # Hub
-
 
 def get_db() -> DatasetDict:
     """Carica il dataset MAAT dal HuggingFace Hub."""
     return load_dataset("GabrieleGiannessi/maat-corpus")
 
 
-def push_to_hub(dataset: DatasetDict, checkpoint: str, message: str) -> None:
-    """Pubblica *dataset* sul repository HF *checkpoint*."""
+def push_to_hub(
+    dataset: DatasetDict,
+    checkpoint: str,
+    message: str,
+    description: str = "",
+) -> None:
+    """Pubblica *dataset* su HF *checkpoint* iniettando i metadati di provenienza nella card."""
+    if description:
+        info = DatasetInfo(description=description)
+        for split in dataset:
+            dataset[split].info.description = info.description
     dataset.push_to_hub(checkpoint, commit_message=message)
 
 
-# Caricamento e split del corpus
-
+# Caricamento e split
 
 def load_train_and_dev_set(test_size: float = 0.1) -> tuple[list, list]:
     """
@@ -76,7 +92,6 @@ def dev_set_to_hf_dataset(dev_set: list[DevCase]) -> Dataset:
 
 # Chunking
 
-
 def chunk_sentences(sentences: list[str], chunk_size: int = CHUNK_SIZE) -> list[str]:
     """Divide le frasi in blocchi di esattamente *chunk_size* word token."""
     return [
@@ -99,20 +114,21 @@ def chunk_for_bert(
 
     for sent in sentences:
         sent_tokens = tokenizer.tokenize(sent)
+        n = len(sent_tokens)
 
-        if len(sent_tokens) > max_length:
+        if n > max_length:
             if current_tokens:
                 chunks.append(tokenizer.convert_tokens_to_string(current_tokens))
                 current_tokens, current_length = [], 0
             chunks.append(tokenizer.convert_tokens_to_string(sent_tokens[:max_length]))
             continue
 
-        if current_length + len(sent_tokens) > max_length:
+        if current_length + n > max_length:
             chunks.append(tokenizer.convert_tokens_to_string(current_tokens))
-            current_tokens, current_length = sent_tokens, len(sent_tokens)
+            current_tokens, current_length = sent_tokens, n
         else:
             current_tokens.extend(sent_tokens)
-            current_length += len(sent_tokens)
+            current_length += n
 
     if current_tokens:
         chunks.append(tokenizer.convert_tokens_to_string(current_tokens))
@@ -121,7 +137,6 @@ def chunk_for_bert(
 
 
 # Normalizzazione e tokenizzazione model-specific
-
 
 def _quality_filter_subword(
     example: dict,
@@ -148,7 +163,7 @@ def _normalize_example(example: dict, config: dict) -> dict:
     elif case_folding == "lower":
         text = text.lower()
 
-    return {"text": text.replace("<UNK>", BERT_UNK_TOKEN)}
+    return {"text": text.replace("", BERT_UNK_TOKEN)}
 
 
 def _tokenize_example(example: dict, tokenizer) -> dict:
@@ -172,8 +187,9 @@ def prepare_dataset_for_model(
     tokenizer = AutoTokenizer.from_pretrained(checkpoint)
 
     return (
-        raw_dataset.map(
-            partial(_normalize_example, config=config), #applica normalizzazione
+        raw_dataset
+        .map(
+            partial(_normalize_example, config=config),
             desc=f"Normalizing [{checkpoint}]",
             num_proc=num_proc,
         )
@@ -191,11 +207,17 @@ def prepare_dataset_for_model(
         )
     )
 
-
 def main() -> None:
+    
+    #login a HuggingFace Hub
+    load_dotenv()
+    login(token=os.getenv("HF_TOKEN"))
+    
+    # Caricamento e split dei blocchi anonimi
     train_abs, dev_abs = load_train_and_dev_set(test_size=0.2)
     test_abs = load_test_set()
 
+    #Costruzione e push del train set (raw) e del dev/test set (con gold labels)
     train_dataset = DatasetDict(
         {
             "train": build_train_set(train_abs),
@@ -203,9 +225,10 @@ def main() -> None:
         }
     )
     push_to_hub(
-        train_dataset,
-        MAAT_CORPUS_CHECKPOINT,
-        "Raw dataset: no strip_diacritics, no case folding, no punctuation removal",
+        dataset=train_dataset,
+        checkpoint=CORPUS_CHECKPOINT,
+        message="Add raw training corpus (train+dev split)",
+        description=_CORPUS_DESCRIPTION,
     )
 
     eval_dataset = DatasetDict(
@@ -215,9 +238,10 @@ def main() -> None:
         }
     )
     push_to_hub(
-        eval_dataset,
-        MAAT_EVAL_CHECKPOINT,
-        "Evaluation dataset with gold labels",
+        dataset=eval_dataset,
+        checkpoint=EVAL_CHECKPOINT,
+        message="Add evaluation dataset with gold labels",
+        description=_EVAL_DESCRIPTION,
     )
 
 
