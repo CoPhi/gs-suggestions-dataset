@@ -17,7 +17,7 @@ This is the easiest way to run the entire stack (API, Frontend, and MongoDB) sea
 ### 2. For Local Development (Optional)
 If you prefer to run services manually or develop locally without Docker:
 - **Python**
-- **Poetry**: Dependency management for the Python backend. [Install Poetry](https://python-poetry.org/docs/#installation)
+- **uv**: Dependency and project python manager. [Install uv](https://docs.astral.sh/uv/)
 - **Node.js** & **npm**: Required for the Angular frontend. [Install Node.js](https://nodejs.org/)
 - **Angular CLI**: Install globally via `npm install -g @angular/cli`.
 
@@ -52,10 +52,10 @@ To keep the repository lightweight, the large parsed textual datasets stored in 
 - [PDL-canonical-greekLit](https://github.com/PerseusDL/canonical-greekLit)
 
 ### Running the Data Preparation
-Before utilizing the models or the API meaningfully, you need to populate the data. Make sure backend dependencies are installed through Poetry first:
+Before utilizing the models or the API meaningfully, you need to populate the data. Make sure backend dependencies are installed through `uv` first:
 
 ```bash
-poetry install
+uv sync
 ```
 
 **Step 1: Download and integrate corpora**
@@ -67,7 +67,7 @@ make data
 **Step 2: Parsing standard TEI XML files (Optional)**
 If you have additional text archives using standard TEI format (without complex gaps in EpiDoc format), you can compile them using the standalone converter:
 ```bash
-poetry run python -m scripts.tei_pipeline <path_to_your_tei_folder>
+uv run python -m scripts.tei_pipeline <path_to_your_tei_folder>
 ```
 
 *Note: Both commands will populate the `data/` directory in isolated file chunks (up to 50 MB) in a machine-actionable JSON format, ready for subsequent tasks.*
