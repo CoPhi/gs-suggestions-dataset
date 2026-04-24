@@ -562,7 +562,7 @@ def get_tail_supplement(text_case: str) -> Optional[str]:
 
 def get_tokens_from_clean_text(text: str) -> list[str]:
     """
-    Estrae i token da un testo pulito tramite il metodo `transpile()`.
+    Estrae i token da un testo pulito tramite splitting su whitespace.
 
     Args:
         text (str): Il testo pulito da cui estrarre i token.
