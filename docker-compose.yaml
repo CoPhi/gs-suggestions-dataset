@@ -1,28 +1,29 @@
 services:
-  gs-api: 
+  gs-api:
     build:
       context: .
-    image: gabrielegiannessi/gs-api:latest
     container_name: gs-api
     ports:
-        - "8000:8000"
+      - "8000:8000"
     volumes:
-        - ./data:/app/data
-        - .:/app 
+      - ./data:/app/data
+      - .:/app
     environment:
       - MONGO_USERNAME=${MONGO_USERNAME}
       - MONGO_PASSWORD=${MONGO_PASSWORD}
       - MONGO_HOST=mongodb
+    depends_on:
+      mongodb:
+        condition: service_healthy   
 
-  frontend: 
+  frontend:
     build:
       context: ./frontend
-    image: gabrielegiannessi/gs-frontend:latest
     container_name: frontend
     ports:
-        - "4200:4200"
+      - "4200:4200"
 
-  mongodb: 
+  mongodb:
     image: mongodb/mongodb-community-server:latest
     container_name: mongodb
     ports:
@@ -32,6 +33,12 @@ services:
     environment:
       - MONGODB_INITDB_ROOT_USERNAME=${MONGO_USERNAME}
       - MONGODB_INITDB_ROOT_PASSWORD=${MONGO_PASSWORD}
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')", "--quiet"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s   
 
 volumes:
   mongodb_data:
