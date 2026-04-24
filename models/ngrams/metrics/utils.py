@@ -19,6 +19,7 @@ from nltk.metrics.distance import edit_distance
 from typing import Counter
 
 from backend.config.settings import ALPHA, BETA, DELTA, K_PRED, LAMBDA, LM_TYPE, N
+from backend.core import _CASE_FOLDING
 from backend.core.preprocess import (
     transpile,
     get_head_supplement,
@@ -36,9 +37,7 @@ from models.ngrams.metrics import (
 )
 
 
-# ---------------------------------------------------------------------------
 # Edit distance con cache
-# ---------------------------------------------------------------------------
 
 
 @lru_cache(maxsize=None)
@@ -47,9 +46,7 @@ def cached_edit_distance(a: str, b: str) -> int:
     return edit_distance(a, b)
 
 
-# ---------------------------------------------------------------------------
 # Filtering e ordinamento della distribuzione di frequenza
-# ---------------------------------------------------------------------------
 
 
 def filter_words(df: list[tuple[str, int]]) -> list[str]:
@@ -138,9 +135,7 @@ def get_sorted_filtered_words(
     )
 
 
-# ---------------------------------------------------------------------------
 # Distribuzione di frequenza dal contesto
-# ---------------------------------------------------------------------------
 
 
 def get_dist_freq_words_from_context(
@@ -224,9 +219,7 @@ def get_words_from_context(
     return tokens
 
 
-# ---------------------------------------------------------------------------
 # Scoring
-# ---------------------------------------------------------------------------
 
 
 def interpolated_log_score(
@@ -393,9 +386,7 @@ def score_candidate(
     )
 
 
-# ---------------------------------------------------------------------------
 # Beam search
-# ---------------------------------------------------------------------------
 
 
 def get_successors(
@@ -632,6 +623,7 @@ def local_beam_search(
         mod=mod,
     )
 
+
 def get_best_K_predictions_from_context(
     g_lm: LanguageModel,
     d_lm: LanguageModel,
@@ -701,15 +693,13 @@ def get_best_K_predictions_from_context(
     )
 
 
-# ---------------------------------------------------------------------------
 # Utilità per i test cases MAAT
-# ---------------------------------------------------------------------------
 
 
 def get_context_from_test_case(
     test_case: str,
     n: int = N,
-    case_folding: bool = True,
+    case_folding: _CASE_FOLDING = "upper",
 ) -> tuple[list[str], Optional[str], Optional[str], int]:
     """
     Estrae contesto, testa, coda e lunghezza della lacuna da un test case MAAT.
@@ -720,7 +710,7 @@ def get_context_from_test_case(
     Args:
         test_case: Testo del test case contenente esattamente una lacuna ``[...]``.
         n: Ordine degli n-grammi del modello. Default è N.
-        case_folding: Se ``True``, applica la normalizzazione maiuscolo/diacritici.
+        case_folding: Default a 'upper'.
 
     Returns:
         Tupla ``(context, head, tail, lacuna_len)`` dove:
@@ -752,8 +742,8 @@ def get_context_from_test_case(
 
     return (
         context,
-        get_head_supplement(test_case),
-        get_tail_supplement(test_case),
+        get_head_supplement(test_case, case_folding=case_folding),
+        get_tail_supplement(test_case, case_folding=case_folding),
         match.count("."),
     )
 

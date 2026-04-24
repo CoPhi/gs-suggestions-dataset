@@ -38,7 +38,7 @@ def generate_k_suggests(
         raise ValueError("Il modelli non sono stati caricati correttamente.")
 
     seq, head, tail, len_lacuna = get_context_from_test_case(
-        context, n=n, case_folding=True
+        context, n, "upper"
     )
 
     predictions = get_best_K_predictions_from_context(

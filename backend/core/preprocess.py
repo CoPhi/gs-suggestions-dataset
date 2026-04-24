@@ -522,7 +522,7 @@ def clean_supplements(
     return suppl_tokens
 
 
-def get_head_supplement(text_case: str) -> Optional[str]:
+def get_head_supplement(text_case: str, case_folding: _CASE_FOLDING = "upper") -> Optional[str]:
     """
     Restituisce la sottostringa che precede la lacuna, identificata con `[...]`, e che segue lo spazio o l'inizio della frase.
     """
@@ -534,14 +534,14 @@ def get_head_supplement(text_case: str) -> Optional[str]:
             start -= 1
         substring = text_case[start:end]
         return (
-            remove_punctuation(transpile(substring, True).strip())
+            remove_punctuation(transpile(substring, case_folding=case_folding).strip())
             if not contains_lacunae(substring)
             else None
         )
     return None
 
 
-def get_tail_supplement(text_case: str) -> Optional[str]:
+def get_tail_supplement(text_case: str, case_folding: _CASE_FOLDING = "upper") -> Optional[str]:
     """
     Restituisce la sottostringa che segue la lacuna, identificata con `[...]`, e che precede lo spazio o la fine della frase.
     """
@@ -553,7 +553,7 @@ def get_tail_supplement(text_case: str) -> Optional[str]:
             end += 1
         substring = text_case[start:end]
         return (
-            remove_punctuation(transpile(substring, True).strip())
+            remove_punctuation(transpile(substring, case_folding=case_folding).strip())
             if not contains_lacunae(substring)
             else None
         )
