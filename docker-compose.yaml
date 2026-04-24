@@ -2,12 +2,12 @@ services:
   gs-api:
     build:
       context: .
+    image: gabrielegiannessi/gs-api:latest
     container_name: gs-api
     ports:
       - "8000:8000"
     volumes:
       - ./data:/app/data
-      - .:/app
     environment:
       - MONGO_USERNAME=${MONGO_USERNAME}
       - MONGO_PASSWORD=${MONGO_PASSWORD}
@@ -19,6 +19,7 @@ services:
   frontend:
     build:
       context: ./frontend
+    image: gabrielegiannessi/gs-frontend:latest
     container_name: frontend
     ports:
       - "4200:4200"
