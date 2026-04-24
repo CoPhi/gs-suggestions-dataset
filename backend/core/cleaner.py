@@ -2,7 +2,7 @@ import json
 import random
 from typing import Optional
 from sklearn.model_selection import train_test_split
-from backend.core import sentence_tokenizer, _LANGUAGE
+from backend.core import _CASE_FOLDING, sentence_tokenizer, _LANGUAGE
 from tqdm import tqdm
 from backend.config.settings import (
     CORPUS_NAMES,
@@ -174,7 +174,7 @@ def split_abs_herc_dev(
 def get_sentences(
     abs: list,
     remove_punct: bool = True,
-    case_folding: bool = True,
+    case_folding: _CASE_FOLDING = "upper",
     normalize: bool = True,
     strip_diacritics: bool = True,
 ) -> list[list[str]]:
@@ -186,7 +186,7 @@ def get_sentences(
     Args:
         ab (list): Una lista di oggetti, ciascuno contenente le chiavi 'training_text' e 'language'.
         remove_punct (bool, opzionale): Se `True`, rimuove la punteggiatura dalle frasi. Default è `True`.
-        case_folding (bool, opzionale): Se `True`, applica il case folding al testo. Default è `True`.
+        case_folding (str, opzionale): Default è `upper`.
         normalize (bool, opzionale): Se `True`, normalizza il testo. Default è `True`.
         strip_diacritics (bool, opzionale): Se `True`, rimuove i diacritici dal testo. Default è `True`.
     Raises:
