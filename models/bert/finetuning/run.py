@@ -12,9 +12,10 @@ import torch
 
 from models.bert.finetuning import BERT_MODEL_CONFIG, BASE_MODEL_MAP
 from models.bert.finetuning.pipeline import pipeline_finetuning
-
+from models.bert.finetuning import wandb_login
 
 def main():
+    
     parser = argparse.ArgumentParser(description="Finetuning MLM per greco antico")
     parser.add_argument(
         "--checkpoint",
@@ -38,7 +39,9 @@ def main():
 
     checkpoint = args.checkpoint
     base_model = BASE_MODEL_MAP.get(checkpoint, checkpoint)
-
+    
+    wandb_login()
+    
     pipeline_finetuning(
         checkpoint=checkpoint,
         base_model=base_model,

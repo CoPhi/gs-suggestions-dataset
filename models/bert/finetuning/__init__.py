@@ -2,10 +2,15 @@ import re
 from cltk.sentence.grc import GreekRegexSentenceTokenizer
 import wandb
 import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
+
 sentence_tokenizer = GreekRegexSentenceTokenizer()
 
-TRAIN_DATASET_CHECKPOINT = "CNR-ILC/maat-corpus-train"
-TEST_DATASET_CHECKPOINT = "CNR-ILC/maat-corpus-test"
+TRAIN_DATASET_CHECKPOINT = "CNR-ILC/gs-dataset-train"
+TEST_DATASET_CHECKPOINT = "CNR-ILC/gs-dataset-eval"
 
 OUTPUT_DIR = "./models/bert/finetuning/gs/gs-greBERTa"
 LOGS_DIR = "./models/bert/finetuning/gs/gs-greBERTa-logs"
@@ -21,7 +26,7 @@ MAX_MASK_TOKEN_TRESHOLD = 10
 MIN_MASK_TOKEN_TRESHOLD = 1
 
 # API key per wandb (da .env o variabile d'ambiente)
-API_KEY = os.getenv("WANDB_API_KEY")
+WANDB_API_KEY = os.getenv("WANDB_API_KEY")
 
 # Lunghezza massima dello span da mascherare (per il collator MLM)
 MAX_SPAN_LENGTH = 3
@@ -86,7 +91,7 @@ def get_model_config(checkpoint: str) -> dict:
     return BERT_MODEL_CONFIG[checkpoint]
 
 
-def wandb_login(api_key: str) -> str:
+def wandb_login(api_key: str = WANDB_API_KEY) -> str:
     if not api_key.strip():
         return "Inserisci una API key valida."
     try:

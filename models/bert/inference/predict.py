@@ -6,8 +6,6 @@ from typing import List, Tuple, Dict
 from transformers import (
     PreTrainedModel,
     PreTrainedTokenizer,
-    BertTokenizer,
-    BertTokenizerFast,
 )
 
 from backend.core import _CASE_FOLDING
@@ -51,8 +49,6 @@ def fill_mask(
     device = next(model.parameters()).device
     model.eval()
 
-    is_wordpiece = _is_wordpiece_tokenizer(tokenizer)
-
     # STEP 1 — invariato
     if GAP_TOKEN not in tokenizer.get_vocab():
         tokenizer.add_special_tokens({"additional_special_tokens": [GAP_TOKEN]})
@@ -72,11 +68,6 @@ def fill_mask(
     k_max_theoretical = math.ceil(n_chars / 2) + 1
     k_max = min(k_max_theoretical, 3)
 
-    # Per WordPiece + lacuna intra-parola: k=1 è l'unico valore sensato.
-    # Il modello predice una parola intera, non un frammento.
-    if is_wordpiece and intra_word:
-        k_max = 1
-
     all_candidates: List[Tuple[str, float]] = []
 
     # Scelta del metodo di generazione
@@ -93,22 +84,17 @@ def fill_mask(
 
     for k in range(k_min, k_max + 1):
 
-        # STEP 3 — divergenza WordPiece vs BPE
-        if is_wordpiece and intra_word:
-            masked_text = text.replace(GAP_TOKEN, tokenizer.mask_token)
-        else:
-            # BPE (GrέBERTa): k maschere consecutive per predire k subword/caratteri
-            mask_str = " ".join([tokenizer.mask_token] * k)
-            masked_text = text.replace(GAP_TOKEN, mask_str)
+        # STEP 3
+        # k maschere consecutive per predire k subword/caratteri
+        mask_str = " ".join([tokenizer.mask_token] * k)
+        masked_text = text.replace(GAP_TOKEN, mask_str)
 
         inputs = tokenizer(masked_text, return_tensors="pt").to(device)
         input_ids = inputs["input_ids"]
         attention_mask = inputs["attention_mask"]
         mask_id = tokenizer.mask_token_id
 
-        if (input_ids == mask_id).sum().item() != (
-            1 if (is_wordpiece and intra_word) else k
-        ):
+        if (input_ids == mask_id).sum().item() != k:
             continue
 
         # STEP 4
@@ -137,20 +123,10 @@ def fill_mask(
 
             decoded = tokenizer.decode(token_ids, skip_special_tokens=True).replace(
                 " ", ""
-            )
+            ).replace("##", "")
 
-            # STEP 5: post processing per WordPiece
-            if is_wordpiece and intra_word:
-                if not (decoded.startswith(prefix) and decoded.endswith(suffix)):
-                    continue  # candidato incompatibile → scartato
-                fragment = (
-                    decoded[len(prefix) : len(decoded) - len(suffix)]
-                    if suffix
-                    else decoded[len(prefix) :]
-                )
-                all_candidates.append((fragment, final_score))
-            else:
-                all_candidates.append((decoded, final_score))
+            # STEP 5
+            all_candidates.append((decoded, final_score))
 
     all_candidates.sort(key=lambda x: x[1], reverse=True)
     seen = set()
@@ -177,6 +153,3 @@ def fill_mask(
 
     return unique_candidates
 
-
-def _is_wordpiece_tokenizer(tokenizer: PreTrainedTokenizer) -> bool:
-    return isinstance(tokenizer, (BertTokenizer, BertTokenizerFast))

@@ -18,13 +18,13 @@ La configurazione model-specific è centralizzata in
 """
 
 import math
+import random
 
 import torch
 from itertools import chain
 from datasets import load_dataset, DatasetDict
 from transformers import (
     AutoTokenizer,
-    DataCollatorForLanguageModeling,
     AutoModelForMaskedLM,
     TrainingArguments,
     Trainer,
@@ -171,7 +171,7 @@ def _evaluate_hcb_on_split(
                 beam_size=10,
                 method="modified_best_to_worst",
                 return_raw=False,
-                case_folding=False,
+                case_folding="none",
             )
             predictions_text.append(suggestions)
             gold_labels.append(case.y)
@@ -227,7 +227,7 @@ def pipeline_finetuning(
 
     print("Preparazione Dataset...")
     lm_datasets, hcb_dev_cases, hcb_test_cases = prepare_data(
-        checkpoinZt=checkpoint,
+        checkpoint=checkpoint,
         tokenizer=tokenizer,
         chunk_size=chunk_size,
     )
@@ -266,6 +266,8 @@ def pipeline_finetuning(
         hub_model_id=checkpoint if push_to_hub else None,
         push_to_hub=push_to_hub,
     )
+
+    random.Random(42).shuffle(hcb_dev_cases)
 
     hcb_callback = HCBEvaluationCallback(
         dev_cases_pool=hcb_dev_cases,

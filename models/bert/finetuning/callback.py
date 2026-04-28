@@ -54,7 +54,7 @@ class HCBEvaluationCallback(TrainerCallback):
                     beam_size=10,
                     method="modified_best_to_worst",
                     return_raw=False,
-                    case_folding=False,  # il testo uscirà dal tokenizer senza case folding forzato
+                    case_folding="none",  # il testo uscirà dal tokenizer senza case folding forzato
                 )
 
                 predictions_text.append(suggestions)
