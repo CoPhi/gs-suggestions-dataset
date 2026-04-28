@@ -12,7 +12,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 
-### Fixed
+### Changed
+
+- Rimossi prefissi di tokenizzazione (`##`) dalle predizioni effettuate da `models/bert/inference/predict.py`.
 
 ## [0.5.0] - 2026-04-24
 
@@ -56,4 +58,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Refactoring `models/bert/finetuning/run.py`: disaccoppiato il caricamento dei dati utilizzando due versioni dal repository HF:
     - `gs-dataset-train`: testo grezzo per continual pre-training MLM (https://huggingface.co/datasets/CNR-ILC/gs-dataset-train)
     - `gs-dataset-eval`: dataset che fornisce campioni di test case affiancati alle gold labels per la valutazione dei modelli (https://huggingface.co/datasets/CNR-ILC/gs-dataset-eval).
-
+- Sostituzione della "request-box" nel frontend con una "prompt-box" standalone per favorire modularità ed interoperabilità. 
+- Migrazione della gestione delle dipendenze da Poetry a uv  
