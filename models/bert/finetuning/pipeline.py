@@ -197,7 +197,7 @@ def _evaluate_hcb_on_split(
 def pipeline_finetuning(
     checkpoint: str,
     base_model: str,
-    batch_size: int = 16,
+    batch_size: int = 128,
     chunk_size: int = 128,
     epochs: int = 10,
     lr: float = 5e-5,
@@ -247,25 +247,27 @@ def pipeline_finetuning(
     torch.cuda.empty_cache()
 
     training_args = TrainingArguments(
-        output_dir=output_dir,
-        logging_dir=logs_dir,
-        report_to="wandb",
-        eval_strategy="epoch",
-        save_strategy="epoch",
-        learning_rate=lr,
-        per_device_train_batch_size=batch_size,
-        per_device_eval_batch_size=8,
-        num_train_epochs=epochs,
-        seed=42,
-        fp16=True,
-        logging_strategy="epoch",
-        eval_accumulation_steps=4,
-        torch_empty_cache_steps=5000,
-        dataloader_drop_last=True,
-        save_total_limit=2,
-        hub_model_id=checkpoint if push_to_hub else None,
-        push_to_hub=push_to_hub,
-    )
+    output_dir=output_dir,
+    logging_dir=logs_dir,
+    report_to="wandb",
+    eval_strategy="epoch",
+    save_strategy="epoch",
+    learning_rate=lr,
+    per_device_train_batch_size=batch_size,
+    per_device_eval_batch_size=32,          
+    num_train_epochs=epochs,
+    seed=42,
+    bf16=True,                              
+    logging_strategy="epoch",
+    eval_accumulation_steps=4,
+    torch_empty_cache_steps=5000,
+    dataloader_drop_last=True,
+    dataloader_num_workers=8,              
+    dataloader_pin_memory=True,            
+    save_total_limit=2,
+    hub_model_id=checkpoint if push_to_hub else None,
+    push_to_hub=push_to_hub,
+)
 
     random.Random(42).shuffle(hcb_dev_cases)
 
