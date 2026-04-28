@@ -21,6 +21,7 @@ class DataCollatorForSpanMLM(DataCollatorForLanguageModeling):
         self,
         inputs: torch.Tensor,
         special_tokens_mask: Optional[torch.Tensor] = None,
+        **kwargs,
     ) -> tuple[torch.Tensor, torch.Tensor]:
         """
         Replica la logica HF, ma scegliendo i token da mascherare per span.
