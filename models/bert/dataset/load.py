@@ -167,7 +167,7 @@ def _normalize_example(example: dict, config: dict) -> dict:
 
 
 def _tokenize_example(example: dict, tokenizer) -> dict:
-    return tokenizer(example["text"], truncation=True, max_length=512, padding=False)
+    return tokenizer(example["text"], truncation=False, padding=False)
 
 
 def prepare_dataset_for_model(
@@ -185,6 +185,7 @@ def prepare_dataset_for_model(
     """
     config = get_model_config(checkpoint)
     tokenizer = AutoTokenizer.from_pretrained(checkpoint)
+    tokenizer.model_max_length = int(1e9)  # Suppress warnings for long sequences
 
     return (
         raw_dataset
