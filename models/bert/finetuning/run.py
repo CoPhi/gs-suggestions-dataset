@@ -25,8 +25,8 @@ def main():
         help="Checkpoint fine-tuned target (determina la normalizzazione del testo)",
     )
     parser.add_argument("--epochs", type=int, default=10)
-    parser.add_argument("--batch_size", type=int, default=16)
-    parser.add_argument("--lr", type=float, default=5e-5)
+    parser.add_argument("--batch_size", type=int, default=128)
+    parser.add_argument("--lr", type=float, default=4e-4)
     parser.add_argument("--chunk_size", type=int, default=128)
     parser.add_argument(
         "--push_to_hub",
