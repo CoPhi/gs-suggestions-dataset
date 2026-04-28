@@ -30,7 +30,7 @@ from transformers import (
     Trainer,
 )
 
-from models.bert.dataset import MAAT_CORPUS_CHECKPOINT, MAAT_EVAL_CHECKPOINT
+from models.bert.dataset import CORPUS_CHECKPOINT, EVAL_CHECKPOINT
 from models.bert.dataset.load import prepare_dataset_for_model
 from models.bert.dataset.dev_set import DevCase
 from models.bert.finetuning import get_model_config
@@ -47,7 +47,7 @@ def prepare_data(
     chunk_size: int = 128,
 ):
     """
-    Carica il corpus MAAT e l'eval set da HuggingFace Hub, applica la
+    Carica il training set e l'eval set da HuggingFace Hub, applica la
     normalizzazione model-specific e raggruppa in chunk per il training MLM.
 
     Args:
@@ -60,8 +60,8 @@ def prepare_data(
         lista DevCase per il dev set e lista DevCase per il test set.
     """
     # --- Corpus MLM ---
-    print(f"Loading raw corpus from '{MAAT_CORPUS_CHECKPOINT}'...")
-    corpus_dataset = load_dataset(MAAT_CORPUS_CHECKPOINT)
+    print(f"Loading raw corpus from '{CORPUS_CHECKPOINT}'...")
+    corpus_dataset = load_dataset(CORPUS_CHECKPOINT)
 
     print(f"Applying model-specific normalization for [{checkpoint}]...")
     normalized_datasets = {}
@@ -104,8 +104,8 @@ def prepare_data(
         }
     )
 
-    print(f"Loading eval set from '{MAAT_EVAL_CHECKPOINT}'...")
-    eval_dataset = load_dataset(MAAT_EVAL_CHECKPOINT)
+    print(f"Loading eval set from '{EVAL_CHECKPOINT}'...")
+    eval_dataset = load_dataset(EVAL_CHECKPOINT)
 
     def _load_eval_split(split_name: str) -> list[DevCase]:
         cases = []

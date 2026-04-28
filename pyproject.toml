@@ -30,6 +30,9 @@ dependencies = [
     "weave>=0.52.36,<0.53",
     "pipreqs>=0.5.0,<0.6",
     "gradio>=6.12.0,<7",
+    "urllib3<2",
+    "charset-normalizer~=3.3.0",
+    "requests>=2.31.0",
 ]
 
 [tool.uv]
