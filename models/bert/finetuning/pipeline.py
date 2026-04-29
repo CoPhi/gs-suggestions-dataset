@@ -224,6 +224,7 @@ def pipeline_finetuning(
     model = AutoModelForMaskedLM.from_pretrained(base_model)
     tokenizer = AutoTokenizer.from_pretrained(checkpoint)
     tokenizer.model_max_length = 512
+    model.resize_token_embeddings(len(tokenizer))
 
     print("Preparazione Dataset...")
     lm_datasets, hcb_dev_cases, hcb_test_cases = prepare_data(
