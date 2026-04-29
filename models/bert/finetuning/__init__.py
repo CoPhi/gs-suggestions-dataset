@@ -25,9 +25,6 @@ MIN_SENT_TOKEN_TRESHOLD = 10
 MAX_MASK_TOKEN_TRESHOLD = 10
 MIN_MASK_TOKEN_TRESHOLD = 1
 
-# API key per wandb (da .env o variabile d'ambiente)
-WANDB_API_KEY = os.getenv("WANDB_API_KEY")
-
 # Lunghezza massima dello span da mascherare (per il collator MLM)
 MAX_SPAN_LENGTH = 3
 
@@ -94,6 +91,11 @@ def get_model_config(checkpoint: str) -> dict:
             f"Checkpoint disponibili: {list(BERT_MODEL_CONFIG.keys())}"
         )
     return BERT_MODEL_CONFIG[checkpoint]
+
+
+# variabili di configurazione per wandb
+WANDB_PROJECT = "gs-suggestions"
+WANDB_API_KEY = os.getenv("WANDB_API_KEY")
 
 
 def wandb_login(api_key: str = WANDB_API_KEY) -> str:

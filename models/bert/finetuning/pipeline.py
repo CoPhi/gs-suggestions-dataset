@@ -11,7 +11,7 @@ Il flusso di preprocessing è:
    - Filtraggio qualità (soglia UNK token)
    - Tokenizzazione sub-word con il tokenizer del modello target
 3. Chunking in blocchi di lunghezza fissa per MLM
-4. Training con DataCollatorForLanguageModeling
+4. Training con DataCollatorForSpanMLM
 
 La configurazione model-specific è centralizzata in
 `models.bert.finetuning.BERT_MODEL_CONFIG`.
@@ -40,6 +40,44 @@ from models.bert.inference.predict import fill_mask
 
 import wandb
 
+WANDB_PROJECT = "gs-suggestions"
+
+
+def _init_wandb(
+    checkpoint: str,
+    base_model: str,
+    lr: float,
+    batch_size: int,
+    chunk_size: int,
+    epochs: int,
+) -> str:
+    """
+    Inizializza una run W&B sul progetto principale 'gs-suggestions'.
+    Restituisce il run_name generato per coerenza con TrainingArguments.
+    """
+    ckpt_short = checkpoint.split("/")[-1]
+    run_name = f"{ckpt_short}_lr{lr}_bs{batch_size}_ep{epochs}"
+
+    wandb.init(
+        project=WANDB_PROJECT,
+        name=run_name,
+        config={
+            "checkpoint": checkpoint,
+            "base_model": base_model,
+            "learning_rate": lr,
+            "batch_size": batch_size,
+            "chunk_size": chunk_size,
+            "epochs": epochs,
+            "mlm_probability": 0.25,
+            "max_span_length": 3,
+            "warmup_ratio": 0.05,
+            "gap_token": GAP_TOKEN,
+        },
+        tags=[ckpt_short, "finetuning", "mlm"],
+        resume="allow",
+    )
+    return run_name
+
 
 def prepare_data(
     checkpoint: str,
@@ -59,7 +97,6 @@ def prepare_data(
         (lm_datasets, dev_cases, test_cases): DatasetDict pronti per il Trainer,
         lista DevCase per il dev set e lista DevCase per il test set.
     """
-    # --- Corpus MLM ---
     print(f"Loading raw corpus from '{CORPUS_CHECKPOINT}'...")
     corpus_dataset = load_dataset(CORPUS_CHECKPOINT)
 
@@ -71,16 +108,19 @@ def prepare_data(
             checkpoint,
         )
 
-    # Chunking: raggruppa i blocchi tokenizzati in sequenze di lunghezza fissa
     def group_texts(examples):
         concatenated = {k: list(chain(*examples[k])) for k in examples.keys()}
         total_length = len(concatenated["input_ids"])
 
-        # Padding per arrivare a multiplo di chunk_size
         if total_length % chunk_size != 0:
             padding_length = chunk_size - (total_length % chunk_size)
             for key in concatenated:
-                pad_value = 0 if key == "attention_mask" else tokenizer.pad_token_id
+                if key == "attention_mask":
+                    pad_value = 0
+                elif key == "labels":
+                    pad_value = -100  # ignorato dalla CrossEntropyLoss
+                else:
+                    pad_value = tokenizer.pad_token_id
                 concatenated[key] += [pad_value] * padding_length
 
         total_length = (len(concatenated["input_ids"]) // chunk_size) * chunk_size
@@ -88,8 +128,6 @@ def prepare_data(
             k: [t[i : i + chunk_size] for i in range(0, total_length, chunk_size)]
             for k, t in concatenated.items()
         }
-
-        # Etichette per MLM
         result["labels"] = result["input_ids"].copy()
         return result
 
@@ -110,7 +148,6 @@ def prepare_data(
     def _load_eval_split(split_name: str) -> list[DevCase]:
         cases = []
         for row in eval_dataset[split_name].to_list():
-            # gap_length è in CARATTERI, non in token: filtriamo per lunghezza del gap in caratteri
             if 1 <= row["gap_length"] <= 6:
                 cases.append(
                     DevCase(
@@ -138,16 +175,6 @@ def _evaluate_hcb_on_split(
 ) -> dict[str, float]:
     """
     Esegue la valutazione HCB (TopK + BERTscore) su un insieme di DevCase.
-
-    Args:
-        split_name: Nome dello split ("dev" o "test"), usato per il logging.
-        cases: Lista di DevCase su cui valutare.
-        model: Modello HuggingFace in eval mode.
-        tokenizer: Tokenizer del modello.
-        max_cases: Numero massimo di casi da valutare (None = tutti).
-
-    Returns:
-        Dizionario con tutte le metriche (topK + bertscore).
     """
     from models.bert.evaluation.metrics import (
         evaluate_topK_text,
@@ -205,17 +232,6 @@ def pipeline_finetuning(
 ):
     """
     Esegue la pipeline completa di finetuning MLM.
-
-    Args:
-        checkpoint: Checkpoint fine-tuned target (es. "CNR-ILC/gs-GreBerta").
-                    Determina tokenizer e normalizzazione model-specific.
-        base_model: Checkpoint base da cui caricare i pesi del modello
-                    (es. "bowphs/GreBerta").
-        batch_size: Batch size per il training.
-        chunk_size: Lunghezza dei blocchi di input_ids per MLM.
-        epochs: Numero di epoche di training.
-        lr: Learning rate.
-        push_to_hub: Se True, carica il modello su HuggingFace Hub al termine.
     """
     print(f"Checkpoint target: {checkpoint}")
     print(f"Base model (pesi): {base_model}")
@@ -223,15 +239,21 @@ def pipeline_finetuning(
 
     model = AutoModelForMaskedLM.from_pretrained(base_model)
     tokenizer = AutoTokenizer.from_pretrained(checkpoint)
-    
+    tokenizer.model_max_length = 512
+
     if GAP_TOKEN not in tokenizer.get_vocab():
         tokenizer.add_special_tokens({"additional_special_tokens": [GAP_TOKEN]})
-        model.resize_token_embeddings(len(tokenizer))
-    
-    tokenizer.model_max_length = 512
-    
-    print(f"[setup] Vocab size finale: {len(tokenizer)} | Embedding shape: {model.get_input_embeddings().weight.shape}")
-    
+        print(f"[setup] GAP token '{GAP_TOKEN}' aggiunto al vocabolario.")
+
+    model.resize_token_embeddings(len(tokenizer))
+
+    # Inizializza embedding GAP token come media degli esistenti
+    with torch.no_grad():
+        gap_id = tokenizer.convert_tokens_to_ids(GAP_TOKEN)
+        embeddings = model.get_input_embeddings().weight
+        embeddings[gap_id] = embeddings[:-1].mean(dim=0)
+
+    # Dataset
     print("Preparazione Dataset...")
     lm_datasets, hcb_dev_cases, hcb_test_cases = prepare_data(
         checkpoint=checkpoint,
@@ -239,43 +261,53 @@ def pipeline_finetuning(
         chunk_size=chunk_size,
     )
 
-    # Data collator per MLM con span masking contigui (lunghezza 1..3)
+    # W&B init 
+    ckpt_short = checkpoint.split("/")[-1]
+    run_name = _init_wandb(
+        checkpoint=checkpoint,
+        base_model=base_model,
+        lr=lr,
+        batch_size=batch_size,
+        chunk_size=chunk_size,
+        epochs=epochs,
+    )
+
+    # Training setup 
+    output_dir = f"./models/bert/finetuning/gs/{ckpt_short}"
+    logs_dir = f"./models/bert/finetuning/gs/{ckpt_short}-logs"
+
     data_collator = DataCollatorForSpanMLM(
         tokenizer=tokenizer,
         mlm_probability=0.25,
         max_span_length=3,
     )
 
-    # Directory di output basate sul nome del checkpoint
-    ckpt_short = checkpoint.split("/")[-1]
-    output_dir = f"./models/bert/finetuning/gs/{ckpt_short}"
-    logs_dir = f"./models/bert/finetuning/gs/{ckpt_short}-logs"
-
     torch.cuda.empty_cache()
 
     training_args = TrainingArguments(
-    output_dir=output_dir,
-    logging_dir=logs_dir,
-    report_to="wandb",
-    eval_strategy="epoch",
-    save_strategy="epoch",
-    learning_rate=lr,
-    warmup_ratio=0.05, 
-    per_device_train_batch_size=batch_size,
-    per_device_eval_batch_size=32,          
-    num_train_epochs=epochs,
-    seed=42,
-    bf16=True,                              
-    logging_strategy="epoch",
-    eval_accumulation_steps=4,
-    torch_empty_cache_steps=5000,
-    dataloader_drop_last=True,
-    dataloader_num_workers=8,              
-    dataloader_pin_memory=True,            
-    save_total_limit=2,
-    hub_model_id=checkpoint if push_to_hub else None,
-    push_to_hub=push_to_hub,
-)
+        output_dir=output_dir,
+        logging_dir=logs_dir,
+        report_to="wandb",
+        run_name=run_name,
+        eval_strategy="epoch",
+        save_strategy="epoch",
+        learning_rate=lr,
+        warmup_ratio=0.05,
+        per_device_train_batch_size=batch_size,
+        per_device_eval_batch_size=32,
+        num_train_epochs=epochs,
+        seed=42,
+        bf16=True,
+        logging_strategy="epoch",
+        eval_accumulation_steps=4,
+        torch_empty_cache_steps=5000,
+        dataloader_drop_last=True,
+        dataloader_num_workers=8,
+        dataloader_pin_memory=True,
+        save_total_limit=2,
+        hub_model_id=checkpoint if push_to_hub else None,
+        push_to_hub=push_to_hub,
+    )
 
     random.Random(42).shuffle(hcb_dev_cases)
 
@@ -294,17 +326,17 @@ def pipeline_finetuning(
         callbacks=[hcb_callback],
     )
 
+    # Training
     print(f"Avvio Finetuning MLM [{checkpoint}] (con check HCB epochs callback)")
     trainer.train()
 
-    # Salvataggio metriche di training
     trainer.save_metrics("train", trainer.state.log_history[-1])
     metrics = trainer.evaluate()
     metrics["eval_perplexity"] = math.exp(metrics["eval_loss"])
     trainer.save_metrics("eval", metrics)
     trainer.save_state()
 
-    # Valutazione finale HCB sul test set
+    # Valutazione HCB finale sul test set 
     print("Valutazione HCB finale sul TEST set...")
     test_metrics = _evaluate_hcb_on_split(
         split_name="test",
@@ -316,7 +348,6 @@ def pipeline_finetuning(
     if test_metrics:
         test_logs = {f"test_hcb_{k}": v for k, v in test_metrics.items()}
         trainer.save_metrics("test_hcb", test_logs)
-
         if wandb.run is not None:
             wandb.log(test_logs)
 
@@ -324,5 +355,6 @@ def pipeline_finetuning(
         print(f"Push del modello su HuggingFace Hub [{checkpoint}]...")
         trainer.push_to_hub()
 
+    wandb.finish()
     print("Finetuning completato.")
     return trainer
