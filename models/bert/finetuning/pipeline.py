@@ -33,7 +33,7 @@ from transformers import (
 from models.bert.dataset import CORPUS_CHECKPOINT, EVAL_CHECKPOINT
 from models.bert.dataset.load import prepare_dataset_for_model
 from models.bert.dataset.dev_set import DevCase
-from models.bert.finetuning import get_model_config
+from models.bert.finetuning import get_model_config, GAP_TOKEN
 from models.bert.finetuning.callback import HCBEvaluationCallback
 from models.bert.finetuning.collator import DataCollatorForSpanMLM
 from models.bert.inference.predict import fill_mask
@@ -223,9 +223,15 @@ def pipeline_finetuning(
 
     model = AutoModelForMaskedLM.from_pretrained(base_model)
     tokenizer = AutoTokenizer.from_pretrained(checkpoint)
+    
+    if GAP_TOKEN not in tokenizer.get_vocab():
+        tokenizer.add_special_tokens({"additional_special_tokens": [GAP_TOKEN]})
+        model.resize_token_embeddings(len(tokenizer))
+    
     tokenizer.model_max_length = 512
-    model.resize_token_embeddings(len(tokenizer))
-
+    
+    print(f"[setup] Vocab size finale: {len(tokenizer)} | Embedding shape: {model.get_input_embeddings().weight.shape}")
+    
     print("Preparazione Dataset...")
     lm_datasets, hcb_dev_cases, hcb_test_cases = prepare_data(
         checkpoint=checkpoint,

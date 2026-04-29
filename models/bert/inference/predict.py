@@ -1,8 +1,7 @@
 import re
 import math
 import torch
-import numpy as np
-from typing import List, Tuple, Dict
+from typing import List, Tuple
 from transformers import (
     PreTrainedModel,
     PreTrainedTokenizer,
@@ -17,7 +16,7 @@ from packages.hcb_infilling.hcb_infilling.decode import (
 )
 
 from backend.core.preprocess import normalize_greek
-from models.bert.inference import GAP_TOKEN
+from models.bert.finetuning import GAP_TOKEN
 
 
 def p_gaptoks_prior(k: int, k_min: int, k_max: int, n_chars: int) -> float:
@@ -41,18 +40,15 @@ def fill_mask(
     case_folding: _CASE_FOLDING = "upper",
     return_raw: bool = False,
     normalize_probs: bool = False,
-    intra_word: bool = False,  # Metadati intra-parola prodotti da `_prepare_bert_input()` nel service
-    prefix: str = "",
-    suffix: str = "",
 ) -> List[Tuple[str | List[int], float]]:
 
     device = next(model.parameters()).device
     model.eval()
 
     # STEP 1 — invariato
-    if GAP_TOKEN not in tokenizer.get_vocab():
-        tokenizer.add_special_tokens({"additional_special_tokens": [GAP_TOKEN]})
-        model.resize_token_embeddings(len(tokenizer))
+    # if GAP_TOKEN not in tokenizer.get_vocab():
+    #     tokenizer.add_special_tokens({"additional_special_tokens": [GAP_TOKEN]})
+    #     model.resize_token_embeddings(len(tokenizer))
 
     if n_chars is None:
         match = re.search(r"\[(\.+)\]", text)

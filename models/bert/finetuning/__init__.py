@@ -31,6 +31,11 @@ WANDB_API_KEY = os.getenv("WANDB_API_KEY")
 # Lunghezza massima dello span da mascherare (per il collator MLM)
 MAX_SPAN_LENGTH = 3
 
+#placeholder lacuna
+GAP_TOKEN = "<GAP_TEMP_INFILL>"
+
+
+
 # Configurazione specifica per modello BERT.
 #
 # case_folding: "upper" | "lower" | None
