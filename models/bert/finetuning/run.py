@@ -3,7 +3,7 @@ import argparse
 import torch
 from huggingface_hub import login
 
-from models.bert.finetuning import BERT_MODEL_CONFIG, BASE_MODEL_MAP, HF_TOKEN, wandb_login
+from models.bert.finetuning import BERT_MODEL_CONFIG, BASE_MODEL_MAP, HF_TOKEN, WANDB_API_KEY, wandb_login
 from models.bert.finetuning.pipeline import pipeline_finetuning
 
 
