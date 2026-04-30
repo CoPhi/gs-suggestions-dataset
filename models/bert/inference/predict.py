@@ -54,8 +54,8 @@ def fill_mask(
         match = re.search(r"\[(\.+)\]", text)
         if match:
             n_chars = len(match.group(1))
-    else:
-        raise ValueError("n_chars non fornito e non trovato nel testo")
+        else:
+            raise ValueError("n_chars non fornito e non trovato nel testo")
 
     text = re.sub(r"\[\.+\]", GAP_TOKEN, text, count=1)
 
