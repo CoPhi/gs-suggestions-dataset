@@ -33,15 +33,12 @@ from transformers import (
 from models.bert.dataset import CORPUS_CHECKPOINT, EVAL_CHECKPOINT
 from models.bert.dataset.load import prepare_dataset_for_model
 from models.bert.dataset.dev_set import DevCase
-from models.bert.finetuning import get_model_config, GAP_TOKEN
+from models.bert.finetuning import get_model_config, GAP_TOKEN, WANDB_PROJECT
 from models.bert.finetuning.callback import HCBEvaluationCallback
 from models.bert.finetuning.collator import DataCollatorForSpanMLM
 from models.bert.inference.predict import fill_mask
 
 import wandb
-
-WANDB_PROJECT = "gs-suggestions"
-
 
 def _init_wandb(
     checkpoint: str,
@@ -70,7 +67,6 @@ def _init_wandb(
             "epochs": epochs,
             "mlm_probability": 0.25,
             "max_span_length": 3,
-            "warmup_ratio": 0.05,
             "gap_token": GAP_TOKEN,
         },
         tags=[ckpt_short, "finetuning", "mlm"],
@@ -228,6 +224,7 @@ def pipeline_finetuning(
     chunk_size: int = 128,
     epochs: int = 10,
     lr: float = 5e-5,
+    logging_steps: int = 50,
     push_to_hub: bool = False,
 ):
     """
@@ -292,13 +289,13 @@ def pipeline_finetuning(
         eval_strategy="epoch",
         save_strategy="epoch",
         learning_rate=lr,
-        warmup_ratio=0.05,
         per_device_train_batch_size=batch_size,
         per_device_eval_batch_size=32,
         num_train_epochs=epochs,
         seed=42,
         bf16=True,
-        logging_strategy="epoch",
+        logging_strategy="steps",
+        logging_steps=logging_steps,
         eval_accumulation_steps=4,
         torch_empty_cache_steps=5000,
         dataloader_drop_last=True,
@@ -346,7 +343,7 @@ def pipeline_finetuning(
     )
 
     if test_metrics:
-        test_logs = {f"test_hcb_{k}": v for k, v in test_metrics.items()}
+        test_logs = {f"test/hcb_{k}": v for k, v in test_metrics.items()}
         trainer.save_metrics("test_hcb", test_logs)
         if wandb.run is not None:
             wandb.log(test_logs)

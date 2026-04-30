@@ -1,14 +1,8 @@
-"""
-Entrypoint CLI per il finetuning MLM di modelli BERT su testi in greco antico.
-
-Uso:
-    poetry run python -m models.bert.finetuning.run --checkpoint CNR-ILC/gs-GreBerta
-    poetry run python -m models.bert.finetuning.run --checkpoint CNR-ILC/gs-Logion --epochs 5
-    poetry run python -m models.bert.finetuning.run --checkpoint CNR-ILC/gs-aristoBERTo --push_to_hub
-"""
-
+import os
 import argparse
 import torch
+from dotenv import load_dotenv
+from huggingface_hub import login
 
 from models.bert.finetuning import BERT_MODEL_CONFIG, BASE_MODEL_MAP
 from models.bert.finetuning.pipeline import pipeline_finetuning
@@ -28,14 +22,20 @@ def main():
     parser.add_argument("--batch_size", type=int, default=128)
     parser.add_argument("--lr", type=float, default=4e-4)
     parser.add_argument("--chunk_size", type=int, default=128)
+    parser.add_argument("--logging_steps", type=int, default=5000, help="Frequenza di log (steps) per la loss su wandb")
     parser.add_argument(
-        "--push_to_hub",
+        "--no_push_to_hub",
         action="store_true",
-        help="Se specificato, carica il modello su HuggingFace Hub al termine",
+        help="Disabilita il caricamento del modello su HuggingFace Hub al termine",
     )
     args = parser.parse_args()
 
     torch.cuda.empty_cache()
+
+    load_dotenv()
+    hf_token = os.environ.get("HF_TOKEN")
+    if hf_token:
+        login(token=hf_token)
 
     checkpoint = args.checkpoint
     base_model = BASE_MODEL_MAP.get(checkpoint, checkpoint)
@@ -50,6 +50,7 @@ def main():
         epochs=args.epochs,
         lr=args.lr,
         push_to_hub=args.push_to_hub,
+        logging_steps=args.logging_steps,
     )
 
 

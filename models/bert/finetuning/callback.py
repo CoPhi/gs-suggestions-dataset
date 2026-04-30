@@ -59,8 +59,10 @@ class HCBEvaluationCallback(TrainerCallback):
 
                 predictions_text.append(suggestions)
                 gold_labels.append(case.y)
-            except Exception:
-                pass  # skip se c'è un errore formativo su qualche lacuna particolare
+            except Exception as e:
+                print(f"[HCB Error] fill_mask ha generato un'eccezione: {e}")
+                print(f"[HCB Error] Case: {case}")
+                continue
 
         if not predictions_text:
             return
@@ -92,8 +94,9 @@ class HCBEvaluationCallback(TrainerCallback):
             f"BERTscore F1: {bertscore_metrics.get('bertscore_f1', 0):.2f}%"
         )
 
-        # Log su wandb se abilitato
-        logs = {f"eval_hcb_{k}": v for k, v in all_metrics.items()}
-        logs["step"] = state.global_step
+        # Log su wandb
+        logs = {f"eval/hcb_{k}": v for k, v in all_metrics.items()}
+        logs["train/global_step"] = state.global_step
+        logs["epoch"] = state.epoch
         if wandb.run is not None:
             wandb.log(logs)
