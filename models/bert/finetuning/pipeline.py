@@ -242,7 +242,7 @@ def pipeline_finetuning(
         tokenizer.add_special_tokens({"additional_special_tokens": [GAP_TOKEN]})
         print(f"[setup] GAP token '{GAP_TOKEN}' aggiunto al vocabolario.")
 
-    model.resize_token_embeddings(len(tokenizer))
+    model.resize_token_embeddings(len(tokenizer), mean_resizing=False)
 
     # Inizializza embedding GAP token come media degli esistenti
     with torch.no_grad():
@@ -283,7 +283,6 @@ def pipeline_finetuning(
 
     training_args = TrainingArguments(
         output_dir=output_dir,
-        logging_dir=logs_dir,
         report_to="wandb",
         run_name=run_name,
         eval_strategy="epoch",
