@@ -1,15 +1,14 @@
 import os
 import argparse
 import torch
-from dotenv import load_dotenv
 from huggingface_hub import login
 
-from models.bert.finetuning import BERT_MODEL_CONFIG, BASE_MODEL_MAP
+from models.bert.finetuning import BERT_MODEL_CONFIG, BASE_MODEL_MAP, HF_TOKEN, wandb_login
 from models.bert.finetuning.pipeline import pipeline_finetuning
-from models.bert.finetuning import wandb_login
+
 
 def main():
-    
+
     parser = argparse.ArgumentParser(description="Finetuning MLM per greco antico")
     parser.add_argument(
         "--checkpoint",
@@ -25,23 +24,24 @@ def main():
     parser.add_argument("--logging_steps", type=int, default=5000, help="Frequenza di log (steps) per la loss su wandb")
     parser.add_argument(
         "--no_push_to_hub",
-        action="store_true",
+        action="store_false",
+        dest="push_to_hub",
         help="Disabilita il caricamento del modello su HuggingFace Hub al termine",
     )
+
     args = parser.parse_args()
 
     torch.cuda.empty_cache()
 
-    load_dotenv()
-    hf_token = os.environ.get("HF_TOKEN")
-    if hf_token:
-        login(token=hf_token)
+    if HF_TOKEN:
+        login(token=HF_TOKEN)
+
+    if WANDB_API_KEY:
+        wandb_login()
 
     checkpoint = args.checkpoint
     base_model = BASE_MODEL_MAP.get(checkpoint, checkpoint)
-    
-    wandb_login()
-    
+
     pipeline_finetuning(
         checkpoint=checkpoint,
         base_model=base_model,

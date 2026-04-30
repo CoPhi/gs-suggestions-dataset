@@ -92,6 +92,8 @@ def get_model_config(checkpoint: str) -> dict:
         )
     return BERT_MODEL_CONFIG[checkpoint]
 
+# Token di accesso di HuggingFace Hub
+HF_TOKEN = os.getenv("HF_TOKEN")
 
 # variabili di configurazione per wandb
 WANDB_PROJECT = "gs-suggestions"
