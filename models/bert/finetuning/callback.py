@@ -1,6 +1,5 @@
 from transformers import TrainerCallback
 
-from models.bert.dataset.dev_set import build_dev_set
 from models.bert.inference.predict import fill_mask
 from models.bert.evaluation.metrics import (
     evaluate_topK_text,
@@ -21,11 +20,12 @@ class HCBEvaluationCallback(TrainerCallback):
     (lowercase, spazi rimossi) per garantire invarianza al casing del modello.
     """
 
-    def __init__(self, dev_cases_pool, tokenizer, max_eval_cases=50):
+    def __init__(self, dev_cases_pool, tokenizer, checkpoint: str, max_eval_cases=50):
         super().__init__()
         # Limitiamo il pool per non far durare ore ogni validazione
         self.dev_cases_pool = dev_cases_pool[:max_eval_cases]
         self.tokenizer = tokenizer
+        self.checkpoint = checkpoint
 
     def on_evaluate(self, args, state, control, model, **kwargs):
         """
@@ -47,14 +47,14 @@ class HCBEvaluationCallback(TrainerCallback):
                 # fill_mask con return_raw=False restituisce tuple (str, score)
                 suggestions = fill_mask(
                     text=case.x,
+                    checkpoint=self.checkpoint,
                     n_chars=case.gap_length,
                     model=model,
                     tokenizer=self.tokenizer,
-                    K=10,
-                    beam_size=10,
+                    K=20,
+                    beam_size=20,
                     method="modified_best_to_worst",
                     return_raw=False,
-                    case_folding="none",  # il testo uscirà dal tokenizer senza case folding forzato
                 )
 
                 predictions_text.append(suggestions)
@@ -91,6 +91,8 @@ class HCBEvaluationCallback(TrainerCallback):
             f"[HCB Val] "
             f"Top1: {top_k_metrics.get('top1', 0):.2f}% | "
             f"Top5: {top_k_metrics.get('top5', 0):.2f}% | "
+            f"Top10: {top_k_metrics.get('top10', 0):.2f}% | "
+            f"Top20: {top_k_metrics.get('top20', 0):.2f}% | "
             f"BERTscore F1: {bertscore_metrics.get('bertscore_f1', 0):.2f}%"
         )
 

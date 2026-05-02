@@ -24,11 +24,11 @@ from models.bert.dataset import (
     _CORPUS_DESCRIPTION,
     _EVAL_DESCRIPTION,
 )
+from models.bert.dataset import BERT_UNK_TOKEN
 from models.bert.dataset.dev_set import DevCase, build_dev_set
 from models.bert.dataset.train_set import build_train_set
 from models.bert.finetuning import (
     BERT_MAX_SEQ_LENGTH,
-    BERT_UNK_TOKEN,
     CHUNK_SIZE,
     MIN_SENT_TOKEN_TRESHOLD,
     get_model_config,
@@ -38,6 +38,7 @@ from dotenv import load_dotenv
 import os
 
 # Hub
+
 
 def get_db() -> DatasetDict:
     """Carica il dataset MAAT dal HuggingFace Hub."""
@@ -59,6 +60,7 @@ def push_to_hub(
 
 
 # Caricamento e split
+
 
 def load_train_and_dev_set(test_size: float = 0.1) -> tuple[list, list]:
     """
@@ -91,6 +93,7 @@ def dev_set_to_hf_dataset(dev_set: list[DevCase]) -> Dataset:
 
 
 # Chunking
+
 
 def chunk_sentences(sentences: list[str], chunk_size: int = CHUNK_SIZE) -> list[str]:
     """Divide le frasi in blocchi di esattamente *chunk_size* word token."""
@@ -137,6 +140,7 @@ def chunk_for_bert(
 
 
 # Normalizzazione e tokenizzazione model-specific
+
 
 def _quality_filter_subword(
     example: dict,
@@ -188,8 +192,7 @@ def prepare_dataset_for_model(
     tokenizer.model_max_length = int(1e9)  # Suppress warnings for long sequences
 
     return (
-        raw_dataset
-        .map(
+        raw_dataset.map(
             partial(_normalize_example, config=config),
             desc=f"Normalizing [{checkpoint}]",
             num_proc=num_proc,
@@ -208,17 +211,18 @@ def prepare_dataset_for_model(
         )
     )
 
+
 def main() -> None:
-    
-    #login a HuggingFace Hub
+
+    # login a HuggingFace Hub
     load_dotenv()
     login(token=os.getenv("HF_TOKEN"))
-    
+
     # Caricamento e split dei blocchi anonimi
     train_abs, dev_abs = load_train_and_dev_set(test_size=0.2)
     test_abs = load_test_set()
 
-    #Costruzione e push del train set (raw) e del dev/test set (con gold labels)
+    # Costruzione e push del train set (raw) e del dev/test set (con gold labels)
     train_dataset = DatasetDict(
         {
             "train": build_train_set(train_abs),

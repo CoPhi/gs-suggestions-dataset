@@ -40,6 +40,7 @@ from models.bert.inference.predict import fill_mask
 
 import wandb
 
+
 def _init_wandb(
     checkpoint: str,
     base_model: str,
@@ -167,6 +168,7 @@ def _evaluate_hcb_on_split(
     cases: list[DevCase],
     model,
     tokenizer,
+    checkpoint: str,
     max_cases: int | None = None,
 ) -> dict[str, float]:
     """
@@ -187,6 +189,7 @@ def _evaluate_hcb_on_split(
         try:
             suggestions = fill_mask(
                 text=case.x,
+                checkpoint=checkpoint,
                 n_chars=case.gap_length,
                 model=model,
                 tokenizer=tokenizer,
@@ -194,7 +197,6 @@ def _evaluate_hcb_on_split(
                 beam_size=10,
                 method="modified_best_to_worst",
                 return_raw=False,
-                case_folding="none",
             )
             predictions_text.append(suggestions)
             gold_labels.append(case.y)
@@ -258,7 +260,7 @@ def pipeline_finetuning(
         chunk_size=chunk_size,
     )
 
-    # W&B init 
+    # W&B init
     ckpt_short = checkpoint.split("/")[-1]
     run_name = _init_wandb(
         checkpoint=checkpoint,
@@ -269,7 +271,7 @@ def pipeline_finetuning(
         epochs=epochs,
     )
 
-    # Training setup 
+    # Training setup
     output_dir = f"./models/bert/finetuning/gs/{ckpt_short}"
     logs_dir = f"./models/bert/finetuning/gs/{ckpt_short}-logs"
 
@@ -310,6 +312,7 @@ def pipeline_finetuning(
     hcb_callback = HCBEvaluationCallback(
         dev_cases_pool=hcb_dev_cases,
         tokenizer=tokenizer,
+        checkpoint=checkpoint,
         max_eval_cases=50,
     )
 
@@ -332,13 +335,14 @@ def pipeline_finetuning(
     trainer.save_metrics("eval", metrics)
     trainer.save_state()
 
-    # Valutazione HCB finale sul test set 
+    # Valutazione HCB finale sul test set
     print("Valutazione HCB finale sul TEST set...")
     test_metrics = _evaluate_hcb_on_split(
         split_name="test",
         cases=hcb_test_cases,
         model=model,
         tokenizer=tokenizer,
+        checkpoint=checkpoint,
     )
 
     if test_metrics:

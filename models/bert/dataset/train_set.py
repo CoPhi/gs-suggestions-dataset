@@ -12,12 +12,11 @@ from datasets import Dataset
 from tqdm import tqdm
 
 from backend.core.cleaner import get_sentences, get_tokens_from_clean_text
-from models.bert.finetuning import BERT_UNK_TOKEN, MIN_SENT_TOKEN_TRESHOLD
+from models.bert.finetuning import MIN_SENT_TOKEN_TRESHOLD
+from models.bert.dataset import BERT_UNK_TOKEN
 
-
-# ---------------------------------------------------------------------------
 # Helpers interni
-# ---------------------------------------------------------------------------
+
 
 def _join_tokens(tokens: list[str]) -> str:
     return " ".join(tokens)
@@ -32,9 +31,8 @@ def _count_unk_tokens(text: str) -> int:
     return sum(1 for t in get_tokens_from_clean_text(text) if t == BERT_UNK_TOKEN)
 
 
-# ---------------------------------------------------------------------------
 # Filtraggio qualità (word-level, model-agnostic)
-# ---------------------------------------------------------------------------
+
 
 def is_quality_sentence(
     tokens: list[str],
@@ -60,9 +58,8 @@ def is_quality_sentence(
     return _count_unk_tokens(text) < len(tokens) * unk_ratio_threshold
 
 
-# ---------------------------------------------------------------------------
 # Costruzione del training set
-# ---------------------------------------------------------------------------
+
 
 def build_train_sentences(abs_: list) -> list[str]:
     """

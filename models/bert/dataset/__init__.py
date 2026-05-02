@@ -1,6 +1,9 @@
 CORPUS_CHECKPOINT = "CNR-ILC/gs-dataset-train"
 EVAL_CHECKPOINT = "CNR-ILC/gs-dataset-eval"
 
+BERT_UNK_TOKEN = "[UNK]"
+
+
 _CORPUS_DESCRIPTION = """\
 Corpus di greco antico per il pre-addestramento (MLM) di modelli BERT.
 

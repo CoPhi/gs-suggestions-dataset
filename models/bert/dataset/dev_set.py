@@ -1,22 +1,27 @@
 # models/evaluation/dev_set.py
 from dataclasses import dataclass
+import re
 from backend.core.preprocess import (
     clean_supplements,
     transpile,
 )
 from backend.core import SUPPLEMENTS_REGEX
 
+
 @dataclass
 class DevCase:
     x: str  # training text con lacuna [MASK-placeholder]
     y: list[str]  # gold labels normalizzate
-    gap_length: int  # caratteri alfabetici della lacuna
+    gap_length: int  # numero dei caratteri alfabetici della lacuna
     corpus_id: str
     file_id: str
 
 
-def build_dev_case(
-    ab: dict, normalize: bool = False, strip_diacritics: bool = False, case_folding: bool = False
+def build_dev_cases(
+    ab: dict,
+    normalize: bool = False,
+    strip_diacritics: bool = False,
+    case_folding: bool = False,
 ) -> list[DevCase]:
     """
     Dato un blocco anonimo di MAAT, estrae tutti i casi (X, Y)
@@ -53,7 +58,7 @@ def build_dev_case(
         if not gold_tokens or gap_len == 0:
             continue
 
-        #placeholder temporaneo per la lacuna
+        # placeholder temporaneo per la lacuna
         tgt_placeholder = "ΩΩΩMASKΩΩΩ"
         placeholder = "." * gap_len
         target_lacuna_repr = f"[{placeholder}]"
@@ -74,15 +79,21 @@ def build_dev_case(
         )
 
         # Il placeholder dopo eventuale normalizzazione e case folding
-        search_target = tgt_placeholder.upper() if (case_folding and normalize) else tgt_placeholder
-        
+        search_target = (
+            tgt_placeholder.upper() if (case_folding and normalize) else tgt_placeholder
+        )
+
         # Sostituisce il marker temporaneo con la lacuna fedelmente riprodotta
         x_clean = x_clean.replace(search_target, target_lacuna_repr)
-
+        
+        # Validazione: assicurarsi che ci sia esattamente una lacuna e che il marker sia stato sostituito correttamente
+        if len(re.findall(r"\[\.+\]", x_clean)) != 1:
+            continue
+        
         cases.append(
             DevCase(
                 x=x_clean,
-                y=match.group(0),
+                y=gold_tokens,
                 gap_length=gap_len,
                 corpus_id=ab.get("corpus_id", ""),
                 file_id=ab.get("file_id", ""),
@@ -90,6 +101,7 @@ def build_dev_case(
         )
 
     return cases
+
 
 def build_dev_set(
     herc_abs: list[dict],
@@ -108,7 +120,7 @@ def build_dev_set(
     """
     dev_set = []
     for ab in herc_abs:
-        for case in build_dev_case(ab, normalize=normalize):
+        for case in build_dev_cases(ab, normalize=normalize):
             if case.gap_length < min_gap_length:
                 continue
             if max_gap_length and case.gap_length > max_gap_length:

@@ -7,7 +7,7 @@ from transformers import (
     PreTrainedTokenizer,
 )
 
-from backend.core import _CASE_FOLDING
+from backend.core import _CASE_FOLDING, UNK_TOKEN
 from packages.hcb_infilling.hcb_infilling.decode import (
     decode_modified_BestToWorst_vectorized,
     decode_modified_LeftToRight_vectorized,
@@ -15,8 +15,12 @@ from packages.hcb_infilling.hcb_infilling.decode import (
     decode_standard_BestToWorst_vectorized,
 )
 
-from backend.core.preprocess import normalize_greek
-from models.bert.finetuning import GAP_TOKEN
+from backend.core.preprocess import (
+    normalize_greek,
+    process_editorial_marks,
+    remove_punctuation,
+)
+from models.bert.finetuning import GAP_TOKEN, get_model_config
 
 
 def p_gaptoks_prior(k: int, k_min: int, k_max: int, n_chars: int) -> float:
@@ -31,24 +35,38 @@ def p_gaptoks_prior(k: int, k_min: int, k_max: int, n_chars: int) -> float:
 
 def fill_mask(
     text: str,
+    checkpoint: str,  # serve per prendere le configurazioni specifiche del modello (case folding, strip diacritics, remove punctuation)
     model: PreTrainedModel,
     tokenizer: PreTrainedTokenizer,
     n_chars: int = None,
-    K: int = 10,
-    beam_size: int = 10,
+    K: int = 20,
+    beam_size: int = 20,
     method: str = "modified_best_to_worst",
-    case_folding: _CASE_FOLDING = "upper",
     return_raw: bool = False,
     normalize_probs: bool = False,
 ) -> List[Tuple[str | List[int], float]]:
 
     device = next(model.parameters()).device
     model.eval()
+    try:
+        config = get_model_config(checkpoint)
+    except ValueError as e:
+        print(
+            f"Errore nel prelievo delle configurazione del modello dal checkpoint {checkpoint}: {e}"
+        )
+        raise
 
-    # STEP 1 — invariato
-    # if GAP_TOKEN not in tokenizer.get_vocab():
-    #     tokenizer.add_special_tokens({"additional_special_tokens": [GAP_TOKEN]})
-    #     model.resize_token_embeddings(len(tokenizer))
+    # trasformazioni model-specific del testo in input
+    text = process_editorial_marks(text, preserve_lacunae=True)
+    text = normalize_greek(
+        text,
+        case_folding=config.get("case_folding", "upper"),
+        strip_diacritics_flag=config.get("strip_diacritics", True),
+    )
+    if config.get("remove_punct"):
+        text = remove_punctuation(text, preserve_lacunae=True)
+
+    text = text.replace(UNK_TOKEN, tokenizer.unk_token)
 
     if n_chars is None:
         match = re.search(r"\[(\.+)\]", text)
@@ -59,7 +77,6 @@ def fill_mask(
 
     text = re.sub(r"\[\.+\]", GAP_TOKEN, text, count=1)
 
-    # STEP 2 — invariato
     k_min = 1
     k_max_theoretical = math.ceil(n_chars / 2) + 1
     k_max = min(k_max_theoretical, 3)
@@ -80,8 +97,6 @@ def fill_mask(
 
     for k in range(k_min, k_max + 1):
 
-        # STEP 3
-        # k maschere consecutive per predire k subword/caratteri
         mask_str = " ".join([tokenizer.mask_token] * k)
         masked_text = text.replace(GAP_TOKEN, mask_str)
 
@@ -93,7 +108,6 @@ def fill_mask(
         if (input_ids == mask_id).sum().item() != k:
             continue
 
-        # STEP 4
         with torch.no_grad():
             out = decode_fn(
                 model=model,
@@ -117,11 +131,12 @@ def fill_mask(
                 all_candidates.append((token_ids, final_score))
                 continue
 
-            decoded = tokenizer.decode(token_ids, skip_special_tokens=True).replace(
-                " ", ""
-            ).replace("##", "")
+            decoded = (
+                tokenizer.decode(token_ids, skip_special_tokens=True)
+                .replace(" ", "")
+                .replace("##", "")
+            )
 
-            # STEP 5
             all_candidates.append((decoded, final_score))
 
     all_candidates.sort(key=lambda x: x[1], reverse=True)
@@ -131,7 +146,11 @@ def fill_mask(
         key = (
             tuple(item)
             if return_raw
-            else normalize_greek(item, case_folding=case_folding)
+            else normalize_greek(
+                item,
+                case_folding=config.get("case_folding", "upper"),
+                strip_diacritics_flag=config.get("strip_diacritics"),
+            )
         )
         if key not in seen:
             seen.add(key)
@@ -148,4 +167,3 @@ def fill_mask(
         ]
 
     return unique_candidates
-

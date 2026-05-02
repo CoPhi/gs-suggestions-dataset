@@ -4,10 +4,11 @@ from transformers import PreTrainedTokenizer
 
 from bert_score import BERTScorer
 
+from backend.core.preprocess import normalize_greek
 from packages.hcb_infilling.hcb_infilling.metrics import (
     score_batch,
     compute_bertscore,
-    default_scorer
+    default_scorer,
 )
 
 # Scorer lazy-singleton per evitare di ricaricare il modello ad ogni invocazione.
@@ -39,7 +40,7 @@ def evaluate_topK_text(
         gold_labels: batch di gold label in formato stringa.
 
     Returns:
-        Dizionario con metriche top1, top3, top5, top10 (percentuali).
+        Dizionario con metriche top1, top3, top5, top10, top20 (percentuali).
     """
     count = 0
     # Numero massimo di suggerimenti per caso (beam size)
@@ -51,17 +52,21 @@ def evaluate_topK_text(
         count += 1
 
         for rank, (suggestion, _score) in enumerate(preds):
-            sugg_norm = suggestion.lower().replace(" ", "").strip()
+            sugg_norm = normalize_greek(
+                text=suggestion.lower().replace(" ", "").strip(),
+                case_folding="lower",
+                strip_diacritics_flag=True,
+            )
             if sugg_norm == gold_norm:
                 num_correct[rank] += 1
                 break  # conta solo il primo match
 
     if count == 0:
-        return {"top1": 0.0, "top3": 0.0, "top5": 0.0, "top10": 0.0}
+        return {"top1": 0.0, "top3": 0.0, "top5": 0.0, "top10": 0.0, "top20": 0.0}
 
     cumulative = np.cumsum(num_correct)
     topk_metrics = {}
-    for k in [1, 3, 5, 10]:
+    for k in [1, 3, 5, 10, 20]:
         idx = min(k - 1, len(cumulative) - 1)
         topk_metrics[f"top{k}"] = (cumulative[idx] / count) * 100.0
 
@@ -97,11 +102,21 @@ def evaluate_bertscore_text(
         if not preds:
             continue
         top1_text = preds[0][0]  # primo suggerimento (migliore)
-        cands.append(top1_text)
-        refs.append(gold)
+        cands.append(
+            normalize_greek(
+                text=top1_text, case_folding="lower", strip_diacritics_flag=True
+            )
+        )
+        refs.append(
+            normalize_greek(text=gold, case_folding="lower", strip_diacritics_flag=True)
+        )
 
     if not cands:
-        return {"bertscore_precision": 0.0, "bertscore_recall": 0.0, "bertscore_f1": 0.0}
+        return {
+            "bertscore_precision": 0.0,
+            "bertscore_recall": 0.0,
+            "bertscore_f1": 0.0,
+        }
 
     P, R, F1 = scorer.score(cands, refs)
     return {
@@ -110,14 +125,15 @@ def evaluate_bertscore_text(
         "bertscore_f1": F1.mean().item() * 100.0,
     }
 
+
 def evaluate_topK(
-    predictions_hcb_format: list[list[list[int | float]]], 
-    true_ids: list[list[int]], 
-    tokenizer: PreTrainedTokenizer
+    predictions_hcb_format: list[list[list[int | float]]],
+    true_ids: list[list[int]],
+    tokenizer: PreTrainedTokenizer,
 ) -> dict[str, float]:
     """
     Calcola le metriche top-K (Top-1, Top-3, Top-5, Top-10) per un batch.
-    
+
     Args:
         predictions_hcb_format: batch di predizioni output di decode_modified_*.
             Formato: [
@@ -128,7 +144,7 @@ def evaluate_topK(
             ]
         true_ids: batch di veri token ids della lacuna. Formato: [[id_1, id_2], ...]
         tokenizer: Il tokenizzatore (necessario per verificare pad_token_id).
-        
+
     Returns:
         Dizionario con metriche top1, top3, top5, top10.
     """
@@ -140,7 +156,7 @@ def evaluate_topK(
         suggestions_batch=predictions_hcb_format,
         true_ids_batch=true_ids_list,
         tokenizer=tokenizer,
-        method='topk'
+        method="topk",
     )
 
     if count == 0:
@@ -148,7 +164,7 @@ def evaluate_topK(
 
     # cumulative_correct contiene i matches per ogni rank
     cumulative_correct = np.cumsum(num_correct_ranks)
-    
+
     topk_metrics = {}
     for k in [1, 3, 5, 10]:
         idx = min(k - 1, len(cumulative_correct) - 1)
@@ -163,11 +179,11 @@ def evaluate_bertscore_custom(
     masked_inputs: list[list[int]],
     masked_positions: list[int] | torch.Tensor,
     tokenizer: PreTrainedTokenizer,
-    scorer=default_scorer
+    scorer=default_scorer,
 ) -> dict[str, float]:
     """
     Calcola la metrica BERTscore utilizzando `compute_bertscore` di hcb_infilling.
-    
+
     Args:
         predictions_hcb_format: output di decode_modified_* contenente le suggestions
         true_ids: batch di veri token ids
@@ -175,17 +191,21 @@ def evaluate_bertscore_custom(
         masked_positions: un indice o maschera booleana delle posizioni coperte da maschera (comuni o array)
         tokenizer: Tokenizer
         scorer: Istanza di BERTScorer (default usa lang="en" da hcb_infilling)
-        
+
     Returns:
         Dizionario con precision, recall e f1 mediati sul batch.
     """
-    masked_inputs_tensor = torch.tensor(masked_inputs) if not isinstance(masked_inputs, torch.Tensor) else masked_inputs.clone()
-    
+    masked_inputs_tensor = (
+        torch.tensor(masked_inputs)
+        if not isinstance(masked_inputs, torch.Tensor)
+        else masked_inputs.clone()
+    )
+
     return compute_bertscore(
         suggestions=predictions_hcb_format,
         true_ids_batch=true_ids,
         masked_inputs_batch=masked_inputs_tensor,
         masked_positions=masked_positions,
         tokenizer=tokenizer,
-        scorer=scorer
+        scorer=scorer,
     )
