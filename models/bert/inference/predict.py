@@ -56,6 +56,9 @@ def fill_mask(
         )
         raise
 
+    if tokenizer.unk_token:
+        text = text.replace(UNK_TOKEN, tokenizer.unk_token)
+        
     # trasformazioni model-specific del testo in input
     text = process_editorial_marks(text, preserve_lacunae=True)
     text = normalize_greek(
@@ -66,8 +69,6 @@ def fill_mask(
     if config.get("remove_punct"):
         text = remove_punctuation(text, preserve_lacunae=True)
 
-    if tokenizer.unk_token:
-        text = text.replace(UNK_TOKEN, tokenizer.unk_token)
 
     if n_chars is None:
         match = re.search(r"\[(\.+)\]", text)
