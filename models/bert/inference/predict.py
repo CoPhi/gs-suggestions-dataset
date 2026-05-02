@@ -66,7 +66,8 @@ def fill_mask(
     if config.get("remove_punct"):
         text = remove_punctuation(text, preserve_lacunae=True)
 
-    text = text.replace(UNK_TOKEN, tokenizer.unk_token)
+    if tokenizer.unk_token:
+        text = text.replace(UNK_TOKEN, tokenizer.unk_token)
 
     if n_chars is None:
         match = re.search(r"\[(\.+)\]", text)

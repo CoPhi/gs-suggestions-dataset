@@ -26,7 +26,7 @@ def _get_text_scorer() -> BERTScorer:
 
 def evaluate_topK_text(
     predictions_text: list[list[tuple[str, float]]],
-    gold_labels: list[str],
+    gold_labels: list[str] | list[list[str]],
 ) -> dict[str, float]:
     """
     Calcola le metriche top-K confrontando le stringhe normalizzate (lowercase)
@@ -48,6 +48,8 @@ def evaluate_topK_text(
     num_correct = np.zeros(max_k)
 
     for preds, gold in zip(predictions_text, gold_labels):
+        if isinstance(gold, list):
+            gold = " ".join(gold)
         gold_norm = gold.lower().replace(" ", "").strip()
         count += 1
 
@@ -75,7 +77,7 @@ def evaluate_topK_text(
 
 def evaluate_bertscore_text(
     predictions_text: list[list[tuple[str, float]]],
-    gold_labels: list[str],
+    gold_labels: list[str] | list[list[str]],
     scorer: BERTScorer | None = None,
 ) -> dict[str, float]:
     """
@@ -101,6 +103,10 @@ def evaluate_bertscore_text(
     for preds, gold in zip(predictions_text, gold_labels):
         if not preds:
             continue
+        
+        if isinstance(gold, list):
+            gold = " ".join(gold)
+
         top1_text = preds[0][0]  # primo suggerimento (migliore)
         cands.append(
             normalize_greek(
