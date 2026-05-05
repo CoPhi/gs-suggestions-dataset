@@ -58,7 +58,7 @@ def fill_mask(
 
     if tokenizer.unk_token:
         text = text.replace(UNK_TOKEN, tokenizer.unk_token)
-        
+
     # trasformazioni model-specific del testo in input
     text = process_editorial_marks(text, preserve_lacunae=True)
     text = normalize_greek(
@@ -102,9 +102,47 @@ def fill_mask(
         mask_str = " ".join([tokenizer.mask_token] * k)
         masked_text = text.replace(GAP_TOKEN, mask_str)
 
-        inputs = tokenizer(masked_text, return_tensors="pt").to(device)
-        input_ids = inputs["input_ids"]
-        attention_mask = inputs["attention_mask"]
+        # Preveniamo la perdita della lacuna se il testo è troppo lungo (> 512 token)
+        # Tokenizziamo senza troncamento automatico per trovare la posizione della maschera
+        full_enc = tokenizer(masked_text, add_special_tokens=False, truncation=False)
+        full_input_ids = full_enc["input_ids"]
+
+        mask_id = tokenizer.mask_token_id
+        mask_indices = [i for i, tid in enumerate(full_input_ids) if tid == mask_id]
+
+        # Limite massimo del modello (solitamente 512)
+        max_len = tokenizer.model_max_length
+        if max_len > 10000:  # Alcuni modelli non hanno il limite impostato nel tokenizer
+            max_len = 512
+
+        # Riserviamo 2 token per [CLS] e [SEP]
+        max_tokens_body = max_len - 2
+
+        if len(full_input_ids) > max_tokens_body:
+            if mask_indices:
+                # Centriamo la finestra intorno alla lacuna
+                center = (mask_indices[0] + mask_indices[-1]) // 2
+                start = max(0, center - (max_tokens_body // 2))
+                end = start + max_tokens_body
+
+                # Se sforiamo a destra, spostiamo a sinistra
+                if end > len(full_input_ids):
+                    end = len(full_input_ids)
+                    start = max(0, end - max_tokens_body)
+
+                input_ids_chunk = full_input_ids[start:end]
+            else:
+                # Se non c'è maschera (non dovrebbe succedere), troncamento standard
+                input_ids_chunk = full_input_ids[:max_tokens_body]
+        else:
+            input_ids_chunk = full_input_ids
+
+        # Aggiungiamo i token speciali e convertiamo in tensore
+        cls_id = tokenizer.cls_token_id if tokenizer.cls_token_id is not None else 101
+        sep_id = tokenizer.sep_token_id if tokenizer.sep_token_id is not None else 102
+        input_ids = [cls_id] + input_ids_chunk + [sep_id]
+        input_ids = torch.tensor([input_ids]).to(device)
+        attention_mask = torch.ones_like(input_ids)
         mask_id = tokenizer.mask_token_id
 
         if (input_ids == mask_id).sum().item() != k:

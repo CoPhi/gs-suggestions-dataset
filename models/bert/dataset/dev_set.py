@@ -4,6 +4,8 @@ import re
 from backend.core.preprocess import (
     clean_supplements,
     transpile,
+    remove_punctuation,
+    get_tokens_from_clean_text,
 )
 from backend.core import SUPPLEMENTS_REGEX
 
@@ -54,8 +56,22 @@ def build_dev_cases(
     )
 
     cases = []
-    for match, (gold_tokens, gap_len) in zip(matches, gold_labels):
-        if not gold_tokens or gap_len == 0:
+    for match, (expanded_tokens, gap_len) in zip(matches, gold_labels):
+        if not expanded_tokens or gap_len == 0:
+            continue
+
+        gold_tokens = get_tokens_from_clean_text(
+            remove_punctuation(
+                transpile(
+                    match.group(0),
+                    case_folding=case_folding,
+                    strip_diacritics=strip_diacritics,
+                    normalize=normalize,
+                )
+            )
+        )
+
+        if not gold_tokens:
             continue
 
         # placeholder temporaneo per la lacuna
