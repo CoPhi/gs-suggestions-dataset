@@ -50,15 +50,24 @@ def evaluate_topK_text(
     for preds, gold in zip(predictions_text, gold_labels):
         if isinstance(gold, list):
             gold = " ".join(gold)
-        gold_norm = gold.lower().replace(" ", "").strip()
+        
+        # Normalizzazione coerente per gold e suggestions: 
+        # entrambi devono passare per normalize_greek con gli stessi parametri.
+        gold_norm = normalize_greek(
+            text=gold,
+            case_folding="lower",
+            strip_diacritics_flag=True,
+        ).replace(" ", "").strip()
+        
         count += 1
 
         for rank, (suggestion, _score) in enumerate(preds):
             sugg_norm = normalize_greek(
-                text=suggestion.lower().replace(" ", "").strip(),
+                text=suggestion,
                 case_folding="lower",
                 strip_diacritics_flag=True,
-            )
+            ).replace(" ", "").strip()
+
             if sugg_norm == gold_norm:
                 num_correct[rank] += 1
                 break  # conta solo il primo match
@@ -154,9 +163,14 @@ def evaluate_topK(
     Returns:
         Dizionario con metriche top1, top3, top5, top10.
     """
-    # Mappa i veri id a liste (se non lo sono già) in quanto la comparazione in score_batch
+    # Mappa i veri id a liste di int (se non lo sono già) in quanto la comparazione in score_batch
     # fa `if true_ids in sorted_suggestions`
-    true_ids_list = [list(ids) for ids in true_ids]
+    true_ids_list = []
+    for ids in true_ids:
+        if hasattr(ids, "tolist"):
+            true_ids_list.append(ids.tolist())
+        else:
+            true_ids_list.append(list(ids))
 
     count, num_correct_ranks = score_batch(
         suggestions_batch=predictions_hcb_format,
