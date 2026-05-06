@@ -30,14 +30,14 @@ def p_gaptoks_prior(k: int, k_min: int, k_max: int, n_chars: int) -> float:
     Futuri sviluppi: Implementare la FCNN (Multi-layer perceptron) stile Logion, in futuro questa funzione può
     inviare n_chars in one-hot ad un modello PyTorch / scikit-learn.
     """
-    return 1.0 / (k_max - k_min + 1)  # Uniform baseline
+    return 1.0 / (k_max - k_min + 1)
 
 
 def fill_mask(
     text: str,
-    checkpoint: str,  # serve per prendere le configurazioni specifiche del modello (case folding, strip diacritics, remove punctuation)
     model: PreTrainedModel,
     tokenizer: PreTrainedTokenizer,
+    checkpoint: str = None,  
     n_chars: int = None,
     K: int = 20,
     beam_size: int = 20,
@@ -48,13 +48,18 @@ def fill_mask(
 
     device = next(model.parameters()).device
     model.eval()
-    try:
-        config = get_model_config(checkpoint)
-    except ValueError as e:
-        print(
-            f"Errore nel prelievo delle configurazione del modello dal checkpoint {checkpoint}: {e}"
-        )
-        raise
+
+    if checkpoint is None: 
+        config = {
+            "remove_punct": False,
+            "strip_diacritics": True,
+            "case_folding": "fold",
+        }
+    else:
+        try:
+            config = get_model_config(checkpoint)
+        except ValueError as e:
+            print(f"{e}")
 
     if tokenizer.unk_token:
         text = text.replace(UNK_TOKEN, tokenizer.unk_token)
@@ -188,7 +193,7 @@ def fill_mask(
             if return_raw
             else normalize_greek(
                 item,
-                case_folding=config.get("case_folding", "upper"),
+                case_folding="fold",
                 strip_diacritics_flag=config.get("strip_diacritics"),
             )
         )

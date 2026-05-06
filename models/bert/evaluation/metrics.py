@@ -50,23 +50,31 @@ def evaluate_topK_text(
     for preds, gold in zip(predictions_text, gold_labels):
         if isinstance(gold, list):
             gold = " ".join(gold)
-        
-        # Normalizzazione coerente per gold e suggestions: 
+
+        # Normalizzazione coerente per gold e suggestions:
         # entrambi devono passare per normalize_greek con gli stessi parametri.
-        gold_norm = normalize_greek(
-            text=gold,
-            case_folding="lower",
-            strip_diacritics_flag=True,
-        ).replace(" ", "").strip()
-        
+        gold_norm = (
+            normalize_greek(
+                text=gold,
+                case_folding="fold",
+                strip_diacritics_flag=True,
+            )
+            .replace(" ", "")
+            .strip()
+        )
+
         count += 1
 
         for rank, (suggestion, _score) in enumerate(preds):
-            sugg_norm = normalize_greek(
-                text=suggestion,
-                case_folding="lower",
-                strip_diacritics_flag=True,
-            ).replace(" ", "").strip()
+            sugg_norm = (
+                normalize_greek(
+                    text=suggestion,
+                    case_folding="fold",
+                    strip_diacritics_flag=True,
+                )
+                .replace(" ", "")
+                .strip()
+            )
 
             if sugg_norm == gold_norm:
                 num_correct[rank] += 1
@@ -91,54 +99,114 @@ def evaluate_bertscore_text(
 ) -> dict[str, float]:
     """
     Calcola BERTscore tra il suggerimento top-1 (decodificato) e la gold label.
+    Legacy wrapper per evaluate_bertscore_topk_text.
+    """
+    res = evaluate_bertscore_topk_text(
+        predictions_text, gold_labels, k_values=[1], scorer=scorer
+    )
+    return {
+        "bertscore_precision": res.get("bertscore_precision_top1", 0.0),
+        "bertscore_recall": res.get("bertscore_recall_top1", 0.0),
+        "bertscore_f1": res.get("bertscore_f1_top1", 0.0),
+    }
 
-    Entrambe le stringhe vengono confrontate così come sono (testo greco).
-    Il BERTScorer usa un modello multilingue adatto al greco.
+
+def evaluate_bertscore_topk_text(
+    predictions_text: list[list[tuple[str, float]]],
+    gold_labels: list[str] | list[list[str]],
+    k_values: list[int] = [1, 3, 5, 10],
+    scorer: BERTScorer | None = None,
+) -> dict[str, float]:
+    """
+    Calcola il BERTscore@K (valore massimo tra i primi K suggerimenti)
+    per diversi valori di K, ottimizzando le chiamate al modello.
 
     Args:
-        predictions_text: batch di suggerimenti in formato testo (come evaluate_topK_text).
-        gold_labels: batch di gold label in formato stringa.
-        scorer: istanza BERTScorer (se None, usa il singleton interno).
+        predictions_text: batch di suggerimenti (lista di liste di tuple).
+        gold_labels: batch di gold labels.
+        k_values: lista di valori K da calcolare.
+        scorer: istanza BERTScorer.
 
     Returns:
-        Dizionario con precision, recall, f1 mediati sul batch.
+        Dizionario con precision, recall e f1 per ogni K.
     """
     if scorer is None:
         scorer = _get_text_scorer()
 
-    cands: list[str] = []
-    refs: list[str] = []
+    max_k = max(k_values)
+    all_cands: list[str] = []
+    all_refs: list[str] = []
+    # Mappa: (sample_idx, rank) -> index in all_cands
+    mapping: dict[tuple[int, int], int] = {}
 
-    for preds, gold in zip(predictions_text, gold_labels):
+    for i, (preds, gold) in enumerate(zip(predictions_text, gold_labels)):
         if not preds:
             continue
-        
+
         if isinstance(gold, list):
             gold = " ".join(gold)
 
-        top1_text = preds[0][0]  # primo suggerimento (migliore)
-        cands.append(
-            normalize_greek(
-                text=top1_text, case_folding="lower", strip_diacritics_flag=True
+        gold_norm = normalize_greek(
+            text=gold, case_folding="fold", strip_diacritics_flag=True
+        )
+
+        for rank, (suggestion, _) in enumerate(preds[:max_k]):
+            sugg_norm = normalize_greek(
+                text=suggestion, case_folding="fold", strip_diacritics_flag=True
             )
-        )
-        refs.append(
-            normalize_greek(text=gold, case_folding="lower", strip_diacritics_flag=True)
-        )
+            mapping[(i, rank)] = len(all_cands)
+            all_cands.append(sugg_norm)
+            all_refs.append(gold_norm)
 
-    if not cands:
-        return {
-            "bertscore_precision": 0.0,
-            "bertscore_recall": 0.0,
-            "bertscore_f1": 0.0,
-        }
+    if not all_cands:
+        return {f"bertscore_f1_top{k}": 0.0 for k in k_values}
 
-    P, R, F1 = scorer.score(cands, refs)
-    return {
-        "bertscore_precision": P.mean().item() * 100.0,
-        "bertscore_recall": R.mean().item() * 100.0,
-        "bertscore_f1": F1.mean().item() * 100.0,
-    }
+    # Calcolo in un unico batch massivo
+    P, R, F1 = scorer.score(all_cands, all_refs)
+
+    num_samples = len(predictions_text)
+    # Matrici per contenere i punteggi (N_samples x max_k)
+    # Usiamo -1.0 per indicare l'assenza di un suggerimento
+    scores_p = np.full((num_samples, max_k), -1.0)
+    scores_r = np.full((num_samples, max_k), -1.0)
+    scores_f1 = np.full((num_samples, max_k), -1.0)
+
+    for (i, rank), flat_idx in mapping.items():
+        scores_p[i, rank] = P[flat_idx].item()
+        scores_r[i, rank] = R[flat_idx].item()
+        scores_f1[i, rank] = F1[flat_idx].item()
+
+    metrics = {}
+    for k in k_values:
+        # Per ogni sample, prendiamo il massimo tra i primi k suggerimenti disponibili
+        # Usiamo nanmax e poi convertiamo i NaN in 0 se un sample non ha proprio suggerimenti
+        with np.errstate(all="ignore"):
+            # Slice fino a k
+            slice_p = scores_p[:, :k]
+            slice_r = scores_r[:, :k]
+            slice_f1 = scores_f1[:, :k]
+
+            # Maschera per i campioni che hanno almeno un suggerimento in questo range
+            has_preds = np.any(slice_f1 != -1.0, axis=1)
+
+            if np.any(has_preds):
+                # Calcoliamo il massimo ignorando i -1.0
+                # Invece di nanmax, usiamo np.where per ignorare i -1.0
+                k_max_p = np.max(np.where(slice_p != -1.0, slice_p, -np.inf), axis=1)
+                k_max_r = np.max(np.where(slice_r != -1.0, slice_r, -np.inf), axis=1)
+                k_max_f1 = np.max(np.where(slice_f1 != -1.0, slice_f1, -np.inf), axis=1)
+
+                metrics[f"bertscore_precision_top{k}"] = (
+                    k_max_p[has_preds].mean() * 100.0
+                )
+                metrics[f"bertscore_recall_top{k}"] = k_max_r[has_preds].mean() * 100.0
+                metrics[f"bertscore_f1_top{k}"] = k_max_f1[has_preds].mean() * 100.0
+            else:
+                metrics[f"bertscore_precision_top{k}"] = 0.0
+                metrics[f"bertscore_recall_top{k}"] = 0.0
+                metrics[f"bertscore_f1_top{k}"] = 0.0
+
+    return metrics
 
 
 def evaluate_topK(

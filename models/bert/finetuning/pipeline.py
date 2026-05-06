@@ -66,7 +66,7 @@ def _init_wandb(
             "batch_size": batch_size,
             "chunk_size": chunk_size,
             "epochs": epochs,
-            "mlm_probability": 0.25,
+            "mlm_probability": 0.15,
             "max_span_length": 3,
             "gap_token": GAP_TOKEN,
         },
@@ -176,7 +176,7 @@ def _evaluate_hcb_on_split(
     """
     from models.bert.evaluation.metrics import (
         evaluate_topK_text,
-        evaluate_bertscore_text,
+        evaluate_bertscore_topk_text,
     )
 
     pool = cases[:max_cases] if max_cases else cases
@@ -193,8 +193,8 @@ def _evaluate_hcb_on_split(
                 n_chars=case.gap_length,
                 model=model,
                 tokenizer=tokenizer,
-                K=10,
-                beam_size=10,
+                K=20,
+                beam_size=20,
                 method="modified_best_to_worst",
                 return_raw=False,
             )
@@ -207,14 +207,17 @@ def _evaluate_hcb_on_split(
         return {}
 
     top_k = evaluate_topK_text(predictions_text, gold_labels)
-    bert_s = evaluate_bertscore_text(predictions_text, gold_labels)
+    bert_s = evaluate_bertscore_topk_text(
+        predictions_text, gold_labels, k_values=[1, 3, 5, 10]
+    )
     all_metrics = {**top_k, **bert_s}
 
     print(
         f"[HCB {split_name}] "
         f"Top1: {top_k.get('top1', 0):.2f}% | "
         f"Top5: {top_k.get('top5', 0):.2f}% | "
-        f"BERTscore F1: {bert_s.get('bertscore_f1', 0):.2f}%"
+        f"BS-F1@1: {bert_s.get('bertscore_f1_top1', 0):.2f}% | "
+        f"BS-F1@5: {bert_s.get('bertscore_f1_top5', 0):.2f}%"
     )
     return all_metrics
 
@@ -224,33 +227,28 @@ def pipeline_finetuning(
     base_model: str,
     batch_size: int = 128,
     chunk_size: int = 128,
-    epochs: int = 10,
-    lr: float = 5e-5,
+    epochs: int = 4,
+    lr: float = 2e-5,
     logging_steps: int = 50,
     push_to_hub: bool = False,
 ):
     """
     Esegue la pipeline completa di finetuning MLM.
     """
+
     print(f"Checkpoint target: {checkpoint}")
     print(f"Base model (pesi): {base_model}")
     print(f"Config: {get_model_config(checkpoint)}")
 
     model = AutoModelForMaskedLM.from_pretrained(base_model)
-    tokenizer = AutoTokenizer.from_pretrained(checkpoint)
+    tokenizer = AutoTokenizer.from_pretrained(base_model)
     tokenizer.model_max_length = 512
 
     if GAP_TOKEN not in tokenizer.get_vocab():
         tokenizer.add_special_tokens({"additional_special_tokens": [GAP_TOKEN]})
         print(f"[setup] GAP token '{GAP_TOKEN}' aggiunto al vocabolario.")
 
-    model.resize_token_embeddings(len(tokenizer), mean_resizing=False)
-
-    # Inizializza embedding GAP token come media degli esistenti
-    with torch.no_grad():
-        gap_id = tokenizer.convert_tokens_to_ids(GAP_TOKEN)
-        embeddings = model.get_input_embeddings().weight
-        embeddings[gap_id] = embeddings[:-1].mean(dim=0)
+    model.resize_token_embeddings(len(tokenizer), mean_resizing=True)
 
     # Dataset
     print("Preparazione Dataset...")
@@ -277,7 +275,7 @@ def pipeline_finetuning(
 
     data_collator = DataCollatorForSpanMLM(
         tokenizer=tokenizer,
-        mlm_probability=0.25,
+        mlm_probability=0.15,
         max_span_length=3,
     )
 
@@ -305,6 +303,8 @@ def pipeline_finetuning(
         save_total_limit=2,
         hub_model_id=checkpoint if push_to_hub else None,
         push_to_hub=push_to_hub,
+        load_best_model_at_end=True,
+        metric_for_best_model="eval_loss",
     )
 
     random.Random(42).shuffle(hcb_dev_cases)

@@ -3,7 +3,7 @@ from transformers import TrainerCallback
 from models.bert.inference.predict import fill_mask
 from models.bert.evaluation.metrics import (
     evaluate_topK_text,
-    evaluate_bertscore_text,
+    evaluate_bertscore_topk_text,
 )
 
 import wandb
@@ -30,7 +30,7 @@ class HCBEvaluationCallback(TrainerCallback):
     def on_evaluate(self, args, state, control, model, **kwargs):
         """
         Esegue la validazione HCB sul pool di casi di test.
-        Calcola TopK (confronto normalizzato) e BERTscore (top-1 vs gold).
+        Calcola TopK e BERTscore@K (massimo tra i primi K suggerimenti).
         """
 
         # Assicuriamoci che il modello sia in eval mode
@@ -73,10 +73,11 @@ class HCBEvaluationCallback(TrainerCallback):
             gold_labels=gold_labels,
         )
 
-        # --- BERTscore (top-1 vs gold label) ---
-        bertscore_metrics = evaluate_bertscore_text(
+        # --- BERTscore@K (massimo tra i primi K) ---
+        bertscore_metrics = evaluate_bertscore_topk_text(
             predictions_text=predictions_text,
             gold_labels=gold_labels,
+            k_values=[1, 3, 5, 10],
         )
 
         # Unisci tutte le metriche
@@ -91,9 +92,9 @@ class HCBEvaluationCallback(TrainerCallback):
             f"[HCB Val] "
             f"Top1: {top_k_metrics.get('top1', 0):.2f}% | "
             f"Top5: {top_k_metrics.get('top5', 0):.2f}% | "
-            f"Top10: {top_k_metrics.get('top10', 0):.2f}% | "
-            f"Top20: {top_k_metrics.get('top20', 0):.2f}% | "
-            f"BERTscore F1: {bertscore_metrics.get('bertscore_f1', 0):.2f}%"
+            f"BS-F1@1: {bertscore_metrics.get('bertscore_f1_top1', 0):.2f}% | "
+            f"BS-F1@5: {bertscore_metrics.get('bertscore_f1_top5', 0):.2f}% | "
+            f"BS-F1@10: {bertscore_metrics.get('bertscore_f1_top10', 0):.2f}%"
         )
 
         # Log su wandb

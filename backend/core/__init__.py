@@ -53,4 +53,4 @@ _DIACRITIC_TABLE = {
 }
 
 # Case Folding type 
-_CASE_FOLDING = Literal["upper", "lower", "none"]
+_CASE_FOLDING = Literal["upper", "lower", "fold", "none"]

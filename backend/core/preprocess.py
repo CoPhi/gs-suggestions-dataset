@@ -73,6 +73,8 @@ def normalize_greek(
               - ``"upper"`` : converte in maiuscolo (comportamento originale con
                               ``case_folding=True``).
               - ``"lower"`` : converte in minuscolo.
+              - ``"fold"``  : applica il case folding Unicode (consigliato per confronti
+                              case-insensitive, gestisce varianti come sigma finale ς).
               - ``"none"``  : lascia il casing invariato (comportamento originale
                               con ``case_folding=False``).
             Default: ``"upper"``.
@@ -98,10 +100,10 @@ def normalize_greek(
         >>> normalize_greek("ἀγαθός", case_folding="none")
         'αγαθος'
     """
-    if case_folding not in ("upper", "lower", "none"):
+    if case_folding not in ("upper", "lower", "fold", "none"):
         raise ValueError(
             f"Valore non valido per case_folding: {case_folding!r}. "
-            "Valori ammessi: 'upper', 'lower', 'none'."
+            "Valori ammessi: 'upper', 'lower', 'fold', 'none'."
         )
 
     # Passo 1 (opzionale): rimozione diacritici
@@ -115,6 +117,8 @@ def normalize_greek(
         return normalized.upper()
     if case_folding == "lower":
         return normalized.lower()
+    if case_folding == "fold":
+        return normalized.casefold()
     return normalized  # "none": nessuna modifica al casing
 
 
