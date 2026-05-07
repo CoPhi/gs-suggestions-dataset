@@ -287,6 +287,7 @@ def pipeline_finetuning(
         run_name=run_name,
         eval_strategy="epoch",
         save_strategy="epoch",
+        hub_strategy="end",
         learning_rate=lr,
         per_device_train_batch_size=batch_size,
         per_device_eval_batch_size=32,
@@ -296,15 +297,13 @@ def pipeline_finetuning(
         logging_strategy="steps",
         logging_steps=logging_steps,
         eval_accumulation_steps=4,
-        torch_empty_cache_steps=5000,
         dataloader_drop_last=True,
         dataloader_num_workers=8,
         dataloader_pin_memory=True,
-        save_total_limit=2,
+        save_total_limit=1,
         hub_model_id=checkpoint if push_to_hub else None,
         push_to_hub=push_to_hub,
         load_best_model_at_end=True,
-        metric_for_best_model="eval_loss",
     )
 
     random.Random(42).shuffle(hcb_dev_cases)
