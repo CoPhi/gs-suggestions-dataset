@@ -40,7 +40,7 @@ def write_output_to_multiple_files(output, max_size_mb=LIM):
 def main():
     for path in CORPUS_PATHS:
         output = []
-        with os.popen(f"uv run python -m packages.maat.scripts.convert {path}", "r") as pipe:
+        with os.popen(f"uv run python -m packages.maat.script.convert {path}", "r") as pipe:
             for line in pipe:
                 output.append(line.strip())
         write_output_to_multiple_files(output)

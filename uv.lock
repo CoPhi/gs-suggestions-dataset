@@ -829,8 +829,8 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "lingua-language-detector", specifier = ">=2.0.2,<3.0.0" },
-    { name = "lxml", specifier = ">=5.2.2,<6.0.0" },
+    { name = "lingua-language-detector", specifier = ">=2.0.2" },
+    { name = "lxml", specifier = ">=5.2.2" },
 ]
 
 [[package]]
