@@ -1,16 +1,14 @@
 [project]
-name = "hcb-infilling"
+name = "hcb_infilling"
 version = "0.1.0"
 description = ""
-authors = [
-    {name = "Gabriele Giannessi"}
-]
-readme = "README.md"
+authors = [{name = "Gabriele Giannessi"}]
 requires-python = ">=3.12"
-dependencies = [
-]
-
+dependencies = []
 
 [build-system]
-requires = ["poetry-core>=2.0.0,<3.0.0"]
-build-backend = "poetry.core.masonry.api"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["hcb_infilling"]
