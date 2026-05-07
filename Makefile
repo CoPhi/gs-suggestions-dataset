@@ -1,4 +1,4 @@
-VERSION := $(shell python -c "import tomllib; print(tomllib.load(open('pyproject.toml', 'rb'))['project']['version'])")
+VERSION := $(shell .venv/bin/python -c "import tomllib; print(tomllib.load(open('pyproject.toml', 'rb'))['project']['version'])")
 API_CONTAINER_NAME := gabrielegiannessi/gs-api
 FRONTEND_CONTAINER_NAME := gabrielegiannessi/gs-frontend
 
