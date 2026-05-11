@@ -7,8 +7,6 @@ from bert_score import BERTScorer
 from backend.core.preprocess import normalize_greek
 from packages.hcb_infilling.hcb_infilling.metrics import (
     score_batch,
-    compute_bertscore,
-    default_scorer,
 )
 
 # Scorer lazy-singleton per evitare di ricaricare il modello ad ogni invocazione.
@@ -259,41 +257,3 @@ def evaluate_topK(
         topk_metrics[f"top{k}"] = (cumulative_correct[idx] / count) * 100.0
 
     return topk_metrics
-
-
-def evaluate_bertscore_custom(
-    predictions_hcb_format: list[list[list[int | float]]],
-    true_ids: list[list[int]],
-    masked_inputs: list[list[int]],
-    masked_positions: list[int] | torch.Tensor,
-    tokenizer: PreTrainedTokenizer,
-    scorer=default_scorer,
-) -> dict[str, float]:
-    """
-    Calcola la metrica BERTscore utilizzando `compute_bertscore` di hcb_infilling.
-
-    Args:
-        predictions_hcb_format: output di decode_modified_* contenente le suggestions
-        true_ids: batch di veri token ids
-        masked_inputs: il tensore o lista di input IDs con maschere iniziali
-        masked_positions: un indice o maschera booleana delle posizioni coperte da maschera (comuni o array)
-        tokenizer: Tokenizer
-        scorer: Istanza di BERTScorer (default usa lang="en" da hcb_infilling)
-
-    Returns:
-        Dizionario con precision, recall e f1 mediati sul batch.
-    """
-    masked_inputs_tensor = (
-        torch.tensor(masked_inputs)
-        if not isinstance(masked_inputs, torch.Tensor)
-        else masked_inputs.clone()
-    )
-
-    return compute_bertscore(
-        suggestions=predictions_hcb_format,
-        true_ids_batch=true_ids,
-        masked_inputs_batch=masked_inputs_tensor,
-        masked_positions=masked_positions,
-        tokenizer=tokenizer,
-        scorer=scorer,
-    )

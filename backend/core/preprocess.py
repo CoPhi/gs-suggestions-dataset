@@ -106,6 +106,14 @@ def normalize_greek(
             "Valori ammessi: 'upper', 'lower', 'fold', 'none'."
         )
 
+    # Passo 0: Normalizzazione caratteri speciali/matematici (es. ∆ U+2206 -> Δ U+0394)
+    # Alcuni tokenizer (es. GreBerta) emettono caratteri matematici invece di lettere greche.
+    text = text.replace("\u2206", "\u0394") # INCREMENT -> Δ
+    text = text.replace("\u2211", "\u03A3") # N-ARY SUMMATION -> Σ
+    text = text.replace("\u220F", "\u03A0") # N-ARY PRODUCT -> Π
+    text = text.replace("\u2126", "\u03A9") # OHM SIGN -> Ω
+    text = text.replace("\u00B5", "\u03BC") # MICRO SIGN -> μ
+
     # Passo 1 (opzionale): rimozione diacritici
     processed = strip_diacritics(text) if strip_diacritics_flag else text
 

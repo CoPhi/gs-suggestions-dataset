@@ -67,18 +67,26 @@ class HCBEvaluationCallback(TrainerCallback):
         if not predictions_text:
             return
 
-        # --- TopK (confronto normalizzato lowercase) ---
-        top_k_metrics = evaluate_topK_text(
-            predictions_text=predictions_text,
-            gold_labels=gold_labels,
-        )
+        # TopK (confronto normalizzato unicode)
+        try:
+            top_k_metrics = evaluate_topK_text(
+                predictions_text=predictions_text,
+                gold_labels=gold_labels,
+            )
+        except Exception as e:
+            print(f"[HCB Error] evaluate_topK_text ha generato un'eccezione: {e}")
+            top_k_metrics = {}
 
-        # --- BERTscore@K (massimo tra i primi K) ---
-        bertscore_metrics = evaluate_bertscore_topk_text(
-            predictions_text=predictions_text,
-            gold_labels=gold_labels,
-            k_values=[1, 3, 5, 10],
-        )
+        # BERTscore@K (massimo tra i primi K)
+        try:
+            bertscore_metrics = evaluate_bertscore_topk_text(
+                predictions_text=predictions_text,
+                gold_labels=gold_labels,
+                k_values=[1, 3, 5, 10],
+            )
+        except Exception as e:
+            print(f"[HCB Error] evaluate_bertscore_topk_text ha generato un'eccezione: {e}")
+            bertscore_metrics = {}
 
         # Unisci tutte le metriche
         all_metrics = {**top_k_metrics, **bertscore_metrics}

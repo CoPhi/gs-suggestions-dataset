@@ -26,6 +26,7 @@ from datasets import load_dataset, DatasetDict
 from transformers import (
     AutoTokenizer,
     AutoModelForMaskedLM,
+    EarlyStoppingCallback,
     TrainingArguments,
     Trainer,
 )
@@ -200,8 +201,10 @@ def _evaluate_hcb_on_split(
             )
             predictions_text.append(suggestions)
             gold_labels.append(case.y)
-        except Exception:
-            pass
+        except Exception as e:
+            print(f"[HCB Error] fill_mask ha generato un'eccezione: {e}")
+            print(f"[HCB Error] Case: {case}")
+            continue
 
     if not predictions_text:
         return {}
@@ -300,6 +303,8 @@ def pipeline_finetuning(
         dataloader_drop_last=True,
         dataloader_num_workers=16,
         dataloader_pin_memory=True,
+        weight_decay=0.01, 
+        warmup_steps=0.06, 
         save_total_limit=1,
         hub_model_id=checkpoint if push_to_hub else None,
         push_to_hub=push_to_hub,
@@ -321,7 +326,7 @@ def pipeline_finetuning(
         train_dataset=lm_datasets["train"],
         eval_dataset=lm_datasets["dev"],
         data_collator=data_collator,
-        callbacks=[hcb_callback],
+        callbacks=[hcb_callback, EarlyStoppingCallback(early_stopping_patience=2)],
     )
 
     # Training

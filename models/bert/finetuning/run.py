@@ -19,7 +19,7 @@ def main():
     )
     parser.add_argument("--epochs", type=int, default=10)
     parser.add_argument("--batch_size", type=int, default=128)
-    parser.add_argument("--lr", type=float, default=4e-4)
+    parser.add_argument("--lr", type=float, default=2e-5)
     parser.add_argument("--chunk_size", type=int, default=128)
     parser.add_argument("--logging_steps", type=int, default=5000, help="Frequenza di log (steps) per la loss su wandb")
     parser.add_argument(

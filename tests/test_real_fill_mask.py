@@ -54,10 +54,10 @@ def test_simulation():
 
         if metrics["top1"] == 100.0:
             print(
-                "\n✅ VERIFICA RIUSCITA: Il sistema riconosce 'αγαθοσ' come match per 'αγαθος'."
+                "\nVERIFICA RIUSCITA: Il sistema riconosce 'αγαθοσ' come match per 'αγαθος'."
             )
         else:
-            print("\n❌ VERIFICA FALLITA: Mismatch tra predizione e gold.")
+            print("\nVERIFICA FALLITA: Mismatch tra predizione e gold.")
 
     except Exception as e:
         import traceback
