@@ -27,9 +27,8 @@ MIN_MASK_TOKEN_TRESHOLD = 1
 # Lunghezza massima dello span da mascherare (per il collator MLM)
 MAX_SPAN_LENGTH = 3
 
-#placeholder lacuna
+# placeholder lacuna
 GAP_TOKEN = "<GAP_TEMP_INFILL>"
-
 
 
 # Configurazione specifica per modello BERT.
@@ -53,8 +52,8 @@ BERT_MODEL_CONFIG = {
     },
     "CNR-ILC/gs-GreBerta": {
         "remove_punct": False,
-        "strip_diacritics": True,
-        "case_folding": "upper",
+        "strip_diacritics": False,
+        "case_folding": "none",
     },
     "CNR-ILC/gs-Logion": {
         "remove_punct": False,
@@ -90,6 +89,7 @@ def get_model_config(checkpoint: str) -> dict:
             f"Checkpoint disponibili: {list(BERT_MODEL_CONFIG.keys())}"
         )
     return BERT_MODEL_CONFIG[checkpoint]
+
 
 # Token di accesso di HuggingFace Hub
 HF_TOKEN = os.getenv("HF_TOKEN")

@@ -10,26 +10,15 @@ from __future__ import annotations
 
 from datasets import Dataset
 from tqdm import tqdm
-
+from backend.core import UNK_TOKEN
 from backend.core.cleaner import get_sentences, get_tokens_from_clean_text
 from models.bert.finetuning import MIN_SENT_TOKEN_TRESHOLD
-from models.bert.dataset import BERT_UNK_TOKEN
 
 # Helpers interni
 
 
 def _join_tokens(tokens: list[str]) -> str:
     return " ".join(tokens)
-
-
-def _cast_unk_tokens(text: str) -> str:
-    """Sostituisce il tag interno <UNK> con il token speciale BERT."""
-    return text.replace("<UNK>", BERT_UNK_TOKEN)
-
-
-def _count_unk_tokens(text: str) -> int:
-    return sum(1 for t in get_tokens_from_clean_text(text) if t == BERT_UNK_TOKEN)
-
 
 # Filtraggio qualità (word-level, model-agnostic)
 
@@ -54,12 +43,11 @@ def is_quality_sentence(
     """
     if len(tokens) < MIN_SENT_TOKEN_TRESHOLD:
         return False
-    text = _cast_unk_tokens(_join_tokens(tokens))
-    return _count_unk_tokens(text) < len(tokens) * unk_ratio_threshold
-
-
+    
+    unk_count = sum(1 for t in tokens if t == UNK_TOKEN)
+    return unk_count < len(tokens) * unk_ratio_threshold
+    
 # Costruzione del training set
-
 
 def build_train_sentences(abs_: list) -> list[str]:
     """
@@ -90,7 +78,7 @@ def build_train_sentences(abs_: list) -> list[str]:
     ):
         if not is_quality_sentence(sent_tkns):
             continue
-        sentences.append(_cast_unk_tokens(_join_tokens(sent_tkns)))
+        sentences.append(_join_tokens(sent_tkns))
     return sentences
 
 

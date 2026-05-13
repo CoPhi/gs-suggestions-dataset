@@ -16,6 +16,7 @@ from cltk.alphabet.grc.grc import normalize_grc
 from datasets import Dataset, DatasetDict, DatasetInfo, load_dataset
 from transformers import AutoTokenizer
 
+from backend.core import UNK_TOKEN
 from backend.core.cleaner import load_abs, load_test_set, split_abs_herc_dev
 from backend.core.preprocess import remove_punctuation, strip_diacritics
 from models.bert.dataset import (
@@ -24,6 +25,7 @@ from models.bert.dataset import (
     _CORPUS_DESCRIPTION,
     _EVAL_DESCRIPTION,
 )
+
 from models.bert.dataset import BERT_UNK_TOKEN
 from models.bert.dataset.dev_set import DevCase, build_dev_set
 from models.bert.dataset.train_set import build_train_set
@@ -154,20 +156,21 @@ def _quality_filter_subword(
     return tokens.count(tokenizer.unk_token) / max(len(tokens), 1) < unk_ratio_threshold
 
 
-def _normalize_example(example: dict, config: dict) -> dict:
-    text = normalize_grc(example["text"])
-    if config["strip_diacritics"]:
-        text = strip_diacritics(text)
+def _normalize_example(example: dict, config: dict, unk_token: str) -> dict:
+
+    #Normalizzazione del testo usando le configurazioni specifiche del modello
+    text = normalize_greek(
+        example["text"],
+        case_folding=config.get("case_folding", "upper"),
+        strip_diacritics_flag=config.get("strip_diacritics", True),
+    )
     if config["remove_punct"]:
         text = remove_punctuation(text)
 
-    case_folding = config.get("case_folding")
-    if case_folding == "upper":
-        text = text.upper()
-    elif case_folding == "lower":
-        text = text.lower()
+    # Sostituzione del token sconosciuto model-agnostic (<UNK>) con quello specifico del tokenizer del modello
+    text = text.replace(UNK_TOKEN, unk_token) 
 
-    return {"text": text.replace("", BERT_UNK_TOKEN)}
+    return {"text": text}
 
 
 def _tokenize_example(example: dict, tokenizer) -> dict:
@@ -193,7 +196,7 @@ def prepare_dataset_for_model(
 
     return (
         raw_dataset.map(
-            partial(_normalize_example, config=config),
+            partial(_normalize_example, config=config, unk_token=tokenizer.unk_token),
             desc=f"Normalizing [{checkpoint}]",
             num_proc=num_proc,
         )
