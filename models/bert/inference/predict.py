@@ -116,7 +116,7 @@ def fill_mask(
         mask_indices = [i for i, tid in enumerate(full_input_ids) if tid == mask_id]
 
         # Limite massimo del modello (solitamente 512)
-        max_len = tokenizer.model_max_length
+        max_len = int(tokenizer.model_max_length)
         if max_len > 10000:  # Alcuni modelli non hanno il limite impostato nel tokenizer
             max_len = 512
 
@@ -172,6 +172,7 @@ def fill_mask(
             log_prior = math.log(prior_prob + 1e-12)
             final_score = log_p_hcb + log_prior
 
+            
             if return_raw:
                 all_candidates.append((token_ids, final_score))
                 continue
@@ -181,6 +182,9 @@ def fill_mask(
                 .replace(" ", "")
                 .replace("##", "")
             )
+            
+            if not decoded.strip():
+                continue
 
             all_candidates.append((decoded, final_score))
 

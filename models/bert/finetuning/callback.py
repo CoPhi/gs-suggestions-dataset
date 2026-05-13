@@ -68,14 +68,14 @@ class HCBEvaluationCallback(TrainerCallback):
             return
 
         # TopK (confronto normalizzato unicode)
-        try:
-            top_k_metrics = evaluate_topK_text(
-                predictions_text=predictions_text,
-                gold_labels=gold_labels,
-            )
-        except Exception as e:
-            print(f"[HCB Error] evaluate_topK_text ha generato un'eccezione: {e}")
-            top_k_metrics = {}
+        # try:
+        #     top_k_metrics = evaluate_topK_text(
+        #         predictions_text=predictions_text,
+        #         gold_labels=gold_labels,
+        #     )
+        # except Exception as e:
+        #     print(f"[HCB Error] evaluate_topK_text ha generato un'eccezione: {e}")
+        #     top_k_metrics = {}
 
         # BERTscore@K (massimo tra i primi K)
         try:
@@ -89,17 +89,18 @@ class HCBEvaluationCallback(TrainerCallback):
             bertscore_metrics = {}
 
         # Unisci tutte le metriche
-        all_metrics = {**top_k_metrics, **bertscore_metrics}
+        #all_metrics = {**top_k_metrics, **bertscore_metrics}
+        all_metrics = {**bertscore_metrics}
 
         # LOG nel Trainer state (visibile in log_history)
-        hcb_logs = {f"eval_hcb_{k}": v for k, v in all_metrics.items()}
+        hcb_logs = {f"eval_{k}": v for k, v in all_metrics.items()}
         state.log_history[-1].update(hcb_logs)
 
         # Stampa su CLI
         print(
             f"[HCB Val] "
-            f"Top1: {top_k_metrics.get('top1', 0):.2f}% | "
-            f"Top5: {top_k_metrics.get('top5', 0):.2f}% | "
+            # f"Top1: {top_k_metrics.get('top1', 0):.2f}% | "
+            # f"Top5: {top_k_metrics.get('top5', 0):.2f}% | "
             f"BS-F1@1: {bertscore_metrics.get('bertscore_f1_top1', 0):.2f}% | "
             f"BS-F1@5: {bertscore_metrics.get('bertscore_f1_top5', 0):.2f}% | "
             f"BS-F1@10: {bertscore_metrics.get('bertscore_f1_top10', 0):.2f}%"

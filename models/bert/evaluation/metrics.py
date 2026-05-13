@@ -4,7 +4,8 @@ from transformers import PreTrainedTokenizer
 
 from bert_score import BERTScorer
 
-from backend.core.preprocess import normalize_greek
+from backend.core.preprocess import normalize_greek, remove_punctuation
+from models.bert.finetuning import get_model_config
 from packages.hcb_infilling.hcb_infilling.metrics import (
     score_batch,
 )
@@ -114,6 +115,7 @@ def evaluate_bertscore_topk_text(
     gold_labels: list[str] | list[list[str]],
     k_values: list[int] = [1, 3, 5, 10],
     scorer: BERTScorer | None = None,
+    checkpoint: str | None = None,
 ) -> dict[str, float]:
     """
     Calcola il BERTscore@K (valore massimo tra i primi K suggerimenti)
@@ -124,6 +126,7 @@ def evaluate_bertscore_topk_text(
         gold_labels: batch di gold labels.
         k_values: lista di valori K da calcolare.
         scorer: istanza BERTScorer.
+        checkpoint: percorso del checkpoint del modello BERT.
 
     Returns:
         Dizionario con precision, recall e f1 per ogni K.
@@ -137,6 +140,8 @@ def evaluate_bertscore_topk_text(
     # Mappa: (sample_idx, rank) -> index in all_cands
     mapping: dict[tuple[int, int], int] = {}
 
+    config = get_model_config(checkpoint) if checkpoint else {}
+
     for i, (preds, gold) in enumerate(zip(predictions_text, gold_labels)):
         if not preds:
             continue
@@ -145,13 +150,18 @@ def evaluate_bertscore_topk_text(
             gold = " ".join(gold)
 
         gold_norm = normalize_greek(
-            text=gold, case_folding="fold", strip_diacritics_flag=True
+            text=gold,
+            case_folding="fold",
+            strip_diacritics_flag=config.get("strip_diacritics"),
         )
+        
+        if config.get("remove_punct"):
+            gold_norm = remove_punctuation(gold_norm)
 
+        gold_norm = gold_norm.replace(" ", "").strip()
+        
         for rank, (suggestion, _) in enumerate(preds[:max_k]):
-            sugg_norm = normalize_greek(
-                text=suggestion, case_folding="fold", strip_diacritics_flag=True
-            )
+            sugg_norm = suggestion.strip() #i suggerimenti escono già normalizzati da fill_mask, ma facciamo un'ulteriore pulizia di spazi
             mapping[(i, rank)] = len(all_cands)
             all_cands.append(sugg_norm)
             all_refs.append(gold_norm)
@@ -176,20 +186,15 @@ def evaluate_bertscore_topk_text(
 
     metrics = {}
     for k in k_values:
-        # Per ogni sample, prendiamo il massimo tra i primi k suggerimenti disponibili
-        # Usiamo nanmax e poi convertiamo i NaN in 0 se un sample non ha proprio suggerimenti
         with np.errstate(all="ignore"):
-            # Slice fino a k
             slice_p = scores_p[:, :k]
             slice_r = scores_r[:, :k]
             slice_f1 = scores_f1[:, :k]
 
-            # Maschera per i campioni che hanno almeno un suggerimento in questo range
             has_preds = np.any(slice_f1 != -1.0, axis=1)
 
             if np.any(has_preds):
-                # Calcoliamo il massimo ignorando i -1.0
-                # Invece di nanmax, usiamo np.where per ignorare i -1.0
+                # --- MAX (comportamento originale) ---
                 k_max_p = np.max(np.where(slice_p != -1.0, slice_p, -np.inf), axis=1)
                 k_max_r = np.max(np.where(slice_r != -1.0, slice_r, -np.inf), axis=1)
                 k_max_f1 = np.max(np.where(slice_f1 != -1.0, slice_f1, -np.inf), axis=1)
@@ -199,9 +204,37 @@ def evaluate_bertscore_topk_text(
                 )
                 metrics[f"bertscore_recall_top{k}"] = k_max_r[has_preds].mean() * 100.0
                 metrics[f"bertscore_f1_top{k}"] = k_max_f1[has_preds].mean() * 100.0
+
+                # --- MEAN (qualità media dell'insieme dei suggerimenti) ---
+                # Sostituiamo -1.0 con nan per poter usare np.nanmean (ignora i "buchi")
+                k_mean_p = np.nanmean(
+                    np.where(slice_p != -1.0, slice_p, np.nan), axis=1
+                )
+                k_mean_r = np.nanmean(
+                    np.where(slice_r != -1.0, slice_r, np.nan), axis=1
+                )
+                k_mean_f1 = np.nanmean(
+                    np.where(slice_f1 != -1.0, slice_f1, np.nan), axis=1
+                )
+
+                metrics[f"bertscore_precision_top{k}_mean"] = (
+                    np.nanmean(k_mean_p[has_preds]) * 100.0
+                )
+                metrics[f"bertscore_recall_top{k}_mean"] = (
+                    np.nanmean(k_mean_r[has_preds]) * 100.0
+                )
+                metrics[f"bertscore_f1_top{k}_mean"] = (
+                    np.nanmean(k_mean_f1[has_preds]) * 100.0
+                )
+
             else:
                 metrics[f"bertscore_precision_top{k}"] = 0.0
                 metrics[f"bertscore_recall_top{k}"] = 0.0
+                metrics[f"bertscore_f1_top{k}"] = 0.0
+
+                metrics[f"bertscore_precision_top{k}_mean"] = 0.0
+                metrics[f"bertscore_recall_top{k}_mean"] = 0.0
+                metrics[f"bertscore_f1_top{k}_mean"] = 0.0
                 metrics[f"bertscore_f1_top{k}"] = 0.0
 
     return metrics

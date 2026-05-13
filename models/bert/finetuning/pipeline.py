@@ -17,6 +17,7 @@ La configurazione model-specific è centralizzata in
 `models.bert.finetuning.BERT_MODEL_CONFIG`.
 """
 
+from collections import defaultdict
 import math
 import random
 
@@ -162,6 +163,34 @@ def prepare_data(
     test_cases = _load_eval_split("test")
 
     return lm_datasets, dev_cases, test_cases
+
+def stratified_sample_by_gap(
+    cases: list,
+    n: int,
+    seed: int = 42
+) -> list:
+    """
+    Esegue un campionamento stratificato per gap_length, mantenendo la distribuzione originale dei gap_length nel pool di DevCase.
+    Restituisce una lista di n casi campionati stratificati per la lunghezza della lacuna.
+    """
+    
+    # Raggruppa per gap_length
+    buckets = defaultdict(list)
+    for case in cases:
+        buckets[case.gap_length].append(case)
+
+    total = len(cases)
+    sampled = []
+    rng = random.Random(seed)
+
+    for gap_len, bucket in sorted(buckets.items()):
+        # Quota proporzionale alla frequenza del bucket
+        quota = max(1, round(n * len(bucket) / total))
+        sampled.extend(rng.sample(bucket, min(quota, len(bucket))))
+
+    # Aggiusta a n esatto (può divergere per arrotondamenti)
+    rng.shuffle(sampled)
+    return sampled[:n]
 
 
 def _evaluate_hcb_on_split(
@@ -311,13 +340,13 @@ def pipeline_finetuning(
         load_best_model_at_end=True,
     )
 
-    random.Random(42).shuffle(hcb_dev_cases)
+    dev_pool = stratified_sample_by_gap(hcb_dev_cases, n=300, seed=42)
 
     hcb_callback = HCBEvaluationCallback(
-        dev_cases_pool=hcb_dev_cases,
+        dev_cases_pool=dev_pool,
         tokenizer=tokenizer,
         checkpoint=checkpoint,
-        max_eval_cases=50,
+        max_eval_cases=300,
     )
 
     trainer = Trainer(
