@@ -30,7 +30,9 @@ from transformers import (
     EarlyStoppingCallback,
     TrainingArguments,
     Trainer,
+    get_linear_schedule_with_warmup,
 )
+from torch.optim import AdamW
 
 from models.bert.dataset import CORPUS_CHECKPOINT, EVAL_CHECKPOINT
 from models.bert.dataset.load import prepare_dataset_for_model
@@ -164,17 +166,17 @@ def prepare_data(
 
     return lm_datasets, dev_cases, test_cases
 
+
 def stratified_sample_by_gap(
     cases: list,
     n: int,
     seed: int = 42
 ) -> list:
     """
-    Esegue un campionamento stratificato per gap_length, mantenendo la distribuzione originale dei gap_length nel pool di DevCase.
+    Esegue un campionamento stratificato per gap_length, mantenendo la distribuzione
+    originale dei gap_length nel pool di DevCase.
     Restituisce una lista di n casi campionati stratificati per la lunghezza della lacuna.
     """
-    
-    # Raggruppa per gap_length
     buckets = defaultdict(list)
     for case in cases:
         buckets[case.gap_length].append(case)
@@ -184,13 +186,53 @@ def stratified_sample_by_gap(
     rng = random.Random(seed)
 
     for gap_len, bucket in sorted(buckets.items()):
-        # Quota proporzionale alla frequenza del bucket
         quota = max(1, round(n * len(bucket) / total))
         sampled.extend(rng.sample(bucket, min(quota, len(bucket))))
 
-    # Aggiusta a n esatto (può divergere per arrotondamenti)
     rng.shuffle(sampled)
     return sampled[:n]
+
+
+def _build_optimizer(
+    model,
+    lr: float,
+    weight_decay: float = 0.01,
+) -> AdamW:
+    """
+    Costruisce un ottimizzatore AdamW con weight decay selettivo:
+    - weight_decay applicato a tutti i parametri tranne bias e LayerNorm
+      (seguendo la best practice del paper originale BERT/AdamW).
+
+    Args:
+        model: Il modello BERT da ottimizzare.
+        lr: Learning rate.
+        weight_decay: Valore di L2 regularization per i parametri ammissibili.
+
+    Returns:
+        Istanza di AdamW con i due gruppi di parametri configurati.
+    """
+    no_decay = ["bias", "LayerNorm.weight", "LayerNorm.bias"]
+
+    optimizer_grouped_parameters = [
+        {
+            # Parametri con weight decay (pesi delle linear/attention layers)
+            "params": [
+                p for n, p in model.named_parameters()
+                if not any(nd in n for nd in no_decay)
+            ],
+            "weight_decay": weight_decay,
+        },
+        {
+            # Parametri senza weight decay (bias, LayerNorm)
+            "params": [
+                p for n, p in model.named_parameters()
+                if any(nd in n for nd in no_decay)
+            ],
+            "weight_decay": 0.0,
+        },
+    ]
+
+    return AdamW(optimizer_grouped_parameters, lr=lr)
 
 
 def _evaluate_hcb_on_split(
@@ -332,12 +374,28 @@ def pipeline_finetuning(
         dataloader_drop_last=True,
         dataloader_num_workers=16,
         dataloader_pin_memory=True,
-        weight_decay=0.01, 
-        warmup_steps=0.06, 
+        warmup_ratio=0.06,
         save_total_limit=1,
         hub_model_id=checkpoint if push_to_hub else None,
         push_to_hub=push_to_hub,
         load_best_model_at_end=True,
+    )
+
+    # Calcolo del numero totale di training steps per lo scheduler
+    num_training_steps = (
+        len(lm_datasets["train"]) // batch_size
+    ) * epochs
+    num_warmup_steps = int(0.06 * num_training_steps)
+
+    # Ottimizzatore custom con weight decay selettivo
+    # (no decay su bias e LayerNorm, come da best practice BERT/AdamW)
+    optimizer = _build_optimizer(model, lr=lr, weight_decay=0.01)
+
+    # Scheduler lineare con warmup coerente con warmup_ratio=0.06
+    scheduler = get_linear_schedule_with_warmup(
+        optimizer,
+        num_warmup_steps=num_warmup_steps,
+        num_training_steps=num_training_steps,
     )
 
     dev_pool = stratified_sample_by_gap(hcb_dev_cases, n=300, seed=42)
@@ -355,6 +413,7 @@ def pipeline_finetuning(
         train_dataset=lm_datasets["train"],
         eval_dataset=lm_datasets["dev"],
         data_collator=data_collator,
+        optimizers=(optimizer, scheduler),  # optimizer custom con no_decay su bias/LayerNorm
         callbacks=[hcb_callback, EarlyStoppingCallback(early_stopping_patience=2)],
     )
 
