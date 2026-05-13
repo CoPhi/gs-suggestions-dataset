@@ -12,13 +12,12 @@ from __future__ import annotations
 from dataclasses import dataclass
 from functools import partial
 
-from cltk.alphabet.grc.grc import normalize_grc
 from datasets import Dataset, DatasetDict, DatasetInfo, load_dataset
 from transformers import AutoTokenizer
 
 from backend.core import UNK_TOKEN
 from backend.core.cleaner import load_abs, load_test_set, split_abs_herc_dev
-from backend.core.preprocess import remove_punctuation, strip_diacritics
+from backend.core.preprocess import remove_punctuation, strip_diacritics, normalize_greek
 from models.bert.dataset import (
     CORPUS_CHECKPOINT,
     EVAL_CHECKPOINT,

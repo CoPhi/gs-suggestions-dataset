@@ -6,6 +6,16 @@ from huggingface_hub import login
 from models.bert.finetuning import BERT_MODEL_CONFIG, BASE_MODEL_MAP, HF_TOKEN, WANDB_API_KEY, wandb_login
 from models.bert.finetuning.pipeline import pipeline_finetuning
 
+"""
+
+    Esempio:
+
+    
+
+    uv run python -m models.bert.finetuning.run --checkpoint "CNR-ILC/gs-Logion"
+    uv run python -m models.bert.finetuning.run --checkpoint "CNR-ILC/gs-GreBerta"
+    uv run python -m models.bert.finetuning.run --checkpoint "CNR-ILC/gs-aristoBERTo"
+"""
 
 def main():
 
