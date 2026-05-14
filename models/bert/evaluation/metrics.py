@@ -30,8 +30,6 @@ def get_scoring_model_for_training(training_checkpoint: str) -> str:
     """
     Seleziona un modello di scoring diverso da quello in training per evitare bias.
     """
-    # Mappa dei modelli disponibili: forza tutti i modelli ad usare ancient-greek-bert
-    # per accentrare la valutazione usando il solito modello "terzo".
     models = {
         "cnr-ilc/gs-greberta": "pranaydeeps/Ancient-Greek-BERT",
         "cnr-ilc/gs-aristoberto": "pranaydeeps/Ancient-Greek-BERT",
@@ -43,15 +41,12 @@ def get_scoring_model_for_training(training_checkpoint: str) -> str:
         if k in key:
             return v
 
-    # Fallback: usa sempre Ancient-Greek-BERT come scorer di default
     return "pranaydeeps/Ancient-Greek-BERT"
 
 
 def _get_contextual_scorer(model_name: str) -> BERTScorer:
     global _scorers
     if model_name not in _scorers:
-        # Usa rescale_with_baseline solo per modelli con baseline pre-calcolata.
-        # pranaydeeps/Ancient-Greek-BERT non è nella lista → rescale=False.
         has_baseline = model_name in _MODELS_WITH_BASELINE
         _scorers[model_name] = BERTScorer(
             model_type=model_name,
@@ -59,6 +54,16 @@ def _get_contextual_scorer(model_name: str) -> BERTScorer:
             rescale_with_baseline=has_baseline,
         )
     return _scorers[model_name]
+
+
+def reset_scorer_cache() -> None:
+    """
+    Svuota la cache degli scorer. Da chiamare all'inizio di ogni run di training
+    per evitare che istanze vecchie (costruite con parametri sbagliati) vengano
+    riutilizzate da processi long-running (es. Jupyter, server).
+    """
+    global _scorers
+    _scorers.clear()
 
 
 def reconstruct_context(
@@ -100,7 +105,6 @@ def evaluate_topK_text(
         Dizionario con metriche top1, top3, top5, top10, top20 (percentuali).
     """
     count = 0
-    # Numero massimo di suggerimenti per caso (beam size)
     max_k = max((len(preds) for preds in predictions_text), default=10)
     num_correct = np.zeros(max_k)
 
@@ -108,8 +112,6 @@ def evaluate_topK_text(
         if isinstance(gold, list):
             gold = " ".join(gold)
 
-        # Normalizzazione coerente per gold e suggestions:
-        # entrambi devono passare per normalize_greek con gli stessi parametri.
         gold_norm = (
             normalize_greek(
                 text=gold,
@@ -135,7 +137,7 @@ def evaluate_topK_text(
 
             if sugg_norm == gold_norm:
                 num_correct[rank] += 1
-                break  # conta solo il primo match
+                break
 
     if count == 0:
         return {"top1": 0.0, "top3": 0.0, "top5": 0.0, "top10": 0.0, "top20": 0.0}
@@ -183,6 +185,7 @@ def evaluate_bertscore_topk_text(
     Args:
         predictions_text: batch di suggerimenti (lista di liste di tuple).
         gold_labels: batch di gold labels.
+        contexts: testi originali con la lacuna [...] per il contesto BERTscore.
         k_values: lista di valori K da calcolare.
         scorer: istanza BERTScorer.
         checkpoint: percorso del checkpoint del modello BERT.
@@ -198,17 +201,17 @@ def evaluate_bertscore_topk_text(
     all_cands: list[str] = []
     all_refs: list[str] = []
 
-    mapping: dict[tuple[int, int], int] = (
-        {}
-    )  # Mappa: (sample_idx, rank) -> index in all_cands
+    # Mappa: (sample_idx, rank) -> index in all_cands
+    # NOTA: deve essere aggiornata sia nel ramo context che nel ramo no-context.
+    mapping: dict[tuple[int, int], int] = {}
 
     config = get_model_config(checkpoint) if checkpoint else {}
 
-    for i, (preds, gold, context) in enumerate(
-        zip(predictions_text, gold_labels, contexts or [None] * len(gold_labels))
-    ):
+    for i, (preds, gold) in enumerate(zip(predictions_text, gold_labels)):
         if not preds:
             continue
+
+        context = contexts[i] if contexts is not None else None
 
         if isinstance(gold, list):
             gold = " ".join(gold)
@@ -225,18 +228,18 @@ def evaluate_bertscore_topk_text(
         gold_norm = gold_norm.replace(" ", "").strip()
 
         for rank, (suggestion, _) in enumerate(preds[:max_k]):
+            flat_idx = len(all_cands)  # indice corrente prima dell'append
+
             if context:
                 cand_sent = reconstruct_context(context, suggestion).strip()
                 ref_sent = reconstruct_context(context, gold_norm).strip()
-                all_cands.append(cand_sent)
-                all_refs.append(ref_sent)
             else:
-                sugg_norm = (
-                    suggestion.strip()
-                )  # i suggerimenti escono già normalizzati da fill_mask, ma facciamo un'ulteriore pulizia di spazi
-                mapping[(i, rank)] = len(all_cands)
-                all_cands.append(sugg_norm)
-                all_refs.append(gold_norm)
+                cand_sent = suggestion.strip()
+                ref_sent = gold_norm
+
+            mapping[(i, rank)] = flat_idx
+            all_cands.append(cand_sent)
+            all_refs.append(ref_sent)
 
     if not all_cands:
         return {f"bertscore_f1_top{k}": 0.0 for k in k_values}
@@ -245,8 +248,6 @@ def evaluate_bertscore_topk_text(
     P, R, F1 = scorer.score(all_cands, all_refs)
 
     num_samples = len(predictions_text)
-    # Matrici per contenere i punteggi (N_samples x max_k)
-    # Usiamo -1.0 per indicare l'assenza di un suggerimento
     scores_p = np.full((num_samples, max_k), -1.0)
     scores_r = np.full((num_samples, max_k), -1.0)
     scores_f1 = np.full((num_samples, max_k), -1.0)
@@ -263,11 +264,9 @@ def evaluate_bertscore_topk_text(
             has_preds = np.any(slice_f1 != -1.0, axis=1)
 
             if np.any(has_preds):
-                # --- MAX (Il migliore tra i primi K) ---
                 k_max_f1 = np.max(np.where(slice_f1 != -1.0, slice_f1, -np.inf), axis=1)
                 metrics[f"bertscore_f1_top{k}"] = k_max_f1[has_preds].mean() * 100.0
 
-                # --- MEAN (Qualità media dei primi K) ---
                 k_mean_f1 = np.nanmean(
                     np.where(slice_f1 != -1.0, slice_f1, np.nan), axis=1
                 )
