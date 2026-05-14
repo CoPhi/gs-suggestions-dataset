@@ -21,9 +21,9 @@ def get_scoring_model_for_training(training_checkpoint: str) -> str:
 
     # Mappa dei modelli disponibili, forzo tutti i modelli ad usare ancient-greek-bert per accentrare la valutazione usando il solito modello "terzo"
     models = {
-        "CNR-ILC/gs-GreBerta": "pranaydeep/Ancient-Greek-BERT",
-        "CNR-ILC/gs-aristoBERTo": "pranaydeep/Ancient-Greek-BERT",
-        "CNR-ILC/gs-Logion": "pranaydeep/Ancient-Greek-BERT",
+        "CNR-ILC/gs-GreBerta": "pranaydeeps/Ancient-Greek-BERT",
+        "CNR-ILC/gs-aristoBERTo": "pranaydeeps/Ancient-Greek-BERT",
+        "CNR-ILC/gs-Logion": "pranaydeeps/Ancient-Greek-BERT",
     }
 
     if "CNR-ILC/gs-GreBerta" in training_checkpoint:
