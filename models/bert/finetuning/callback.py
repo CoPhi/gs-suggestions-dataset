@@ -41,6 +41,7 @@ class HCBEvaluationCallback(TrainerCallback):
 
         predictions_text = []  # list[list[tuple[str, float]]]
         gold_labels = []  # list[str]
+        contexts = []  # list[str]
 
         for case in self.dev_cases_pool:
             try:
@@ -59,6 +60,7 @@ class HCBEvaluationCallback(TrainerCallback):
 
                 predictions_text.append(suggestions)
                 gold_labels.append(case.y)
+                contexts.append(case.x)
             except Exception as e:
                 print(f"[HCB Error] fill_mask ha generato un'eccezione: {e}")
                 print(f"[HCB Error] Case: {case}")
@@ -82,14 +84,17 @@ class HCBEvaluationCallback(TrainerCallback):
             bertscore_metrics = evaluate_bertscore_topk_text(
                 predictions_text=predictions_text,
                 gold_labels=gold_labels,
-                k_values=[1, 3, 5, 10],
+                contexts=contexts,
+                k_values=[1, 5, 10, 20],
+                checkpoint=self.checkpoint,
             )
         except Exception as e:
-            print(f"[HCB Error] evaluate_bertscore_topk_text ha generato un'eccezione: {e}")
+            print(
+                f"[HCB Error] evaluate_bertscore_topk_text ha generato un'eccezione: {e}"
+            )
             bertscore_metrics = {}
 
         # Unisci tutte le metriche
-        #all_metrics = {**top_k_metrics, **bertscore_metrics}
         all_metrics = {**bertscore_metrics}
 
         # LOG nel Trainer state (visibile in log_history)
@@ -99,11 +104,10 @@ class HCBEvaluationCallback(TrainerCallback):
         # Stampa su CLI
         print(
             f"[HCB Val] "
-            # f"Top1: {top_k_metrics.get('top1', 0):.2f}% | "
-            # f"Top5: {top_k_metrics.get('top5', 0):.2f}% | "
-            f"BS-F1@1: {bertscore_metrics.get('bertscore_f1_top1', 0):.2f}% | "
-            f"BS-F1@5: {bertscore_metrics.get('bertscore_f1_top5', 0):.2f}% | "
-            f"BS-F1@10: {bertscore_metrics.get('bertscore_f1_top10', 0):.2f}%"
+            f"BS-F1@1: {bertscore_metrics.get('bertscore_f1_top1', 0):.2f}% (mean: {bertscore_metrics.get('bertscore_f1_top1_mean', 0):.2f}%)| "
+            f"BS-F1@5: {bertscore_metrics.get('bertscore_f1_top5', 0):.2f}% (mean: {bertscore_metrics.get('bertscore_f1_top5_mean', 0):.2f}%) | "
+            f"BS-F1@10: {bertscore_metrics.get('bertscore_f1_top10', 0):.2f}% (mean: {bertscore_metrics.get('bertscore_f1_top10_mean', 0):.2f}%) | "
+            f"BS-F1@20: {bertscore_metrics.get('bertscore_f1_top20', 0):.2f}% (mean: {bertscore_metrics.get('bertscore_f1_top20_mean', 0):.2f}%)"
         )
 
         # Log su wandb

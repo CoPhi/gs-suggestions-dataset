@@ -256,6 +256,7 @@ def _evaluate_hcb_on_split(
 
     predictions_text: list[list[tuple[str, float]]] = []
     gold_labels: list[str] = []
+    contexts: list[str] = []
 
     for case in pool:
         try:
@@ -272,6 +273,7 @@ def _evaluate_hcb_on_split(
             )
             predictions_text.append(suggestions)
             gold_labels.append(case.y)
+            contexts.append(case.x)
         except Exception as e:
             print(f"[HCB Error] fill_mask ha generato un'eccezione: {e}")
             print(f"[HCB Error] Case: {case}")
@@ -280,18 +282,21 @@ def _evaluate_hcb_on_split(
     if not predictions_text:
         return {}
 
-    top_k = evaluate_topK_text(predictions_text, gold_labels)
     bert_s = evaluate_bertscore_topk_text(
-        predictions_text, gold_labels, k_values=[1, 3, 5, 10]
+        predictions_text, 
+        gold_labels, 
+        contexts=contexts,
+        k_values=[1, 5, 10, 20],
+        checkpoint=checkpoint
     )
-    all_metrics = {**top_k, **bert_s}
+    all_metrics = {**bert_s}
 
     print(
         f"[HCB {split_name}] "
-        f"Top1: {top_k.get('top1', 0):.2f}% | "
-        f"Top5: {top_k.get('top5', 0):.2f}% | "
-        f"BS-F1@1: {bert_s.get('bertscore_f1_top1', 0):.2f}% | "
-        f"BS-F1@5: {bert_s.get('bertscore_f1_top5', 0):.2f}%"
+        f"BS-F1@1: {bert_s.get('bertscore_f1_top1', 0):.2f}% (mean: {bert_s.get('bertscore_f1_top1_mean', 0):.2f}%)| "
+        f"BS-F1@5: {bert_s.get('bertscore_f1_top5', 0):.2f}% (mean: {bert_s.get('bertscore_f1_top5_mean', 0):.2f}%) | "
+        f"BS-F1@10: {bert_s.get('bertscore_f1_top10', 0):.2f}% (mean: {bert_s.get('bertscore_f1_top10_mean', 0):.2f}%) | "
+        f"BS-F1@20: {bert_s.get('bertscore_f1_top20', 0):.2f}% (mean: {bert_s.get('bertscore_f1_top20_mean', 0):.2f}%)"
     )
     return all_metrics
 

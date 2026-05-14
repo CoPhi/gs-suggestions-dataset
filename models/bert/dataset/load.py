@@ -17,7 +17,11 @@ from transformers import AutoTokenizer
 
 from backend.core import UNK_TOKEN
 from backend.core.cleaner import load_abs, load_test_set, split_abs_herc_dev
-from backend.core.preprocess import remove_punctuation, strip_diacritics, normalize_greek
+from backend.core.preprocess import (
+    remove_punctuation,
+    strip_diacritics,
+    normalize_greek,
+)
 from models.bert.dataset import (
     CORPUS_CHECKPOINT,
     EVAL_CHECKPOINT,
@@ -39,11 +43,6 @@ from dotenv import load_dotenv
 import os
 
 # Hub
-
-
-def get_db() -> DatasetDict:
-    """Carica il dataset MAAT dal HuggingFace Hub."""
-    return load_dataset("GabrieleGiannessi/maat-corpus")
 
 
 def push_to_hub(
@@ -157,7 +156,7 @@ def _quality_filter_subword(
 
 def _normalize_example(example: dict, config: dict, unk_token: str) -> dict:
 
-    #Normalizzazione del testo usando le configurazioni specifiche del modello
+    # Normalizzazione del testo usando le configurazioni specifiche del modello
     text = normalize_greek(
         example["text"],
         case_folding=config.get("case_folding", "upper"),
@@ -167,7 +166,7 @@ def _normalize_example(example: dict, config: dict, unk_token: str) -> dict:
         text = remove_punctuation(text)
 
     # Sostituzione del token sconosciuto model-agnostic (<UNK>) con quello specifico del tokenizer del modello
-    text = text.replace(UNK_TOKEN, unk_token) 
+    text = text.replace(UNK_TOKEN, unk_token)
 
     return {"text": text}
 

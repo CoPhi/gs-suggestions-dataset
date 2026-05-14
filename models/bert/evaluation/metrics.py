@@ -10,17 +10,59 @@ from packages.hcb_infilling.hcb_infilling.metrics import (
     score_batch,
 )
 
-# Scorer lazy-singleton per evitare di ricaricare il modello ad ogni invocazione.
-# Viene inizializzato la prima volta che si chiama evaluate_bertscore_text.
-_text_scorer: BERTScorer | None = None
+_scorers: dict[str, BERTScorer] = {}
 
 
-def _get_text_scorer() -> BERTScorer:
-    """Restituisce un'istanza condivisa di BERTScorer (lazy init)."""
-    global _text_scorer
-    if _text_scorer is None:
-        _text_scorer = BERTScorer(lang="el", rescale_with_baseline=False)
-    return _text_scorer
+def get_scoring_model_for_training(training_checkpoint: str) -> str:
+    """
+    Seleziona un modello di scoring diverso da quello in training per evitare bias.
+    """
+    training_checkpoint = training_checkpoint.lower()
+
+    # Mappa dei modelli disponibili, forzo tutti i modelli ad usare ancient-greek-bert per accentrare la valutazione usando il solito modello "terzo"
+    models = {
+        "CNR-ILC/gs-GreBerta": "pranaydeep/Ancient-Greek-BERT",
+        "CNR-ILC/gs-aristoBERTo": "pranaydeep/Ancient-Greek-BERT",
+        "CNR-ILC/gs-Logion": "pranaydeep/Ancient-Greek-BERT",
+    }
+
+    if "CNR-ILC/gs-GreBerta" in training_checkpoint:
+        return models["CNR-ILC/gs-GreBerta"]
+    elif "CNR-ILC/gs-aristoBERTo" in training_checkpoint:
+        return models["CNR-ILC/gs-aristoBERTo"]
+    elif "CNR-ILC/gs-Logion" in training_checkpoint:
+        return models["CNR-ILC/gs-Logion"]
+    else:
+        return models["CNR-ILC/gs-GreBerta"]
+
+
+def _get_contextual_scorer(model_name: str) -> BERTScorer:
+    global _scorers
+    if model_name not in _scorers:
+        _scorers[model_name] = BERTScorer(
+            model_type=model_name, lang="el", rescale_with_baseline=True
+        )
+    return _scorers[model_name]
+
+
+def reconstruct_context(
+    context_with_gap: str, suggestion: str, window_size: int = 15
+) -> str:
+    """
+    Sostituisce la lacuna [....] con il suggerimento e taglia il contesto.
+    """
+
+    pattern = r"\[\.+\]"
+    reconstructed = re.sub(pattern, suggestion, context_with_gap)
+
+    if window_size <= 0:
+        return reconstructed
+
+    words = reconstructed.split()
+    if len(words) <= window_size * 2:
+        return reconstructed
+
+    return reconstructed
 
 
 def evaluate_topK_text(
@@ -113,6 +155,7 @@ def evaluate_bertscore_text(
 def evaluate_bertscore_topk_text(
     predictions_text: list[list[tuple[str, float]]],
     gold_labels: list[str] | list[list[str]],
+    contexts: list[str] | None = None,
     k_values: list[int] = [1, 3, 5, 10],
     scorer: BERTScorer | None = None,
     checkpoint: str | None = None,
@@ -132,17 +175,22 @@ def evaluate_bertscore_topk_text(
         Dizionario con precision, recall e f1 per ogni K.
     """
     if scorer is None:
-        scorer = _get_text_scorer()
+        scoring_model = get_scoring_model_for_training(checkpoint or "default")
+        scorer = _get_contextual_scorer(scoring_model)
 
     max_k = max(k_values)
     all_cands: list[str] = []
     all_refs: list[str] = []
-    # Mappa: (sample_idx, rank) -> index in all_cands
-    mapping: dict[tuple[int, int], int] = {}
+
+    mapping: dict[tuple[int, int], int] = (
+        {}
+    )  # Mappa: (sample_idx, rank) -> index in all_cands
 
     config = get_model_config(checkpoint) if checkpoint else {}
 
-    for i, (preds, gold) in enumerate(zip(predictions_text, gold_labels)):
+    for i, (preds, gold, context) in enumerate(
+        zip(predictions_text, gold_labels, contexts or [None] * len(gold_labels))
+    ):
         if not preds:
             continue
 
@@ -154,17 +202,25 @@ def evaluate_bertscore_topk_text(
             case_folding="fold",
             strip_diacritics_flag=config.get("strip_diacritics"),
         )
-        
+
         if config.get("remove_punct"):
             gold_norm = remove_punctuation(gold_norm)
 
         gold_norm = gold_norm.replace(" ", "").strip()
-        
+
         for rank, (suggestion, _) in enumerate(preds[:max_k]):
-            sugg_norm = suggestion.strip() #i suggerimenti escono già normalizzati da fill_mask, ma facciamo un'ulteriore pulizia di spazi
-            mapping[(i, rank)] = len(all_cands)
-            all_cands.append(sugg_norm)
-            all_refs.append(gold_norm)
+            if context:
+                cand_sent = reconstruct_context(context, suggestion).strip()
+                ref_sent = reconstruct_context(context, gold_norm).strip()
+                all_cands.append(cand_sent)
+                all_refs.append(ref_sent)
+            else:
+                sugg_norm = (
+                    suggestion.strip()
+                )  # i suggerimenti escono già normalizzati da fill_mask, ma facciamo un'ulteriore pulizia di spazi
+                mapping[(i, rank)] = len(all_cands)
+                all_cands.append(sugg_norm)
+                all_refs.append(gold_norm)
 
     if not all_cands:
         return {f"bertscore_f1_top{k}": 0.0 for k in k_values}
@@ -187,106 +243,23 @@ def evaluate_bertscore_topk_text(
     metrics = {}
     for k in k_values:
         with np.errstate(all="ignore"):
-            slice_p = scores_p[:, :k]
-            slice_r = scores_r[:, :k]
             slice_f1 = scores_f1[:, :k]
-
             has_preds = np.any(slice_f1 != -1.0, axis=1)
 
             if np.any(has_preds):
-                # --- MAX (comportamento originale) ---
-                k_max_p = np.max(np.where(slice_p != -1.0, slice_p, -np.inf), axis=1)
-                k_max_r = np.max(np.where(slice_r != -1.0, slice_r, -np.inf), axis=1)
+                # --- MAX (Il migliore tra i primi K) ---
                 k_max_f1 = np.max(np.where(slice_f1 != -1.0, slice_f1, -np.inf), axis=1)
-
-                metrics[f"bertscore_precision_top{k}"] = (
-                    k_max_p[has_preds].mean() * 100.0
-                )
-                metrics[f"bertscore_recall_top{k}"] = k_max_r[has_preds].mean() * 100.0
                 metrics[f"bertscore_f1_top{k}"] = k_max_f1[has_preds].mean() * 100.0
 
-                # --- MEAN (qualità media dell'insieme dei suggerimenti) ---
-                # Sostituiamo -1.0 con nan per poter usare np.nanmean (ignora i "buchi")
-                k_mean_p = np.nanmean(
-                    np.where(slice_p != -1.0, slice_p, np.nan), axis=1
-                )
-                k_mean_r = np.nanmean(
-                    np.where(slice_r != -1.0, slice_r, np.nan), axis=1
-                )
+                # --- MEAN (Qualità media dei primi K) ---
                 k_mean_f1 = np.nanmean(
                     np.where(slice_f1 != -1.0, slice_f1, np.nan), axis=1
-                )
-
-                metrics[f"bertscore_precision_top{k}_mean"] = (
-                    np.nanmean(k_mean_p[has_preds]) * 100.0
-                )
-                metrics[f"bertscore_recall_top{k}_mean"] = (
-                    np.nanmean(k_mean_r[has_preds]) * 100.0
                 )
                 metrics[f"bertscore_f1_top{k}_mean"] = (
                     np.nanmean(k_mean_f1[has_preds]) * 100.0
                 )
-
             else:
-                metrics[f"bertscore_precision_top{k}"] = 0.0
-                metrics[f"bertscore_recall_top{k}"] = 0.0
                 metrics[f"bertscore_f1_top{k}"] = 0.0
-
-                metrics[f"bertscore_precision_top{k}_mean"] = 0.0
-                metrics[f"bertscore_recall_top{k}_mean"] = 0.0
                 metrics[f"bertscore_f1_top{k}_mean"] = 0.0
-                metrics[f"bertscore_f1_top{k}"] = 0.0
 
     return metrics
-
-
-def evaluate_topK(
-    predictions_hcb_format: list[list[list[int | float]]],
-    true_ids: list[list[int]],
-    tokenizer: PreTrainedTokenizer,
-) -> dict[str, float]:
-    """
-    Calcola le metriche top-K (Top-1, Top-3, Top-5, Top-10) per un batch.
-
-    Args:
-        predictions_hcb_format: batch di predizioni output di decode_modified_*.
-            Formato: [
-                [
-                    [prob1, token1_1, token1_2, ...],
-                    [prob2, token2_1, token2_2, ...]
-                ], ...
-            ]
-        true_ids: batch di veri token ids della lacuna. Formato: [[id_1, id_2], ...]
-        tokenizer: Il tokenizzatore (necessario per verificare pad_token_id).
-
-    Returns:
-        Dizionario con metriche top1, top3, top5, top10.
-    """
-    # Mappa i veri id a liste di int (se non lo sono già) in quanto la comparazione in score_batch
-    # fa `if true_ids in sorted_suggestions`
-    true_ids_list = []
-    for ids in true_ids:
-        if hasattr(ids, "tolist"):
-            true_ids_list.append(ids.tolist())
-        else:
-            true_ids_list.append(list(ids))
-
-    count, num_correct_ranks = score_batch(
-        suggestions_batch=predictions_hcb_format,
-        true_ids_batch=true_ids_list,
-        tokenizer=tokenizer,
-        method="topk",
-    )
-
-    if count == 0:
-        return {"top1": 0.0, "top3": 0.0, "top5": 0.0, "top10": 0.0}
-
-    # cumulative_correct contiene i matches per ogni rank
-    cumulative_correct = np.cumsum(num_correct_ranks)
-
-    topk_metrics = {}
-    for k in [1, 3, 5, 10]:
-        idx = min(k - 1, len(cumulative_correct) - 1)
-        topk_metrics[f"top{k}"] = (cumulative_correct[idx] / count) * 100.0
-
-    return topk_metrics
