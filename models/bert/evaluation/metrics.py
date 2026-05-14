@@ -55,7 +55,9 @@ def _get_contextual_scorer(model_name: str) -> BERTScorer:
     global _scorers
     if model_name not in _scorers:
         has_baseline = model_name in _MODELS_WITH_BASELINE
-        num_layers = _MODEL_NUM_LAYERS.get(model_name)  # None se il modello è già in model2layers
+        num_layers = _MODEL_NUM_LAYERS.get(
+            model_name
+        )  # None se il modello è già in model2layers
         _scorers[model_name] = BERTScorer(
             model_type=model_name,
             lang="el",
@@ -78,9 +80,11 @@ def reconstruct_context(
     context_with_gap: str, suggestion: str, window_size: int = 15
 ) -> str:
     """
-    Sostituisce la lacuna [....] con il suggerimento e taglia il contesto.
+    Sostituisce la lacuna [....] con il suggerimento e taglia il contesto
+    per mantenere un massimo di 'window_size' parole a destra e a sinistra.
     """
     pattern = r"\[\.+\]"
+
     reconstructed = re.sub(pattern, suggestion, context_with_gap)
 
     if window_size <= 0:
@@ -90,7 +94,23 @@ def reconstruct_context(
     if len(words) <= window_size * 2:
         return reconstructed
 
-    return reconstructed
+    # Troviamo la posizione della lacuna per centrare la finestra
+    match = re.search(pattern, context_with_gap)
+    if not match:
+        return reconstructed
+
+    # Contiamo quante parole ci sono a sinistra della lacuna nel contesto originale
+    left_context = context_with_gap[: match.start()]
+    left_words_count = len(left_context.split())
+
+    # Calcoliamo gli indici di taglio della finestra
+    start_idx = max(0, left_words_count - window_size)
+
+    # Se il suggerimento contiene spazi (più parole), aggiustiamo l'offset destro
+    suggestion_len = len(suggestion.split()) if suggestion.strip() else 1
+    end_idx = min(len(words), left_words_count + suggestion_len + window_size)
+
+    return " ".join(words[start_idx:end_idx])
 
 
 def evaluate_topK_text(
@@ -209,7 +229,7 @@ def evaluate_bertscore_topk_text(
         if config.get("remove_punct"):
             gold_norm = remove_punctuation(gold_norm)
 
-        gold_norm = gold_norm.replace(" ", "").strip()
+        gold_norm = gold_norm.strip()
 
         for rank, (suggestion, _) in enumerate(preds[:max_k]):
             flat_idx = len(all_cands)
