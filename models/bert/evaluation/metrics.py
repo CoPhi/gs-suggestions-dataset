@@ -25,6 +25,13 @@ _MODELS_WITH_BASELINE = {
     "microsoft/deberta-large-mnli",
 }
 
+# Numero di layer da usare per modelli non registrati in bert_score.model2layers.
+# pranaydeeps/Ancient-Greek-BERT è un BERT-base (12 layer); usiamo layer 9
+# come da best practice bert_score per BERT-base (L=9 massimizza correlazione umana).
+_MODEL_NUM_LAYERS: dict[str, int] = {
+    "pranaydeeps/Ancient-Greek-BERT": 9,
+}
+
 
 def get_scoring_model_for_training(training_checkpoint: str) -> str:
     """
@@ -48,9 +55,11 @@ def _get_contextual_scorer(model_name: str) -> BERTScorer:
     global _scorers
     if model_name not in _scorers:
         has_baseline = model_name in _MODELS_WITH_BASELINE
+        num_layers = _MODEL_NUM_LAYERS.get(model_name)  # None se il modello è già in model2layers
         _scorers[model_name] = BERTScorer(
             model_type=model_name,
             lang="el",
+            num_layers=num_layers,
             rescale_with_baseline=has_baseline,
         )
     return _scorers[model_name]
@@ -59,8 +68,7 @@ def _get_contextual_scorer(model_name: str) -> BERTScorer:
 def reset_scorer_cache() -> None:
     """
     Svuota la cache degli scorer. Da chiamare all'inizio di ogni run di training
-    per evitare che istanze vecchie (costruite con parametri sbagliati) vengano
-    riutilizzate da processi long-running (es. Jupyter, server).
+    per evitare che istanze vecchie vengano riutilizzate in ambienti long-running.
     """
     global _scorers
     _scorers.clear()
@@ -72,7 +80,6 @@ def reconstruct_context(
     """
     Sostituisce la lacuna [....] con il suggerimento e taglia il contesto.
     """
-
     pattern = r"\[\.+\]"
     reconstructed = re.sub(pattern, suggestion, context_with_gap)
 
@@ -93,16 +100,6 @@ def evaluate_topK_text(
     """
     Calcola le metriche top-K confrontando le stringhe normalizzate (lowercase)
     dei suggerimenti con la gold label.
-
-    Args:
-        predictions_text: batch di suggerimenti in formato testo.
-            Ogni elemento è una lista di tuple (suggerimento_str, score)
-            ordinata per score decrescente, come restituito da fill_mask
-            con return_raw=False.
-        gold_labels: batch di gold label in formato stringa.
-
-    Returns:
-        Dizionario con metriche top1, top3, top5, top10, top20 (percentuali).
     """
     count = 0
     max_k = max((len(preds) for preds in predictions_text), default=10)
@@ -157,7 +154,6 @@ def evaluate_bertscore_text(
     scorer: BERTScorer | None = None,
 ) -> dict[str, float]:
     """
-    Calcola BERTscore tra il suggerimento top-1 (decodificato) e la gold label.
     Legacy wrapper per evaluate_bertscore_topk_text.
     """
     res = evaluate_bertscore_topk_text(
@@ -181,17 +177,6 @@ def evaluate_bertscore_topk_text(
     """
     Calcola il BERTscore@K (valore massimo tra i primi K suggerimenti)
     per diversi valori di K, ottimizzando le chiamate al modello.
-
-    Args:
-        predictions_text: batch di suggerimenti (lista di liste di tuple).
-        gold_labels: batch di gold labels.
-        contexts: testi originali con la lacuna [...] per il contesto BERTscore.
-        k_values: lista di valori K da calcolare.
-        scorer: istanza BERTScorer.
-        checkpoint: percorso del checkpoint del modello BERT.
-
-    Returns:
-        Dizionario con precision, recall e f1 per ogni K.
     """
     if scorer is None:
         scoring_model = get_scoring_model_for_training(checkpoint or "default")
@@ -202,7 +187,6 @@ def evaluate_bertscore_topk_text(
     all_refs: list[str] = []
 
     # Mappa: (sample_idx, rank) -> index in all_cands
-    # NOTA: deve essere aggiornata sia nel ramo context che nel ramo no-context.
     mapping: dict[tuple[int, int], int] = {}
 
     config = get_model_config(checkpoint) if checkpoint else {}
@@ -228,7 +212,7 @@ def evaluate_bertscore_topk_text(
         gold_norm = gold_norm.replace(" ", "").strip()
 
         for rank, (suggestion, _) in enumerate(preds[:max_k]):
-            flat_idx = len(all_cands)  # indice corrente prima dell'append
+            flat_idx = len(all_cands)
 
             if context:
                 cand_sent = reconstruct_context(context, suggestion).strip()
@@ -244,7 +228,6 @@ def evaluate_bertscore_topk_text(
     if not all_cands:
         return {f"bertscore_f1_top{k}": 0.0 for k in k_values}
 
-    # Calcolo in un unico batch massivo
     P, R, F1 = scorer.score(all_cands, all_refs)
 
     num_samples = len(predictions_text)
