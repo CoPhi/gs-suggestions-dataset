@@ -40,6 +40,7 @@ from models.bert.dataset.dev_set import DevCase
 from models.bert.finetuning import get_model_config, GAP_TOKEN, WANDB_PROJECT
 from models.bert.finetuning.callback import HCBEvaluationCallback
 from models.bert.finetuning.collator import DataCollatorForSpanMLM
+from models.bert.evaluation.metrics import reset_scorer_cache
 from models.bert.inference.predict import fill_mask
 
 import wandb
@@ -283,8 +284,8 @@ def _evaluate_hcb_on_split(
         return {}
 
     bert_s = evaluate_bertscore_topk_text(
-        predictions_text, 
-        gold_labels, 
+        predictions_text,
+        gold_labels,
         contexts=contexts,
         k_values=[1, 5, 10, 20],
         checkpoint=checkpoint
@@ -314,6 +315,11 @@ def pipeline_finetuning(
     """
     Esegue la pipeline completa di finetuning MLM.
     """
+
+    # Svuota la cache degli scorer BERTScore ad ogni run per evitare che istanze
+    # costruite con parametri errati (es. rescale_with_baseline=True su modelli
+    # senza baseline) vengano riutilizzate in ambienti long-running (Jupyter, server).
+    reset_scorer_cache()
 
     print(f"Checkpoint target: {checkpoint}")
     print(f"Base model (pesi): {base_model}")
@@ -418,7 +424,7 @@ def pipeline_finetuning(
         train_dataset=lm_datasets["train"],
         eval_dataset=lm_datasets["dev"],
         data_collator=data_collator,
-        optimizers=(optimizer, scheduler),  # optimizer custom con no_decay su bias/LayerNorm
+        optimizers=(optimizer, scheduler),
         callbacks=[hcb_callback, EarlyStoppingCallback(early_stopping_patience=2)],
     )
 
