@@ -68,6 +68,16 @@ class HCBEvaluationCallback(TrainerCallback):
         if not predictions_text:
             return
 
+        # Calcolo Top-K EM 
+        try:
+            topk_metrics = evaluate_topK_text(
+                predictions_text=predictions_text,
+                gold_labels=gold_labels
+            )
+        except Exception as e:
+            print(f"[HCB Error] evaluate_topK_text fallito: {e}")
+            topk_metrics = {}
+
         # BERTscore@K (massimo tra i primi K)
         try:
             bertscore_metrics = evaluate_bertscore_topk_text(
@@ -83,19 +93,26 @@ class HCBEvaluationCallback(TrainerCallback):
             print(traceback.format_exc())
             bertscore_metrics = {}
 
-        all_metrics = {**bertscore_metrics}
+        # Unione dei risultati
+        all_metrics = {**topk_metrics, **bertscore_metrics}
 
+        # Aggiornamento dello stato del Trainer
         hcb_logs = {f"eval_{k}": v for k, v in all_metrics.items()}
         state.log_history[-1].update(hcb_logs)
-
+        
         print(
             f"[HCB Val] "
+            f"Top-1 EM: {all_metrics.get('top1', 0):.2f}% | "
+            f"Top-5 EM: {all_metrics.get('top5', 0):.2f}% | "
+            f"Top-10 EM: {all_metrics.get('top10', 0):.2f}% | "
+            f"Top-20 EM: {all_metrics.get('top20', 0):.2f}% | "
             f"BS-F1@1: {bertscore_metrics.get('bertscore_f1_top1', 0):.2f}% (mean: {bertscore_metrics.get('bertscore_f1_top1_mean', 0):.2f}%)| "
             f"BS-F1@5: {bertscore_metrics.get('bertscore_f1_top5', 0):.2f}% (mean: {bertscore_metrics.get('bertscore_f1_top5_mean', 0):.2f}%) | "
             f"BS-F1@10: {bertscore_metrics.get('bertscore_f1_top10', 0):.2f}% (mean: {bertscore_metrics.get('bertscore_f1_top10_mean', 0):.2f}%) | "
             f"BS-F1@20: {bertscore_metrics.get('bertscore_f1_top20', 0):.2f}% (mean: {bertscore_metrics.get('bertscore_f1_top20_mean', 0):.2f}%)"
         )
 
+        #log su wandb
         logs = {f"eval/hcb_{k}": v for k, v in all_metrics.items()}
         logs["train/global_step"] = state.global_step
         logs["epoch"] = state.epoch

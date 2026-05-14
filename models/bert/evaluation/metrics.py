@@ -77,11 +77,13 @@ def reset_scorer_cache() -> None:
 
 
 def reconstruct_context(
-    context_with_gap: str, suggestion: str, window_size: int = 15
+    context_with_gap: str, suggestion: str, window_size: int = 1
 ) -> str:
     """
     Sostituisce la lacuna [....] con il suggerimento e taglia il contesto
     per mantenere un massimo di 'window_size' parole a destra e a sinistra.
+    Per il momento si mantiene una sola parola di contesto in tutte e due le direzioni,
+    per evitare impennate nelle valutazioni delle metriche BERTscore.
     """
     pattern = r"\[\.+\]"
 
@@ -119,54 +121,53 @@ def evaluate_topK_text(
 ) -> dict[str, float]:
     """
     Calcola le metriche top-K confrontando le stringhe normalizzate (lowercase)
-    dei suggerimenti con la gold label.
+    dei suggerimenti con la gold label, neutralizzando artefatti di tokenizzazione.
     """
     count = 0
     max_k = max((len(preds) for preds in predictions_text), default=10)
     num_correct = np.zeros(max_k)
 
+    def _strict_sanitize(text: str) -> str:
+        # Pulisce la stringa da spazi e caratteri invisibili (es. zero-width space)
+        return re.sub(r'[\s\u200B-\u200D\uFEFF]', '', text).strip()
+
     for preds, gold in zip(predictions_text, gold_labels):
         if isinstance(gold, list):
             gold = " ".join(gold)
 
-        gold_norm = (
-            normalize_greek(
-                text=gold,
-                case_folding="fold",
-                strip_diacritics_flag=True,
-            )
-            .replace(" ", "")
-            .strip()
+        # Normalizzazione Gold
+        gold_norm = normalize_greek(
+            text=gold,
+            case_folding="fold",
+            strip_diacritics_flag=True,
         )
+        gold_norm = _strict_sanitize(gold_norm)
 
         count += 1
 
         for rank, (suggestion, _score) in enumerate(preds):
-            sugg_norm = (
-                normalize_greek(
-                    text=suggestion,
-                    case_folding="fold",
-                    strip_diacritics_flag=True,
-                )
-                .replace(" ", "")
-                .strip()
+            
+            sugg_norm = normalize_greek(
+                text=suggestion,
+                case_folding="fold",
+                strip_diacritics_flag=True,
             )
+            sugg_norm = _strict_sanitize(sugg_norm)
 
             if sugg_norm == gold_norm:
                 num_correct[rank] += 1
                 break
 
     if count == 0:
-        return {"top1": 0.0, "top3": 0.0, "top5": 0.0, "top10": 0.0, "top20": 0.0}
+        return {"top1": 0.0, "top5": 0.0, "top10": 0.0, "top20": 0.0}
 
     cumulative = np.cumsum(num_correct)
     topk_metrics = {}
-    for k in [1, 3, 5, 10, 20]:
+    for k in [1, 5, 10, 20]:
         idx = min(k - 1, len(cumulative) - 1)
         topk_metrics[f"top{k}"] = (cumulative[idx] / count) * 100.0
 
     return topk_metrics
-
 
 def evaluate_bertscore_text(
     predictions_text: list[list[tuple[str, float]]],

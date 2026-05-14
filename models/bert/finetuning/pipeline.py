@@ -283,6 +283,10 @@ def _evaluate_hcb_on_split(
     if not predictions_text:
         return {}
 
+    # 1. Calcolo Exact Match (Top-K testuale)
+    topk_metrics = evaluate_topK_text(predictions_text, gold_labels)
+    
+    # 2. Calcolo BERTscore@K
     bert_s = evaluate_bertscore_topk_text(
         predictions_text,
         gold_labels,
@@ -290,16 +294,28 @@ def _evaluate_hcb_on_split(
         k_values=[1, 5, 10, 20],
         checkpoint=checkpoint
     )
-    all_metrics = {**bert_s}
+    
+    # Uniamo le metriche
+    all_metrics = {**topk_metrics, **bert_s}
 
+    # Aggiorniamo il print per mostrare anche il Top-1 Exact Match
     print(
         f"[HCB {split_name}] "
+        f"Top-1 EM: {all_metrics.get('top1', 0):.2f}% | "
+        f"Top-5 EM: {all_metrics.get('top5', 0):.2f}% | "
+        f"Top-10 EM: {all_metrics.get('top10', 0):.2f}% | "
+        f"Top-20 EM: {all_metrics.get('top20', 0):.2f}% | "
         f"BS-F1@1: {bert_s.get('bertscore_f1_top1', 0):.2f}% (mean: {bert_s.get('bertscore_f1_top1_mean', 0):.2f}%)| "
         f"BS-F1@5: {bert_s.get('bertscore_f1_top5', 0):.2f}% (mean: {bert_s.get('bertscore_f1_top5_mean', 0):.2f}%) | "
         f"BS-F1@10: {bert_s.get('bertscore_f1_top10', 0):.2f}% (mean: {bert_s.get('bertscore_f1_top10_mean', 0):.2f}%) | "
         f"BS-F1@20: {bert_s.get('bertscore_f1_top20', 0):.2f}% (mean: {bert_s.get('bertscore_f1_top20_mean', 0):.2f}%)"
     )
     return all_metrics
+
+    print(
+        f"[HCB {split_name}] "
+        
+    )
 
 
 def pipeline_finetuning(
