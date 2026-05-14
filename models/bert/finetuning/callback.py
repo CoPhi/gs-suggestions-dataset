@@ -1,3 +1,5 @@
+import traceback
+
 from transformers import TrainerCallback
 
 from models.bert.inference.predict import fill_mask
@@ -22,7 +24,6 @@ class HCBEvaluationCallback(TrainerCallback):
 
     def __init__(self, dev_cases_pool, tokenizer, checkpoint: str, max_eval_cases=50):
         super().__init__()
-        # Limitiamo il pool per non far durare ore ogni validazione
         self.dev_cases_pool = dev_cases_pool[:max_eval_cases]
         self.tokenizer = tokenizer
         self.checkpoint = checkpoint
@@ -33,19 +34,17 @@ class HCBEvaluationCallback(TrainerCallback):
         Calcola TopK e BERTscore@K (massimo tra i primi K suggerimenti).
         """
 
-        # Assicuriamoci che il modello sia in eval mode
         model.eval()
 
         if len(self.dev_cases_pool) == 0:
             return
 
-        predictions_text = []  # list[list[tuple[str, float]]]
-        gold_labels = []  # list[str]
-        contexts = []  # list[str]
+        predictions_text = []
+        gold_labels = []
+        contexts = []
 
         for case in self.dev_cases_pool:
             try:
-                # fill_mask con return_raw=False restituisce tuple (str, score)
                 suggestions = fill_mask(
                     text=case.x,
                     checkpoint=self.checkpoint,
@@ -69,16 +68,6 @@ class HCBEvaluationCallback(TrainerCallback):
         if not predictions_text:
             return
 
-        # TopK (confronto normalizzato unicode)
-        # try:
-        #     top_k_metrics = evaluate_topK_text(
-        #         predictions_text=predictions_text,
-        #         gold_labels=gold_labels,
-        #     )
-        # except Exception as e:
-        #     print(f"[HCB Error] evaluate_topK_text ha generato un'eccezione: {e}")
-        #     top_k_metrics = {}
-
         # BERTscore@K (massimo tra i primi K)
         try:
             bertscore_metrics = evaluate_bertscore_topk_text(
@@ -89,19 +78,16 @@ class HCBEvaluationCallback(TrainerCallback):
                 checkpoint=self.checkpoint,
             )
         except Exception as e:
-            print(
-                f"[HCB Error] evaluate_bertscore_topk_text ha generato un'eccezione: {e}"
-            )
+            print(f"[HCB Error] evaluate_bertscore_topk_text ha generato un'eccezione: {e}")
+            print("[HCB Error] Traceback completo:")
+            print(traceback.format_exc())
             bertscore_metrics = {}
 
-        # Unisci tutte le metriche
         all_metrics = {**bertscore_metrics}
 
-        # LOG nel Trainer state (visibile in log_history)
         hcb_logs = {f"eval_{k}": v for k, v in all_metrics.items()}
         state.log_history[-1].update(hcb_logs)
 
-        # Stampa su CLI
         print(
             f"[HCB Val] "
             f"BS-F1@1: {bertscore_metrics.get('bertscore_f1_top1', 0):.2f}% (mean: {bertscore_metrics.get('bertscore_f1_top1_mean', 0):.2f}%)| "
@@ -110,7 +96,6 @@ class HCBEvaluationCallback(TrainerCallback):
             f"BS-F1@20: {bertscore_metrics.get('bertscore_f1_top20', 0):.2f}% (mean: {bertscore_metrics.get('bertscore_f1_top20_mean', 0):.2f}%)"
         )
 
-        # Log su wandb
         logs = {f"eval/hcb_{k}": v for k, v in all_metrics.items()}
         logs["train/global_step"] = state.global_step
         logs["epoch"] = state.epoch
