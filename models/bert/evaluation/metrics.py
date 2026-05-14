@@ -17,7 +17,6 @@ def get_scoring_model_for_training(training_checkpoint: str) -> str:
     """
     Seleziona un modello di scoring diverso da quello in training per evitare bias.
     """
-    training_checkpoint = training_checkpoint.lower()
 
     # Mappa dei modelli disponibili, forzo tutti i modelli ad usare ancient-greek-bert per accentrare la valutazione usando il solito modello "terzo"
     models = {
@@ -39,9 +38,19 @@ def get_scoring_model_for_training(training_checkpoint: str) -> str:
 def _get_contextual_scorer(model_name: str) -> BERTScorer:
     global _scorers
     if model_name not in _scorers:
-        _scorers[model_name] = BERTScorer(
-            model_type=model_name, lang="el", rescale_with_baseline=True
-        )
+        try:
+            _scorers[model_name] = BERTScorer(
+                model_type=model_name,
+                lang="el",
+                rescale_with_baseline=True,
+            )
+        except KeyError:
+            # Nessuna baseline pre-calcolata per questo modello: disabilita il rescaling
+            _scorers[model_name] = BERTScorer(
+                model_type=model_name,
+                lang="el",
+                rescale_with_baseline=False,
+            )
     return _scorers[model_name]
 
 
