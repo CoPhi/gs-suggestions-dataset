@@ -379,7 +379,7 @@ def pipeline_finetuning(
         dataloader_drop_last=True,
         dataloader_num_workers=16,
         dataloader_pin_memory=True,
-        warmup_ratio=0.06,
+        warmup_steps=0.06,
         save_total_limit=1,
         hub_model_id=checkpoint if push_to_hub else None,
         push_to_hub=push_to_hub,
