@@ -1,56 +1,63 @@
+import re
 import numpy as np
-import torch
-from transformers import PreTrainedTokenizer
 
 from bert_score import BERTScorer
 
 from backend.core.preprocess import normalize_greek, remove_punctuation
 from models.bert.finetuning import get_model_config
-from packages.hcb_infilling.hcb_infilling.metrics import (
-    score_batch,
-)
 
 _scorers: dict[str, BERTScorer] = {}
+
+# Modelli con baseline pre-calcolata nella libreria bert-score.
+# Per tutti gli altri (es. pranaydeeps/Ancient-Greek-BERT) rescale_with_baseline=False.
+_MODELS_WITH_BASELINE = {
+    "bert-base-uncased",
+    "bert-base-cased",
+    "bert-large-uncased",
+    "bert-large-cased",
+    "roberta-base",
+    "roberta-large",
+    "xlm-roberta-base",
+    "xlm-roberta-large",
+    "xlnet-base-cased",
+    "xlnet-large-cased",
+    "microsoft/deberta-xlarge-mnli",
+    "microsoft/deberta-large-mnli",
+}
 
 
 def get_scoring_model_for_training(training_checkpoint: str) -> str:
     """
     Seleziona un modello di scoring diverso da quello in training per evitare bias.
     """
-
-    # Mappa dei modelli disponibili, forzo tutti i modelli ad usare ancient-greek-bert per accentrare la valutazione usando il solito modello "terzo"
+    # Mappa dei modelli disponibili: forza tutti i modelli ad usare ancient-greek-bert
+    # per accentrare la valutazione usando il solito modello "terzo".
     models = {
-        "CNR-ILC/gs-GreBerta": "pranaydeeps/Ancient-Greek-BERT",
-        "CNR-ILC/gs-aristoBERTo": "pranaydeeps/Ancient-Greek-BERT",
-        "CNR-ILC/gs-Logion": "pranaydeeps/Ancient-Greek-BERT",
+        "cnr-ilc/gs-greberta": "pranaydeeps/Ancient-Greek-BERT",
+        "cnr-ilc/gs-aristoberto": "pranaydeeps/Ancient-Greek-BERT",
+        "cnr-ilc/gs-logion": "pranaydeeps/Ancient-Greek-BERT",
     }
 
-    if "CNR-ILC/gs-GreBerta" in training_checkpoint:
-        return models["CNR-ILC/gs-GreBerta"]
-    elif "CNR-ILC/gs-aristoBERTo" in training_checkpoint:
-        return models["CNR-ILC/gs-aristoBERTo"]
-    elif "CNR-ILC/gs-Logion" in training_checkpoint:
-        return models["CNR-ILC/gs-Logion"]
-    else:
-        return models["CNR-ILC/gs-GreBerta"]
+    key = training_checkpoint.lower()
+    for k, v in models.items():
+        if k in key:
+            return v
+
+    # Fallback: usa sempre Ancient-Greek-BERT come scorer di default
+    return "pranaydeeps/Ancient-Greek-BERT"
 
 
 def _get_contextual_scorer(model_name: str) -> BERTScorer:
     global _scorers
     if model_name not in _scorers:
-        try:
-            _scorers[model_name] = BERTScorer(
-                model_type=model_name,
-                lang="el",
-                rescale_with_baseline=True,
-            )
-        except KeyError:
-            # Nessuna baseline pre-calcolata per questo modello: disabilita il rescaling
-            _scorers[model_name] = BERTScorer(
-                model_type=model_name,
-                lang="el",
-                rescale_with_baseline=False,
-            )
+        # Usa rescale_with_baseline solo per modelli con baseline pre-calcolata.
+        # pranaydeeps/Ancient-Greek-BERT non è nella lista → rescale=False.
+        has_baseline = model_name in _MODELS_WITH_BASELINE
+        _scorers[model_name] = BERTScorer(
+            model_type=model_name,
+            lang="el",
+            rescale_with_baseline=has_baseline,
+        )
     return _scorers[model_name]
 
 
