@@ -400,7 +400,7 @@ def pipeline_finetuning(
         dataloader_drop_last=True,
         dataloader_num_workers=16,
         dataloader_pin_memory=True,
-        warmup_steps=0.06,
+        warmup_steps=0.1,
         save_total_limit=1,
         hub_model_id=checkpoint if push_to_hub else None,
         push_to_hub=push_to_hub,
@@ -411,7 +411,7 @@ def pipeline_finetuning(
     num_training_steps = (
         len(lm_datasets["train"]) // batch_size
     ) * epochs
-    num_warmup_steps = int(0.06 * num_training_steps)
+    num_warmup_steps = int(0.1 * num_training_steps)
 
     # Ottimizzatore custom con weight decay selettivo
     # (no decay su bias e LayerNorm, come da best practice BERT/AdamW)
@@ -440,7 +440,7 @@ def pipeline_finetuning(
         eval_dataset=lm_datasets["dev"],
         data_collator=data_collator,
         optimizers=(optimizer, scheduler),
-        callbacks=[hcb_callback, EarlyStoppingCallback(early_stopping_patience=2)],
+        callbacks=[hcb_callback, EarlyStoppingCallback(early_stopping_patience=3)],
     )
 
     # Training
