@@ -11,6 +11,11 @@ poetry.lock
 **/__pycache__/
 .python-version
 
+# uv 
+.venv/
+venv/
+uv.lock
+
 # Configurazioni locali
 *.env
 .env.*
