@@ -177,11 +177,12 @@ def fill_mask(
                 all_candidates.append((token_ids, final_score))
                 continue
 
-            decoded = (
-                tokenizer.decode(token_ids, skip_special_tokens=True)
-                .replace(" ", "")
-                .replace("##", "")
-            )
+            decoded = tokenizer.decode(token_ids, skip_special_tokens=True)
+            
+            # sanitizzazione per confronto stringhe: rimuoviamo artefatti di tokenizzazione come 
+            # "##" o "Ġ" prodotti da tokenizzatori WordPiece o Byte-Pair Encoding, e normalizziamo spazi bianchi e caratteri invisibili
+            decoded = decoded.replace("##", "").replace("Ġ", "").replace("Ċ", "")
+            decoded = re.sub(r'[\s\u200B-\u200D\uFEFF]', '', decoded)
             
             if not decoded.strip():
                 continue

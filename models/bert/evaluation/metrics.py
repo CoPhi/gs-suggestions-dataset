@@ -87,8 +87,8 @@ def reconstruct_context(
     """
     pattern = r"\[\.+\]"
 
-    reconstructed = re.sub(pattern, suggestion, context_with_gap)
-
+    reconstructed = re.sub(pattern, lambda _: suggestion, context_with_gap)
+    
     if window_size <= 0:
         return reconstructed
 
