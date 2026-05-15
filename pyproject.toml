@@ -33,6 +33,7 @@ dependencies = [
     "lxml>=5.4.0",
     "huggingface-hub>=1.10.2",
     "pydantic>=2.12.5",
+    "seaborn>=0.13.2",
 ]
 
 [tool.uv]
