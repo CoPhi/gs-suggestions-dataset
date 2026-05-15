@@ -1,6 +1,6 @@
 import re
 import numpy as np
-
+import torch
 from bert_score import BERTScorer
 
 from backend.core.preprocess import normalize_greek, remove_punctuation
@@ -54,15 +54,13 @@ def get_scoring_model_for_training(training_checkpoint: str) -> str:
 def _get_contextual_scorer(model_name: str) -> BERTScorer:
     global _scorers
     if model_name not in _scorers:
-        has_baseline = model_name in _MODELS_WITH_BASELINE
-        num_layers = _MODEL_NUM_LAYERS.get(
-            model_name
-        )  # None se il modello è già in model2layers
+        device = "cuda" if torch.cuda.is_available() else "cpu"
         _scorers[model_name] = BERTScorer(
             model_type=model_name,
             lang="el",
-            num_layers=num_layers,
-            rescale_with_baseline=has_baseline,
+            device=device,
+            num_layers=_MODEL_NUM_LAYERS.get(model_name),
+            rescale_with_baseline=model_name in _MODELS_WITH_BASELINE,
         )
     return _scorers[model_name]
 
