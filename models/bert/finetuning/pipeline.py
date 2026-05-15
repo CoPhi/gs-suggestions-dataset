@@ -111,28 +111,27 @@ def prepare_data(
         )
 
     def group_texts(examples):
+        # Concateniamo tutti i testi del batch in un unico lungo dizionario di array
         concatenated = {k: list(chain(*examples[k])) for k in examples.keys()}
         total_length = len(concatenated["input_ids"])
 
-        if total_length % chunk_size != 0:
-            padding_length = chunk_size - (total_length % chunk_size)
-            for key in concatenated:
-                if key == "attention_mask":
-                    pad_value = 0
-                elif key == "labels":
-                    pad_value = -100  # ignorato dalla CrossEntropyLoss
-                else:
-                    pad_value = tokenizer.pad_token_id
-                concatenated[key] += [pad_value] * padding_length
-
-        total_length = (len(concatenated["input_ids"]) // chunk_size) * chunk_size
+        # DROP REMAINDER: Arrotondiamo per difetto al multiplo più vicino di chunk_size.
+        # Scartiamo l'ultimo frammento se è più corto del chunk_size per evitare rumore 
+        # e padding non necessario nei tensori di addestramento.
+        total_length = (total_length // chunk_size) * chunk_size
+        
+        # Suddividiamo l'array concatenato in blocchi (chunk) di lunghezza esatta
         result = {
             k: [t[i : i + chunk_size] for i in range(0, total_length, chunk_size)]
             for k, t in concatenated.items()
         }
+        
+        # Per il task MLM, passiamo l'input non mascherato come 'labels'.
+        # La maschera vera e propria verrà applicata dinamicamente dal DataCollatorForSpanMLM.
         result["labels"] = result["input_ids"].copy()
+        
         return result
-
+    
     lm_datasets = DatasetDict(
         {
             split_name: ds.map(

@@ -48,15 +48,15 @@ BERT_MODEL_CONFIG = {
     "CNR-ILC/gs-aristoBERTo": {
         "remove_punct": True,
         "strip_diacritics": True,
-        "case_folding": "upper",
+        "case_folding": "lower",
     },
     "CNR-ILC/gs-GreBerta": {
-        "remove_punct": False,
-        "strip_diacritics": False,
-        "case_folding": "none",
+        "remove_punct": True,
+        "strip_diacritics": True,
+        "case_folding": "lower",
     },
     "CNR-ILC/gs-Logion": {
-        "remove_punct": False,
+        "remove_punct": True,
         "strip_diacritics": True,
         "case_folding": "lower",
     },
