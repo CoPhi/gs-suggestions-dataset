@@ -398,7 +398,7 @@ def pipeline_finetuning(
         logging_steps=logging_steps,
         eval_accumulation_steps=4,
         dataloader_drop_last=True,
-        dataloader_num_workers=16,
+        dataloader_num_workers=4,
         dataloader_pin_memory=True,
         warmup_steps=0.1,
         save_total_limit=1,
