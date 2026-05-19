@@ -40,8 +40,8 @@ from models.bert.dataset.dev_set import DevCase
 from models.bert.finetuning import get_model_config, GAP_TOKEN, WANDB_PROJECT
 from models.bert.finetuning.callback import HCBEvaluationCallback
 from models.bert.finetuning.collator import DataCollatorForSpanMLM
-from models.bert.evaluation.metrics import reset_scorer_cache
-from models.bert.inference.predict import fill_mask
+from models.bert.evaluation.metrics import reset_scorer_cache, evaluate_contextual_similarity
+from models.bert.inference.predict import fill_mask, get_contextual_embeddings
 
 import wandb
 
@@ -235,7 +235,7 @@ def _build_optimizer(
     return AdamW(optimizer_grouped_parameters, lr=lr)
 
 
-def _evaluate_hcb_on_split(
+def evaluate_metrics_on_test_set(
     split_name: str,
     cases: list[DevCase],
     model,
@@ -244,11 +244,12 @@ def _evaluate_hcb_on_split(
     max_cases: int | None = None,
 ) -> dict[str, float]:
     """
-    Esegue la valutazione HCB (TopK + BERTscore) su un insieme di DevCase.
+    Esegue la valutazione completa (TopK, BERTscore, Cosine Similarity Contestuale) su un insieme di test.
     """
     from models.bert.evaluation.metrics import (
         evaluate_topK_text,
         evaluate_bertscore_topk_text,
+        evaluate_cosine_similarity_topk,
     )
 
     pool = cases[:max_cases] if max_cases else cases
@@ -257,6 +258,7 @@ def _evaluate_hcb_on_split(
     predictions_text: list[list[tuple[str, float]]] = []
     gold_labels: list[str] = []
     contexts: list[str] = []
+    all_similarities: list[list[float]] = []
 
     for case in pool:
         try:
@@ -271,12 +273,36 @@ def _evaluate_hcb_on_split(
                 method="modified_best_to_worst",
                 return_raw=False,
             )
+            
+            # --- INTEGRAZIONE COSINE SIMILARITY ---
+            cand_texts = [s[0] for s in suggestions]
+            
+            if cand_texts:
+                cand_embs = get_contextual_embeddings(
+                    text_with_gap=case.x,
+                    candidates=cand_texts,
+                    model=model,
+                    tokenizer=tokenizer,
+                )
+                
+                gold_emb = get_contextual_embeddings(
+                    text_with_gap=case.x,
+                    candidates=[case.y],
+                    model=model,
+                    tokenizer=tokenizer,
+                )[0]
+                
+                similarities = evaluate_contextual_similarity(cand_embs, gold_emb)
+                all_similarities.append(similarities)
+            else:
+                all_similarities.append([])
+
             predictions_text.append(suggestions)
             gold_labels.append(case.y)
             contexts.append(case.x)
         except Exception as e:
-            print(f"[HCB Error] fill_mask ha generato un'eccezione: {e}")
-            print(f"[HCB Error] Case: {case}")
+            print(f"[Eval Error] fill_mask/embeddings ha generato un'eccezione: {e}")
+            print(f"[Eval Error] Case: {case}")
             continue
 
     if not predictions_text:
@@ -294,27 +320,27 @@ def _evaluate_hcb_on_split(
         checkpoint=checkpoint
     )
     
+    # 3. Calcolo Cosine Similarity @K
+    cos_sim_metrics = evaluate_cosine_similarity_topk(
+        similarities_list=all_similarities,
+        k_values=[1, 5, 10, 20]
+    )
+    
     # Uniamo le metriche
-    all_metrics = {**topk_metrics, **bert_s}
+    all_metrics = {
+        **topk_metrics, 
+        **bert_s,
+        **cos_sim_metrics
+    }
 
-    # Aggiorniamo il print per mostrare anche il Top-1 Exact Match
     print(
-        f"[HCB {split_name}] "
-        f"Top-1 EM: {all_metrics.get('top1', 0):.2f}% | "
-        f"Top-5 EM: {all_metrics.get('top5', 0):.2f}% | "
-        f"Top-10 EM: {all_metrics.get('top10', 0):.2f}% | "
-        f"Top-20 EM: {all_metrics.get('top20', 0):.2f}% | "
-        f"BS-F1@1: {bert_s.get('bertscore_f1_top1', 0):.2f}% (mean: {bert_s.get('bertscore_f1_top1_mean', 0):.2f}%)| "
-        f"BS-F1@5: {bert_s.get('bertscore_f1_top5', 0):.2f}% (mean: {bert_s.get('bertscore_f1_top5_mean', 0):.2f}%) | "
-        f"BS-F1@10: {bert_s.get('bertscore_f1_top10', 0):.2f}% (mean: {bert_s.get('bertscore_f1_top10_mean', 0):.2f}%) | "
-        f"BS-F1@20: {bert_s.get('bertscore_f1_top20', 0):.2f}% (mean: {bert_s.get('bertscore_f1_top20_mean', 0):.2f}%)"
+        f"[{split_name.upper()} SET]\n"
+        f"  Exact Match:   Top-1 EM: {all_metrics.get('top1', 0):.2f}% | Top-5 EM: {all_metrics.get('top5', 0):.2f}% | Top-10 EM: {all_metrics.get('top10', 0):.2f}% | Top-20 EM: {all_metrics.get('top20', 0):.2f}%\n"
+        f"  BERTScore:     F1@1: {all_metrics.get('bertscore_f1_top1', 0):.2f}% | F1@5: {all_metrics.get('bertscore_f1_top5', 0):.2f}% | F1@10: {all_metrics.get('bertscore_f1_top10', 0):.2f}% | F1@20: {all_metrics.get('bertscore_f1_top20', 0):.2f}%\n"
+        f"  CosSim (Max):  @1: {all_metrics.get('cos_sim_top1_max', 0):.2f}% | @5: {all_metrics.get('cos_sim_top5_max', 0):.2f}% | @10: {all_metrics.get('cos_sim_top10_max', 0):.2f}% | @20: {all_metrics.get('cos_sim_top20_max', 0):.2f}%\n"
+        f"  CosSim (Mean): @1: {all_metrics.get('cos_sim_top1_mean', 0):.2f}% | @5: {all_metrics.get('cos_sim_top5_mean', 0):.2f}% | @10: {all_metrics.get('cos_sim_top10_mean', 0):.2f}% | @20: {all_metrics.get('cos_sim_top20_mean', 0):.2f}%"
     )
     return all_metrics
-
-    print(
-        f"[HCB {split_name}] "
-        
-    )
 
 
 def pipeline_finetuning(
@@ -455,7 +481,7 @@ def pipeline_finetuning(
 
     # Valutazione HCB finale sul test set
     print("Valutazione HCB finale sul TEST set...")
-    test_metrics = _evaluate_hcb_on_split(
+    test_metrics = evaluate_metrics_on_test_set(
         split_name="test",
         cases=hcb_test_cases,
         model=model,

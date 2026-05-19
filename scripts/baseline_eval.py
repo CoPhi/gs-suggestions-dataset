@@ -22,7 +22,7 @@ from datasets import load_dataset
 from models.bert.dataset import EVAL_CHECKPOINT
 from models.bert.dataset.dev_set import DevCase
 from models.bert.finetuning import BASE_MODEL_MAP, GAP_TOKEN
-from models.bert.finetuning.pipeline import _evaluate_hcb_on_split
+from models.bert.finetuning.pipeline import evaluate_metrics_on_test_set
 from models.bert.evaluation.metrics import reset_scorer_cache
 
 # K values usati durante la valutazione (allineati con plot.py e la pipeline di FT)
@@ -65,7 +65,7 @@ def evaluate_all_baselines():
 
     Per ogni modello in BASE_MODEL_MAP:
       1. Carica tokenizer + modello base (pesi vergini)
-      2. Esegue inferenza sul test set via `_evaluate_hcb_on_split`, che applica
+      2. Esegue inferenza sul test set via `evaluate_test_set_metrics`, che applica
          internamente il preprocessing model-specific attraverso `fill_mask`
       3. Calcola EM@K, BERTscore@K (max) e BERTscore@K (mean) per K=[1,5,10,20]
       4. Stampa le entry nel formato `PRE_FT_BASELINE` di plot.py
@@ -102,7 +102,7 @@ def evaluate_all_baselines():
         #    Passiamo `checkpoint=finetuned_ckpt` così fill_mask legge la config
         #    model-specific (case_folding, strip_diacritics, remove_punct) corretta.
         #    Il dataset viene valutato con K=20 suggerimenti per coprire tutti i K.
-        metrics = _evaluate_hcb_on_split(
+        metrics = evaluate_metrics_on_test_set(
             split_name="test_baseline",
             cases=test_cases,
             model=model,
@@ -116,24 +116,29 @@ def evaluate_all_baselines():
         # 6. Costruzione delle entry nel formato PRE_FT_BASELINE di plot.py
         print(f"\n[!] ENTRY PRE_FT_BASELINE per {model_name_short} [!]")
         for k in K_VALUES:
-            em_val   = metrics.get(f"top{k}", 0.0)
-            bs_max   = metrics.get(f"bertscore_f1_top{k}", 0.0)
-            bs_mean  = metrics.get(f"bertscore_f1_top{k}_mean", 0.0)
+            em_val = metrics.get(f"top{k}", 0.0)
+            bs_max = metrics.get(f"bertscore_f1_top{k}", 0.0)
+            bs_mean = metrics.get(f"bertscore_f1_top{k}_mean", 0.0)
+            cossim_max = metrics.get(f"cos_sim_top{k}_max", 0.0)
+            cossim_mean = metrics.get(f"cos_sim_top{k}_mean", 0.0)
 
             entry = {
                 "Modello": model_name_short,
-                "Stato":   "Pre-FT",
-                "K":       k,
-                "EM":      round(em_val, 4),
-                "BS_Max":  round(bs_max, 4),
+                "Stato": "Pre-FT",
+                "K": k,
+                "EM": round(em_val, 4),
+                "BS_Max": round(bs_max, 4),
                 "BS_Mean": round(bs_mean, 4),
+                "CosSim_Max": round(cossim_max, 4),
+                "CosSim_Mean": round(cossim_mean, 4),
             }
             all_results.append(entry)
 
             # Stringa pronta per copia-incolla in PRE_FT_BASELINE di plot.py
             print(
                 f'    {{"Modello": "{model_name_short}", "Stato": "Pre-FT", "K": {k}, '
-                f'"EM": {em_val:.4f}, "BS_Max": {bs_max:.4f}, "BS_Mean": {bs_mean:.4f}}},'
+                f'"EM": {em_val:.4f}, "BS_Max": {bs_max:.4f}, "BS_Mean": {bs_mean:.4f}, '
+                f'"CosSim_Max": {cossim_max:.4f}, "CosSim_Mean": {cossim_mean:.4f}}},'
             )
 
         # 7. Liberazione della VRAM prima del prossimo modello

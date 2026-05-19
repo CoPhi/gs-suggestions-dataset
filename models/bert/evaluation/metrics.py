@@ -280,3 +280,98 @@ def evaluate_bertscore_topk_text(
                 metrics[f"bertscore_f1_top{k}_mean"] = 0.0
 
     return metrics
+
+
+def evaluate_contextual_similarity(
+    candidate_embeddings: list[torch.Tensor],
+    gold_embedding: torch.Tensor,
+) -> list[float]:
+    """
+    Calcola la similarità coseno tra ciascun candidato (già aggregato in un vettore 1D
+    tramite mean-pooling) e la gold label.
+    Ottimizzato per elaborazione vettoriale in parallelo (singolo operatore CUDA).
+    
+    Args:
+        candidate_embeddings: Lista di tensori [hidden_dim] generati da get_contextual_embeddings
+        gold_embedding: Tensore [hidden_dim] della gold label
+        
+    Returns:
+        Lista di similarità coseno [-1, 1] (float).
+    """
+    import torch.nn.functional as F
+    import torch
+    
+    if not candidate_embeddings:
+        return []
+        
+    # Riconduciamo tutti i candidati a vettori 1D [hidden_dim] (fallback di sicurezza)
+    pooled_candidates = [
+        torch.mean(emb, dim=0) if emb.dim() != 1 else emb 
+        for emb in candidate_embeddings
+    ]
+    
+    # Impiliamo in un unico tensore 2D: [num_candidates, hidden_dim]
+    candidates_tensor = torch.stack(pooled_candidates) 
+    gold_unsqueezed = gold_embedding.unsqueeze(0) # Shape: [1, hidden_dim]
+    
+    # Calcolo in parallelo su GPU tramite un unico kernel CUDA
+    similarities = F.cosine_similarity(candidates_tensor, gold_unsqueezed, dim=1)
+    
+    return similarities.cpu().tolist()
+
+
+def evaluate_cosine_similarity_topk(
+    similarities_list: list[list[float]],
+    k_values: list[int] = [1, 5, 10, 20],
+) -> dict[str, float]:
+    """
+    Calcola la Cosine Similarity @K (massima e media) per diversi valori di K.
+    
+    Args:
+        similarities_list: Lista contenente, per ogni sample, la lista delle 
+                           similarità coseno tra i candidati e la gold label.
+        k_values: Lista di valori K per cui calcolare le metriche.
+        
+    Returns:
+        Dizionario con metriche 'cos_sim_topK_max' e 'cos_sim_topK_mean' (in %).
+    """
+    import numpy as np
+    
+    if not similarities_list:
+        return {f"cos_sim_top{k}_{metric}": 0.0 for k in k_values for metric in ["max", "mean"]}
+        
+    max_k = max(k_values)
+    num_samples = len(similarities_list)
+    
+    # Riempiamo una matrice (num_samples, max_k) con NaN per gestire array sbilanciati
+    scores = np.full((num_samples, max_k), np.nan)
+    
+    for i, sims in enumerate(similarities_list):
+        k_limit = min(len(sims), max_k)
+        if k_limit > 0:
+            scores[i, :k_limit] = sims[:k_limit]
+            
+    metrics = {}
+    for k in k_values:
+        # Punteggi top-K per il K corrente
+        slice_k = scores[:, :k]
+        
+        with np.errstate(all="ignore"):
+            # Righe valide (campioni che hanno almeno una similarità tra i primi K)
+            valid_rows = ~np.isnan(slice_k).all(axis=1)
+            
+            if np.any(valid_rows):
+                # Max @K (ignora i NaN)
+                k_max = np.nanmax(slice_k[valid_rows], axis=1)
+                metrics[f"cos_sim_top{k}_max"] = k_max.mean() * 100.0
+                
+                # Mean @K
+                k_mean = np.nanmean(slice_k[valid_rows], axis=1)
+                metrics[f"cos_sim_top{k}_mean"] = k_mean.mean() * 100.0
+            else:
+                metrics[f"cos_sim_top{k}_max"] = 0.0
+                metrics[f"cos_sim_top{k}_mean"] = 0.0
+                
+    return metrics
+
+
