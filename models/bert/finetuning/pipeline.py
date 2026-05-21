@@ -285,9 +285,10 @@ def evaluate_metrics_on_test_set(
                     tokenizer=tokenizer,
                 )
                 
+                gold_text = " ".join(case.y) if isinstance(case.y, list) else case.y
                 gold_emb = get_contextual_embeddings(
                     text_with_gap=case.x,
-                    candidates=[case.y],
+                    candidates=[gold_text],
                     model=model,
                     tokenizer=tokenizer,
                 )[0]
