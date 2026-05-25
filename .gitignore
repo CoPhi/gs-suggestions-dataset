@@ -30,3 +30,6 @@ data/*
 
 # wandb logs
 wandb/
+
+# Scratch files
+scratch/pipeline_operations_log.md

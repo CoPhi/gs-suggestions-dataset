@@ -20,6 +20,7 @@ La configurazione model-specific è centralizzata in
 from collections import defaultdict
 import math
 import random
+from typing import Any
 
 import torch
 from itertools import chain
@@ -31,6 +32,8 @@ from transformers import (
     TrainingArguments,
     Trainer,
     get_linear_schedule_with_warmup,
+    PreTrainedModel,
+    PreTrainedTokenizer,
 )
 from torch.optim import AdamW
 
@@ -83,9 +86,9 @@ def _init_wandb(
 
 def prepare_data(
     checkpoint: str,
-    tokenizer,
+    tokenizer: PreTrainedTokenizer,
     chunk_size: int = 128,
-):
+) -> tuple[DatasetDict, list[DevCase], list[DevCase]]:
     """
     Carica il training set e l'eval set da HuggingFace Hub, applica la
     normalizzazione model-specific e raggruppa in chunk per il training MLM.
@@ -110,24 +113,20 @@ def prepare_data(
             checkpoint,
         )
 
-    def group_texts(examples):
-        # Concateniamo tutti i testi del batch in un unico lungo dizionario di array
-        concatenated = {k: list(chain(*examples[k])) for k in examples.keys()}
+    def group_texts(examples: dict[str, list[Any]]) -> dict[str, list[Any]]:
+        # Consideriamo solo le colonne utili per MLM presenti nel batch (es. input_ids, attention_mask)
+        keys_to_group = [k for k in ["input_ids", "attention_mask", "token_type_ids"] if k in examples]
+        concatenated = {k: list(chain(*examples[k])) for k in keys_to_group}
         total_length = len(concatenated["input_ids"])
 
-        # DROP REMAINDER: Arrotondiamo per difetto al multiplo più vicino di chunk_size.
-        # Scartiamo l'ultimo frammento se è più corto del chunk_size per evitare rumore 
-        # e padding non necessario nei tensori di addestramento.
         total_length = (total_length // chunk_size) * chunk_size
         
-        # Suddividiamo l'array concatenato in blocchi (chunk) di lunghezza esatta
         result = {
             k: [t[i : i + chunk_size] for i in range(0, total_length, chunk_size)]
             for k, t in concatenated.items()
         }
         
-        # Per il task MLM, passiamo l'input non mascherato come 'labels'.
-        # La maschera vera e propria verrà applicata dinamicamente dal DataCollatorForSpanMLM.
+        # The mask will be applied dynamically by the DataCollatorForSpanMLM
         result["labels"] = result["input_ids"].copy()
         
         return result
@@ -168,10 +167,10 @@ def prepare_data(
 
 
 def stratified_sample_by_gap(
-    cases: list,
+    cases: list[DevCase],
     n: int,
     seed: int = 42
-) -> list:
+) -> list[DevCase]:
     """
     Esegue un campionamento stratificato per gap_length, mantenendo la distribuzione
     originale dei gap_length nel pool di DevCase.
@@ -194,7 +193,7 @@ def stratified_sample_by_gap(
 
 
 def _build_optimizer(
-    model,
+    model: PreTrainedModel,
     lr: float,
     weight_decay: float = 0.01,
 ) -> AdamW:
@@ -238,8 +237,8 @@ def _build_optimizer(
 def evaluate_metrics_on_test_set(
     split_name: str,
     cases: list[DevCase],
-    model,
-    tokenizer,
+    model: PreTrainedModel,
+    tokenizer: PreTrainedTokenizer,
     checkpoint: str,
     max_cases: int | None = None,
 ) -> dict[str, float]:
@@ -353,7 +352,7 @@ def pipeline_finetuning(
     lr: float = 2e-5,
     logging_steps: int = 50,
     push_to_hub: bool = False,
-):
+) -> Trainer:
     """
     Esegue la pipeline completa di finetuning MLM.
     """

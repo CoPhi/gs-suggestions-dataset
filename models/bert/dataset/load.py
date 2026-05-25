@@ -206,7 +206,7 @@ def prepare_dataset_for_model(
         .map(
             partial(_tokenize_example, tokenizer=tokenizer),
             batched=True,
-            remove_columns=["text"],
+            remove_columns=raw_dataset.column_names,
             desc=f"Tokenizing [{checkpoint}]",
             num_proc=num_proc,
         )
