@@ -1,6 +1,6 @@
 import json
 import random
-from typing import Optional
+from typing import Optional, Union, TypedDict, Any
 from sklearn.model_selection import train_test_split
 from backend.core import _CASE_FOLDING, sentence_tokenizer, _LANGUAGE
 from tqdm import tqdm
@@ -16,6 +16,11 @@ from backend.core.preprocess import (
     get_tokens_from_clean_text,
     remove_punctuation,
 )
+
+
+class SentenceRecord(TypedDict):
+    sentence_tokens: list[str]
+    metadata: dict[str, str | int]
 
 
 def check_ab(ab: dict, corpus_set: Optional[list[str]] = None) -> bool:
@@ -177,7 +182,8 @@ def get_sentences(
     case_folding: _CASE_FOLDING = "upper",
     normalize: bool = True,
     strip_diacritics: bool = True,
-) -> list[list[str]]:
+    metadata: bool = False,
+) -> Union[list[SentenceRecord], list[list[str]]]:
     """
     Estrae e processa le frasi di addestramento da una lista di blocchi anonimi fornita.
     Questo metodo filtra e processa il 'training_text' da ciascun oggetto nella lista di input 'abs'.
@@ -206,6 +212,9 @@ def get_sentences(
 
     for obj in tqdm(abs, desc="Processing anonymous blocks", unit="ab", leave=False):
         training_text = obj.get("training_text")
+        meta = None
+        if metadata:
+            meta = get_metadata(obj)
 
         # obj.get e check string per il fail fast.
         if obj.get("language") == _LANGUAGE and training_text:
@@ -217,6 +226,28 @@ def get_sentences(
             )
             for sent in sentence_tokenizer.tokenize(text=clean_text):
                 if sent:
-                    sentences.append(process_sent(sent))
+                    if metadata:
+                        sentences.append(SentenceRecord(sentence_tokens=process_sent(sent), metadata=meta))
+                    else:
+                        sentences.append(process_sent(sent))
 
     return sentences
+
+
+def get_metadata(ab: dict[str, Any]) -> dict[str, str | int]:
+    """
+    Estrae i dati da un blocco anonimo.
+    Args:
+        ab (dict): Un blocco anonimo.
+    Returns:
+        dict: Un dizionario contenente i dati estratti dal blocco anonimo.
+    """
+    return {
+        "corpus_id": ab.get("corpus_id"),
+        "file_id": ab.get("file_id"),
+        "block_index": ab.get("block_index"),
+        "id": ab.get("id"),
+        "title": ab.get("title"),
+        "material": ab.get("material"),
+        "language": ab.get("language"),
+    }

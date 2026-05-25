@@ -8,17 +8,30 @@ model-specific avviene a valle in `load.py` tramite `prepare_dataset_for_model`.
 
 from __future__ import annotations
 
+from typing import Any
 from datasets import Dataset
 from tqdm import tqdm
 from backend.core import UNK_TOKEN
-from backend.core.cleaner import get_sentences, get_tokens_from_clean_text
+from backend.core.cleaner import get_sentences, get_tokens_from_clean_text, SentenceRecord
 from models.bert.finetuning import MIN_SENT_TOKEN_TRESHOLD
 
 # Helpers interni
 
 
-def _join_tokens(tokens: list[str]) -> str:
-    return " ".join(tokens)
+def _create_flat_record(record: SentenceRecord) -> dict[str, Any]:
+    """
+    Unisce i token della frase in un'unica stringa separata da spazi ("text") e 
+    appiattisce tutti i campi di metadati del blocco anonimo al primo livello del dizionario.
+    
+    Args:
+        record: Il SentenceRecord contenente i token e i metadati da formattare.
+    Returns:
+        dict: Un dizionario piatto pronto per essere inserito nel Dataset Hugging Face.
+    """
+    flat_record: dict[str, Any] = {"text": " ".join(record["sentence_tokens"])}
+    if record.get("metadata"):
+        flat_record.update(record["metadata"])
+    return flat_record
 
 # Filtraggio qualità (word-level, model-agnostic)
 
@@ -32,7 +45,7 @@ def is_quality_sentence(
 
     Una frase è accettabile se:
     - ha almeno MIN_SENT_TOKEN_TRESHOLD token
-    - la frazione di token [UNK] è inferiore a *unk_ratio_threshold*
+    - la frazione di token <UNK> è inferiore a *unk_ratio_threshold*
 
     Args:
         tokens:               Lista di word token della frase.
@@ -45,14 +58,14 @@ def is_quality_sentence(
         return False
     
     unk_count = sum(1 for t in tokens if t == UNK_TOKEN)
-    return unk_count < len(tokens) * unk_ratio_threshold
+    return unk_count <= len(tokens) * unk_ratio_threshold
     
 # Costruzione del training set
 
-def build_train_sentences(abs_: list) -> list[str]:
+def build_train_sentences(abs_: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """
     Estrae le frasi grezze dai blocchi anonimi MAAT applicando solo
-    la pulizia editoriale (markup rimosso, lacune → [UNK]).
+    la pulizia editoriale (markup rimosso, lacune → <UNK>).
 
     Diacritici, punteggiatura e casing originale sono **preservati**
     per garantire la compatibilità con qualsiasi tokenizer BERT.
@@ -61,39 +74,40 @@ def build_train_sentences(abs_: list) -> list[str]:
         abs_: Lista di blocchi anonimi (filtrati per language == "grc").
 
     Returns:
-        Lista di stringhe, una per frase accettata dal filtro qualità.
+        Lista di dizionari piatti, ciascuno rappresentante una frase con i relativi metadati.
     """
-    sentences: list[str] = []
-    for sent_tkns in tqdm(
+    sentences: list[dict[str, Any]] = []
+    for record in tqdm(
         get_sentences(
             abs_,
-            case_folding=False,
+            case_folding="none",
             remove_punct=False,
             normalize=False,
             strip_diacritics=False,
+            metadata=True
         ),
         desc="Building train sentences",
         unit="sentence",
         leave=False,
     ):
-        if not is_quality_sentence(sent_tkns):
+        if not is_quality_sentence(record["sentence_tokens"]):
             continue
-        sentences.append(_join_tokens(sent_tkns))
+        sentences.append(_create_flat_record(record))
     return sentences
 
 
-def build_train_set(abs_: list) -> Dataset:
+def build_train_set(abs_: list[dict[str, Any]]) -> Dataset:
     """
     Produce il train set HuggingFace grezzo dal corpus MAAT.
 
     Wrapper di `build_train_sentences` che restituisce un oggetto
-    `Dataset` con colonna 'text', pronto per il push sull'Hub o per
-    la normalizzazione model-specific tramite `prepare_dataset_for_model`.
+    `Dataset` pronto per il push sull'Hub o per la normalizzazione
+    model-specific tramite `prepare_dataset_for_model`.
 
     Args:
         abs_: Lista di blocchi anonimi MAAT.
 
     Returns:
-        Dataset HuggingFace con colonna 'text'.
+        Dataset HuggingFace contenente la frase e tutti i metadati piatti del blocco originario.
     """
-    return Dataset.from_dict({"text": build_train_sentences(abs_)})
+    return Dataset.from_list(build_train_sentences(abs_))
