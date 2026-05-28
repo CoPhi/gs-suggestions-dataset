@@ -287,7 +287,9 @@ def fill_mask(
             
             # sanitizzazione per confronto stringhe: rimuoviamo artefatti di tokenizzazione come 
             # "##" o "Ġ" prodotti da tokenizzatori WordPiece o Byte-Pair Encoding, e normalizziamo spazi bianchi e caratteri invisibili
+            # Nota: 'Ġ' viene prodotto da GreBerta per codificare lo spazio, 'Ċ' per l'interpunzione
             decoded = decoded.replace("##", "").replace("Ġ", "").replace("Ċ", "")
+            # normalizziamo gli spazi bianchi e rimuoviamo caratteri invisibili
             decoded = re.sub(r'[\s\u200B-\u200D\uFEFF]', '', decoded)
             
             if not decoded.strip():
