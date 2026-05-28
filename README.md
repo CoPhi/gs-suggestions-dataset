@@ -34,13 +34,16 @@ cd gs-suggestions-dataset
 ```
 
 ### 2. Environment Variables Configuration
-The project uses environment variables to configure services. Create a `.env` file in the root directory (if not already present) and ensure it has the following variables (example values):
-```env
-MONGO_USERNAME=admin
-MONGO_PASSWORD=greekSchools123
-MONGO_HOST=mongodb
-```
-*(Note: When running locally outside of Docker, you must set `MONGO_HOST=localhost`)*.
+The project uses environment variables to configure services. A template file `.env.example` is provided in the repository.
+
+To set up your environment, copy the `.env.example` file to a new file named `.env` and edit it:
+   ```bash
+   cp .env.example .env
+   ```
+
+*(Note: When running locally outside of Docker, ensure `MONGO_HOST=localhost`)*.
+
+If you want to train new models, you will need to set the `WANDB_API_KEY` and `HF_TOKEN` variables in the `.env` file.
 
 ## 3. Data Integration Pipeline
 
@@ -73,28 +76,58 @@ uv run python -m scripts.tei_pipeline <path_to_your_tei_folder>
 *Note: Both commands will populate the `data/` directory in isolated file chunks (up to 50 MB) in a machine-actionable JSON format, ready for subsequent tasks.*
 
 
-### 4. Running the Project with Docker
-To build and start the entire application (Backend API, Angular Frontend, and MongoDB), simply use the provided `Makefile` command:
-```bash
-make run
-```
-*(This corresponds to running `docker compose up` under the hood).*
+## 4. Running and Testing the Services
 
-Once the containers are running, you can access the services at:
+You can run and test the services in two ways: via Docker (recommended for a full, ready-to-use stack) or by launching the backend and frontend locally for active development.
+
+### Option A: Running the Stack via Docker (Recommended)
+This is the easiest way to test the entire integrated application (Backend API, Angular Frontend, and MongoDB) without manually installing development dependencies.
+
+1. **Start the environment**:
+   ```bash
+   make run
+   ```
+   *(This starts all services in the background using `docker compose up`)*.
+
+2. **Stop the environment**:
+   ```bash
+   make stop
+   ```
+
+3. **Restart the environment**:
+   ```bash
+   make restart
+   ```
+
+Once running, you can access the services at:
 - **Frontend App**: [http://localhost:4200](http://localhost:4200)
-- **Backend API**: [http://localhost:8000](http://localhost:8000)
+- **Backend API**: [http://localhost:8000](http://localhost:8000) (Interactive Swagger Docs at [http://localhost:8000/docs](http://localhost:8000/docs))
 - **MongoDB**: `localhost:27017`
 
 ---
 
-## Local Development Commands
+### Option B: Running Services Locally (For Active Development)
+If you are actively developing or testing changes in the backend or frontend code, it is faster to run the services locally.
 
-The `Makefile` includes additional convenient commands for development:
+1. **Run the Backend API**:
+   ```bash
+   make run-api
+   ```
+   This will start the Uvicorn server on [http://localhost:8000](http://localhost:8000) with auto-reload active.
 
-- **Run the Backend API Locally**: `make run-api` (runs on `http://localhost:8000` via Uvicorn).
-- **Export Python Requirements**: `make requirements`
-- **Build Docker Images manually**: `make build-api` or `make build-frontend`
-- **Frontend details**: Check `frontend/README.md` for specific Angular frontend commands like testing and building.
+2. **Run the Frontend App**:
+   ```bash
+   make run-frontend
+   ```
+   This will automatically verify and install any missing npm dependencies and start the Angular development server on [http://localhost:4200](http://localhost:4200) with Hot Module Replacement (HMR) active.
+
+*(Note: Check `frontend/README.md` for specific Angular testing and advanced commands).*
+
+---
+
+## Changelog
+
+To track the progress of the project, including new features, bug fixes, refactoring, and package updates, you can refer to the [CHANGELOG.md](CHANGELOG.md) file.
 
 ---
 

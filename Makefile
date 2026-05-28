@@ -2,19 +2,18 @@ VERSION := $(shell .venv/bin/python -c "import tomllib; print(tomllib.load(open(
 API_CONTAINER_NAME := gabrielegiannessi/gs-api
 FRONTEND_CONTAINER_NAME := gabrielegiannessi/gs-frontend
 
-
-.PHONY: requirements requirements-api build-api build-frontend run-api run \
+.PHONY: data requirements requirements-api \
+        run-api run-frontend \
+        run stop restart \
+        build-api build-frontend \
         tag-api tag-frontend push-api push-frontend \
-        release-api release-frontend release data
+        release-api release-frontend release
 
+# 1. data ingestion
 
 data:
 	uv run python -m scripts.corpus_downloader
 	uv run python -m scripts.split
-
-
-run-api:
-	uv run uvicorn backend.api.main:app --reload
 
 requirements:
 	uv export --format requirements-txt -o requirements.txt --no-hashes
@@ -26,6 +25,29 @@ requirements-api:
 	grep -v "pkg-resources" requirements.txt.tmp > requirements.txt
 	rm requirements.txt.tmp
 
+# 2. run services locally (development)
+
+run-api:
+	uv run uvicorn backend.api.main:app --reload
+
+frontend/node_modules: frontend/package.json
+	cd frontend && npm install
+	@touch frontend/node_modules
+
+run-frontend: frontend/node_modules
+	cd frontend && npm run start
+
+# 3. multi-container environment
+
+run:
+	docker compose up
+
+stop: 
+	docker compose down
+
+restart: stop run
+
+# 4. docker build images (local/multi-arch)
 
 build-api: requirements
 	docker buildx build \
@@ -37,7 +59,6 @@ build-api: requirements
 		--push \
 		.
 
-
 build-frontend:
 	docker buildx build \
 		--platform linux/amd64,linux/arm64 \
@@ -48,18 +69,13 @@ build-frontend:
 		--push \
 		./frontend
 
-
-run:
-	docker compose up
-
+# docker image deploy & release
 
 tag-api:
 	docker tag $(API_CONTAINER_NAME):latest $(API_CONTAINER_NAME):$(VERSION)
 
-
 tag-frontend:
 	docker tag $(FRONTEND_CONTAINER_NAME):latest $(FRONTEND_CONTAINER_NAME):$(VERSION)
-
 
 push-api:
 	@if ! docker image inspect $(API_CONTAINER_NAME):$(VERSION) > /dev/null 2>&1; then \
@@ -68,7 +84,6 @@ push-api:
 	fi
 	docker push $(API_CONTAINER_NAME):$(VERSION)
 
-
 push-frontend:
 	@if ! docker image inspect $(FRONTEND_CONTAINER_NAME):$(VERSION) > /dev/null 2>&1; then \
 		echo "Image $(FRONTEND_CONTAINER_NAME):$(VERSION) not found."; \
@@ -76,14 +91,11 @@ push-frontend:
 	fi
 	docker push $(FRONTEND_CONTAINER_NAME):$(VERSION)
 
-
 release-api: build-api
 	@echo "API $(VERSION) pubblicata su Docker Hub"
 
-
 release-frontend: build-frontend
 	@echo "Frontend $(VERSION) pubblicato su Docker Hub"
-
 
 release: release-api release-frontend
 	@echo "Release $(VERSION) completata"

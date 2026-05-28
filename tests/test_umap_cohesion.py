@@ -77,7 +77,7 @@ def test_umap_cohesion_comparison():
         tokenizer = AutoTokenizer.from_pretrained(checkpoint)
         model = AutoModelForMaskedLM.from_pretrained(checkpoint)
         
-        # Generiamo i top-K suggerimenti per la lacuna
+        # Generiamo i top-K candidati per la lacuna
         K = 20
         suggestions = fill_mask(
             text=case.x,
@@ -89,7 +89,7 @@ def test_umap_cohesion_comparison():
         )
         
         candidate_labels = [sug[0] for sug in suggestions]
-        print(f"Suggerimenti generati da {label}: {candidate_labels}")
+        print(f"Candidati generati da {label}: {candidate_labels}")
         
         if not candidate_labels:
             print(f"Nessun suggerimento generato per {label}. Salto.\n")
