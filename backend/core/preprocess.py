@@ -14,6 +14,7 @@ from backend.core import (
     MISSING_LINES_REGEX,
     EXPUNCTION_REGEX,
     MARKER_REGEX,
+    LITERAL_MARKER_REGEX,
     UNKNOWN_LEFT_MARKER_REGEX,
     EXTENDED_LINE_RIGHT_MARKER_REGEX,
     VACAT_REGEX,
@@ -743,6 +744,7 @@ def process_markers(text: str) -> str:
     Processa aggiunte di testo <abc> -> abc.
     """
     text = MARKER_REGEX.sub(r"\1", text)
+    text = LITERAL_MARKER_REGEX.sub(r"\1", text)
     text = UNKNOWN_LEFT_MARKER_REGEX.sub(r"<gap/>\1", text)
     text = EXTENDED_LINE_RIGHT_MARKER_REGEX.sub("", text)
     return text.replace("&gt;", "").replace("&lt;", "")

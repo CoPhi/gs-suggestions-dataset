@@ -38,6 +38,7 @@ UNMATCHED_BRACKETS_REGEX = re.compile(r"[\[\]]")
 SUPPLEMENTS_REGEX = re.compile (r"(\[[^\]]+\])")
 MISSING_LINES_REGEX = re.compile(r"⟦-+\⟧")
 MARKER_REGEX = re.compile(r"&lt;(.*?)&gt;")
+LITERAL_MARKER_REGEX = re.compile(r"<(?!gap/?>|UNK>)(.*?)>")
 UNKNOWN_LEFT_MARKER_REGEX = re.compile(r"<gap/>lt;(.*?)&gt;")
 EXTENDED_LINE_RIGHT_MARKER_REGEX = re.compile (r"break=\"no\"/&gt;") #
 EXPUNCTION_REGEX = re.compile(r"\{\{(.*?)\}\}|\{(.*?)\}")

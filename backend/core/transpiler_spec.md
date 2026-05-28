@@ -191,11 +191,12 @@ Questa trasformazione è composita (3 sotto-passi):
 
 #### T11 · Aggiunte editoriali (markers `< >`) — `process_markers`
 
-Composita (4 sotto-passi):
+Composita (5 sotto-passi):
 
 | Sorgente | Output | Regex / Logica |
 |----------|--------|----------------|
 | `&lt;contenuto&gt;` | `contenuto` | `&lt;(.*?)&gt;` → `\1` |
+| `<contenuto>` (letterale) | `contenuto` | `<(?!gap/?>\|UNK>)(.*?)>` → `\1` *(preserva `<gap/>`, `<gap>`, `<UNK>`)* |
 | `<gap/>lt;contenuto&gt;` | `<gap/>contenuto` | Recupera testo a destra di un gap con marker sinistro sconosciuto |
 | `break="no"/&gt;` | ε (rimosso) | Residuo di `<lb break="no"/>` da EpiDoc |
 | `&gt;`, `&lt;` isolati | ε (rimosso) | Pulizia residui |
