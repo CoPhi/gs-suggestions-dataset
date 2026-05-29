@@ -196,41 +196,61 @@ def _build_optimizer(
     model: PreTrainedModel,
     lr: float,
     weight_decay: float = 0.01,
+    num_layers_to_freeze: int = 6, # i primi 6 layer su 12
+    freeze_embeddings: bool = True,
 ) -> AdamW:
     """
-    Costruisce un ottimizzatore AdamW con weight decay selettivo:
-    - weight_decay applicato a tutti i parametri tranne bias e LayerNorm
-      (seguendo la best practice del paper originale BERT/AdamW).
+    Costruisce un ottimizzatore AdamW con weight decay selettivo e supporto al freezing dei layer:
+    - Congela gli embeddings e i primi N layer dell'encoder se specificato.
+    - Applica il weight decay solo ai parametri attivi (escludendo bias e LayerNorm
+      seguendo le best practice del paper originale BERT/AdamW).
 
     Args:
         model: Il modello BERT da ottimizzare.
-        lr: Learning rate.
-        weight_decay: Valore di L2 regularization per i parametri ammissibili.
+        lr: Learning rate per l'ottimizzatore.
+        weight_decay: Valore di L2 regularization per i parametri attivi ammissibili.
+        num_layers_to_freeze: Numero di layer iniziali dell'encoder da congelare (requires_grad = False).
+        freeze_embeddings: Se True, congela i parametri dello strato di embedding.
 
     Returns:
-        Istanza di AdamW con i due gruppi di parametri configurati.
+        Istanza di AdamW con i gruppi di parametri attivi configurati.
     """
-    no_decay = ["bias", "LayerNorm.weight", "LayerNorm.bias"]
+    # Si disabilita il calcolo dei gradienti per il freezing dei layer
+    for name, param in model.named_parameters():
+        # Si congelano gli embeddings
+        if freeze_embeddings and "embeddings" in name:
+            param.requires_grad = False
+            continue
+        
+        # Si congelano i primi N layer dell'encoder
+        is_layer_to_freeze = False
+        for i in range(num_layers_to_freeze):
+            if f"encoder.layer.{i}." in name:
+                is_layer_to_freeze = True
+                break
+        
+        if is_layer_to_freeze:
+            param.requires_grad = False
 
+    no_decay = ["bias", "LayerNorm.weight", "LayerNorm.bias"]
     optimizer_grouped_parameters = [
         {
-            # Parametri con weight decay (pesi delle linear/attention layers)
+            # Parametri attivi con weight decay
             "params": [
                 p for n, p in model.named_parameters()
-                if not any(nd in n for nd in no_decay)
+                if p.requires_grad and not any(nd in n for nd in no_decay)
             ],
             "weight_decay": weight_decay,
         },
         {
-            # Parametri senza weight decay (bias, LayerNorm)
+            # Parametri attivi senza weight decay (bias, LayerNorm attivi)
             "params": [
                 p for n, p in model.named_parameters()
-                if any(nd in n for nd in no_decay)
+                if p.requires_grad and any(nd in n for nd in no_decay)
             ],
             "weight_decay": 0.0,
         },
     ]
-
     return AdamW(optimizer_grouped_parameters, lr=lr)
 
 
