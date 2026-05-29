@@ -105,9 +105,17 @@ def prepare_data(
         (lm_datasets, dev_cases, test_cases): DatasetDict pronti per il Trainer,
         lista DevCase per il dev set e lista DevCase per il test set.
     """
-    print(f"Loading raw corpus from '{CORPUS_CHECKPOINT}'...")
-    corpus_dataset = load_dataset(CORPUS_CHECKPOINT)
 
+    tlg_dataset = load_dataset("CNR-ILC/gs-dataset-tlg")
+
+    print(f"Loading raw corpus from '{CORPUS_CHECKPOINT}'...")
+    general_corpus = load_dataset(CORPUS_CHECKPOINT)
+    
+    corpus_dataset = DatasetDict({
+        "train": tlg_dataset["train"],
+        "dev": general_corpus["dev"]
+    })
+    
     print(f"Applying model-specific normalization for [{checkpoint}]...")
     normalized_datasets = {}
     for split_name in corpus_dataset:
