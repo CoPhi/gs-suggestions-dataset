@@ -6,9 +6,6 @@ import os
 
 import random
 
-# Aggiunge la root del progetto al PYTHONPATH per consentire le importazioni
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-
 from backend.core.cleaner import load_abs
 from backend.core.preprocess import (
     process_integrations,

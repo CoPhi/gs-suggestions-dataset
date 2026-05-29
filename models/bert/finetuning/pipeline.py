@@ -43,7 +43,10 @@ from models.bert.dataset.dev_set import DevCase
 from models.bert.finetuning import get_model_config, GAP_TOKEN, WANDB_PROJECT
 from models.bert.finetuning.callback import HCBEvaluationCallback
 from models.bert.finetuning.collator import DataCollatorForSpanMLM
-from models.bert.evaluation.metrics import reset_scorer_cache, evaluate_contextual_similarity
+from models.bert.evaluation.metrics import (
+    reset_scorer_cache,
+    evaluate_contextual_similarity,
+)
 from models.bert.inference.predict import fill_mask, get_contextual_embeddings
 
 import wandb
@@ -115,22 +118,26 @@ def prepare_data(
 
     def group_texts(examples: dict[str, list[Any]]) -> dict[str, list[Any]]:
         # Consideriamo solo le colonne utili per MLM presenti nel batch (es. input_ids, attention_mask)
-        keys_to_group = [k for k in ["input_ids", "attention_mask", "token_type_ids"] if k in examples]
+        keys_to_group = [
+            k
+            for k in ["input_ids", "attention_mask", "token_type_ids"]
+            if k in examples
+        ]
         concatenated = {k: list(chain(*examples[k])) for k in keys_to_group}
         total_length = len(concatenated["input_ids"])
 
         total_length = (total_length // chunk_size) * chunk_size
-        
+
         result = {
             k: [t[i : i + chunk_size] for i in range(0, total_length, chunk_size)]
             for k, t in concatenated.items()
         }
-        
+
         # The mask will be applied dynamically by the DataCollatorForSpanMLM
         result["labels"] = result["input_ids"].copy()
-        
+
         return result
-    
+
     lm_datasets = DatasetDict(
         {
             split_name: ds.map(
@@ -148,6 +155,8 @@ def prepare_data(
     def _load_eval_split(split_name: str) -> list[DevCase]:
         cases = []
         for row in eval_dataset[split_name].to_list():
+            
+            # Ci interessano le lacune di lunghezza compresa tra 1 e 6 (inclusi)
             if 1 <= row["gap_length"] <= 6:
                 cases.append(
                     DevCase(
@@ -167,9 +176,7 @@ def prepare_data(
 
 
 def stratified_sample_by_gap(
-    cases: list[DevCase],
-    n: int,
-    seed: int = 42
+    cases: list[DevCase], n: int, seed: int = 42
 ) -> list[DevCase]:
     """
     Esegue un campionamento stratificato per gap_length, mantenendo la distribuzione
@@ -196,7 +203,7 @@ def _build_optimizer(
     model: PreTrainedModel,
     lr: float,
     weight_decay: float = 0.01,
-    num_layers_to_freeze: int = 6, # i primi 6 layer su 12
+    num_layers_to_freeze: int = 6,  # i primi 6 layer su 12
     freeze_embeddings: bool = True,
 ) -> AdamW:
     """
@@ -221,14 +228,14 @@ def _build_optimizer(
         if freeze_embeddings and "embeddings" in name:
             param.requires_grad = False
             continue
-        
+
         # Si congelano i primi N layer dell'encoder
         is_layer_to_freeze = False
         for i in range(num_layers_to_freeze):
             if f"encoder.layer.{i}." in name:
                 is_layer_to_freeze = True
                 break
-        
+
         if is_layer_to_freeze:
             param.requires_grad = False
 
@@ -237,7 +244,8 @@ def _build_optimizer(
         {
             # Parametri attivi con weight decay
             "params": [
-                p for n, p in model.named_parameters()
+                p
+                for n, p in model.named_parameters()
                 if p.requires_grad and not any(nd in n for nd in no_decay)
             ],
             "weight_decay": weight_decay,
@@ -245,7 +253,8 @@ def _build_optimizer(
         {
             # Parametri attivi senza weight decay (bias, LayerNorm attivi)
             "params": [
-                p for n, p in model.named_parameters()
+                p
+                for n, p in model.named_parameters()
                 if p.requires_grad and any(nd in n for nd in no_decay)
             ],
             "weight_decay": 0.0,
@@ -292,10 +301,10 @@ def evaluate_metrics_on_test_set(
                 method="modified_best_to_worst",
                 return_raw=False,
             )
-            
+
             # --- INTEGRAZIONE COSINE SIMILARITY ---
             cand_texts = [s[0] for s in suggestions]
-            
+
             if cand_texts:
                 cand_embs = get_contextual_embeddings(
                     text_with_gap=case.x,
@@ -303,7 +312,7 @@ def evaluate_metrics_on_test_set(
                     model=model,
                     tokenizer=tokenizer,
                 )
-                
+
                 gold_text = " ".join(case.y) if isinstance(case.y, list) else case.y
                 gold_emb = get_contextual_embeddings(
                     text_with_gap=case.x,
@@ -311,7 +320,7 @@ def evaluate_metrics_on_test_set(
                     model=model,
                     tokenizer=tokenizer,
                 )[0]
-                
+
                 similarities = evaluate_contextual_similarity(cand_embs, gold_emb)
                 all_similarities.append(similarities)
             else:
@@ -330,28 +339,23 @@ def evaluate_metrics_on_test_set(
 
     # 1. Calcolo Exact Match (Top-K testuale)
     topk_metrics = evaluate_topK_text(predictions_text, gold_labels)
-    
+
     # 2. Calcolo BERTscore@K
     bert_s = evaluate_bertscore_topk_text(
         predictions_text,
         gold_labels,
         contexts=contexts,
         k_values=[1, 5, 10, 20],
-        checkpoint=checkpoint
+        checkpoint=checkpoint,
     )
-    
+
     # 3. Calcolo Cosine Similarity @K
     cos_sim_metrics = evaluate_cosine_similarity_topk(
-        similarities_list=all_similarities,
-        k_values=[1, 5, 10, 20]
+        similarities_list=all_similarities, k_values=[1, 5, 10, 20]
     )
-    
+
     # Uniamo le metriche
-    all_metrics = {
-        **topk_metrics, 
-        **bert_s,
-        **cos_sim_metrics
-    }
+    all_metrics = {**topk_metrics, **bert_s, **cos_sim_metrics}
 
     print(
         f"[{split_name.upper()} SET]\n"
@@ -454,9 +458,7 @@ def pipeline_finetuning(
     )
 
     # Calcolo del numero totale di training steps per lo scheduler
-    num_training_steps = (
-        len(lm_datasets["train"]) // batch_size
-    ) * epochs
+    num_training_steps = (len(lm_datasets["train"]) // batch_size) * epochs
     num_warmup_steps = int(0.1 * num_training_steps)
 
     # Ottimizzatore custom con weight decay selettivo

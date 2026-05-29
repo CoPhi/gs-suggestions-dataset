@@ -85,7 +85,7 @@ def get_contextual_embeddings(
     
     start_idx = len(prefix_inputs["input_ids"]) + 1  # +1 per il token [CLS] iniziale
     
-    completed_texts = [re.sub(r"\[\.+\]", cand, text_with_gap, count=1) for cand in candidates]
+    completed_texts = [re.sub(r"\[\.+\]", cand.replace("\\", r"\\"), text_with_gap, count=1) for cand in candidates]
     
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token or "[PAD]"
