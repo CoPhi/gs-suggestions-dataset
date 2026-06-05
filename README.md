@@ -61,6 +61,34 @@ Prima di utilizzare i modelli o le API in modo significativo, è necessario popo
 uv sync
 ```
 
+> [!IMPORTANTE]
+> **Configurazione CLTK per corpora personalizzati**
+> Prima di eseguire lo script di download dei dati (`make data`), è necessario configurare o creare il file `distributed_corpora.yaml` all'interno della cartella `cltk_data` del proprio utente (solitamente situata in `~/cltk_data/distributed_corpora.yaml`).
+>
+> Questo file è richiesto da CLTK per mappare e scaricare i repository remoti contenenti i corpora. Assicurati che il file contenga la seguente sintassi:
+>
+> ```yaml
+> DDbDP-DCLP:
+>   origin: https://github.com/papyri/idp.data
+>   language: grc
+>   type: corpora
+> 
+> EDH:
+>   origin: https://github.com/epigraphic-database-heidelberg/data
+>   language: grc
+>   type: corpora
+> 
+> First1KGreek:
+>   origin: https://github.com/OpenGreekAndLatin/First1KGreek
+>   language: grc
+>   type: corpora
+> 
+> PerseusDL:
+>   origin: https://github.com/PerseusDL/canonical-greekLit
+>   language: grc
+>   type: corpora
+> ```
+
 **Passo 1: Scaricare e integrare i corpora**
 Esegui la pipeline automatizzata per scaricare, elaborare e inserire i corpora nella cartella `data/`:
 ```bash

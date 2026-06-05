@@ -22,6 +22,7 @@ import matplotlib.pyplot as plt
 import matplotlib.ticker as mticker
 import seaborn as sns
 from typing import List, Dict, Any
+import torch
 
 # Configurazioni globali
 WANDB_ENTITY = "gabrielegiannessi-university-of-pisa"
