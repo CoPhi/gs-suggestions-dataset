@@ -89,7 +89,7 @@ def normalize_greek(
 
     Raises:
         ValueError: Se ``case_folding`` non è uno dei valori ammessi
-                    (``"upper"``, ``"lower"``, ``"none"``).
+                    (``"upper"``, ``"lower"``, ``"fold"``, ``"none"``).
 
     Examples:
         >>> normalize_greek("ἀγαθός")
@@ -101,6 +101,11 @@ def normalize_greek(
         >>> normalize_greek("ἀγαθός", case_folding="none")
         'αγαθος'
     """
+    if case_folding is True:
+        case_folding = "upper"
+    elif case_folding is False:
+        case_folding = "none"
+
     if case_folding not in ("upper", "lower", "fold", "none"):
         raise ValueError(
             f"Valore non valido per case_folding: {case_folding!r}. "
@@ -109,11 +114,11 @@ def normalize_greek(
 
     # Passo 0: Normalizzazione caratteri speciali/matematici (es. ∆ U+2206 -> Δ U+0394)
     # Alcuni tokenizer (es. GreBerta) emettono caratteri matematici invece di lettere greche.
-    text = text.replace("\u2206", "\u0394") # INCREMENT -> Δ
-    text = text.replace("\u2211", "\u03A3") # N-ARY SUMMATION -> Σ
-    text = text.replace("\u220F", "\u03A0") # N-ARY PRODUCT -> Π
-    text = text.replace("\u2126", "\u03A9") # OHM SIGN -> Ω
-    text = text.replace("\u00B5", "\u03BC") # MICRO SIGN -> μ
+    text = text.replace("\u2206", "\u0394")  # INCREMENT -> Δ
+    text = text.replace("\u2211", "\u03a3")  # N-ARY SUMMATION -> Σ
+    text = text.replace("\u220f", "\u03a0")  # N-ARY PRODUCT -> Π
+    text = text.replace("\u2126", "\u03a9")  # OHM SIGN -> Ω
+    text = text.replace("\u00b5", "\u03bc")  # MICRO SIGN -> μ
 
     # Passo 1 (opzionale): rimozione diacritici
     processed = strip_diacritics(text) if strip_diacritics_flag else text
@@ -284,6 +289,7 @@ def remove_punctuation(text: str, preserve_lacunae: bool = False) -> str:
         PUNCTUATION_REGEX.sub("", part) if i % 2 == 0 else part
         for i, part in enumerate(parts)
     )
+
 
 def process_dash(words: list[str], result: list[str], i: int) -> tuple[list[str], int]:
     """
@@ -535,7 +541,9 @@ def clean_supplements(
     return suppl_tokens
 
 
-def get_head_supplement(text_case: str, case_folding: _CASE_FOLDING = "upper") -> Optional[str]:
+def get_head_supplement(
+    text_case: str, case_folding: _CASE_FOLDING = "upper"
+) -> Optional[str]:
     """
     Restituisce la sottostringa che precede la lacuna, identificata con `[...]`, e che segue lo spazio o l'inizio della frase.
     """
@@ -554,7 +562,9 @@ def get_head_supplement(text_case: str, case_folding: _CASE_FOLDING = "upper") -
     return None
 
 
-def get_tail_supplement(text_case: str, case_folding: _CASE_FOLDING = "upper") -> Optional[str]:
+def get_tail_supplement(
+    text_case: str, case_folding: _CASE_FOLDING = "upper"
+) -> Optional[str]:
     """
     Restituisce la sottostringa che segue la lacuna, identificata con `[...]`, e che precede lo spazio o la fine della frase.
     """
@@ -645,6 +655,12 @@ def transpile(
     Returns:
         str: Testo pulito dalle lacune, eventualmente normalizzato.
     """
+    # Retrocompatibilitàs
+    if case_folding is True:
+        case_folding = "upper"
+    elif case_folding is False:
+        case_folding = "none"
+
     cleaned_text = process_editorial_marks(text)
     tokens = clean_tokens(
         cleaned_text,
@@ -655,6 +671,12 @@ def transpile(
     result_text = " ".join(tokens).strip()
 
     if not normalize:
+        if case_folding == "upper":
+            return result_text.upper()
+        if case_folding == "lower":
+            return result_text.lower()
+        if case_folding == "fold":
+            return result_text.casefold()
         return result_text
 
     return normalize_greek(result_text, case_folding, strip_diacritics)
