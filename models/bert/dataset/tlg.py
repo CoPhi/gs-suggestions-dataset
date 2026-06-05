@@ -6,7 +6,6 @@ from __future__ import annotations
 
 import argparse
 import os
-from pathlib import Path
 
 from datasets import DatasetDict
 from dotenv import load_dotenv
@@ -22,20 +21,27 @@ Corpus di greco antico esclusivo del TLG (Thesaurus Linguae Graecae) per il
 pre-addestramento (MLM) di modelli BERT.
 """
 
+
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Crea un dataset di training usando solo i testi TLG.")
+    parser = argparse.ArgumentParser(
+        description="Crea un dataset di training usando solo i testi TLG."
+    )
     parser.add_argument("--push-to-hub", action="store_true", help="Carica su HF Hub")
     args = parser.parse_args()
-    
+
     if args.push_to_hub:
         load_dotenv()
         token = os.getenv("HF_TOKEN")
         if token:
             login(token=token)
         else:
-            print("ATTENZIONE: Nessun HF_TOKEN trovato nel file .env, impossibile fare il login all'Hub.")
+            print(
+                "ATTENZIONE: Nessun HF_TOKEN trovato nel file .env, impossibile fare il login all'Hub."
+            )
 
-    tlg_abs = [ab for ab in load_abs(corpus_set=["tlg"]) if ab.get("corpus_id") == "tlg"]
+    tlg_abs = [
+        ab for ab in load_abs(corpus_set=["tlg"]) if ab.get("corpus_id") == "tlg"
+    ]
     if not tlg_abs:
         return
 
@@ -44,13 +50,13 @@ def main() -> None:
             "train": build_train_set(tlg_abs, case_folding="none"),
         }
     )
-    
+
     train_dataset_upper = DatasetDict(
         {
             "train": build_train_set(tlg_abs, case_folding="upper"),
         }
     )
-    
+
     if args.push_to_hub:
         push_to_hub(
             dataset=train_dataset_none,
