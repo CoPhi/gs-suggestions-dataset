@@ -83,12 +83,19 @@ def get_model_config(checkpoint: str) -> dict:
     Raises:
         ValueError: Se il checkpoint non è presente nella configurazione.
     """
+    resolved_checkpoint = checkpoint
     if checkpoint not in BERT_MODEL_CONFIG:
+        for finetuned, base in BASE_MODEL_MAP.items():
+            if base == checkpoint:
+                resolved_checkpoint = finetuned
+                break
+
+    if resolved_checkpoint not in BERT_MODEL_CONFIG:
         raise ValueError(
             f"Checkpoint '{checkpoint}' non trovato in BERT_MODEL_CONFIG. "
-            f"Checkpoint disponibili: {list(BERT_MODEL_CONFIG.keys())}"
+            f"Checkpoint disponibili: {list(BERT_MODEL_CONFIG.keys())} o i loro base models."
         )
-    return BERT_MODEL_CONFIG[checkpoint]
+    return BERT_MODEL_CONFIG[resolved_checkpoint]
 
 
 # Token di accesso di HuggingFace Hub

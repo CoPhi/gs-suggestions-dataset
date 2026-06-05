@@ -166,7 +166,17 @@ def _normalize_example(example: dict, config: dict, unk_token: str) -> dict:
         text = remove_punctuation(text)
 
     # Sostituzione del token sconosciuto model-agnostic (<UNK>) con quello specifico del tokenizer del modello
-    text = text.replace(UNK_TOKEN, unk_token)
+    cf = config.get("case_folding", "upper")
+    if cf == "lower":
+        agnostic_unk = UNK_TOKEN.lower()
+    elif cf == "upper":
+        agnostic_unk = UNK_TOKEN.upper()
+    elif cf == "fold":
+        agnostic_unk = UNK_TOKEN.casefold()
+    else:
+        agnostic_unk = UNK_TOKEN
+
+    text = text.replace(agnostic_unk, unk_token)
 
     return {"text": text}
 

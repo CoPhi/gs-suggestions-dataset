@@ -12,8 +12,8 @@ FRONTEND_CONTAINER_NAME := gabrielegiannessi/gs-frontend
 # 1. data ingestion
 
 data:
-	uv run python -m scripts.corpus_downloader
-	uv run python -m scripts.split
+	uv run python -m scripts.data.corpus_downloader
+	uv run python -m scripts.data.split
 
 requirements:
 	uv export --format requirements-txt -o requirements.txt --no-hashes
