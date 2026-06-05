@@ -62,7 +62,7 @@ def is_quality_sentence(
     
 # Costruzione del training set
 
-def build_train_sentences(abs_: list[dict[str, Any]]) -> list[dict[str, Any]]:
+def build_train_sentences(abs_: list[dict[str, Any]], case_folding: str = "none") -> list[dict[str, Any]]:
     """
     Estrae le frasi grezze dai blocchi anonimi MAAT applicando solo
     la pulizia editoriale (markup rimosso, lacune → <UNK>).
@@ -72,6 +72,7 @@ def build_train_sentences(abs_: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
     Args:
         abs_: Lista di blocchi anonimi (filtrati per language == "grc").
+        case_folding: Tipo di case folding da applicare ("none", "upper", ecc.).
 
     Returns:
         Lista di dizionari piatti, ciascuno rappresentante una frase con i relativi metadati.
@@ -80,7 +81,7 @@ def build_train_sentences(abs_: list[dict[str, Any]]) -> list[dict[str, Any]]:
     for record in tqdm(
         get_sentences(
             abs_,
-            case_folding="none",
+            case_folding=case_folding,
             remove_punct=False,
             normalize=False,
             strip_diacritics=False,
@@ -96,7 +97,7 @@ def build_train_sentences(abs_: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return sentences
 
 
-def build_train_set(abs_: list[dict[str, Any]]) -> Dataset:
+def build_train_set(abs_: list[dict[str, Any]], case_folding: str = "none") -> Dataset:
     """
     Produce il train set HuggingFace grezzo dal corpus MAAT.
 
@@ -106,8 +107,9 @@ def build_train_set(abs_: list[dict[str, Any]]) -> Dataset:
 
     Args:
         abs_: Lista di blocchi anonimi MAAT.
+        case_folding: Tipo di case folding da applicare.
 
     Returns:
         Dataset HuggingFace contenente la frase e tutti i metadati piatti del blocco originario.
     """
-    return Dataset.from_list(build_train_sentences(abs_))
+    return Dataset.from_list(build_train_sentences(abs_, case_folding=case_folding))

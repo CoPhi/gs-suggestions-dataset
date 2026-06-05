@@ -39,17 +39,29 @@ def main() -> None:
     if not tlg_abs:
         return
 
-    train_dataset = DatasetDict(
+    train_dataset_none = DatasetDict(
         {
-            "train": build_train_set(tlg_abs),
+            "train": build_train_set(tlg_abs, case_folding="none"),
+        }
+    )
+    
+    train_dataset_upper = DatasetDict(
+        {
+            "train": build_train_set(tlg_abs, case_folding="upper"),
         }
     )
     
     if args.push_to_hub:
         push_to_hub(
-            dataset=train_dataset,
-            checkpoint=TLG_CHECKPOINT,
-            message="Add TLG-only raw training corpus",
+            dataset=train_dataset_none,
+            checkpoint=f"{TLG_CHECKPOINT}-uncased",
+            message="Add TLG-only raw training corpus (case_folding=none)",
+            description=TLG_DESCRIPTION,
+        )
+        push_to_hub(
+            dataset=train_dataset_upper,
+            checkpoint=f"{TLG_CHECKPOINT}-cased",
+            message="Add TLG-only raw training corpus (case_folding=upper)",
             description=TLG_DESCRIPTION,
         )
 
