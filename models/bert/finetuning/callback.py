@@ -102,7 +102,7 @@ class HCBEvaluationCallback(TrainerCallback):
         state.log_history[-1].update(hcb_logs)
 
         print(
-            f"[HCB Val] "
+            f"Epoch {state.epoch}, global_step {state.global_step}:"
             f"Top-1 EM: {all_metrics.get('top1', 0):.2f}% | "
             f"Top-5 EM: {all_metrics.get('top5', 0):.2f}% | "
             f"Top-10 EM: {all_metrics.get('top10', 0):.2f}% | "

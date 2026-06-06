@@ -31,17 +31,8 @@ def estimate_mask_range(
     in base al numero di caratteri e al tokenizzatore.
     Ottimizzato in base all'analisi del vocabolario (avg tokens/word: 1.2 - 1.8).
     """
-    if is_partial_word:
-        # Una lacuna dentro una parola richiede solitamente 1 token sub-word (raramente 2).
-        # Evitiamo di esplorare k > 2 per prevenire l'incollamento con le parole successive.
-        k_min = 1
-        k_max = 1 if n_chars <= 3 else 2
-        k_max_theoretical = 3
-        return k_min, k_max, k_max_theoretical
-
     tokenizer_class = type(tokenizer).__name__
 
-    # Valori di min_chars_per_token alzati: un token greco medio copre 3.5 - 5.0 caratteri
     if "Roberta" in tokenizer_class or "BPE" in tokenizer_class:
         min_chars_per_token = 2.5
         max_chars_per_token = 4.5
@@ -51,6 +42,14 @@ def estimate_mask_range(
     else:
         min_chars_per_token = 2.5
         max_chars_per_token = 4.0
+
+    if is_partial_word:
+        # Per le lacune parziali, il calcolo deve comunque supportare 
+        # i BPE token necessari a coprire n_chars.
+        k_min = 1
+        k_max = min(4, max(2, math.ceil(n_chars / min_chars_per_token)))
+        k_max_theoretical = k_max + 1
+        return k_min, k_max, k_max_theoretical
 
     k_min = max(1, math.floor(n_chars / max_chars_per_token))
     k_max_theoretical = math.ceil(n_chars / min_chars_per_token) + 1
@@ -211,6 +210,15 @@ def fill_mask(
     # Rilevamento parola parziale: controlliamo se c'è un carattere alfabetico attaccato alla lacuna
     # (es. "φ[..]ερώτερον" oppure "[.....]ας") prima di sostituire la lacuna.
     is_partial = bool(re.search(r"[^\W\d_]\[\.+\]|\[\.+\][^\W\d_]", text))
+    
+    prefix_word = ""
+    suffix_word = ""
+    if is_partial:
+        # Estraiamo il prefisso e il suffisso attaccati alla lacuna
+        match_word = re.search(r"([^\W\d_]*)\[\.+\]([^\W\d_]*)", text)
+        if match_word:
+            prefix_word = match_word.group(1)
+            suffix_word = match_word.group(2)
 
     text = re.sub(r"\[\.+\]", GAP_TOKEN, text, count=1)
 
@@ -312,14 +320,21 @@ def fill_mask(
             # sanitizzazione per confronto stringhe: rimuoviamo artefatti di tokenizzazione come
             # "##" o "Ġ" prodotti da tokenizzatori WordPiece o Byte-Pair Encoding, e normalizziamo spazi bianchi e caratteri invisibili
             # Nota: 'Ġ' viene prodotto da GreBerta per codificare lo spazio, 'Ċ' per l'interpunzione
-            decoded = decoded.replace("##", "").replace("Ġ", "").replace("Ċ", "")
-            # normalizziamo gli spazi bianchi e rimuoviamo caratteri invisibili
-            # decoded = re.sub(r'[\s\u200B-\u200D\uFEFF]', '', decoded)
+            decoded = decoded.replace("##", "").replace("Ġ", "").replace("Ċ", "").strip()
 
-            if not decoded.strip():
+            if not decoded:
                 continue
 
-            all_candidates.append((decoded, final_score))
+            # Euristica di filtraggio e ricostruzione per parole parziali
+            if is_partial:
+                # Una parola parziale non deve contenere spazi o punteggiatura spuria nel pezzo generato
+                if " " in decoded or any(p in decoded for p in ".,;:!?'\"()[]{}"):
+                    continue
+                candidate_str = prefix_word + decoded + suffix_word
+            else:
+                candidate_str = decoded
+
+            all_candidates.append((candidate_str, final_score))
 
     all_candidates.sort(key=lambda x: x[1], reverse=True)
     seen = set()
