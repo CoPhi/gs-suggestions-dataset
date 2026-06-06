@@ -68,11 +68,10 @@ class HCBEvaluationCallback(TrainerCallback):
         if not predictions_text:
             return
 
-        # Calcolo Top-K EM 
+        # Calcolo Top-K EM
         try:
             topk_metrics = evaluate_topK_text(
-                predictions_text=predictions_text,
-                gold_labels=gold_labels
+                predictions_text=predictions_text, gold_labels=gold_labels
             )
         except Exception as e:
             print(f"[HCB Error] evaluate_topK_text fallito: {e}")
@@ -88,7 +87,9 @@ class HCBEvaluationCallback(TrainerCallback):
                 checkpoint=self.checkpoint,
             )
         except Exception as e:
-            print(f"[HCB Error] evaluate_bertscore_topk_text ha generato un'eccezione: {e}")
+            print(
+                f"[HCB Error] evaluate_bertscore_topk_text ha generato un'eccezione: {e}"
+            )
             print("[HCB Error] Traceback completo:")
             print(traceback.format_exc())
             bertscore_metrics = {}
@@ -99,7 +100,7 @@ class HCBEvaluationCallback(TrainerCallback):
         # Aggiornamento dello stato del Trainer
         hcb_logs = {f"eval_{k}": v for k, v in all_metrics.items()}
         state.log_history[-1].update(hcb_logs)
-        
+
         print(
             f"[HCB Val] "
             f"Top-1 EM: {all_metrics.get('top1', 0):.2f}% | "
@@ -112,9 +113,26 @@ class HCBEvaluationCallback(TrainerCallback):
             f"BS-F1@20: {bertscore_metrics.get('bertscore_f1_top20', 0):.2f}% (mean: {bertscore_metrics.get('bertscore_f1_top20_mean', 0):.2f}%)"
         )
 
-        #log su wandb
+        # log su wandb
         logs = {f"eval/hcb_{k}": v for k, v in all_metrics.items()}
         logs["train/global_step"] = state.global_step
         logs["epoch"] = state.epoch
+
+        # Log delle previsioni sotto forma di tabella
         if wandb.run is not None:
+            columns = ["Epoch", "Step", "Context", "Gold Label", "Top Predictions"]
+            data = []
+
+            # Logghiamo ad esempio i primi 15 casi
+            for i, case in enumerate(self.dev_cases_pool[:15]):
+                gold = ", ".join(case.y) if isinstance(case.y, list) else case.y
+                # Formattiamo i primi 5 suggerimenti con i relativi punteggi
+                top_preds = " | ".join(
+                    [f"'{s}' ({score:.2f})" for s, score in predictions_text[i][:5]]
+                )
+                data.append([state.epoch, state.global_step, case.x, gold, top_preds])
+
+            # Log della tabella per lo step corrente
+            table = wandb.Table(columns=columns, data=data)
+            logs["eval/predictions_table"] = table
             wandb.log(logs)

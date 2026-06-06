@@ -591,7 +591,7 @@ def pipeline_finetuning(
     )
 
     # Training
-    print(f"Avvio Finetuning MLM [{checkpoint}] (con check HCB epochs callback)")
+    print(f"Avvio Finetuning di [{checkpoint}]")
     trainer.train()
 
     trainer.save_metrics("train", trainer.state.log_history[-1])
