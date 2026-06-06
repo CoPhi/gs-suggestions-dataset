@@ -20,11 +20,12 @@ La configurazione model-specific è centralizzata in
 from collections import defaultdict
 import math
 import random
+import re
 from typing import Any
 
 import torch
 from itertools import chain
-from datasets import load_dataset, DatasetDict
+from datasets import load_dataset, DatasetDict, Dataset
 from transformers import (
     AutoTokenizer,
     AutoModelForMaskedLM,
@@ -37,7 +38,6 @@ from transformers import (
 )
 from torch.optim import AdamW
 
-from models.bert.dataset import CORPUS_CHECKPOINT, EVAL_CHECKPOINT
 from models.bert.dataset.load import prepare_dataset_for_model
 from models.bert.dataset.dev_set import DevCase
 from models.bert.finetuning import get_model_config, GAP_TOKEN, WANDB_PROJECT
@@ -87,10 +87,106 @@ def _init_wandb(
     return run_name
 
 
+def generate_synthetic_cases(
+    dataset: Dataset, n: int, min_gap: int = 1, max_gap: int = 6, seed: int = 42
+) -> list[DevCase]:
+    """
+    Genera casi di test sintetici mascherando sottostringhe casuali (di lunghezza min_gap - max_gap)
+    all'interno delle parole delle frasi del dataset.
+    """
+    rng = random.Random(seed)
+    cases = []
+
+    texts = dataset["text"]
+    indices = list(range(len(texts)))
+    rng.shuffle(indices)
+
+    for idx in indices:
+        if len(cases) >= n:
+            break
+
+        text = texts[idx]
+
+        # Troviamo parole con caratteri alfabetici
+        words_matches = list(re.finditer(r"[^\W\d_]+", text))
+        valid_matches = [m for m in words_matches if len(m.group()) >= min_gap]
+
+        if not valid_matches:
+            continue
+
+        match = rng.choice(valid_matches)
+        word = match.group()
+
+        max_possible_gap = min(max_gap, len(word))
+        gap_length = rng.randint(min_gap, max_possible_gap)
+        start_in_word = rng.randint(0, len(word) - gap_length)
+
+        placeholder = f"[{'.' * gap_length}]"
+        masked_word = (
+            word[:start_in_word] + placeholder + word[start_in_word + gap_length :]
+        )
+
+        start_idx = match.start()
+        end_idx = match.end()
+        x_text = text[:start_idx] + masked_word + text[end_idx:]
+
+        cases.append(
+            DevCase(
+                x=x_text,
+                y=[word],
+                gap_length=gap_length,
+                corpus_id="synthetic",
+                file_id="synthetic",
+            )
+        )
+
+    return cases
+
+
+def _load_eval_split(eval_dataset: DatasetDict, split_name: str) -> list[DevCase]:
+    """Estrae i DevCase (con lacune di lunghezza 1-6) da un dato split del dataset di valutazione."""
+    cases = []
+    for row in eval_dataset[split_name].to_list():
+        if 1 <= row["gap_length"] <= 6:
+            cases.append(
+                DevCase(
+                    x=row["x"],
+                    y=row["y"],
+                    gap_length=row["gap_length"],
+                    corpus_id=row["corpus_id"],
+                    file_id=row["file_id"],
+                )
+            )
+    return cases
+
+
+def group_texts(
+    examples: dict[str, list[Any]], chunk_size: int = 128
+) -> dict[str, list[Any]]:
+    """Raggruppa le frasi in blocchi contigui di lunghezza `chunk_size`."""
+    keys_to_group = [
+        k for k in ["input_ids", "attention_mask", "token_type_ids"] if k in examples
+    ]
+    concatenated = {k: list(chain(*examples[k])) for k in keys_to_group}
+    total_length = len(concatenated["input_ids"])
+
+    total_length = (total_length // chunk_size) * chunk_size
+
+    result = {
+        k: [t[i : i + chunk_size] for i in range(0, total_length, chunk_size)]
+        for k, t in concatenated.items()
+    }
+
+    # La maschera MLM verrà applicata dinamicamente dal DataCollatorForSpanMLM
+    result["labels"] = result["input_ids"].copy()
+    return result
+
+
 def prepare_data(
     checkpoint: str,
-    tokenizer: PreTrainedTokenizer,
     chunk_size: int = 128,
+    dataset_name: str = "CNR-ILC/gs-dataset-tlg",
+    eval_dataset_name: str | None = None,
 ) -> tuple[DatasetDict, list[DevCase], list[DevCase]]:
     """
     Carica il training set e l'eval set da HuggingFace Hub, applica la
@@ -100,85 +196,78 @@ def prepare_data(
         checkpoint: Checkpoint fine-tuned target (es. "CNR-ILC/gs-GreBerta").
         tokenizer: Tokenizer già istanziato, coerente con il checkpoint.
         chunk_size: Lunghezza dei blocchi di input_ids per MLM.
+        dataset_name: Nome del dataset da caricare. Se ha solo lo split 'train', verrà splittato.
+        eval_dataset_name: Nome del dataset di validazione con i test cases originali. Se None, i test cases verranno generati in maniera sintetica.
 
     Returns:
         (lm_datasets, dev_cases, test_cases): DatasetDict pronti per il Trainer,
         lista DevCase per il dev set e lista DevCase per il test set.
     """
 
-    tlg_dataset = load_dataset("CNR-ILC/gs-dataset-tlg")
+    print(f"Loading raw corpus from '{dataset_name}'...")
+    main_dataset = load_dataset(dataset_name)
 
-    print(f"Loading raw corpus from '{CORPUS_CHECKPOINT}'...")
-    general_corpus = load_dataset(CORPUS_CHECKPOINT)
-    
-    corpus_dataset = DatasetDict({
-        "train": tlg_dataset["train"],
-        "dev": general_corpus["dev"]
-    })
-    
+    if "dev" in main_dataset and "test" in main_dataset:
+        corpus_dataset = DatasetDict(
+            {
+                "train": main_dataset["train"],
+                "dev": main_dataset["dev"],
+                "test": main_dataset["test"],
+            }
+        )
+    elif "dev" not in main_dataset and "test" not in main_dataset:
+        print(
+            f"[{dataset_name}] contains only train split. Dynamically splitting into train/dev/test..."
+        )
+        # 90% train, 5% dev, 5% test
+        split_1 = main_dataset["train"].train_test_split(test_size=0.1, seed=42)
+        split_2 = split_1["test"].train_test_split(test_size=0.5, seed=42)
+        corpus_dataset = DatasetDict(
+            {
+                "train": split_1["train"],
+                "dev": split_2["train"],
+                "test": split_2["test"],
+            }
+        )
+    else:
+        corpus_dataset = main_dataset
+
+    print("Generazione dei test cases...")
+    if eval_dataset_name:
+        print(f"Loading eval set from '{eval_dataset_name}'...")
+        eval_dataset = load_dataset(eval_dataset_name)
+        dev_cases = _load_eval_split(eval_dataset, "dev")
+        test_cases = _load_eval_split(eval_dataset, "test")
+    else:
+        print(
+            "eval_dataset_name non fornito, genero casi sintetici da 'dev' e 'test' set..."
+        )
+        # Generiamo i casi sintetici prima di applicare la normalizzazione model-specific
+        dev_cases = generate_synthetic_cases(corpus_dataset["dev"], n=300, max_gap=6)
+        test_cases = generate_synthetic_cases(corpus_dataset["test"], n=1000, max_gap=6)
+
     print(f"Applying model-specific normalization for [{checkpoint}]...")
     normalized_datasets = {}
-    for split_name in corpus_dataset:
-        normalized_datasets[split_name] = prepare_dataset_for_model(
-            corpus_dataset[split_name],
-            checkpoint,
-        )
-
-    def group_texts(examples: dict[str, list[Any]]) -> dict[str, list[Any]]:
-        # Consideriamo solo le colonne utili per MLM presenti nel batch (es. input_ids, attention_mask)
-        keys_to_group = [
-            k
-            for k in ["input_ids", "attention_mask", "token_type_ids"]
-            if k in examples
-        ]
-        concatenated = {k: list(chain(*examples[k])) for k in keys_to_group}
-        total_length = len(concatenated["input_ids"])
-
-        total_length = (total_length // chunk_size) * chunk_size
-
-        result = {
-            k: [t[i : i + chunk_size] for i in range(0, total_length, chunk_size)]
-            for k, t in concatenated.items()
-        }
-
-        # The mask will be applied dynamically by the DataCollatorForSpanMLM
-        result["labels"] = result["input_ids"].copy()
-
-        return result
+    # Il dataset di test non serve al Trainer MLM
+    for split_name in ["train", "dev"]:
+        if split_name in corpus_dataset:
+            normalized_datasets[split_name] = prepare_dataset_for_model(
+                corpus_dataset[split_name],
+                checkpoint,
+            )
 
     lm_datasets = DatasetDict(
         {
             split_name: ds.map(
                 group_texts,
                 batched=True,
+                num_proc=4,
+                fn_kwargs={"chunk_size": chunk_size},
                 desc=f"Chunking [{split_name}]",
             ).select_columns(["input_ids", "attention_mask", "labels"])
             for split_name, ds in normalized_datasets.items()
         }
     )
-
-    print(f"Loading eval set from '{EVAL_CHECKPOINT}'...")
-    eval_dataset = load_dataset(EVAL_CHECKPOINT)
-
-    def _load_eval_split(split_name: str) -> list[DevCase]:
-        cases = []
-        for row in eval_dataset[split_name].to_list():
-            
-            # Ci interessano le lacune di lunghezza compresa tra 1 e 6 (inclusi)
-            if 1 <= row["gap_length"] <= 6:
-                cases.append(
-                    DevCase(
-                        x=row["x"],
-                        y=row["y"],
-                        gap_length=row["gap_length"],
-                        corpus_id=row["corpus_id"],
-                        file_id=row["file_id"],
-                    )
-                )
-        return cases
-
-    dev_cases = _load_eval_split("dev")
-    test_cases = _load_eval_split("test")
 
     return lm_datasets, dev_cases, test_cases
 
@@ -314,20 +403,20 @@ def evaluate_metrics_on_test_set(
             cand_texts = [s[0] for s in suggestions]
 
             if cand_texts:
-                cand_embs = get_contextual_embeddings(
+                gold_text = " ".join(case.y) if isinstance(case.y, list) else case.y
+
+                # eseguiamo una singola estrazione batch per candidati e gold text
+                all_texts_to_embed = cand_texts + [gold_text]
+
+                embs = get_contextual_embeddings(
                     text_with_gap=case.x,
-                    candidates=cand_texts,
+                    candidates=all_texts_to_embed,
                     model=model,
                     tokenizer=tokenizer,
                 )
 
-                gold_text = " ".join(case.y) if isinstance(case.y, list) else case.y
-                gold_emb = get_contextual_embeddings(
-                    text_with_gap=case.x,
-                    candidates=[gold_text],
-                    model=model,
-                    tokenizer=tokenizer,
-                )[0]
+                gold_emb = embs[-1]
+                cand_embs = embs[:-1]
 
                 similarities = evaluate_contextual_similarity(cand_embs, gold_emb)
                 all_similarities.append(similarities)
@@ -384,6 +473,8 @@ def pipeline_finetuning(
     lr: float = 2e-5,
     logging_steps: int = 50,
     push_to_hub: bool = False,
+    dataset_name: str = "CNR-ILC/gs-dataset-tlg",
+    eval_dataset_name: str | None = None,
 ) -> Trainer:
     """
     Esegue la pipeline completa di finetuning MLM.
@@ -412,8 +503,9 @@ def pipeline_finetuning(
     print("Preparazione Dataset...")
     lm_datasets, hcb_dev_cases, hcb_test_cases = prepare_data(
         checkpoint=checkpoint,
-        tokenizer=tokenizer,
         chunk_size=chunk_size,
+        dataset_name=dataset_name,
+        eval_dataset_name=eval_dataset_name,
     )
 
     # W&B init
@@ -429,7 +521,6 @@ def pipeline_finetuning(
 
     # Training setup
     output_dir = f"./models/bert/finetuning/gs/{ckpt_short}"
-    logs_dir = f"./models/bert/finetuning/gs/{ckpt_short}-logs"
 
     data_collator = DataCollatorForSpanMLM(
         tokenizer=tokenizer,

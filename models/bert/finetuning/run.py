@@ -1,9 +1,14 @@
-import os
 import argparse
 import torch
 from huggingface_hub import login
 
-from models.bert.finetuning import BERT_MODEL_CONFIG, BASE_MODEL_MAP, HF_TOKEN, WANDB_API_KEY, wandb_login
+from models.bert.finetuning import (
+    BERT_MODEL_CONFIG,
+    BASE_MODEL_MAP,
+    HF_TOKEN,
+    WANDB_API_KEY,
+    wandb_login,
+)
 from models.bert.finetuning.pipeline import pipeline_finetuning
 
 """
@@ -16,6 +21,7 @@ from models.bert.finetuning.pipeline import pipeline_finetuning
     uv run python -m models.bert.finetuning.run --checkpoint "CNR-ILC/gs-GreBerta"
     uv run python -m models.bert.finetuning.run --checkpoint "CNR-ILC/gs-aristoBERTo"
 """
+
 
 def main():
 
@@ -31,7 +37,12 @@ def main():
     parser.add_argument("--batch_size", type=int, default=128)
     parser.add_argument("--lr", type=float, default=5e-6)
     parser.add_argument("--chunk_size", type=int, default=256)
-    parser.add_argument("--logging_steps", type=int, default=5000, help="Frequenza di log (steps) per la loss su wandb")
+    parser.add_argument(
+        "--logging_steps",
+        type=int,
+        default=5000,
+        help="Frequenza di log (steps) per la loss su wandb",
+    )
     parser.add_argument(
         "--no_push_to_hub",
         action="store_false",

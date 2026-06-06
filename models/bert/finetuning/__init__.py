@@ -1,4 +1,3 @@
-import re
 from cltk.sentence.grc import GreekRegexSentenceTokenizer
 import wandb
 import os
@@ -13,7 +12,6 @@ TRAIN_DATASET_CHECKPOINT = "CNR-ILC/gs-dataset-train"
 TEST_DATASET_CHECKPOINT = "CNR-ILC/gs-dataset-eval"
 
 OUTPUT_DIR = "./models/bert/finetuning/gs/gs-greBERTa"
-LOGS_DIR = "./models/bert/finetuning/gs/gs-greBERTa-logs"
 
 CHUNK_SIZE = 50  # Dimensione del chunk per il push su Hugging Face Hub
 BERT_MAX_SEQ_LENGTH = 510  # 512 - 2 ([CLS] + [SEP])
@@ -25,6 +23,7 @@ MAX_MASK_TOKEN_TRESHOLD = 10
 MIN_MASK_TOKEN_TRESHOLD = 1
 
 # Lunghezza massima dello span da mascherare (per il collator MLM)
+# Per ora viene settato a 3 per approssimare lacuna di lunghezza fino a ~6 caratteri
 MAX_SPAN_LENGTH = 3
 
 # placeholder lacuna
@@ -33,10 +32,10 @@ GAP_TOKEN = "<GAP_TEMP_INFILL>"
 
 # Configurazione specifica per modello BERT.
 #
-# case_folding: "upper" | "lower" | None
+# case_folding: "upper" | "lower" | "none"
 #   - "upper": converte in maiuscolo (AristoBERTo, GreBerta per il fine-tuning GS)
 #   - "lower": converte in minuscolo (Logion, come da paper Cowen-Breen et al. 2023)
-#   - None:    preserva il casing originale del testo
+#   - "none": preserva il casing originale del testo
 #
 # AristoBERTo si basa su GreekBERT (tokenizer per greco moderno):
 #   non riconosce punteggiatura e spiriti diacritici del greco antico → vanno rimossi.

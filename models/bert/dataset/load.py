@@ -9,17 +9,15 @@ tok = prepare_dataset_for_model(raw, checkpoint)
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from functools import partial
 
-from datasets import Dataset, DatasetDict, DatasetInfo, load_dataset
+from datasets import Dataset, DatasetDict, DatasetInfo
 from transformers import AutoTokenizer
 
 from backend.core import UNK_TOKEN
 from backend.core.cleaner import load_abs, load_test_set, split_abs_herc_dev
 from backend.core.preprocess import (
     remove_punctuation,
-    strip_diacritics,
     normalize_greek,
 )
 from models.bert.dataset import (
@@ -29,7 +27,6 @@ from models.bert.dataset import (
     _EVAL_DESCRIPTION,
 )
 
-from models.bert.dataset import BERT_UNK_TOKEN
 from models.bert.dataset.dev_set import DevCase, build_dev_set
 from models.bert.dataset.train_set import build_train_set
 from models.bert.finetuning import (
