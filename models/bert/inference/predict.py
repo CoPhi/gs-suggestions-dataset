@@ -44,7 +44,7 @@ def estimate_mask_range(
         max_chars_per_token = 4.0
 
     if is_partial_word:
-        # Per le lacune parziali, il calcolo deve comunque supportare 
+        # Per le lacune parziali, il calcolo deve comunque supportare
         # i BPE token necessari a coprire n_chars.
         k_min = 1
         k_max = min(4, max(2, math.ceil(n_chars / min_chars_per_token)))
@@ -210,15 +210,6 @@ def fill_mask(
     # Rilevamento parola parziale: controlliamo se c'è un carattere alfabetico attaccato alla lacuna
     # (es. "φ[..]ερώτερον" oppure "[.....]ας") prima di sostituire la lacuna.
     is_partial = bool(re.search(r"[^\W\d_]\[\.+\]|\[\.+\][^\W\d_]", text))
-    
-    prefix_word = ""
-    suffix_word = ""
-    if is_partial:
-        # Estraiamo il prefisso e il suffisso attaccati alla lacuna
-        match_word = re.search(r"([^\W\d_]*)\[\.+\]([^\W\d_]*)", text)
-        if match_word:
-            prefix_word = match_word.group(1)
-            suffix_word = match_word.group(2)
 
     text = re.sub(r"\[\.+\]", GAP_TOKEN, text, count=1)
 
@@ -320,7 +311,9 @@ def fill_mask(
             # sanitizzazione per confronto stringhe: rimuoviamo artefatti di tokenizzazione come
             # "##" o "Ġ" prodotti da tokenizzatori WordPiece o Byte-Pair Encoding, e normalizziamo spazi bianchi e caratteri invisibili
             # Nota: 'Ġ' viene prodotto da GreBerta per codificare lo spazio, 'Ċ' per l'interpunzione
-            decoded = decoded.replace("##", "").replace("Ġ", "").replace("Ċ", "").strip()
+            decoded = (
+                decoded.replace("##", "").replace("Ġ", "").replace("Ċ", "").strip()
+            )
 
             if not decoded:
                 continue
@@ -330,7 +323,9 @@ def fill_mask(
                 # Una parola parziale non deve contenere spazi o punteggiatura spuria nel pezzo generato
                 if " " in decoded or any(p in decoded for p in ".,;:!?'\"()[]{}"):
                     continue
-                candidate_str = prefix_word + decoded + suffix_word
+                # Pur applicando il controllo per evitare spazi spuri, restituiamo solo il frammento mancante
+                # affinché combaci con la Gold Label e con la sostituzione in get_contextual_embeddings
+                candidate_str = decoded
             else:
                 candidate_str = decoded
 

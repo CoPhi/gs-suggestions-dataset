@@ -129,11 +129,13 @@ def generate_synthetic_cases(
         start_idx = match.start()
         end_idx = match.end()
         x_text = text[:start_idx] + masked_word + text[end_idx:]
+        
+        missing_fragment = word[start_in_word : start_in_word + gap_length]
 
         cases.append(
             DevCase(
                 x=x_text,
-                y=[word],
+                y=[missing_fragment],
                 gap_length=gap_length,
                 corpus_id="synthetic",
                 file_id="synthetic",
