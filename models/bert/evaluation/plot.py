@@ -141,9 +141,9 @@ def fetch_wandb_metrics() -> List[Dict[str, Any]]:
     Recupera le metriche finali sul test set dalle run completate su W&B.
 
     Le chiavi W&B attese (log da pipeline.py):
-        test/hcb_top{K}                  → EM@K
-        test/hcb_bertscore_f1_top{K}     → BS_Max@K
-        test/hcb_bertscore_f1_top{K}_mean → BS_Mean@K
+        test/top{K}                  → EM@K
+        test/bertscore_f1_top{K}     → BS_Max@K
+        test/bertscore_f1_top{K}_mean → BS_Mean@K
     """
     print(f"Sincronizzazione API W&B: {WANDB_ENTITY}/{WANDB_PROJECT}...")
     api = wandb.Api()
@@ -157,7 +157,7 @@ def fetch_wandb_metrics() -> List[Dict[str, Any]]:
 
     for run in runs:
         # Considera solo le run che hanno almeno la metrica top-1 sul test set
-        if "test/hcb_top1" not in run.summary:
+        if "test/top1" not in run.summary:
             continue
 
         checkpoint = run.config.get("checkpoint", "Sconosciuto")
@@ -169,11 +169,9 @@ def fetch_wandb_metrics() -> List[Dict[str, Any]]:
                     "Modello": model_name,
                     "Stato": "Post-FT",
                     "K": k,
-                    "EM": run.summary.get(f"test/hcb_top{k}", 0.0),
-                    "BS_Max": run.summary.get(f"test/hcb_bertscore_f1_top{k}", 0.0),
-                    "BS_Mean": run.summary.get(
-                        f"test/hcb_bertscore_f1_top{k}_mean", 0.0
-                    ),
+                    "EM": run.summary.get(f"test/top{k}", 0.0),
+                    "BS_Max": run.summary.get(f"test/bertscore_f1_top{k}", 0.0),
+                    "BS_Mean": run.summary.get(f"test/bertscore_f1_top{k}_mean", 0.0),
                 }
             )
 
@@ -305,82 +303,95 @@ def plot_umap_suggestions_cluster(
     gold_embedding: "torch.Tensor",
     candidate_labels: list[str],
     gold_label: str,
-    output_path: str = "models/bert/evaluation/umap_cluster.png"
+    output_path: str = "models/bert/evaluation/umap_cluster.png",
 ) -> float:
     """
     Proietta gli embedding dei candidati e della gold label in 2D usando UMAP.
-    Calcola e restituisce la densità (coesione) del cluster dei candidati 
+    Calcola e restituisce la densità (coesione) del cluster dei candidati
     (misurata come similarità coseno media tra tutte le coppie di candidati).
-    
+
     Requires: `pip install umap-learn`
     """
     try:
         import umap.umap_ as umap
     except ImportError:
         import umap
-        
+
     import torch
     import numpy as np
     from scipy.spatial.distance import pdist
-    
+
     # 1. Preparazione dei dati
     all_emb = candidate_embeddings + [gold_embedding]
     # Convertiamo in array NumPy [N, hidden_dim]
     X = torch.stack(all_emb).detach().cpu().numpy()
-    
+
     # 2. UMAP Projection (2D)
     # Impostiamo n_neighbors proporzionale ai dati per evitare errori se i candidati sono pochi
     n_neighbors = min(15, max(2, len(X) - 1))
-    reducer = umap.UMAP(n_neighbors=n_neighbors, min_dist=0.1, metric='cosine', random_state=42)
+    reducer = umap.UMAP(
+        n_neighbors=n_neighbors, min_dist=0.1, metric="cosine", random_state=42
+    )
     embedding_2d = reducer.fit_transform(X)
-    
+
     cand_2d = embedding_2d[:-1]
     gold_2d = embedding_2d[-1]
-    
+
     # 3. Plotting
     plt.figure(figsize=(10, 8))
-    
+
     # Plot dei candidati
-    plt.scatter(cand_2d[:, 0], cand_2d[:, 1], c='#1f77b4', label='Suggerimenti', s=100, alpha=0.7)
+    plt.scatter(
+        cand_2d[:, 0],
+        cand_2d[:, 1],
+        c="#1f77b4",
+        label="Suggerimenti",
+        s=100,
+        alpha=0.7,
+    )
     for i, label in enumerate(candidate_labels):
         plt.annotate(
-            label, 
-            (cand_2d[i, 0], cand_2d[i, 1]), 
-            xytext=(5, 5), 
-            textcoords='offset points', 
-            fontsize=9
+            label,
+            (cand_2d[i, 0], cand_2d[i, 1]),
+            xytext=(5, 5),
+            textcoords="offset points",
+            fontsize=9,
         )
-        
+
     # Plot della gold label (stella rossa)
-    plt.scatter(gold_2d[0], gold_2d[1], c='#d62728', label='Gold Label', s=250, marker='*')
-    plt.annotate(
-        gold_label, 
-        (gold_2d[0], gold_2d[1]), 
-        xytext=(5, 5), 
-        textcoords='offset points', 
-        fontsize=11, 
-        fontweight='bold', 
-        color='#d62728'
+    plt.scatter(
+        gold_2d[0], gold_2d[1], c="#d62728", label="Gold Label", s=250, marker="*"
     )
-    
-    plt.title('UMAP Projection dei Suggerimenti Generati vs Gold Label', fontsize=14)
-    plt.xlabel('UMAP 1')
-    plt.ylabel('UMAP 2')
+    plt.annotate(
+        gold_label,
+        (gold_2d[0], gold_2d[1]),
+        xytext=(5, 5),
+        textcoords="offset points",
+        fontsize=11,
+        fontweight="bold",
+        color="#d62728",
+    )
+
+    plt.title("UMAP Projection dei Suggerimenti Generati vs Gold Label", fontsize=14)
+    plt.xlabel("UMAP 1")
+    plt.ylabel("UMAP 2")
     plt.legend()
-    plt.grid(True, linestyle='--', alpha=0.5)
+    plt.grid(True, linestyle="--", alpha=0.5)
     plt.tight_layout()
     plt.savefig(output_path, dpi=200)
     plt.close()
-    
+
     # 4. Calcolo della Coesione del cluster (Densità) nello spazio ad alta dimensionalità
     cand_X = X[:-1]
     if len(cand_X) > 1:
         # pdist con metrica 'cosine' restituisce la distanza coseno (1 - cos_sim)
-        distances = pdist(cand_X, metric='cosine')
-        cohesion = 1.0 - np.mean(distances)  # 1.0 = cluster perfettamente denso, sovrapposto
+        distances = pdist(cand_X, metric="cosine")
+        cohesion = 1.0 - np.mean(
+            distances
+        )  # 1.0 = cluster perfettamente denso, sovrapposto
     else:
         cohesion = 1.0
-        
+
     return cohesion
 
 
@@ -390,7 +401,7 @@ if __name__ == "__main__":
 
         if not post_ft_data:
             print(
-                "Attenzione: nessuna metrica 'test/hcb_top1' trovata nelle run "
+                "Attenzione: nessuna metrica 'test/top1' trovata nelle run "
                 "completate su W&B. Il grafico includerà solo le baseline Pre-FT."
             )
 

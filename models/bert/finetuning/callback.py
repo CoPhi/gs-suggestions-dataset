@@ -114,7 +114,7 @@ class HCBEvaluationCallback(TrainerCallback):
         )
 
         # log su wandb
-        logs = {f"eval/hcb_{k}": v for k, v in all_metrics.items()}
+        logs = {f"eval/{k}": v for k, v in all_metrics.items()}
         logs["train/global_step"] = state.global_step
         logs["epoch"] = state.epoch
 

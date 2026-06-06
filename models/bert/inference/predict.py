@@ -7,7 +7,7 @@ from transformers import (
     PreTrainedTokenizer,
 )
 
-from backend.core import _CASE_FOLDING, UNK_TOKEN
+from backend.core import UNK_TOKEN
 from packages.hcb_infilling.hcb_infilling.decode import (
     decode_modified_BestToWorst_vectorized,
     decode_modified_LeftToRight_vectorized,
@@ -23,32 +23,44 @@ from backend.core.preprocess import (
 from models.bert.finetuning import GAP_TOKEN, get_model_config
 
 
-def estimate_mask_range(n_chars: int, tokenizer: PreTrainedTokenizer) -> Tuple[int, int, int]:
+def estimate_mask_range(
+    n_chars: int, tokenizer: PreTrainedTokenizer, is_partial_word: bool = False
+) -> Tuple[int, int, int]:
     """
-    Stima il range di token mascherati (k_min, k_max, k_max_theoretical) 
+    Stima il range di token mascherati (k_min, k_max, k_max_theoretical)
     in base al numero di caratteri e al tokenizzatore.
+    Ottimizzato in base all'analisi del vocabolario (avg tokens/word: 1.2 - 1.8).
     """
+    if is_partial_word:
+        # Una lacuna dentro una parola richiede solitamente 1 token sub-word (raramente 2).
+        # Evitiamo di esplorare k > 2 per prevenire l'incollamento con le parole successive.
+        k_min = 1
+        k_max = 1 if n_chars <= 3 else 2
+        k_max_theoretical = 3
+        return k_min, k_max, k_max_theoretical
+
     tokenizer_class = type(tokenizer).__name__
-    
+
+    # Valori di min_chars_per_token alzati: un token greco medio copre 3.5 - 5.0 caratteri
     if "Roberta" in tokenizer_class or "BPE" in tokenizer_class:
-        min_chars_per_token = 1.5
-        max_chars_per_token = 4.0
+        min_chars_per_token = 2.5
+        max_chars_per_token = 4.5
     elif "Bert" in tokenizer_class or "WordPiece" in tokenizer_class:
-        min_chars_per_token = 2.0
-        max_chars_per_token = 3.5
+        min_chars_per_token = 3.0
+        max_chars_per_token = 5.0
     else:
-        min_chars_per_token = 2.0
-        max_chars_per_token = 3.0
+        min_chars_per_token = 2.5
+        max_chars_per_token = 4.0
 
     k_min = max(1, math.floor(n_chars / max_chars_per_token))
     k_max_theoretical = math.ceil(n_chars / min_chars_per_token) + 1
-    
-    # Cap basato sull'euristica originale per evitare troppa esplosione combinatoria
-    k_max = min(k_max_theoretical, max(3, math.ceil(n_chars / 2) + 1))
-    
+
+    # Cap basato sulla nuova densità dei token
+    k_max = min(k_max_theoretical, max(2, math.ceil(n_chars / min_chars_per_token)))
+
     if k_min > k_max:
         k_min = max(1, k_max - 1)
-        
+
     return k_min, k_max, k_max_theoretical
 
 
@@ -58,49 +70,49 @@ def get_contextual_embeddings(
     model: PreTrainedModel,
     tokenizer: PreTrainedTokenizer,
     device: torch.device = None,
-    batch_size: int = 32
+    batch_size: int = 32,
 ) -> List[torch.Tensor]:
     """
-    Estrae l'embedding contestuale per ciascun candidato (e per la gold label) sostituendo 
+    Estrae l'embedding contestuale per ciascun candidato (e per la gold label) sostituendo
     la lacuna nel testo e applicando un mean-pooling sugli stati nascosti dei suoi token.
     Ottimizzato tramite elaborazione vettoriale (batching) su GPU.
     Restituisce una lista di tensori (uno per ciascun candidato).
     """
     if not candidates:
         return []
-        
+
     if device is None:
         device = next(model.parameters()).device
-        
+
     embeddings = []
     model.eval()
-    
+
     # Scomponiamo in prefisso e suffisso usando la regex della lacuna
     parts = re.split(r"\[\.+\]", text_with_gap, maxsplit=1)
     prefix_text = parts[0]
     suffix_text = parts[1] if len(parts) > 1 else ""
-    
+
     prefix_inputs = tokenizer(prefix_text, add_special_tokens=False)
     suffix_inputs = tokenizer(suffix_text, add_special_tokens=False)
-    
+
     start_idx = len(prefix_inputs["input_ids"]) + 1  # +1 per il token [CLS] iniziale
-    
-    completed_texts = [re.sub(r"\[\.+\]", cand.replace("\\", r"\\"), text_with_gap, count=1) for cand in candidates]
-    
+
+    completed_texts = [
+        re.sub(r"\[\.+\]", cand.replace("\\", r"\\"), text_with_gap, count=1)
+        for cand in candidates
+    ]
+
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token or "[PAD]"
-        
+
     # Processiamo a chunk in caso ci siano troppi candidati per prevenire OOM
     for batch_start in range(0, len(completed_texts), batch_size):
-        batch_texts = completed_texts[batch_start:batch_start + batch_size]
-        
+        batch_texts = completed_texts[batch_start : batch_start + batch_size]
+
         batch_inputs = tokenizer(
-            batch_texts, 
-            return_tensors="pt", 
-            padding=True, 
-            add_special_tokens=True
+            batch_texts, return_tensors="pt", padding=True, add_special_tokens=True
         ).to(device)
-        
+
         with torch.no_grad():
             outputs = model(**batch_inputs, output_hidden_states=True)
             # Supporto per last_hidden_state come fallback se hidden_states non disponibile
@@ -108,26 +120,33 @@ def get_contextual_embeddings(
                 batch_last_hidden = outputs.hidden_states[-1]
             else:
                 batch_last_hidden = outputs.last_hidden_state
-                
+
         for i, text_completed in enumerate(batch_texts):
             # Calcoliamo quanti token occupa il candidato specifico
             inputs_no_special = tokenizer(text_completed, add_special_tokens=False)
             inputs_with_special = tokenizer(text_completed, add_special_tokens=True)
             true_total_len = len(inputs_with_special["input_ids"])
-            
+
             num_special = true_total_len - len(inputs_no_special["input_ids"])
-            num_cand_tokens = true_total_len - len(prefix_inputs["input_ids"]) - len(suffix_inputs["input_ids"]) - num_special
-            
+            num_cand_tokens = (
+                true_total_len
+                - len(prefix_inputs["input_ids"])
+                - len(suffix_inputs["input_ids"])
+                - num_special
+            )
+
             if num_cand_tokens <= 0:
                 embeddings.append(torch.zeros(model.config.hidden_size).to(device))
                 continue
-                
+
             end_idx = start_idx + num_cand_tokens
             cand_indices = torch.tensor(range(start_idx, end_idx)).to(device)
-            
+
             cand_emb = batch_last_hidden[i][cand_indices]
-            embeddings.append(torch.mean(cand_emb, dim=0)) # Mean pooling sui token del candidato
-            
+            embeddings.append(
+                torch.mean(cand_emb, dim=0)
+            )  # Mean pooling sui token del candidato
+
     return embeddings
 
 
@@ -145,7 +164,7 @@ def fill_mask(
     text: str,
     model: PreTrainedModel,
     tokenizer: PreTrainedTokenizer,
-    checkpoint: str = None,  
+    checkpoint: str = None,
     n_chars: int = None,
     K: int = 20,
     beam_size: int = 20,
@@ -157,7 +176,7 @@ def fill_mask(
     device = next(model.parameters()).device
     model.eval()
 
-    if checkpoint is None: 
+    if checkpoint is None:
         config = {
             "remove_punct": False,
             "strip_diacritics": True,
@@ -182,7 +201,6 @@ def fill_mask(
     if config.get("remove_punct"):
         text = remove_punctuation(text, preserve_lacunae=True)
 
-
     if n_chars is None:
         match = re.search(r"\[(\.+)\]", text)
         if match:
@@ -190,9 +208,15 @@ def fill_mask(
         else:
             raise ValueError("n_chars non fornito e non trovato nel testo")
 
+    # Rilevamento parola parziale: controlliamo se c'è un carattere alfabetico attaccato alla lacuna
+    # (es. "φ[..]ερώτερον" oppure "[.....]ας") prima di sostituire la lacuna.
+    is_partial = bool(re.search(r"[^\W\d_]\[\.+\]|\[\.+\][^\W\d_]", text))
+
     text = re.sub(r"\[\.+\]", GAP_TOKEN, text, count=1)
 
-    k_min, k_max, k_max_theoretical = estimate_mask_range(n_chars, tokenizer)
+    k_min, k_max, k_max_theoretical = estimate_mask_range(
+        n_chars, tokenizer, is_partial_word=is_partial
+    )
 
     all_candidates: List[Tuple[str, float]] = []
 
@@ -209,7 +233,6 @@ def fill_mask(
         raise ValueError(f"Metodo {method} non supportato.")
 
     for k in range(k_min, k_max + 1):
-
         mask_str = " ".join([tokenizer.mask_token] * k)
         masked_text = text.replace(GAP_TOKEN, mask_str)
 
@@ -221,9 +244,11 @@ def fill_mask(
         mask_id = tokenizer.mask_token_id
         mask_indices = [i for i, tid in enumerate(full_input_ids) if tid == mask_id]
 
-        # Limite massimo del modello (solitamente 512)
+        # Limite massimo del modello (512)
         max_len = int(tokenizer.model_max_length)
-        if max_len > 10000:  # Alcuni modelli non hanno il limite impostato nel tokenizer
+        if (
+            max_len > 10000
+        ):  # Alcuni modelli non hanno il limite impostato nel tokenizer
             max_len = 512
 
         # Riserviamo 2 token per [CLS] e [SEP]
@@ -278,20 +303,19 @@ def fill_mask(
             log_prior = math.log(prior_prob + 1e-12)
             final_score = log_p_hcb + log_prior
 
-            
             if return_raw:
                 all_candidates.append((token_ids, final_score))
                 continue
 
             decoded = tokenizer.decode(token_ids, skip_special_tokens=True)
-            
-            # sanitizzazione per confronto stringhe: rimuoviamo artefatti di tokenizzazione come 
+
+            # sanitizzazione per confronto stringhe: rimuoviamo artefatti di tokenizzazione come
             # "##" o "Ġ" prodotti da tokenizzatori WordPiece o Byte-Pair Encoding, e normalizziamo spazi bianchi e caratteri invisibili
             # Nota: 'Ġ' viene prodotto da GreBerta per codificare lo spazio, 'Ċ' per l'interpunzione
             decoded = decoded.replace("##", "").replace("Ġ", "").replace("Ċ", "")
             # normalizziamo gli spazi bianchi e rimuoviamo caratteri invisibili
-            decoded = re.sub(r'[\s\u200B-\u200D\uFEFF]', '', decoded)
-            
+            # decoded = re.sub(r'[\s\u200B-\u200D\uFEFF]', '', decoded)
+
             if not decoded.strip():
                 continue
 
