@@ -7,6 +7,8 @@ from models.bert.evaluation.metrics import (
     evaluate_topK_text,
     evaluate_bertscore_topk_text,
 )
+from backend.core.preprocess import normalize_greek
+from models.bert.finetuning import get_model_config
 
 import wandb
 
@@ -68,10 +70,29 @@ class HCBEvaluationCallback(TrainerCallback):
         if not predictions_text:
             return
 
+        config = get_model_config(self.checkpoint)
+        is_strip = config.get("strip_diacritics", True)
+        case_fold = config.get("case_folding", "fold")
+
+        normalized_gold_labels = []
+        for case_y in gold_labels:
+            if isinstance(case_y, list):
+                norm_y = [
+                    normalize_greek(
+                        y, case_folding=case_fold, strip_diacritics_flag=is_strip
+                    )
+                    for y in case_y
+                ]
+            else:
+                norm_y = normalize_greek(
+                    case_y, case_folding=case_fold, strip_diacritics_flag=is_strip
+                )
+            normalized_gold_labels.append(norm_y)
+
         # Calcolo Top-K EM
         try:
             topk_metrics = evaluate_topK_text(
-                predictions_text=predictions_text, gold_labels=gold_labels
+                predictions_text=predictions_text, gold_labels=normalized_gold_labels
             )
         except Exception as e:
             print(f"[HCB Error] evaluate_topK_text fallito: {e}")
@@ -81,7 +102,7 @@ class HCBEvaluationCallback(TrainerCallback):
         try:
             bertscore_metrics = evaluate_bertscore_topk_text(
                 predictions_text=predictions_text,
-                gold_labels=gold_labels,
+                gold_labels=normalized_gold_labels,
                 contexts=contexts,
                 k_values=[1, 5, 10, 20],
                 checkpoint=self.checkpoint,

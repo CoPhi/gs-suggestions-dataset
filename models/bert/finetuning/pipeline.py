@@ -37,7 +37,7 @@ from transformers import (
     PreTrainedTokenizer,
 )
 from torch.optim import AdamW
-
+from backend.core.preprocess import normalize_greek
 from models.bert.dataset.load import prepare_dataset_for_model
 from models.bert.dataset.dev_set import DevCase
 from models.bert.finetuning import get_model_config, GAP_TOKEN, WANDB_PROJECT
@@ -129,7 +129,7 @@ def generate_synthetic_cases(
         start_idx = match.start()
         end_idx = match.end()
         x_text = text[:start_idx] + masked_word + text[end_idx:]
-        
+
         missing_fragment = word[start_in_word : start_in_word + gap_length]
 
         cases.append(
@@ -436,13 +436,32 @@ def evaluate_metrics_on_test_set(
     if not predictions_text:
         return {}
 
+    config = get_model_config(checkpoint)
+    is_strip = config.get("strip_diacritics", True)
+    case_fold = config.get("case_folding", "fold")
+
+    normalized_gold_labels = []
+    for case_y in gold_labels:
+        if isinstance(case_y, list):
+            norm_y = [
+                normalize_greek(
+                    y, case_folding=case_fold, strip_diacritics_flag=is_strip
+                )
+                for y in case_y
+            ]
+        else:
+            norm_y = normalize_greek(
+                case_y, case_folding=case_fold, strip_diacritics_flag=is_strip
+            )
+        normalized_gold_labels.append(norm_y)
+
     # 1. Calcolo Exact Match (Top-K testuale)
-    topk_metrics = evaluate_topK_text(predictions_text, gold_labels)
+    topk_metrics = evaluate_topK_text(predictions_text, normalized_gold_labels)
 
     # 2. Calcolo BERTscore@K
     bert_s = evaluate_bertscore_topk_text(
         predictions_text,
-        gold_labels,
+        normalized_gold_labels,
         contexts=contexts,
         k_values=[1, 5, 10, 20],
         checkpoint=checkpoint,
