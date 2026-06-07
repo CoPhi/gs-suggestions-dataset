@@ -340,7 +340,7 @@ def fill_mask(
             if return_raw
             else normalize_greek(
                 item,
-                case_folding="fold",
+                case_folding=config.get("case_folding", "fold"),
                 strip_diacritics_flag=config.get("strip_diacritics"),
             )
         )
