@@ -40,6 +40,7 @@ def main():
         max_span_length=config.get("max_span_length"),
         lr_scheduler_type=config.get("lr_scheduler_type"),
         push_to_hub=False,
+        evaluate_on_test=False,
     )
 
 

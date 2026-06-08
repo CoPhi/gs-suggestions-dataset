@@ -523,6 +523,7 @@ def pipeline_finetuning(
     push_to_hub: bool = False,
     dataset_name: str = "CNR-ILC/gs-dataset-tlg",
     eval_dataset_name: str | None = None,
+    evaluate_on_test: bool = True,
 ) -> Trainer:
     """
     Esegue la pipeline completa di finetuning MLM.
@@ -587,21 +588,23 @@ def pipeline_finetuning(
     )
 
     # Valutazione HCB baseline sul TEST set (Pre-FT)
-    print("Valutazione HCB baseline sul TEST set (Pre-FT)...")
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model.to(device)
+    pre_ft_metrics = None
+    if evaluate_on_test:
+        print("Valutazione HCB baseline sul TEST set (Pre-FT)...")
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        model.to(device)
 
-    pre_ft_metrics = evaluate_metrics_on_test_set(
-        split_name="test_pre_ft",
-        cases=hcb_test_cases,
-        model=model,
-        tokenizer=tokenizer,
-        checkpoint=checkpoint,
-    )
+        pre_ft_metrics = evaluate_metrics_on_test_set(
+            split_name="test_pre_ft",
+            cases=hcb_test_cases,
+            model=model,
+            tokenizer=tokenizer,
+            checkpoint=checkpoint,
+        )
 
-    if pre_ft_metrics and wandb.run is not None:
-        pre_ft_logs = {f"test_pre_ft/{k}": v for k, v in pre_ft_metrics.items()}
-        wandb.log(pre_ft_logs)
+        if pre_ft_metrics and wandb.run is not None:
+            pre_ft_logs = {f"test_pre_ft/{k}": v for k, v in pre_ft_metrics.items()}
+            wandb.log(pre_ft_logs)
 
     # Training setup
     output_dir = f"./models/bert/finetuning/gs/{ckpt_short}"
@@ -689,20 +692,22 @@ def pipeline_finetuning(
     trainer.save_state()
 
     # Valutazione HCB finale sul test set (Post-FT)
-    print("Valutazione HCB finale sul TEST set (Post-FT)...")
-    post_ft_metrics = evaluate_metrics_on_test_set(
-        split_name="test_post_ft",
-        cases=hcb_test_cases,
-        model=model,
-        tokenizer=tokenizer,
-        checkpoint=checkpoint,
-    )
+    post_ft_metrics = None
+    if evaluate_on_test:
+        print("Valutazione HCB finale sul TEST set (Post-FT)...")
+        post_ft_metrics = evaluate_metrics_on_test_set(
+            split_name="test_post_ft",
+            cases=hcb_test_cases,
+            model=model,
+            tokenizer=tokenizer,
+            checkpoint=checkpoint,
+        )
 
-    if post_ft_metrics:
-        post_ft_logs = {f"test_post_ft/{k}": v for k, v in post_ft_metrics.items()}
-        trainer.save_metrics("test_post_ft", post_ft_logs)
-        if wandb.run is not None:
-            wandb.log(post_ft_logs)
+        if post_ft_metrics:
+            post_ft_logs = {f"test_post_ft/{k}": v for k, v in post_ft_metrics.items()}
+            trainer.save_metrics("test_post_ft", post_ft_logs)
+            if wandb.run is not None:
+                wandb.log(post_ft_logs)
 
     # Generazione tabella comparativa
     if pre_ft_metrics and post_ft_metrics:
