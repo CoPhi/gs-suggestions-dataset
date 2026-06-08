@@ -632,8 +632,8 @@ def pipeline_finetuning(
     )
 
     if test_metrics:
-        test_logs = {f"test/hcb_{k}": v for k, v in test_metrics.items()}
-        trainer.save_metrics("test_hcb", test_logs)
+        test_logs = {f"test/{k}": v for k, v in test_metrics.items()}
+        trainer.save_metrics("test", test_logs)
         if wandb.run is not None:
             wandb.log(test_logs)
 
