@@ -4,7 +4,7 @@ from huggingface_hub import login
 
 from models.bert.finetuning import (
     BERT_MODEL_CONFIG,
-    BASE_MODEL_MAP,
+    ModelRegistry,
     HF_TOKEN,
     WANDB_API_KEY,
     wandb_login,
@@ -61,7 +61,7 @@ def main():
         wandb_login()
 
     checkpoint = args.checkpoint
-    base_model = BASE_MODEL_MAP.get(checkpoint, checkpoint)
+    base_model = ModelRegistry().base_model_map.get(checkpoint, checkpoint)
 
     pipeline_finetuning(
         checkpoint=checkpoint,

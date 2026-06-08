@@ -1,7 +1,7 @@
 import wandb
 import argparse
 from models.bert.finetuning.pipeline import pipeline_finetuning
-from models.bert.finetuning import BASE_MODEL_MAP
+from models.bert.finetuning import ModelRegistry
 
 
 def main():
@@ -21,12 +21,10 @@ def main():
     config = wandb.config
 
     checkpoint = args.checkpoint
-    base_model = BASE_MODEL_MAP.get(checkpoint)
+    base_model = ModelRegistry().base_model_map.get(checkpoint)
 
     if not base_model:
-        raise ValueError(
-            f"Base model per {checkpoint} non trovato nella BASE_MODEL_MAP."
-        )
+        raise ValueError(f"Base model per {checkpoint} non trovato.")
 
     pipeline_finetuning(
         checkpoint=checkpoint,

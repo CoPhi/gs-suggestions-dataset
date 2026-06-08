@@ -10,10 +10,10 @@ sys.path.append(str(pathlib.Path(__file__).resolve().parent.parent.parent))
 
 from backend.core import UNK_TOKEN
 from backend.core.preprocess import normalize_greek, remove_punctuation
-from models.bert.finetuning import BASE_MODEL_MAP, get_model_config
+from models.bert.finetuning import ModelRegistry, get_model_config
 from datasets import load_dataset
 
-MODELS = list(BASE_MODEL_MAP.values())
+MODELS = list(ModelRegistry().base_model_map.values())
 
 DATA_DIR = pathlib.Path("data")
 OUT_DIR = pathlib.Path("scripts/vocab")
@@ -67,7 +67,8 @@ def analyze_model_vocab(model_name: str, texts: list[str]) -> dict:
     # Tokenizzazione in batch per massimizzare le prestazioni
     batch_size = 500
     for i in tqdm(
-        range(0, len(texts), batch_size), desc=f"Processando {model_name.split('/')[-1]}"
+        range(0, len(texts), batch_size),
+        desc=f"Processando {model_name.split('/')[-1]}",
     ):
         batch = texts[i : i + batch_size]
         norm_batch = []
@@ -83,9 +84,7 @@ def analyze_model_vocab(model_name: str, texts: list[str]) -> dict:
                 unk_count += input_ids.count(unk_token_id)
 
             # Filtra i token speciali e aggiorna le frequenze usando gli ID (molto più veloce)
-            filtered_ids = [
-                tid for tid in input_ids if tid not in special_token_ids
-            ]
+            filtered_ids = [tid for tid in input_ids if tid not in special_token_ids]
             token_freqs.update(filtered_ids)
 
     unk_rate = (unk_count / total_tokens * 100) if total_tokens > 0 else 0
@@ -123,7 +122,9 @@ def analyze_model_vocab(model_name: str, texts: list[str]) -> dict:
     print(f" - Totale Tokens:  {total_tokens:,}")
     print(f" - Indice di Frammentazione (Tokens/Word): {frag_index:.4f}")
     print(f" - UNK Token Count: {unk_count:,} ({unk_rate:.4f}%)")
-    print(f" - Copertura Vocabolario: 50%={cov_50:,} tokens | 90%={cov_90:,} tokens | 95%={cov_95:,} tokens")
+    print(
+        f" - Copertura Vocabolario: 50%={cov_50:,} tokens | 90%={cov_90:,} tokens | 95%={cov_95:,} tokens"
+    )
 
     # Salvataggio distribuzione frequenza
     OUT_DIR.mkdir(parents=True, exist_ok=True)
