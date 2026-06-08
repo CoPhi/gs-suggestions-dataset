@@ -35,7 +35,7 @@ from transformers import (
     EarlyStoppingCallback,
     TrainingArguments,
     Trainer,
-    get_linear_schedule_with_warmup,
+    get_scheduler,
     PreTrainedModel,
     PreTrainedTokenizer,
 )
@@ -62,31 +62,49 @@ def _init_wandb(
     batch_size: int,
     chunk_size: int,
     epochs: int,
+    num_layers_to_freeze: int,
+    weight_decay: float,
+    warmup_ratio: float,
+    mlm_probability: float,
+    max_span_length: int,
+    lr_scheduler_type: str,
 ) -> str:
     """
     Inizializza una run W&B sul progetto principale 'gs-suggestions'.
+    Se c'è già una run attiva (es. avviata da uno sweep), si limita ad aggiornarne il nome e la configurazione extra.
     Restituisce il run_name generato per coerenza con TrainingArguments.
     """
     ckpt_short = checkpoint.split("/")[-1]
     run_name = f"{ckpt_short}_lr{lr}_bs{batch_size}_ep{epochs}"
 
-    wandb.init(
-        project=WANDB_PROJECT,
-        name=run_name,
-        config={
-            "checkpoint": checkpoint,
-            "base_model": base_model,
-            "learning_rate": lr,
-            "batch_size": batch_size,
-            "chunk_size": chunk_size,
-            "epochs": epochs,
-            "mlm_probability": 0.15,
-            "max_span_length": 3,
-            "gap_token": GAP_TOKEN,
-        },
-        tags=[ckpt_short, "finetuning", "mlm"],
-        resume="allow",
-    )
+    config_dict = {
+        "checkpoint": checkpoint,
+        "base_model": base_model,
+        "learning_rate": lr,
+        "batch_size": batch_size,
+        "chunk_size": chunk_size,
+        "epochs": epochs,
+        "num_layers_to_freeze": num_layers_to_freeze,
+        "weight_decay": weight_decay,
+        "warmup_ratio": warmup_ratio,
+        "mlm_probability": mlm_probability,
+        "max_span_length": max_span_length,
+        "lr_scheduler_type": lr_scheduler_type,
+        "gap_token": GAP_TOKEN,
+    }
+
+    if wandb.run is None:
+        wandb.init(
+            project=WANDB_PROJECT,
+            name=run_name,
+            config=config_dict,
+            tags=[ckpt_short, "finetuning", "mlm"],
+            resume="allow",
+        )
+    else:
+        wandb.run.name = run_name
+        wandb.config.update(config_dict, allow_val_change=True)
+        
     return run_name
 
 
@@ -491,10 +509,16 @@ def evaluate_metrics_on_test_set(
 def pipeline_finetuning(
     checkpoint: str,
     base_model: str,
-    batch_size: int = 128,
-    chunk_size: int = 128,
-    epochs: int = 4,
-    lr: float = 2e-5,
+    batch_size: int | None = None,
+    chunk_size: int | None = None,
+    epochs: int | None = None,
+    lr: float | None = None,
+    num_layers_to_freeze: int | None = None,
+    weight_decay: float | None = None,
+    warmup_ratio: float | None = None,
+    mlm_probability: float | None = None,
+    max_span_length: int | None = None,
+    lr_scheduler_type: str | None = None,
     logging_steps: int = 50,
     push_to_hub: bool = False,
     dataset_name: str = "CNR-ILC/gs-dataset-tlg",
@@ -502,7 +526,20 @@ def pipeline_finetuning(
 ) -> Trainer:
     """
     Esegue la pipeline completa di finetuning MLM.
+    Gli iperparametri (se None) vengono letti dal ModelRegistry in base al checkpoint.
     """
+    config = get_model_config(checkpoint)
+    
+    batch_size = batch_size or config.get("batch_size", 128)
+    chunk_size = chunk_size or config.get("chunk_size", 128)
+    epochs = epochs or config.get("epochs", 4)
+    lr = lr or config.get("lr", 2e-5)
+    num_layers_to_freeze = num_layers_to_freeze if num_layers_to_freeze is not None else config.get("num_layers_to_freeze", 6)
+    weight_decay = weight_decay if weight_decay is not None else config.get("weight_decay", 0.01)
+    warmup_ratio = warmup_ratio if warmup_ratio is not None else config.get("warmup_ratio", 0.1)
+    mlm_probability = mlm_probability if mlm_probability is not None else config.get("mlm_probability", 0.15)
+    max_span_length = max_span_length if max_span_length is not None else config.get("max_span_length", 3)
+    lr_scheduler_type = lr_scheduler_type or config.get("lr_scheduler_type", "linear")
 
     # Svuota la cache degli scorer BERTScore ad ogni run per evitare che istanze
     # costruite con parametri errati (es. rescale_with_baseline=True su modelli
@@ -511,7 +548,7 @@ def pipeline_finetuning(
 
     print(f"Checkpoint target: {checkpoint}")
     print(f"Base model (pesi): {base_model}")
-    print(f"Config: {get_model_config(checkpoint)}")
+    print(f"Config & Hyperparams: {config}")
 
     model = AutoModelForMaskedLM.from_pretrained(base_model)
     tokenizer = AutoTokenizer.from_pretrained(base_model)
@@ -541,6 +578,12 @@ def pipeline_finetuning(
         batch_size=batch_size,
         chunk_size=chunk_size,
         epochs=epochs,
+        num_layers_to_freeze=num_layers_to_freeze,
+        weight_decay=weight_decay,
+        warmup_ratio=warmup_ratio,
+        mlm_probability=mlm_probability,
+        max_span_length=max_span_length,
+        lr_scheduler_type=lr_scheduler_type,
     )
 
     # Valutazione HCB baseline sul TEST set (Pre-FT)
@@ -565,8 +608,8 @@ def pipeline_finetuning(
 
     data_collator = DataCollatorForSpanMLM(
         tokenizer=tokenizer,
-        mlm_probability=0.15,
-        max_span_length=3,
+        mlm_probability=mlm_probability,
+        max_span_length=max_span_length,
     )
 
     torch.cuda.empty_cache()
@@ -599,15 +642,19 @@ def pipeline_finetuning(
 
     # Calcolo del numero totale di training steps per lo scheduler
     num_training_steps = (len(lm_datasets["train"]) // batch_size) * epochs
-    num_warmup_steps = int(0.1 * num_training_steps)
+    num_warmup_steps = int(warmup_ratio * num_training_steps)
 
-    # Ottimizzatore custom con weight decay selettivo
-    # (no decay su bias e LayerNorm, come da best practice BERT/AdamW)
-    optimizer = _build_optimizer(model, lr=lr, weight_decay=0.01)
+    # Ottimizzatore custom con weight decay selettivo e freezing configurabile
+    optimizer = _build_optimizer(
+        model, 
+        lr=lr, 
+        weight_decay=weight_decay,
+        num_layers_to_freeze=num_layers_to_freeze
+    )
 
-    # Scheduler lineare con warmup coerente con warmup_ratio=0.06
-    scheduler = get_linear_schedule_with_warmup(
-        optimizer,
+    scheduler = get_scheduler(
+        name=lr_scheduler_type,
+        optimizer=optimizer,
         num_warmup_steps=num_warmup_steps,
         num_training_steps=num_training_steps,
     )

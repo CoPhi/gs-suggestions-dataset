@@ -1,3 +1,4 @@
+import threading
 from cltk.sentence.grc import GreekRegexSentenceTokenizer
 import wandb
 import os
@@ -36,65 +37,118 @@ GAP_TOKEN = "<GAP_TEMP_INFILL>"
 #   - "upper": converte in maiuscolo (AristoBERTo, GreBerta per il fine-tuning GS)
 #   - "lower": converte in minuscolo (Logion, come da paper Cowen-Breen et al. 2023)
 #   - "none": preserva il casing originale del testo
-#
-# AristoBERTo si basa su GreekBERT (tokenizer per greco moderno):
-#   non riconosce punteggiatura e spiriti diacritici del greco antico → vanno rimossi.
-# GreBerta ha un tokenizer addestrato specificamente per il greco antico:
-#   riconosce punteggiatura e diacritici politonici, ma il fine-tuning GS usa uppercase
-#   e strip_diacritics per coerenza con il formato dei papiri.
-# Logion (Cowen-Breen et al. 2023): lowercase + strip diacritics, punteggiatura preservata.
-BERT_MODEL_CONFIG = {
-    "CNR-ILC/gs-aristoBERTo": {
-        "remove_punct": True,
-        "strip_diacritics": True,
-        "case_folding": "lower",
-    },
-    "CNR-ILC/gs-GreBerta": {
-        "remove_punct": True,
-        "strip_diacritics": True,
-        "case_folding": "lower",
-    },
-    "CNR-ILC/gs-Logion": {
-        "remove_punct": True,
-        "strip_diacritics": True,
-        "case_folding": "lower",
-    },
-}
 
-# Mappa checkpoint fine-tuned → checkpoint base di partenza per i pesi
-BASE_MODEL_MAP = {
-    "CNR-ILC/gs-aristoBERTo": "Jacobo/aristoBERTo",
-    "CNR-ILC/gs-GreBerta": "bowphs/GreBerta",
-    "CNR-ILC/gs-Logion": "cabrooks/LOGION-50k_wordpiece",
-}
+
+class ModelRegistry:
+    """
+    Singleton pattern per gestire in maniera centralizzata le configurazioni di preprocessing
+    e la calibrazione degli iperparametri per i diversi modelli BERT.
+    """
+
+    _instance = None
+    _lock = threading.Lock()
+
+    def __new__(cls):
+        with cls._lock:
+            if cls._instance is None:
+                cls._instance = super(ModelRegistry, cls).__new__(cls)
+                cls._instance._initialize()
+        return cls._instance
+
+    def _initialize(self):
+        # Mappa checkpoint fine-tuned -> configurazioni e iperparametri
+        self.configs = {
+            "CNR-ILC/gs-aristoBERTo": {
+                "remove_punct": True,
+                "strip_diacritics": True,
+                "case_folding": "lower",
+                "hyperparameters": {
+                    "chunk_size": 256,
+                    "batch_size": 64,
+                    "lr": 3e-5,
+                    "epochs": 5,
+                    "num_layers_to_freeze": 6,
+                    "weight_decay": 0.01,
+                    "warmup_ratio": 0.1,
+                    "mlm_probability": 0.15,
+                    "max_span_length": 3,
+                    "lr_scheduler_type": "linear",
+                },
+            },
+            "CNR-ILC/gs-GreBerta": {
+                "remove_punct": True,
+                "strip_diacritics": True,
+                "case_folding": "lower",
+                "hyperparameters": {
+                    "chunk_size": 256,
+                    "batch_size": 64,
+                    "lr": 5e-6,
+                    "epochs": 3,
+                    "num_layers_to_freeze": 6,
+                    "weight_decay": 0.01,
+                    "warmup_ratio": 0.1,
+                    "mlm_probability": 0.15,
+                    "max_span_length": 3,
+                    "lr_scheduler_type": "linear",
+                },
+            },
+            "CNR-ILC/gs-Logion": {
+                "remove_punct": True,
+                "strip_diacritics": True,
+                "case_folding": "lower",
+                "hyperparameters": {
+                    "chunk_size": 128,
+                    "batch_size": 128,
+                    "lr": 2e-5,
+                    "epochs": 4,
+                    "num_layers_to_freeze": 6,
+                    "weight_decay": 0.01,
+                    "warmup_ratio": 0.1,
+                    "mlm_probability": 0.15,
+                    "max_span_length": 3,
+                    "lr_scheduler_type": "linear",
+                },
+            },
+        }
+
+        # Mappa checkpoint fine-tuned → checkpoint base di partenza per i pesi
+        self.base_model_map = {
+            "CNR-ILC/gs-aristoBERTo": "Jacobo/aristoBERTo",
+            "CNR-ILC/gs-GreBerta": "bowphs/GreBerta",
+            "CNR-ILC/gs-Logion": "cabrooks/LOGION-50k_wordpiece",
+        }
+
+    def get_config(self, checkpoint: str) -> dict:
+        """
+        Recupera la configurazione e gli iperparametri per un dato modello.
+        Ritorna un dizionario flat ("appiattito") per garantire la retrocompatibilità.
+        """
+        resolved_checkpoint = checkpoint
+        if checkpoint not in self.configs:
+            for finetuned, base in self.base_model_map.items():
+                if base == checkpoint:
+                    resolved_checkpoint = finetuned
+                    break
+
+        if resolved_checkpoint not in self.configs:
+            raise ValueError(
+                f"Checkpoint '{checkpoint}' non trovato nel ModelRegistry. "
+                f"Checkpoint disponibili: {list(self.configs.keys())} o i loro base models."
+            )
+
+        # Restituisce una copia shallow con gli iperparametri appiattiti nel dizionario principale
+        config = self.configs[resolved_checkpoint].copy()
+        hyperparams = config.pop("hyperparameters", {})
+        config.update(hyperparams)
+        return config
 
 
 def get_model_config(checkpoint: str) -> dict:
     """
-    Restituisce la configurazione di preprocessing per un dato checkpoint BERT.
-
-    Args:
-        checkpoint (str): Il nome del checkpoint del modello BERT.
-
-    Returns:
-        dict: Configurazione con chiavi 'remove_punct' e 'strip_diacritics'.
-
-    Raises:
-        ValueError: Se il checkpoint non è presente nella configurazione.
+    Funzione di facciata per mantenere la retrocompatibilità con gli script esistenti.
+    Utilizza il ModelRegistry Singleton per recuperare la configurazione.
     """
-    resolved_checkpoint = checkpoint
-    if checkpoint not in BERT_MODEL_CONFIG:
-        for finetuned, base in BASE_MODEL_MAP.items():
-            if base == checkpoint:
-                resolved_checkpoint = finetuned
-                break
-
-    if resolved_checkpoint not in BERT_MODEL_CONFIG:
-        raise ValueError(
-            f"Checkpoint '{checkpoint}' non trovato in BERT_MODEL_CONFIG. "
-            f"Checkpoint disponibili: {list(BERT_MODEL_CONFIG.keys())} o i loro base models."
-        )
-    return BERT_MODEL_CONFIG[resolved_checkpoint]
+    return ModelRegistry().get_config(checkpoint)
 
 
 # Token di accesso di HuggingFace Hub

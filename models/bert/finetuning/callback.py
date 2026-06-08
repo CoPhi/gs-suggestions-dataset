@@ -2,10 +2,12 @@ import traceback
 
 from transformers import TrainerCallback
 
-from models.bert.inference.predict import fill_mask
+from models.bert.inference.predict import fill_mask, get_contextual_embeddings
 from models.bert.evaluation.metrics import (
     evaluate_topK_text,
     evaluate_bertscore_topk_text,
+    evaluate_cosine_similarity_topk,
+    evaluate_contextual_similarity,
 )
 from backend.core.preprocess import normalize_greek
 from models.bert.finetuning import get_model_config
@@ -115,8 +117,46 @@ class HCBEvaluationCallback(TrainerCallback):
             print(traceback.format_exc())
             bertscore_metrics = {}
 
-        # Unione dei risultati
-        all_metrics = {**topk_metrics, **bertscore_metrics}
+        # Cosine Similarity @K
+        all_similarities = []
+        for i, case in enumerate(self.dev_cases_pool):
+            if i < len(predictions_text) and predictions_text[i]:
+                cand_texts = [s[0] for s in predictions_text[i]]
+                gold_text = " ".join(case.y) if isinstance(case.y, list) else case.y
+                all_texts_to_embed = cand_texts + [gold_text]
+
+                try:
+                    embs = get_contextual_embeddings(
+                        text_with_gap=case.x,
+                        candidates=all_texts_to_embed,
+                        model=model,
+                        tokenizer=self.tokenizer,
+                    )
+                    gold_emb = embs[-1]
+                    cand_embs = embs[:-1]
+
+                    similarities = evaluate_contextual_similarity(cand_embs, gold_emb)
+                    all_similarities.append(similarities)
+                except Exception as e:
+                    print(f"[HCB Error] Cosine Similarity fallita per case {case}: {e}")
+                    all_similarities.append([])
+            else:
+                all_similarities.append([])
+
+        try:
+            cos_sim_metrics = evaluate_cosine_similarity_topk(
+                similarities_list=all_similarities, k_values=[1, 5, 10, 20]
+            )
+        except Exception as e:
+            print(f"[HCB Error] evaluate_cosine_similarity_topk fallito: {e}")
+            cos_sim_metrics = {}
+
+        # Unione dei risultati e calcolo metrica composita
+        all_metrics = {**topk_metrics, **bertscore_metrics, **cos_sim_metrics}
+        
+        top1_em = all_metrics.get('top1', 0)
+        cossim_max_top1 = all_metrics.get('cos_sim_top1_max', 0)
+        all_metrics['composite_score'] = (top1_em + cossim_max_top1) / 2
 
         # Aggiornamento dello stato del Trainer
         hcb_logs = {f"eval_{k}": v for k, v in all_metrics.items()}
