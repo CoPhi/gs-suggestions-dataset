@@ -74,7 +74,8 @@ def get_contextual_embeddings(
     """
     Estrae l'embedding contestuale per ciascun candidato (e per la gold label) sostituendo
     la lacuna nel testo e applicando un mean-pooling sugli stati nascosti dei suoi token.
-    Ottimizzato tramite elaborazione vettoriale (batching) su GPU.
+    Utilizza il mapping degli offset (tramite Fast Tokenizer) per essere robusto rispetto a
+    qualsiasi tokenizzatore e al merging dei sub-word token (es. BPE).
     Restituisce una lista di tensori (uno per ciascun candidato).
     """
     if not candidates:
@@ -86,20 +87,18 @@ def get_contextual_embeddings(
     embeddings = []
     model.eval()
 
-    # Scomponiamo in prefisso e suffisso usando la regex della lacuna
-    parts = re.split(r"\[\.+\]", text_with_gap, maxsplit=1)
-    prefix_text = parts[0]
-    suffix_text = parts[1] if len(parts) > 1 else ""
+    # Troviamo l'indice di inizio e fine della lacuna nella stringa testuale originale
+    gap_match = re.search(r"\[\.+\]", text_with_gap)
+    if not gap_match:
+        return [torch.zeros(model.config.hidden_size).to(device) for _ in candidates]
 
-    prefix_inputs = tokenizer(prefix_text, add_special_tokens=False)
-    suffix_inputs = tokenizer(suffix_text, add_special_tokens=False)
+    gap_start_char = gap_match.start()
+    gap_original_end = gap_match.end()
 
-    start_idx = len(prefix_inputs["input_ids"]) + 1  # +1 per il token [CLS] iniziale
-
-    completed_texts = [
-        re.sub(r"\[\.+\]", cand.replace("\\", r"\\"), text_with_gap, count=1)
-        for cand in candidates
-    ]
+    completed_texts = []
+    for cand in candidates:
+        completed_text = text_with_gap[:gap_start_char] + cand + text_with_gap[gap_original_end:]
+        completed_texts.append(completed_text)
 
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token or "[PAD]"
@@ -107,10 +106,27 @@ def get_contextual_embeddings(
     # Processiamo a chunk in caso ci siano troppi candidati per prevenire OOM
     for batch_start in range(0, len(completed_texts), batch_size):
         batch_texts = completed_texts[batch_start : batch_start + batch_size]
+        batch_candidates = candidates[batch_start : batch_start + batch_size]
 
-        batch_inputs = tokenizer(
-            batch_texts, return_tensors="pt", padding=True, add_special_tokens=True
-        ).to(device)
+        if tokenizer.is_fast:
+            batch_inputs = tokenizer(
+                batch_texts,
+                return_tensors="pt",
+                padding=True,
+                add_special_tokens=True,
+                return_offsets_mapping=True,
+            )
+            offsets = batch_inputs.pop("offset_mapping")
+        else:
+            batch_inputs = tokenizer(
+                batch_texts,
+                return_tensors="pt",
+                padding=True,
+                add_special_tokens=True,
+            )
+            offsets = None
+
+        batch_inputs = batch_inputs.to(device)
 
         with torch.no_grad():
             outputs = model(**batch_inputs, output_hidden_states=True)
@@ -120,31 +136,48 @@ def get_contextual_embeddings(
             else:
                 batch_last_hidden = outputs.last_hidden_state
 
-        for i, text_completed in enumerate(batch_texts):
-            # Calcoliamo quanti token occupa il candidato specifico
-            inputs_no_special = tokenizer(text_completed, add_special_tokens=False)
-            inputs_with_special = tokenizer(text_completed, add_special_tokens=True)
-            true_total_len = len(inputs_with_special["input_ids"])
+        for i, cand in enumerate(batch_candidates):
+            cand_indices = []
+            
+            if offsets is not None:
+                cand_len = len(cand)
+                gap_end_char = gap_start_char + cand_len
+                
+                # Analizziamo gli offset per trovare i token sovrapposti all'inserimento
+                for token_idx, (start_offset, end_offset) in enumerate(offsets[i]):
+                    if start_offset == 0 and end_offset == 0:
+                        continue
+                        
+                    overlap_start = max(start_offset.item(), gap_start_char)
+                    overlap_end = min(end_offset.item(), gap_end_char)
+                    
+                    if overlap_start < overlap_end:
+                        cand_indices.append(token_idx)
+            else:
+                # Fallback approssimativo per slow tokenizer
+                prefix_text = text_with_gap[:gap_start_char]
+                suffix_text = text_with_gap[gap_original_end:]
+                
+                prefix_inputs = tokenizer(prefix_text, add_special_tokens=False)
+                suffix_inputs = tokenizer(suffix_text, add_special_tokens=False)
+                inputs_no_special = tokenizer(batch_texts[i], add_special_tokens=False)
+                
+                true_total_len = len(batch_inputs["input_ids"][i][batch_inputs["attention_mask"][i] == 1])
+                num_special = true_total_len - len(inputs_no_special["input_ids"])
+                
+                start_idx = len(prefix_inputs["input_ids"]) + (num_special // 2)
+                num_cand_tokens = true_total_len - len(prefix_inputs["input_ids"]) - len(suffix_inputs["input_ids"]) - num_special
+                
+                if num_cand_tokens > 0:
+                    cand_indices = list(range(start_idx, start_idx + num_cand_tokens))
 
-            num_special = true_total_len - len(inputs_no_special["input_ids"])
-            num_cand_tokens = (
-                true_total_len
-                - len(prefix_inputs["input_ids"])
-                - len(suffix_inputs["input_ids"])
-                - num_special
-            )
-
-            if num_cand_tokens <= 0:
+            if not cand_indices:
                 embeddings.append(torch.zeros(model.config.hidden_size).to(device))
                 continue
 
-            end_idx = start_idx + num_cand_tokens
-            cand_indices = torch.tensor(range(start_idx, end_idx)).to(device)
-
-            cand_emb = batch_last_hidden[i][cand_indices]
-            embeddings.append(
-                torch.mean(cand_emb, dim=0)
-            )  # Mean pooling sui token del candidato
+            cand_indices_tensor = torch.tensor(cand_indices).to(device)
+            cand_emb = batch_last_hidden[i][cand_indices_tensor]
+            embeddings.append(torch.mean(cand_emb, dim=0))
 
     return embeddings
 
