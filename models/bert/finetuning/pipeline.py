@@ -540,6 +540,23 @@ def pipeline_finetuning(
         epochs=epochs,
     )
 
+    # Valutazione HCB baseline sul TEST set (Pre-FT)
+    print("Valutazione HCB baseline sul TEST set (Pre-FT)...")
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    model.to(device)
+
+    pre_ft_metrics = evaluate_metrics_on_test_set(
+        split_name="test_pre_ft",
+        cases=hcb_test_cases,
+        model=model,
+        tokenizer=tokenizer,
+        checkpoint=checkpoint,
+    )
+
+    if pre_ft_metrics and wandb.run is not None:
+        pre_ft_logs = {f"test_pre_ft/{k}": v for k, v in pre_ft_metrics.items()}
+        wandb.log(pre_ft_logs)
+
     # Training setup
     output_dir = f"./models/bert/finetuning/gs/{ckpt_short}"
 
@@ -621,21 +638,63 @@ def pipeline_finetuning(
     trainer.save_metrics("eval", metrics)
     trainer.save_state()
 
-    # Valutazione HCB finale sul test set
-    print("Valutazione HCB finale sul TEST set...")
-    test_metrics = evaluate_metrics_on_test_set(
-        split_name="test",
+    # Valutazione HCB finale sul test set (Post-FT)
+    print("Valutazione HCB finale sul TEST set (Post-FT)...")
+    post_ft_metrics = evaluate_metrics_on_test_set(
+        split_name="test_post_ft",
         cases=hcb_test_cases,
         model=model,
         tokenizer=tokenizer,
         checkpoint=checkpoint,
     )
 
-    if test_metrics:
-        test_logs = {f"test/{k}": v for k, v in test_metrics.items()}
-        trainer.save_metrics("test", test_logs)
+    if post_ft_metrics:
+        post_ft_logs = {f"test_post_ft/{k}": v for k, v in post_ft_metrics.items()}
+        trainer.save_metrics("test_post_ft", post_ft_logs)
         if wandb.run is not None:
-            wandb.log(test_logs)
+            wandb.log(post_ft_logs)
+
+    # Generazione tabella comparativa
+    if pre_ft_metrics and post_ft_metrics:
+        print("\n" + "-" * 70)
+        print("                  CONFRONTO METRICHE: PRE-FT VS POST-FT (TEST SET)")
+        print("-" * 70)
+        print(f"{'Metrica':<25} | {'Pre-FT':<10} | {'Post-FT':<10} | {'Delta':<10}")
+        print("-" * 70)
+
+        comparison_keys = [
+            ("top1", "Exact Match @1"),
+            ("top5", "Exact Match @5"),
+            ("top10", "Exact Match @10"),
+            ("top20", "Exact Match @20"),
+            ("bertscore_f1_top1", "BERTScore F1 @1"),
+            ("bertscore_f1_top5", "BERTScore F1 @5"),
+            ("bertscore_f1_top10", "BERTScore F1 @10"),
+            ("bertscore_f1_top20", "BERTScore F1 @20"),
+            ("cos_sim_top1_max", "CosSim Max @1"),
+            ("cos_sim_top5_max", "CosSim Max @5"),
+            ("cos_sim_top10_max", "CosSim Max @10"),
+            ("cos_sim_top20_max", "CosSim Max @20"),
+        ]
+
+        table_data = []
+        for key, name in comparison_keys:
+            val_pre = pre_ft_metrics.get(key, 0.0)
+            val_post = post_ft_metrics.get(key, 0.0)
+            delta = val_post - val_pre
+            delta_str = f"{delta:+.2f}%" if delta != 0 else "0.00%"
+            print(f"{name:<25} | {val_pre:>8.2f}% | {val_post:>8.2f}% | {delta_str:>8}")
+            table_data.append([name, val_pre, val_post, delta])
+
+        print("=" * 80 + "\n")
+
+        if wandb.run is not None:
+            wb_table = wandb.Table(
+                columns=["Metrica", "Pre-FT (%)", "Post-FT (%)", "Delta (%)"]
+            )
+            for row in table_data:
+                wb_table.add_data(*row)
+            wandb.log({"confronto_pre_post_ft": wb_table})
 
     if push_to_hub:
         print(f"Push del modello su HuggingFace Hub [{checkpoint}]...")
