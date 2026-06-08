@@ -98,7 +98,7 @@ make data
 **Passo 2: Analisi dei file XML TEI standard (Opzionale)**
 Se disponi di archivi di testo aggiuntivi che utilizzano il formato TEI standard (senza lacune complesse in formato EpiDoc), puoi compilarli utilizzando il convertitore autonomo:
 ```bash
-uv run python -m scripts.tei_pipeline <percorso_della_tua_cartella_tei>
+uv run python -m scripts.tei.pipeline <percorso_della_tua_cartella_tei>
 ```
 
 *Nota: Entrambi i comandi popoleranno la directory `data/` in blocchi di file isolati (fino a 50 MB) in un formato JSON fruibile da codice, pronto per le attività successive.*
