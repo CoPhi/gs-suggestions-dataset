@@ -19,7 +19,7 @@ def main():
         required=True,
         help="Target fine-tuned checkpoint name (e.g., CNR-ILC/gs-GreBerta)",
     )
-    args = parser.parse_args()
+    args, _ = parser.parse_known_args()
 
     # Inizializza la run (Wandb agent si occuperà di iniettare la config definita in sweep.yaml)
     wandb.init()
