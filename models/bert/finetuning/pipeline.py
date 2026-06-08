@@ -17,13 +17,16 @@ La configurazione model-specific è centralizzata in
 `models.bert.finetuning.BERT_MODEL_CONFIG`.
 """
 
-from collections import defaultdict
+import logging
 import math
 import random
 import re
-from typing import Any
-
 import torch
+import wandb
+
+from torch.optim import AdamW
+from collections import defaultdict
+from typing import Any
 from itertools import chain
 from datasets import load_dataset, DatasetDict, Dataset
 from transformers import (
@@ -36,7 +39,7 @@ from transformers import (
     PreTrainedModel,
     PreTrainedTokenizer,
 )
-from torch.optim import AdamW
+
 from backend.core.preprocess import normalize_greek
 from models.bert.dataset.load import prepare_dataset_for_model
 from models.bert.dataset.dev_set import DevCase
@@ -49,7 +52,7 @@ from models.bert.evaluation.metrics import (
 )
 from models.bert.inference.predict import fill_mask, get_contextual_embeddings
 
-import wandb
+logging.getLogger("transformers.tokenization_utils_base").setLevel(logging.ERROR)
 
 
 def _init_wandb(
