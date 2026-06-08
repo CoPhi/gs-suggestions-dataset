@@ -1,3 +1,4 @@
+project: gs-suggestions
 program: scripts/opt.py
 method: bayes
 metric:
