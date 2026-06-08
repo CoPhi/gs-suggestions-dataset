@@ -3,15 +3,22 @@ method: bayes
 metric:
   name: eval_composite_score
   goal: maximize
+command:
+  - ${env}
+  - python
+  - ${program}
+  - "--checkpoint"
+  - "CNR-ILC/gs-GreBerta"
+  - ${args}
 parameters:
   lr:
     distribution: log_uniform_values
     min: 1e-6
-    max: 3e-5
+    max: 1e-5
   epochs:
-    values: [3, 4, 5]
+    values: [2, 3, 4]
   batch_size:
-    values: [32, 64, 128]
+    values: [32, 64]
   chunk_size:
     values: [128, 256]
   num_layers_to_freeze:
