@@ -207,8 +207,7 @@ def group_texts(
 
 def prepare_data(
     checkpoint: str,
-    chunk_size: int = 128,
-    dataset_name: str = "CNR-ILC/gs-dataset-tlg",
+    dataset_name: str = "CNR-ILC/gs-dataset-tlg-uncased",
     eval_dataset_name: str | None = None,
 ) -> tuple[DatasetDict, list[DevCase], list[DevCase]]:
     """
@@ -571,7 +570,6 @@ def pipeline_finetuning(
     print("Preparazione Dataset...")
     lm_datasets, hcb_dev_cases, hcb_test_cases = prepare_data(
         checkpoint=checkpoint,
-        chunk_size=chunk_size,
         dataset_name=dataset_name,
         eval_dataset_name=eval_dataset_name,
     )
