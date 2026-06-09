@@ -3,7 +3,6 @@ import torch
 from huggingface_hub import login
 
 from models.bert.finetuning import (
-    get_model_config,
     ModelRegistry,
     HF_TOKEN,
     WANDB_API_KEY,
@@ -30,7 +29,7 @@ def main():
         "--checkpoint",
         type=str,
         default="CNR-ILC/gs-GreBerta",
-        choices=list(get_model_config().keys()),
+        choices=list(ModelRegistry().configs.keys()),
         help="Checkpoint fine-tuned target (determina la normalizzazione del testo)",
     )
     parser.add_argument("--epochs", type=int, default=10)
