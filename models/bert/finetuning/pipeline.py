@@ -509,7 +509,7 @@ def pipeline_finetuning(
     lr_scheduler_type: str | None = None,
     logging_steps: int = 50,
     push_to_hub: bool = False,
-    dataset_name: str = "CNR-ILC/gs-dataset-tlg",
+    dataset_name: str = "CNR-ILC/gs-dataset-tlg-uncased",
     eval_dataset_name: str | None = None,
     evaluate_on_test: bool = True,
     max_eval_cases: int = 300,
