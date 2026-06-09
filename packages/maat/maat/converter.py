@@ -147,7 +147,7 @@ class Converter:
         self.error(ValueError(f"Cannot handle {thing}"))
 
     def handle_text(self, text):
-        return text
+        return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
     def handle_element(self, element):
         tag = tag_localname(element)

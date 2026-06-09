@@ -45,7 +45,7 @@ from models.bert.dataset.load import prepare_dataset_for_model
 from models.bert.dataset.dev_set import DevCase
 from models.bert.finetuning import get_model_config, GAP_TOKEN, WANDB_PROJECT
 from models.bert.finetuning.callback import HCBEvaluationCallback
-from models.bert.finetuning.collator import DataCollatorForSpanMLM
+from models.bert.finetuning.collator import DataCollatorForSyntheticGapMLM
 from models.bert.evaluation.metrics import (
     reset_scorer_cache,
     evaluate_contextual_similarity,
@@ -104,7 +104,7 @@ def _init_wandb(
     else:
         wandb.run.name = run_name
         wandb.config.update(config_dict, allow_val_change=True)
-        
+
     return run_name
 
 
@@ -265,13 +265,13 @@ def prepare_data(
         print(
             "eval_dataset_name non fornito, genero casi sintetici da 'dev' e 'test' set..."
         )
-        # Generiamo i casi sintetici prima di applicare la normalizzazione model-specific
+
         dev_cases = generate_synthetic_cases(corpus_dataset["dev"], n=300, max_gap=6)
         test_cases = generate_synthetic_cases(corpus_dataset["test"], n=1000, max_gap=6)
 
     print(f"Applying model-specific normalization for [{checkpoint}]...")
     normalized_datasets = {}
-    # Il dataset di test non serve al Trainer MLM
+
     for split_name in ["train", "dev"]:
         if split_name in corpus_dataset:
             normalized_datasets[split_name] = prepare_dataset_for_model(
@@ -279,18 +279,7 @@ def prepare_data(
                 checkpoint,
             )
 
-    lm_datasets = DatasetDict(
-        {
-            split_name: ds.map(
-                group_texts,
-                batched=True,
-                num_proc=4,
-                fn_kwargs={"chunk_size": chunk_size},
-                desc=f"Chunking [{split_name}]",
-            ).select_columns(["input_ids", "attention_mask", "labels"])
-            for split_name, ds in normalized_datasets.items()
-        }
-    )
+    lm_datasets = DatasetDict(normalized_datasets)
 
     return lm_datasets, dev_cases, test_cases
 
@@ -530,16 +519,32 @@ def pipeline_finetuning(
     Gli iperparametri (se None) vengono letti dal ModelRegistry in base al checkpoint.
     """
     config = get_model_config(checkpoint)
-    
+
     batch_size = batch_size or config.get("batch_size", 128)
     chunk_size = chunk_size or config.get("chunk_size", 128)
     epochs = epochs or config.get("epochs", 4)
     lr = lr or config.get("lr", 2e-5)
-    num_layers_to_freeze = num_layers_to_freeze if num_layers_to_freeze is not None else config.get("num_layers_to_freeze", 6)
-    weight_decay = weight_decay if weight_decay is not None else config.get("weight_decay", 0.01)
-    warmup_ratio = warmup_ratio if warmup_ratio is not None else config.get("warmup_ratio", 0.1)
-    mlm_probability = mlm_probability if mlm_probability is not None else config.get("mlm_probability", 0.15)
-    max_span_length = max_span_length if max_span_length is not None else config.get("max_span_length", 3)
+    num_layers_to_freeze = (
+        num_layers_to_freeze
+        if num_layers_to_freeze is not None
+        else config.get("num_layers_to_freeze", 6)
+    )
+    weight_decay = (
+        weight_decay if weight_decay is not None else config.get("weight_decay", 0.01)
+    )
+    warmup_ratio = (
+        warmup_ratio if warmup_ratio is not None else config.get("warmup_ratio", 0.1)
+    )
+    mlm_probability = (
+        mlm_probability
+        if mlm_probability is not None
+        else config.get("mlm_probability", 0.15)
+    )
+    max_span_length = (
+        max_span_length
+        if max_span_length is not None
+        else config.get("max_span_length", 3)
+    )
     lr_scheduler_type = lr_scheduler_type or config.get("lr_scheduler_type", "linear")
 
     # Svuota la cache degli scorer BERTScore ad ogni run per evitare che istanze
@@ -609,10 +614,11 @@ def pipeline_finetuning(
     # Training setup
     output_dir = f"./models/bert/finetuning/gs/{ckpt_short}"
 
-    data_collator = DataCollatorForSpanMLM(
+    data_collator = DataCollatorForSyntheticGapMLM(
         tokenizer=tokenizer,
         mlm_probability=mlm_probability,
-        max_span_length=max_span_length,
+        min_gap_length=1,
+        max_gap_length=max_span_length if max_span_length > 1 else 6,
     )
 
     torch.cuda.empty_cache()
@@ -649,10 +655,10 @@ def pipeline_finetuning(
 
     # Ottimizzatore custom con weight decay selettivo e freezing configurabile
     optimizer = _build_optimizer(
-        model, 
-        lr=lr, 
+        model,
+        lr=lr,
         weight_decay=weight_decay,
-        num_layers_to_freeze=num_layers_to_freeze
+        num_layers_to_freeze=num_layers_to_freeze,
     )
 
     scheduler = get_scheduler(
