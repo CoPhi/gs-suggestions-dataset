@@ -18,17 +18,12 @@ from backend.api.exceptions import InvalidContextError, ModelNotFoundError
 from backend.api.models import ModelType
 from models.ngrams.inference.suggests import generate_k_suggests
 from models.bert.inference.predict import fill_mask
-from models.bert.finetuning import get_model_config
-from backend.core.preprocess import (
-    remove_punctuation,
-    process_editorial_marks,
-    test_case_contains_lacuna,
-    normalize_greek,
-)
+from backend.core.preprocess import test_case_contains_lacuna
 
 LACUNA_PATTERN = r"\S*\[.*?\]\S*"
 BERT_LACUNA_PATTERN = r"\[.*?\]"
-INTRA_WORD_LACUNA_PATTERN = re.compile(r'(\S+)\[\.+\](\S+)')
+INTRA_WORD_LACUNA_PATTERN = re.compile(r"(\S+)\[\.+\](\S+)")
+
 
 def _load_bert_checkpoint(checkpoint: str) -> tuple:
     """Funzione pickle-able per caricare un modello BERT e il suo tokenizer, da eseguire in un thread separato."""

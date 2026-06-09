@@ -406,7 +406,7 @@ def evaluate_metrics_on_test_set(
                 model=model,
                 tokenizer=tokenizer,
                 K=20,
-                beam_size=20,
+                beam_size=50,
                 method="modified_best_to_worst",
                 return_raw=False,
             )

@@ -19,6 +19,7 @@ from backend.core.preprocess import (
     normalize_greek,
     process_editorial_marks,
     remove_punctuation,
+    strip_diacritics,
 )
 from models.bert.finetuning import GAP_TOKEN, get_model_config
 
@@ -97,7 +98,9 @@ def get_contextual_embeddings(
 
     completed_texts = []
     for cand in candidates:
-        completed_text = text_with_gap[:gap_start_char] + cand + text_with_gap[gap_original_end:]
+        completed_text = (
+            text_with_gap[:gap_start_char] + cand + text_with_gap[gap_original_end:]
+        )
         completed_texts.append(completed_text)
 
     if tokenizer.pad_token is None:
@@ -138,36 +141,43 @@ def get_contextual_embeddings(
 
         for i, cand in enumerate(batch_candidates):
             cand_indices = []
-            
+
             if offsets is not None:
                 cand_len = len(cand)
                 gap_end_char = gap_start_char + cand_len
-                
+
                 # Analizziamo gli offset per trovare i token sovrapposti all'inserimento
                 for token_idx, (start_offset, end_offset) in enumerate(offsets[i]):
                     if start_offset == 0 and end_offset == 0:
                         continue
-                        
+
                     overlap_start = max(start_offset.item(), gap_start_char)
                     overlap_end = min(end_offset.item(), gap_end_char)
-                    
+
                     if overlap_start < overlap_end:
                         cand_indices.append(token_idx)
             else:
                 # Fallback approssimativo per slow tokenizer
                 prefix_text = text_with_gap[:gap_start_char]
                 suffix_text = text_with_gap[gap_original_end:]
-                
+
                 prefix_inputs = tokenizer(prefix_text, add_special_tokens=False)
                 suffix_inputs = tokenizer(suffix_text, add_special_tokens=False)
                 inputs_no_special = tokenizer(batch_texts[i], add_special_tokens=False)
-                
-                true_total_len = len(batch_inputs["input_ids"][i][batch_inputs["attention_mask"][i] == 1])
+
+                true_total_len = len(
+                    batch_inputs["input_ids"][i][batch_inputs["attention_mask"][i] == 1]
+                )
                 num_special = true_total_len - len(inputs_no_special["input_ids"])
-                
+
                 start_idx = len(prefix_inputs["input_ids"]) + (num_special // 2)
-                num_cand_tokens = true_total_len - len(prefix_inputs["input_ids"]) - len(suffix_inputs["input_ids"]) - num_special
-                
+                num_cand_tokens = (
+                    true_total_len
+                    - len(prefix_inputs["input_ids"])
+                    - len(suffix_inputs["input_ids"])
+                    - num_special
+                )
+
                 if num_cand_tokens > 0:
                     cand_indices = list(range(start_idx, start_idx + num_cand_tokens))
 
@@ -199,7 +209,7 @@ def fill_mask(
     checkpoint: str = None,
     n_chars: int = None,
     K: int = 20,
-    beam_size: int = 20,
+    beam_size: int = 50,
     method: str = "modified_best_to_worst",
     return_raw: bool = False,
     normalize_probs: bool = False,
@@ -361,6 +371,12 @@ def fill_mask(
                 candidate_str = decoded
             else:
                 candidate_str = decoded
+
+            # Filtro rigoroso per la lunghezza della lacuna in caratteri
+            # Usiamo strip_diacritics per contare i caratteri base, ignorando accenti e spiriti
+            base_chars = strip_diacritics(candidate_str).replace(" ", "")
+            if len(base_chars) != n_chars:
+                continue
 
             all_candidates.append((candidate_str, final_score))
 

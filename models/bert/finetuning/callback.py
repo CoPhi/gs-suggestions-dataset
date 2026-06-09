@@ -56,7 +56,7 @@ class HCBEvaluationCallback(TrainerCallback):
                     model=model,
                     tokenizer=self.tokenizer,
                     K=20,
-                    beam_size=20,
+                    beam_size=50,
                     method="modified_best_to_worst",
                     return_raw=False,
                 )
@@ -153,10 +153,10 @@ class HCBEvaluationCallback(TrainerCallback):
 
         # Unione dei risultati e calcolo metrica composita
         all_metrics = {**topk_metrics, **bertscore_metrics, **cos_sim_metrics}
-        
-        top1_em = all_metrics.get('top1', 0)
-        cossim_max_top1 = all_metrics.get('cos_sim_top1_max', 0)
-        all_metrics['composite_score'] = (top1_em + cossim_max_top1) / 2
+
+        top1_em = all_metrics.get("top1", 0)
+        cossim_max_top1 = all_metrics.get("cos_sim_top1_max", 0)
+        all_metrics["composite_score"] = (top1_em + cossim_max_top1) / 2
 
         # Aggiornamento dello stato del Trainer
         hcb_logs = {f"eval_{k}": v for k, v in all_metrics.items()}
