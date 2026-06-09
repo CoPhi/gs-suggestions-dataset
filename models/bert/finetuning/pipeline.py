@@ -647,6 +647,7 @@ def pipeline_finetuning(
         hub_model_id=checkpoint if push_to_hub else None,
         push_to_hub=push_to_hub,
         load_best_model_at_end=True,
+        remove_unused_columns=False,
     )
 
     # Calcolo del numero totale di training steps per lo scheduler
