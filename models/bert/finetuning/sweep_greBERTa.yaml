@@ -1,7 +1,7 @@
 project: gs-suggestions
 program: scripts/opt.py
 method: bayes
-run_cap: 30
+run_cap: 15
 early_terminate:
   type: hyperband
   min_iter: 2
@@ -24,7 +24,7 @@ parameters:
   epochs:
     values: [2, 3, 4]
   batch_size:
-    values: [32, 64]
+    value: 128
   chunk_size:
     values: [128, 256]
   num_layers_to_freeze:
