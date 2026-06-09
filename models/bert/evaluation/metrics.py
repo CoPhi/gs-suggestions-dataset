@@ -269,12 +269,11 @@ def evaluate_bertscore_topk_text(
                 k_max_f1 = np.max(np.where(slice_f1 != -1.0, slice_f1, -np.inf), axis=1)
                 metrics[f"bertscore_f1_top{k}"] = k_max_f1[has_preds].mean() * 100.0
 
+                valid_slice = slice_f1[has_preds]
                 k_mean_f1 = np.nanmean(
-                    np.where(slice_f1 != -1.0, slice_f1, np.nan), axis=1
+                    np.where(valid_slice != -1.0, valid_slice, np.nan), axis=1
                 )
-                metrics[f"bertscore_f1_top{k}_mean"] = (
-                    np.nanmean(k_mean_f1[has_preds]) * 100.0
-                )
+                metrics[f"bertscore_f1_top{k}_mean"] = np.mean(k_mean_f1) * 100.0
             else:
                 metrics[f"bertscore_f1_top{k}"] = 0.0
                 metrics[f"bertscore_f1_top{k}_mean"] = 0.0

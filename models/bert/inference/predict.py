@@ -260,7 +260,8 @@ def fill_mask(
         n_chars, tokenizer, is_partial_word=is_partial
     )
 
-    all_candidates: List[Tuple[str, float]] = []
+    matching_candidates: List[Tuple[str | List[int], float]] = []
+    fallback_candidates: List[Tuple[str | List[int], float]] = []
 
     # Scelta del metodo di generazione
     if method == "modified_best_to_worst":
@@ -346,7 +347,7 @@ def fill_mask(
             final_score = log_p_hcb + log_prior
 
             if return_raw:
-                all_candidates.append((token_ids, final_score))
+                matching_candidates.append((token_ids, final_score))
                 continue
 
             decoded = tokenizer.decode(token_ids, skip_special_tokens=True)
@@ -372,18 +373,22 @@ def fill_mask(
             else:
                 candidate_str = decoded
 
-            # Filtro rigoroso per la lunghezza della lacuna in caratteri
-            # Usiamo strip_diacritics per contare i caratteri base, ignorando accenti e spiriti
+            # Controllo lunghezza: se corrisponde, va nei candidati principali, altrimenti nei fallback
             base_chars = strip_diacritics(candidate_str).replace(" ", "")
-            if len(base_chars) != n_chars:
-                continue
+            if len(base_chars) == n_chars:
+                matching_candidates.append((candidate_str, final_score))
+            else:
+                fallback_candidates.append((candidate_str, final_score))
 
-            all_candidates.append((candidate_str, final_score))
+    # Ordiniamo decrescente per score
+    matching_candidates.sort(key=lambda x: x[1], reverse=True)
+    fallback_candidates.sort(key=lambda x: x[1], reverse=True)
 
-    all_candidates.sort(key=lambda x: x[1], reverse=True)
     seen = set()
     unique_candidates = []
-    for item, score in all_candidates:
+
+    # Inseriamo prima i candidati che rispettano la lunghezza (o tutti se return_raw)
+    for item, score in matching_candidates:
         key = (
             tuple(item)
             if return_raw
@@ -398,6 +403,20 @@ def fill_mask(
             unique_candidates.append((item if return_raw else key, score))
         if len(unique_candidates) == K:
             break
+
+    # Se non abbiamo raggiunto K, riempiamo con i candidati di fallback (lunghezza errata)
+    if len(unique_candidates) < K and not return_raw:
+        for item, score in fallback_candidates:
+            key = normalize_greek(
+                item,
+                case_folding=config.get("case_folding", "fold"),
+                strip_diacritics_flag=config.get("strip_diacritics"),
+            )
+            if key not in seen:
+                seen.add(key)
+                unique_candidates.append((key, score))
+            if len(unique_candidates) == K:
+                break
 
     if normalize_probs and unique_candidates:
         max_score = max(s for _, s in unique_candidates)
