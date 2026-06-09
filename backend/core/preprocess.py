@@ -24,19 +24,63 @@ from backend.core import (
 )
 
 
+def strip_punctuation_except_dot(s: str) -> str:
+    start = 0
+    while start < len(s):
+        c = s[start]
+        if c != '.' and unicodedata.category(c).startswith('P'):
+            start += 1
+        else:
+            break
+            
+    end = len(s)
+    while end > start:
+        c = s[end - 1]
+        if c != '.' and unicodedata.category(c).startswith('P'):
+            end -= 1
+        else:
+            break
+            
+    return s[start:end]
+
+
+def is_alpha_or_mark(c: str) -> bool:
+    return c.isalpha() or unicodedata.category(c).startswith('M')
+
+
+def get_token_core_and_lacuna_status(token: str) -> tuple[str, bool]:
+    fold_token = token.upper()
+    if "NONE" in fold_token:
+        return token, True
+    if GAP_TOKEN.upper() in fold_token:
+        return token, True
+        
+    clean_token = strip_punctuation_except_dot(token)
+    
+    core = clean_token
+    if core.endswith(".") and len(core) > 1:
+        before_dot = core[-2]
+        if is_alpha_or_mark(before_dot):
+            core = core[:-1]
+            
+    is_lacuna = False
+    if "." in core:
+        if core == ".":
+            is_lacuna = False
+        elif core.startswith(".") and core.count(".") == 1 and all(is_alpha_or_mark(c) for c in core[1:]):
+            is_lacuna = False
+        else:
+            is_lacuna = True
+            
+    return core, is_lacuna
+
+
 def contains_lacunae(token: str) -> bool:
     """
     Verifica se un dato token contiene lacune da processare.
     """
-    fold_token = token.upper()
-
-    if "NONE" in fold_token:
-        return True
-
-    if token.endswith(".") and all(char.isalpha() for char in token[:-1]):
-        return False
-
-    return (GAP_TOKEN.upper() in fold_token) or ("." in token and len(token) > 1)
+    _, is_lacuna = get_token_core_and_lacuna_status(token)
+    return is_lacuna
 
 
 def strip_diacritics(text: str) -> str:
@@ -136,6 +180,15 @@ def normalize_greek(
     return normalized  # "none": nessuna modifica al casing
 
 
+def is_adjacent_word_ending_with_dot(tkn: str) -> bool:
+    clean_tkn = strip_punctuation_except_dot(tkn)
+    if clean_tkn.endswith(".") and len(clean_tkn) > 1:
+        core = clean_tkn[:-1]
+        if not core.startswith(".") and all(is_alpha_or_mark(c) for c in core):
+            return True
+    return False
+
+
 def clean_lacunae(token: str) -> str:
     """
     Pulisce il token dato rimuovendo specifici caratteri indesiderati.
@@ -160,11 +213,9 @@ def clean_lacunae(token: str) -> str:
         clean_seq = []
         seq = token.replace(GAP_TOKEN, " <UNK> ").split()
         for i, tkn in enumerate(seq):
-            if (
-                tkn.endswith(".")
-                and all(char.isalpha() or char.isspace() for char in tkn[:-1])
-                and "NONE" not in tkn.upper()
-            ) and (clean_seq and clean_seq[-1] == UNK_TOKEN):
+            is_adj = is_adjacent_word_ending_with_dot(tkn)
+
+            if is_adj and "NONE" not in tkn.upper() and (clean_seq and clean_seq[-1] == UNK_TOKEN):
                 clean_seq = insert_into_clean_tokens(clean_seq, UNK_TOKEN)
 
             elif is_part_of_lacuna(tkn):
@@ -173,11 +224,7 @@ def clean_lacunae(token: str) -> str:
                 if i == len(seq) - 1:
                     clean_seq = insert_into_clean_tokens(clean_seq, tkn)
                 else:
-                    if (
-                        tkn.endswith(".")
-                        and all(char.isalpha() or char.isspace() for char in tkn[:-1])
-                        and "NONE" not in tkn.upper()
-                    ):
+                    if is_adj and "NONE" not in tkn.upper():
                         clean_seq.append(tkn)
                     else:
                         next_seq = clean_lacunae(" ".join(seq[i:])).replace(
@@ -203,18 +250,17 @@ def is_part_of_lacuna(token: str) -> bool:
     if token == ".":
         return True
 
-    if (
-        token.startswith(".")
-        and all(char.isalpha() or char.isspace() for char in token[1:])
-        and "NONE" not in token.upper()
-    ):
-        return False
+    if token == UNK_TOKEN:
+        return True
 
-    return bool(
-        all(char.isalpha() for char in token)
-        or contains_lacunae(token)
-        or token == UNK_TOKEN
-    )
+    core, is_lacuna = get_token_core_and_lacuna_status(token)
+    if is_lacuna:
+        return True
+
+    if all(is_alpha_or_mark(c) for c in core):
+        return True
+
+    return False
 
 
 def insert_into_clean_tokens(clean_list: list[str], token: str) -> list[str]:

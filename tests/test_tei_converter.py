@@ -1,6 +1,6 @@
 import pytest
 import lxml.etree as ET
-from scripts.tei_converter import (
+from scripts.tei.converter import (
     idno,
     title,
     material,
@@ -71,7 +71,7 @@ def test_language_extraction(sample_tei_xml):
         ("<p xmlns='http://www.tei-c.org/ns/1.0'>Hello there</p>", "Hello there"),
         ("<p xmlns='http://www.tei-c.org/ns/1.0'>Hello <gap quantity='4'/> there</p>", "Hello .... there"),
         ("<p xmlns='http://www.tei-c.org/ns/1.0'>Unknown gap <gap/> here</p>", "Unknown gap <gap/> here"),
-        ("<ab xmlns='http://www.tei-c.org/ns/1.0'>Text <supplied>supplied</supplied> end</ab>", "Text supplied end"),
+        ("<ab xmlns='http://www.tei-c.org/ns/1.0'>Text <supplied reason='lost'>supplied</supplied> end</ab>", "Text [supplied] end"),
     ]
 )
 def test_parse_element_text(xml_string, expected_text):
@@ -100,7 +100,7 @@ def test_convert_tei_to_json(sample_tei_xml):
         
         # text should have dots instead of quantity 3, and <gap/> for the empty one
         # Because we strip whitespace inside cleaning
-        assert obj["training_text"] == "Some ... text <gap/> with nested elements."
+        assert obj["training_text"] == "Some ... text <gap/> with nested elements"
         assert obj["test_cases"] == []
     finally:
         os.remove(temp_path)
