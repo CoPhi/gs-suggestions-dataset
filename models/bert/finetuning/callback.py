@@ -164,6 +164,7 @@ class HCBEvaluationCallback(TrainerCallback):
 
         print(
             f"Epoch {state.epoch}, global_step {state.global_step}:"
+            f"Composite Score: {all_metrics.get('composite_score', 0):.2f} | "
             f"Top-1 EM: {all_metrics.get('top1', 0):.2f}% | "
             f"Top-5 EM: {all_metrics.get('top5', 0):.2f}% | "
             f"Top-10 EM: {all_metrics.get('top10', 0):.2f}% | "
@@ -176,6 +177,7 @@ class HCBEvaluationCallback(TrainerCallback):
 
         # log su wandb
         logs = {f"eval/{k}": v for k, v in all_metrics.items()}
+        logs["eval_composite_score"] = all_metrics["composite_score"]
         logs["train/global_step"] = state.global_step
         logs["epoch"] = state.epoch
 

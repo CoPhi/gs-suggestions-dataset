@@ -1,6 +1,11 @@
 project: gs-suggestions
 program: scripts/opt.py
 method: bayes
+run_cap: 30
+early_terminate:
+  type: hyperband
+  min_iter: 2
+  eta: 3
 metric:
   name: eval_composite_score
   goal: maximize
