@@ -45,7 +45,7 @@ from models.bert.dataset.load import prepare_dataset_for_model
 from models.bert.dataset.dev_set import DevCase
 from models.bert.finetuning import get_model_config, GAP_TOKEN, WANDB_PROJECT
 from models.bert.finetuning.callback import HCBEvaluationCallback
-from models.bert.finetuning.collator import DataCollatorForSyntheticGapMLM
+from transformers import DataCollatorForLanguageModeling
 from models.bert.evaluation.metrics import (
     reset_scorer_cache,
     evaluate_contextual_similarity,
@@ -591,10 +591,9 @@ def pipeline_finetuning(
         lr_scheduler_type=lr_scheduler_type,
     )
 
-    # Valutazione HCB baseline sul TEST set (Pre-FT)
     pre_ft_metrics = None
     if evaluate_on_test:
-        print("Valutazione HCB baseline sul TEST set (Pre-FT)...")
+        print("Valutazione baseline sul TEST set (Pre-FT)...")
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         model.to(device)
 
@@ -613,11 +612,10 @@ def pipeline_finetuning(
     # Training setup
     output_dir = f"./models/bert/finetuning/gs/{ckpt_short}"
 
-    data_collator = DataCollatorForSyntheticGapMLM(
+    data_collator = DataCollatorForLanguageModeling(
         tokenizer=tokenizer,
+        mlm=True,
         mlm_probability=mlm_probability,
-        min_gap_length=1,
-        max_gap_length=max_span_length if max_span_length > 1 else 6,
     )
 
     torch.cuda.empty_cache()
@@ -697,10 +695,9 @@ def pipeline_finetuning(
     trainer.save_metrics("eval", metrics)
     trainer.save_state()
 
-    # Valutazione HCB finale sul test set (Post-FT)
     post_ft_metrics = None
     if evaluate_on_test:
-        print("Valutazione HCB finale sul TEST set (Post-FT)...")
+        print("Valutazione finale sul TEST set (Post-FT)...")
         post_ft_metrics = evaluate_metrics_on_test_set(
             split_name="test_post_ft",
             cases=hcb_test_cases,
