@@ -512,7 +512,7 @@ def pipeline_finetuning(
     dataset_name: str = "CNR-ILC/gs-dataset-tlg-uncased",
     eval_dataset_name: str | None = None,
     evaluate_on_test: bool = True,
-    max_eval_cases: int = 300,
+    max_eval_cases: int = 500,
 ) -> Trainer:
     """
     Esegue la pipeline completa di finetuning MLM.
