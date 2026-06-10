@@ -1,5 +1,5 @@
 project: gs-suggestions
-program: scripts/opt.py
+program: scripts/sweep/opt.py
 method: bayes
 run_cap: 15
 early_terminate:
@@ -19,23 +19,21 @@ command:
 parameters:
   lr:
     distribution: log_uniform_values
-    min: 5e-6
+    min: 1e-6
     max: 5e-5
   epochs:
-    values: [3, 4, 5]
+    values: [2, 3, 4]
   batch_size:
     value: 128
   chunk_size:
     values: [128, 256]
   num_layers_to_freeze:
-    values: [4, 6, 8, 10]
+    values: [0, 4, 6, 8, 10]
   weight_decay:
-    values: [0.001, 0.01, 0.1]
+    values: [0.01, 0.1]
   warmup_ratio:
-    values: [0.05, 0.10, 0.15]
+    value: 0.10
   mlm_probability:
     values: [0.10, 0.15, 0.20]
-  max_span_length:
-    values: [2, 3, 4]
   lr_scheduler_type:
-    values: ["linear", "cosine"]
+    value: "cosine"
