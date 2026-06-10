@@ -1,5 +1,5 @@
 project: gs-suggestions
-program: scripts/opt.py
+program: scripts/sweep/opt.py
 method: bayes
 run_cap: 15
 early_terminate:
