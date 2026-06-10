@@ -579,6 +579,7 @@ def pipeline_finetuning(
         batched=True,
         fn_kwargs={"chunk_size": chunk_size},
         desc=f"Grouping texts in chunks of {chunk_size}",
+        remove_columns=lm_datasets["train"].column_names,
     )
 
     # W&B init
