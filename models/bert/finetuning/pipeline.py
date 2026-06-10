@@ -44,7 +44,7 @@ from backend.core.preprocess import normalize_greek
 from models.bert.dataset.load import prepare_dataset_for_model
 from models.bert.dataset.dev_set import DevCase
 from models.bert.finetuning import get_model_config, GAP_TOKEN, WANDB_PROJECT
-from models.bert.finetuning.callback import HCBEvaluationCallback
+from models.bert.finetuning.callback import CustomEvaluationCallback
 from transformers import DataCollatorForLanguageModeling
 from models.bert.evaluation.metrics import (
     reset_scorer_cache,
@@ -568,7 +568,7 @@ def pipeline_finetuning(
 
     # Dataset
     print("Preparazione Dataset...")
-    lm_datasets, hcb_dev_cases, hcb_test_cases = prepare_data(
+    lm_datasets, eval_dev_cases, eval_test_cases = prepare_data(
         checkpoint=checkpoint,
         dataset_name=dataset_name,
         eval_dataset_name=eval_dataset_name,
@@ -607,7 +607,7 @@ def pipeline_finetuning(
 
         pre_ft_metrics = evaluate_metrics_on_test_set(
             split_name="test_pre_ft",
-            cases=hcb_test_cases,
+            cases=eval_test_cases,
             model=model,
             tokenizer=tokenizer,
             checkpoint=checkpoint,
@@ -674,9 +674,9 @@ def pipeline_finetuning(
         num_training_steps=num_training_steps,
     )
 
-    dev_pool = stratified_sample_by_gap(hcb_dev_cases, n=300, seed=42)
+    dev_pool = stratified_sample_by_gap(eval_dev_cases, n=300, seed=42)
 
-    hcb_callback = HCBEvaluationCallback(
+    eval_callback = CustomEvaluationCallback(
         dev_cases_pool=dev_pool,
         tokenizer=tokenizer,
         checkpoint=checkpoint,
@@ -690,7 +690,7 @@ def pipeline_finetuning(
         eval_dataset=lm_datasets["dev"],
         data_collator=data_collator,
         optimizers=(optimizer, scheduler),
-        callbacks=[hcb_callback, EarlyStoppingCallback(early_stopping_patience=3)],
+        callbacks=[eval_callback, EarlyStoppingCallback(early_stopping_patience=3)],
     )
 
     # Training
@@ -708,7 +708,7 @@ def pipeline_finetuning(
         print("Valutazione finale sul TEST set (Post-FT)...")
         post_ft_metrics = evaluate_metrics_on_test_set(
             split_name="test_post_ft",
-            cases=hcb_test_cases,
+            cases=eval_test_cases,
             model=model,
             tokenizer=tokenizer,
             checkpoint=checkpoint,

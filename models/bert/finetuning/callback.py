@@ -15,12 +15,11 @@ from models.bert.finetuning import get_model_config
 import wandb
 
 
-class HCBEvaluationCallback(TrainerCallback):
+class CustomEvaluationCallback(TrainerCallback):
     """
-    Callback personalizzato per calcolare le metriche TopK e BERTscore tramite HCB
+    Callback personalizzato per calcolare le metriche TopK e BERTscore
     durante la fase di eval.
-    Invece di valutare l'intero corpus con HCB (che rallenterebbe enormemente il training),
-    valutiamo un sottoinsieme (pool) di casi reali annotati ad ogni ciclo di on_evaluate.
+    Invece di valutare l'intero corpus, valutiamo un sottoinsieme (pool) di casi reali annotati ad ogni ciclo di on_evaluate.
 
     Il confronto tra suggerimenti e gold label avviene in modalità normalizzata
     (lowercase, spazi rimossi) per garantire invarianza al casing del modello.
@@ -34,7 +33,7 @@ class HCBEvaluationCallback(TrainerCallback):
 
     def on_evaluate(self, args, state, control, model, **kwargs):
         """
-        Esegue la validazione HCB sul pool di casi di test.
+        Esegue la validazione sul pool di casi di test.
         Calcola TopK e BERTscore@K (massimo tra i primi K suggerimenti).
         """
 
@@ -65,8 +64,8 @@ class HCBEvaluationCallback(TrainerCallback):
                 gold_labels.append(case.y)
                 contexts.append(case.x)
             except Exception as e:
-                print(f"[HCB Error] fill_mask ha generato un'eccezione: {e}")
-                print(f"[HCB Error] Case: {case}")
+                print(f"[Evaluation Error] fill_mask ha generato un'eccezione: {e}")
+                print(f"[Evaluation Error] Case: {case}")
                 continue
 
         if not predictions_text:
@@ -97,7 +96,7 @@ class HCBEvaluationCallback(TrainerCallback):
                 predictions_text=predictions_text, gold_labels=normalized_gold_labels
             )
         except Exception as e:
-            print(f"[HCB Error] evaluate_topK_text fallito: {e}")
+            print(f"[Evaluation Error] evaluate_topK_text fallito: {e}")
             topk_metrics = {}
 
         # BERTscore@K (massimo tra i primi K)
@@ -111,9 +110,9 @@ class HCBEvaluationCallback(TrainerCallback):
             )
         except Exception as e:
             print(
-                f"[HCB Error] evaluate_bertscore_topk_text ha generato un'eccezione: {e}"
+                f"[Evaluation Error] evaluate_bertscore_topk_text ha generato un'eccezione: {e}"
             )
-            print("[HCB Error] Traceback completo:")
+            print("[Evaluation Error] Traceback completo:")
             print(traceback.format_exc())
             bertscore_metrics = {}
 
@@ -138,7 +137,9 @@ class HCBEvaluationCallback(TrainerCallback):
                     similarities = evaluate_contextual_similarity(cand_embs, gold_emb)
                     all_similarities.append(similarities)
                 except Exception as e:
-                    print(f"[HCB Error] Cosine Similarity fallita per case {case}: {e}")
+                    print(
+                        f"[Evaluation Error] Cosine Similarity fallita per case {case}: {e}"
+                    )
                     all_similarities.append([])
             else:
                 all_similarities.append([])
@@ -148,7 +149,7 @@ class HCBEvaluationCallback(TrainerCallback):
                 similarities_list=all_similarities, k_values=[1, 5, 10, 20]
             )
         except Exception as e:
-            print(f"[HCB Error] evaluate_cosine_similarity_topk fallito: {e}")
+            print(f"[Evaluation Error] evaluate_cosine_similarity_topk fallito: {e}")
             cos_sim_metrics = {}
 
         # Unione dei risultati e calcolo metrica composita
@@ -159,21 +160,62 @@ class HCBEvaluationCallback(TrainerCallback):
         all_metrics["composite_score"] = (top1_em + cossim_max_top1) / 2
 
         # Aggiornamento dello stato del Trainer
-        hcb_logs = {f"eval_{k}": v for k, v in all_metrics.items()}
-        state.log_history[-1].update(hcb_logs)
+        eval_callback_logs = {f"eval_{k}": v for k, v in all_metrics.items()}
+        state.log_history[-1].update(eval_callback_logs)
 
+        # Stampa a terminale in formato tabellare
+        c_score = all_metrics.get("composite_score", 0.0)
+
+        print("\n" + "=" * 80)
         print(
-            f"Epoch {state.epoch}, global_step {state.global_step}:"
-            f"Composite Score: {all_metrics.get('composite_score', 0):.2f} | "
-            f"Top-1 EM: {all_metrics.get('top1', 0):.2f}% | "
-            f"Top-5 EM: {all_metrics.get('top5', 0):.2f}% | "
-            f"Top-10 EM: {all_metrics.get('top10', 0):.2f}% | "
-            f"Top-20 EM: {all_metrics.get('top20', 0):.2f}% | "
-            f"BS-F1@1: {bertscore_metrics.get('bertscore_f1_top1', 0):.2f}% (mean: {bertscore_metrics.get('bertscore_f1_top1_mean', 0):.2f}%)| "
-            f"BS-F1@5: {bertscore_metrics.get('bertscore_f1_top5', 0):.2f}% (mean: {bertscore_metrics.get('bertscore_f1_top5_mean', 0):.2f}%) | "
-            f"BS-F1@10: {bertscore_metrics.get('bertscore_f1_top10', 0):.2f}% (mean: {bertscore_metrics.get('bertscore_f1_top10_mean', 0):.2f}%) | "
-            f"BS-F1@20: {bertscore_metrics.get('bertscore_f1_top20', 0):.2f}% (mean: {bertscore_metrics.get('bertscore_f1_top20_mean', 0):.2f}%)"
+            f" EVALUATION | Epoch: {state.epoch:<5} | Step: {state.global_step:<6} | Composite Score: {c_score:.2f}%"
         )
+        print("=" * 80)
+        print(f"{'Metric':<25} | {'@1':<10} | {'@5':<10} | {'@10':<10} | {'@20':<10}")
+        print("-" * 80)
+
+        rows = [
+            ("Exact Match", "top1", "top5", "top10", "top20"),
+            (
+                "BERTScore F1 (Max)",
+                "bertscore_f1_top1",
+                "bertscore_f1_top5",
+                "bertscore_f1_top10",
+                "bertscore_f1_top20",
+            ),
+            (
+                "BERTScore F1 (Mean)",
+                "bertscore_f1_top1_mean",
+                "bertscore_f1_top5_mean",
+                "bertscore_f1_top10_mean",
+                "bertscore_f1_top20_mean",
+            ),
+            (
+                "CosSim (Max)",
+                "cos_sim_top1_max",
+                "cos_sim_top5_max",
+                "cos_sim_top10_max",
+                "cos_sim_top20_max",
+            ),
+            (
+                "CosSim (Mean)",
+                "cos_sim_top1_mean",
+                "cos_sim_top5_mean",
+                "cos_sim_top10_mean",
+                "cos_sim_top20_mean",
+            ),
+        ]
+
+        for name, k1, k5, k10, k20 in rows:
+            v1 = all_metrics.get(k1, 0.0)
+            v5 = all_metrics.get(k5, 0.0)
+            v10 = all_metrics.get(k10, 0.0)
+            v20 = all_metrics.get(k20, 0.0)
+            print(
+                f"{name:<25} | {v1:>8.2f}% | {v5:>8.2f}% | {v10:>8.2f}% | {v20:>8.2f}%"
+            )
+
+        print("=" * 80 + "\n")
 
         # log su wandb
         logs = {f"eval/{k}": v for k, v in all_metrics.items()}
