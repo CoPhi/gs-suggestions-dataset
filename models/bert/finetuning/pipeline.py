@@ -574,6 +574,13 @@ def pipeline_finetuning(
         eval_dataset_name=eval_dataset_name,
     )
 
+    lm_datasets = lm_datasets.map(
+        group_texts,
+        batched=True,
+        fn_kwargs={"chunk_size": chunk_size},
+        desc=f"Grouping texts in chunks of {chunk_size}",
+    )
+
     # W&B init
     ckpt_short = checkpoint.split("/")[-1]
     run_name = _init_wandb(
@@ -644,7 +651,7 @@ def pipeline_finetuning(
         hub_model_id=checkpoint if push_to_hub else None,
         push_to_hub=push_to_hub,
         load_best_model_at_end=True,
-        remove_unused_columns=False,
+        remove_unused_columns=True,
     )
 
     # Calcolo del numero totale di training steps per lo scheduler
