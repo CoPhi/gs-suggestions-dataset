@@ -362,33 +362,37 @@ def fill_mask(
             if not decoded:
                 continue
 
-            # Euristica di filtraggio e ricostruzione per parole parziali
-            if is_partial:
-                # Una parola parziale non deve contenere spazi o punteggiatura spuria nel pezzo generato
-                if " " in decoded or any(p in decoded for p in ".,;:!?'\"()[]{}"):
-                    continue
-                # Pur applicando il controllo per evitare spazi spuri, restituiamo solo il frammento mancante
-                # affinché combaci con la Gold Label e con la sostituzione in get_contextual_embeddings
-                candidate_str = decoded
-            else:
-                candidate_str = decoded
+            # Filtriamo candidati che contengono caratteri latini (Intrusione Inglese/Latino)
+            if re.search(r'[a-zA-Z]', decoded):
+                continue
+
+            # Controllo sui falsi positivi: una lacuna indicata da puntini (singola o in una parola)
+            # non accetta candidati contenenti spazi vuoti o punteggiatura spuria
+            if " " in decoded or any(p in decoded for p in ".,;:!?'\"()[]{}|"):
+                continue
+
+            candidate_str = decoded
 
             # Controllo lunghezza: se corrisponde, va nei candidati principali, altrimenti nei fallback
-            base_chars = strip_diacritics(candidate_str).replace(" ", "")
+            base_chars = strip_diacritics(candidate_str)
             if len(base_chars) == n_chars:
                 matching_candidates.append((candidate_str, final_score))
             else:
                 fallback_candidates.append((candidate_str, final_score))
 
-    # Ordiniamo decrescente per score
-    matching_candidates.sort(key=lambda x: x[1], reverse=True)
-    fallback_candidates.sort(key=lambda x: x[1], reverse=True)
-
     seen = set()
     unique_candidates = []
 
-    # Inseriamo prima i candidati che rispettano la lunghezza (o tutti se return_raw)
-    for item, score in matching_candidates:
+    # Uniamo tutti i candidati e li ordiniamo con priorità:
+    # 1. Matching length (True > False)
+    # 2. Punteggio (decrescente)
+    all_cands = [(item, score, True) for item, score in matching_candidates]
+    if not return_raw:
+        all_cands += [(item, score, False) for item, score in fallback_candidates]
+        
+    all_cands.sort(key=lambda x: (x[2], x[1]), reverse=True)
+
+    for item, score, _ in all_cands:
         key = (
             tuple(item)
             if return_raw
@@ -403,20 +407,6 @@ def fill_mask(
             unique_candidates.append((item if return_raw else key, score))
         if len(unique_candidates) == K:
             break
-
-    # Se non abbiamo raggiunto K, riempiamo con i candidati di fallback (lunghezza errata)
-    if len(unique_candidates) < K and not return_raw:
-        for item, score in fallback_candidates:
-            key = normalize_greek(
-                item,
-                case_folding=config.get("case_folding", "fold"),
-                strip_diacritics_flag=config.get("strip_diacritics"),
-            )
-            if key not in seen:
-                seen.add(key)
-                unique_candidates.append((key, score))
-            if len(unique_candidates) == K:
-                break
 
     if normalize_probs and unique_candidates:
         max_score = max(s for _, s in unique_candidates)
