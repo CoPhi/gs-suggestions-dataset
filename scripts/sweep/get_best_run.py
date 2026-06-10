@@ -4,6 +4,10 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..",
 
 import argparse
 import wandb
+from dotenv import load_dotenv
+
+# Carica le variabili d'ambiente (.env)
+load_dotenv()
 
 
 def main():
@@ -16,30 +20,86 @@ def main():
         required=True,
         help="ID dello sweep nel formato: 'entity/project/sweep_id' oppure solo 'sweep_id' se project/entity sono deducibili dal contesto",
     )
+    parser.add_argument(
+        "--project",
+        type=str,
+        default=None,
+        help="Nome del progetto WandB (di default letto da models.bert.finetuning.WANDB_PROJECT)",
+    )
+    parser.add_argument(
+        "--entity",
+        type=str,
+        default=None,
+        help="Entità/Username di WandB (di default ricavato dall'API)",
+    )
     args = parser.parse_args()
 
     # Inizializza l'API di Wandb
     api = wandb.Api()
 
+    # Per default recuperiamo dal progetto locale
+    from models.bert.finetuning import WANDB_PROJECT
+
+    project = args.project or WANDB_PROJECT
+    entity = args.entity
+
     print(f"Recupero dati dallo sweep: {args.sweep_id}...")
+    
+    sweep = None
+    runs = None
+    errors = []
+
+    # 1. Tentativo con il path fornito così com'è
     try:
         sweep = api.sweep(args.sweep_id)
         runs = sweep.runs
     except Exception as e:
-        # Tenta di aggiungere l'entity e project di default se l'utente ha passato solo l'id
-        try:
-            # Per default recuperiamo dal progetto locale
-            from models.bert.finetuning import WANDB_PROJECT
+        errors.append(f"Path diretto '{args.sweep_id}': {e}")
 
-            # Recupera il nome dell'utente attualmente loggato
-            username = api.viewer.username
-            full_path = f"{username}/{WANDB_PROJECT}/{args.sweep_id}"
-            print(f"Tentativo con path completo: {full_path}...")
-            sweep = api.sweep(full_path)
-            runs = sweep.runs
-        except Exception as err:
-            print(f"Errore nel recupero dello sweep: {e} (Tentativo alternativo fallito: {err})")
-            return
+    # 2. Se non è andato a buon fine, proviamo a costruire il path
+    if sweep is None:
+        candidate_paths = []
+        
+        if entity:
+            candidate_paths.append(f"{entity}/{project}/{args.sweep_id}")
+        else:
+            # Prova prima solo project/sweep_id (wandb autoderiva l'entità)
+            candidate_paths.append(f"{project}/{args.sweep_id}")
+            
+            # Prova con default_entity
+            try:
+                def_entity = api.default_entity
+                if def_entity:
+                    candidate_paths.append(f"{def_entity}/{project}/{args.sweep_id}")
+            except Exception:
+                pass
+                
+            # Prova con viewer.username
+            try:
+                username = api.viewer.username
+                if username:
+                    candidate_paths.append(f"{username}/{project}/{args.sweep_id}")
+            except Exception:
+                pass
+
+        # Rimuove duplicati mantenendo l'ordine
+        seen = set()
+        candidate_paths = [x for x in candidate_paths if not (x in seen or seen.add(x))]
+
+        for path in candidate_paths:
+            print(f"Tentativo con path: {path}...")
+            try:
+                sweep = api.sweep(path)
+                runs = sweep.runs
+                break
+            except Exception as err:
+                errors.append(f"Path '{path}': {err}")
+
+    if sweep is None:
+        print("\nErrore nel recupero dello sweep. Dettagli dei tentativi:")
+        for err in errors:
+            print(f" - {err}")
+        return
 
     # Filtra le run completate con successo che hanno calcolato il composite score
     valid_runs = [
