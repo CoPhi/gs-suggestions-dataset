@@ -497,16 +497,16 @@ def evaluate_metrics_on_test_set(
 def pipeline_finetuning(
     checkpoint: str,
     base_model: str,
-    batch_size: int | None = None,
-    chunk_size: int | None = None,
-    epochs: int | None = None,
-    lr: float | None = None,
-    num_layers_to_freeze: int | None = None,
-    weight_decay: float | None = None,
-    warmup_ratio: float | None = None,
-    mlm_probability: float | None = None,
-    max_span_length: int | None = None,
-    lr_scheduler_type: str | None = None,
+    batch_size: int,
+    chunk_size: int,
+    epochs: int,
+    lr: float,
+    num_layers_to_freeze: int,
+    weight_decay: float,
+    warmup_ratio: float,
+    mlm_probability: float,
+    max_span_length: int,
+    lr_scheduler_type: str,
     logging_steps: int = 50,
     push_to_hub: bool = False,
     dataset_name: str = "CNR-ILC/gs-dataset-tlg-uncased",
@@ -516,36 +516,9 @@ def pipeline_finetuning(
 ) -> Trainer:
     """
     Esegue la pipeline completa di finetuning MLM.
-    Gli iperparametri (se None) vengono letti dal ModelRegistry in base al checkpoint.
+    Gli iperparametri devono essere passati esplicitamente.
     """
     config = get_model_config(checkpoint)
-
-    batch_size = batch_size or config.get("batch_size", 128)
-    chunk_size = chunk_size or config.get("chunk_size", 128)
-    epochs = epochs or config.get("epochs", 4)
-    lr = lr or config.get("lr", 2e-5)
-    num_layers_to_freeze = (
-        num_layers_to_freeze
-        if num_layers_to_freeze is not None
-        else config.get("num_layers_to_freeze", 6)
-    )
-    weight_decay = (
-        weight_decay if weight_decay is not None else config.get("weight_decay", 0.01)
-    )
-    warmup_ratio = (
-        warmup_ratio if warmup_ratio is not None else config.get("warmup_ratio", 0.1)
-    )
-    mlm_probability = (
-        mlm_probability
-        if mlm_probability is not None
-        else config.get("mlm_probability", 0.15)
-    )
-    max_span_length = (
-        max_span_length
-        if max_span_length is not None
-        else config.get("max_span_length", 3)
-    )
-    lr_scheduler_type = lr_scheduler_type or config.get("lr_scheduler_type", "linear")
 
     # Svuota la cache degli scorer BERTScore ad ogni run per evitare che istanze
     # costruite con parametri errati (es. rescale_with_baseline=True su modelli
