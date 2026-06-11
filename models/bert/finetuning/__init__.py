@@ -34,8 +34,8 @@ GAP_TOKEN = "<GAP_TEMP_INFILL>"
 # Configurazione specifica per modello BERT.
 #
 # case_folding: "upper" | "lower" | "none"
-#   - "upper": converte in maiuscolo (AristoBERTo, GreBerta)
-#   - "lower": converte in minuscolo (Logion, Cowen-Breen et al. 2023)
+#   - "upper": converte in maiuscolo
+#   - "lower": converte in minuscolo
 #   - "none": preserva il casing originale del testo
 
 
