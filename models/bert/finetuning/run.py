@@ -11,11 +11,6 @@ from models.bert.finetuning import (
 from models.bert.finetuning.pipeline import pipeline_finetuning
 
 """
-
-    Esempio:
-
-    
-
     uv run python -m models.bert.finetuning.run --checkpoint "CNR-ILC/gs-Logion"
     uv run python -m models.bert.finetuning.run --checkpoint "CNR-ILC/gs-GreBerta"
     uv run python -m models.bert.finetuning.run --checkpoint "CNR-ILC/gs-aristoBERTo"
@@ -32,16 +27,66 @@ def main():
         choices=list(ModelRegistry().configs.keys()),
         help="Checkpoint fine-tuned target (determina la normalizzazione del testo)",
     )
-    parser.add_argument("--epochs", type=int, default=None, help="Sovrascrive il default del ModelRegistry")
-    parser.add_argument("--batch_size", type=int, default=None, help="Sovrascrive il default del ModelRegistry")
-    parser.add_argument("--lr", type=float, default=None, help="Sovrascrive il default del ModelRegistry")
-    parser.add_argument("--chunk_size", type=int, default=None, help="Sovrascrive il default del ModelRegistry")
-    parser.add_argument("--num_layers_to_freeze", type=int, default=None, help="Sovrascrive il default del ModelRegistry")
-    parser.add_argument("--weight_decay", type=float, default=None, help="Sovrascrive il default del ModelRegistry")
-    parser.add_argument("--warmup_ratio", type=float, default=None, help="Sovrascrive il default del ModelRegistry")
-    parser.add_argument("--mlm_probability", type=float, default=None, help="Sovrascrive il default del ModelRegistry")
-    parser.add_argument("--max_span_length", type=int, default=None, help="Sovrascrive il default del ModelRegistry")
-    parser.add_argument("--lr_scheduler_type", type=str, default=None, help="Sovrascrive il default del ModelRegistry")
+    parser.add_argument(
+        "--epochs",
+        type=int,
+        default=None,
+        help="Sovrascrive il default del ModelRegistry",
+    )
+    parser.add_argument(
+        "--batch_size",
+        type=int,
+        default=None,
+        help="Sovrascrive il default del ModelRegistry",
+    )
+    parser.add_argument(
+        "--lr",
+        type=float,
+        default=None,
+        help="Sovrascrive il default del ModelRegistry",
+    )
+    parser.add_argument(
+        "--chunk_size",
+        type=int,
+        default=None,
+        help="Sovrascrive il default del ModelRegistry",
+    )
+    parser.add_argument(
+        "--num_layers_to_freeze",
+        type=int,
+        default=None,
+        help="Sovrascrive il default del ModelRegistry",
+    )
+    parser.add_argument(
+        "--weight_decay",
+        type=float,
+        default=None,
+        help="Sovrascrive il default del ModelRegistry",
+    )
+    parser.add_argument(
+        "--warmup_ratio",
+        type=float,
+        default=None,
+        help="Sovrascrive il default del ModelRegistry",
+    )
+    parser.add_argument(
+        "--mlm_probability",
+        type=float,
+        default=None,
+        help="Sovrascrive il default del ModelRegistry",
+    )
+    parser.add_argument(
+        "--max_span_length",
+        type=int,
+        default=None,
+        help="Sovrascrive il default del ModelRegistry",
+    )
+    parser.add_argument(
+        "--lr_scheduler_type",
+        type=str,
+        default=None,
+        help="Sovrascrive il default del ModelRegistry",
+    )
     parser.add_argument(
         "--logging_steps",
         type=int,
@@ -70,15 +115,47 @@ def main():
     base_model = ModelRegistry().base_model_map.get(checkpoint, checkpoint)
 
     epochs = args.epochs if args.epochs is not None else config.get("epochs", 10)
-    batch_size = args.batch_size if args.batch_size is not None else config.get("batch_size", 128)
+    batch_size = (
+        args.batch_size
+        if args.batch_size is not None
+        else config.get("batch_size", 128)
+    )
     lr = args.lr if args.lr is not None else config.get("lr", 5e-6)
-    chunk_size = args.chunk_size if args.chunk_size is not None else config.get("chunk_size", 256)
-    num_layers_to_freeze = args.num_layers_to_freeze if args.num_layers_to_freeze is not None else config.get("num_layers_to_freeze", 6)
-    weight_decay = args.weight_decay if args.weight_decay is not None else config.get("weight_decay", 0.01)
-    warmup_ratio = args.warmup_ratio if args.warmup_ratio is not None else config.get("warmup_ratio", 0.1)
-    mlm_probability = args.mlm_probability if args.mlm_probability is not None else config.get("mlm_probability", 0.15)
-    max_span_length = args.max_span_length if args.max_span_length is not None else config.get("max_span_length", 3)
-    lr_scheduler_type = args.lr_scheduler_type if args.lr_scheduler_type is not None else config.get("lr_scheduler_type", "linear")
+    chunk_size = (
+        args.chunk_size
+        if args.chunk_size is not None
+        else config.get("chunk_size", 256)
+    )
+    num_layers_to_freeze = (
+        args.num_layers_to_freeze
+        if args.num_layers_to_freeze is not None
+        else config.get("num_layers_to_freeze", 6)
+    )
+    weight_decay = (
+        args.weight_decay
+        if args.weight_decay is not None
+        else config.get("weight_decay", 0.01)
+    )
+    warmup_ratio = (
+        args.warmup_ratio
+        if args.warmup_ratio is not None
+        else config.get("warmup_ratio", 0.1)
+    )
+    mlm_probability = (
+        args.mlm_probability
+        if args.mlm_probability is not None
+        else config.get("mlm_probability", 0.15)
+    )
+    max_span_length = (
+        args.max_span_length
+        if args.max_span_length is not None
+        else config.get("max_span_length", 3)
+    )
+    lr_scheduler_type = (
+        args.lr_scheduler_type
+        if args.lr_scheduler_type is not None
+        else config.get("lr_scheduler_type", "linear")
+    )
 
     pipeline_finetuning(
         checkpoint=checkpoint,
