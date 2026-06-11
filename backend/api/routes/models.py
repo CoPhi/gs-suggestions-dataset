@@ -3,7 +3,7 @@ from typing import Annotated
 from fastapi import APIRouter, Body, Depends, Path
 from fastapi.responses import JSONResponse
 
-from backend.api.exceptions import ModelAlreadyExistsError, ModelNotFoundError
+
 from backend.api.models import Model, ModelsResponse
 from backend.api.services.model_service import ModelService
 
@@ -52,12 +52,7 @@ async def get_model(
     id: Annotated[str, Path(title="ID", description="ID del modello")],
     service: ModelService = Depends(get_service),
 ):
-    try:
-        return JSONResponse(status_code=200, content={"model": await service.get_model(id)})
-    except ModelNotFoundError as e:
-        return JSONResponse(status_code=404, content={"detail": str(e)})
-    except Exception as e:
-        return JSONResponse(status_code=500, content={"detail": str(e)})
+    return JSONResponse(status_code=200, content={"model": await service.get_model(id)})
 
 
 @router.get(
@@ -70,14 +65,9 @@ async def get_model(
     },
 )
 async def get_models(service: ModelService = Depends(get_service)):
-    try:
-        return JSONResponse(
-            status_code=200, content={"models": await service.get_all_models()}
-        )
-    except ModelNotFoundError as e:
-        return JSONResponse(status_code=404, content={"detail": str(e)})
-    except Exception as e:
-        return JSONResponse(status_code=500, content={"detail": str(e)})
+    return JSONResponse(
+        status_code=200, content={"models": await service.get_all_models()}
+    )
 
 
 @router.post(
@@ -126,15 +116,8 @@ async def create_model(
     ],
     service: ModelService = Depends(get_service),
 ):
-    try:
-        model_id = await service.create_model(model)
-        return JSONResponse(status_code=201, content={"ID": model_id})
-    except ModelAlreadyExistsError as e:
-        return JSONResponse(status_code=409, content={"detail": str(e)})
-    except ValueError as e:
-        return JSONResponse(status_code=400, content={"detail": str(e)})
-    except Exception as e:
-        return JSONResponse(status_code=500, content={"detail": str(e)})
+    model_id = await service.create_model(model)
+    return JSONResponse(status_code=201, content={"ID": model_id})
 
 
 @router.post("/init/", include_in_schema=False)
@@ -151,13 +134,8 @@ async def create_model(
     },
 )
 async def create_models(service: ModelService = Depends(get_service)):
-    try:
-        ids = await service.init_models()
-        return JSONResponse(status_code=201, content={"IDs": ids})
-    except ModelAlreadyExistsError as e:
-        return JSONResponse(status_code=409, content={"detail": str(e)})
-    except Exception as e:
-        return JSONResponse(status_code=500, content={"detail": str(e)})
+    ids = await service.init_models()
+    return JSONResponse(status_code=201, content={"IDs": ids})
 
 
 @router.delete(
@@ -173,10 +151,5 @@ async def delete_model(
     id: Annotated[str, Path(title="ID", description="ID del modello da eliminare")],
     service: ModelService = Depends(get_service),
 ):
-    try:
-        deleted = await service.delete_model(id)
-        return JSONResponse(status_code=200, content={"model": deleted})
-    except ModelNotFoundError as e:
-        return JSONResponse(status_code=404, content={"detail": str(e)})
-    except Exception as e:
-        return JSONResponse(status_code=500, content={"detail": str(e)})
+    deleted = await service.delete_model(id)
+    return JSONResponse(status_code=200, content={"model": deleted})

@@ -4,6 +4,10 @@ import re
 import zlib
 from typing import Any
 from concurrent.futures import ThreadPoolExecutor
+from functools import partial
+from collections import OrderedDict
+import torch
+import gc
 
 from bson import ObjectId
 from gridfs.errors import NoFile
@@ -39,6 +43,10 @@ def _load_bert_checkpoint(checkpoint: str) -> tuple:
 
 class SuggestionsService:
     """Service layer for generating textual suggestions via N-gram or BERT models."""
+
+    _bert_cache: OrderedDict[str, tuple] = OrderedDict()
+    _ngram_cache: dict[str, Any] = {}
+    MAX_BERT_MODELS = 3
 
     def __init__(self, db_collection=collection, gridfs=fs) -> None:
         self._collection = db_collection
@@ -86,12 +94,17 @@ class SuggestionsService:
 
     async def _load_compressed_file(self, filename: str) -> Any:
         """Fetch a GridFS file by name, decompress it, and deserialise with pickle."""
+        if filename in self._ngram_cache:
+            return self._ngram_cache[filename]
+
         try:
             stream = await self._fs.open_download_stream_by_name(filename)
         except NoFile:
             raise ModelNotFoundError(f"Model file '{filename}' not found in GridFS")
         raw = await stream.read()
-        return pickle.loads(zlib.decompress(raw))
+        model = pickle.loads(zlib.decompress(raw))
+        self._ngram_cache[filename] = model
+        return model
 
     async def _predict_ngrams(
         self, model: dict, context: str, num_tokens: int, num_predictions: Any
@@ -99,7 +112,9 @@ class SuggestionsService:
         global_model = await self._load_compressed_file(model["GLOBAL_MODEL_FILE_ID"])
         domain_model = await self._load_compressed_file(model["DOMAIN_MODEL_FILE_ID"])
 
-        suggestions = generate_k_suggests(
+        loop = asyncio.get_running_loop()
+        predict_func = partial(
+            generate_k_suggests,
             g_lm=global_model,
             d_lm=domain_model,
             context=context,
@@ -108,6 +123,8 @@ class SuggestionsService:
             n=model["N"],
             k_pred=num_predictions.value,
         )
+        suggestions = await loop.run_in_executor(None, predict_func)
+
         return [
             {
                 "sentence": re.sub(LACUNA_PATTERN, suggestion[0], context, count=1),
@@ -123,15 +140,27 @@ class SuggestionsService:
         """Genera predizioni usando un modello BERT pre-addestrato specificato dal checkpoint."""
         checkpoint = model["CHECKPOINT"]
 
-        await self._validate_hf_checkpoint(checkpoint)
+        if checkpoint not in self._bert_cache:
+            await self._validate_hf_checkpoint(checkpoint)
+            loop = asyncio.get_running_loop()
+            bert_model, tokenizer = await loop.run_in_executor(
+                None, _load_bert_checkpoint, checkpoint
+            )
+            self._bert_cache[checkpoint] = (bert_model, tokenizer)
+            self._bert_cache.move_to_end(checkpoint)
+
+            if len(self._bert_cache) > self.MAX_BERT_MODELS:
+                self._bert_cache.popitem(last=False)
+                gc.collect()
+                if torch.cuda.is_available():
+                    torch.cuda.empty_cache()
+        else:
+            bert_model, tokenizer = self._bert_cache[checkpoint]
+            self._bert_cache.move_to_end(checkpoint)
 
         loop = asyncio.get_running_loop()
-        with ThreadPoolExecutor() as executor:
-            bert_model, tokenizer = await loop.run_in_executor(
-                executor, _load_bert_checkpoint, checkpoint
-            )
-
-        suggestions = fill_mask(
+        predict_func = partial(
+            fill_mask,
             text=context,
             model=bert_model,
             tokenizer=tokenizer,
@@ -139,6 +168,7 @@ class SuggestionsService:
             normalize_probs=True,
             checkpoint=checkpoint,
         )
+        suggestions = await loop.run_in_executor(None, predict_func)
 
         return [
             {

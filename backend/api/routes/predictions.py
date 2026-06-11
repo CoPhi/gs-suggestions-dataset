@@ -2,7 +2,6 @@ from fastapi import APIRouter, Depends, Query
 from fastapi.responses import JSONResponse, RedirectResponse
 from typing import Annotated, Optional
 
-from backend.api.exceptions import InvalidContextError, ModelNotFoundError
 from backend.api.models import PredictionCount, PredictionsResponse
 from backend.api.services.suggestions_service import SuggestionsService
 
@@ -62,18 +61,10 @@ async def get_predictions(
     ] = None,
     service: SuggestionsService = Depends(get_service),
 ):
-    try:
-        predictions = await service.get_predictions(
-            model_id=model_id,
-            context=context,
-            num_tokens=num_tokens,
-            num_predictions=num_predictions,
-        )
-        return JSONResponse(status_code=200, content={"predictions": predictions})
-
-    except InvalidContextError as e:
-        return JSONResponse(status_code=400, content={"detail": str(e)})
-    except ModelNotFoundError as e:
-        return JSONResponse(status_code=404, content={"detail": str(e)})
-    except Exception as e:
-        return JSONResponse(status_code=500, content={"detail": str(e)})
+    predictions = await service.get_predictions(
+        model_id=model_id,
+        context=context,
+        num_tokens=num_tokens,
+        num_predictions=num_predictions,
+    )
+    return JSONResponse(status_code=200, content={"predictions": predictions})

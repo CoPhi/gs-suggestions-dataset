@@ -1,5 +1,7 @@
 import pickle
 import zlib
+import asyncio
+from functools import partial
 from typing import Any
 from uuid import uuid4
 
@@ -11,6 +13,7 @@ from backend.api.exceptions import ModelAlreadyExistsError, ModelNotFoundError
 from backend.api.models import BERTModel, NgramModel, Model
 from backend.config.settings import BERT_CHECKPOINTS, GAMMA, LM_TYPES, N
 from models.ngrams.train.training import pipeline_train
+from backend.api.services.suggestions_service import SuggestionsService
 
 
 class ModelService:
@@ -50,7 +53,9 @@ class ModelService:
         ids: list[str] = []
         for lm_score in LM_TYPES:
             try:
-                ids.append(await self._create_ngram_model_from_params(lm_score, GAMMA, N))
+                ids.append(
+                    await self._create_ngram_model_from_params(lm_score, GAMMA, N)
+                )
             except ModelAlreadyExistsError:
                 pass  # modello già presente, si prosegue
         for checkpoint in BERT_CHECKPOINTS:
@@ -68,6 +73,8 @@ class ModelService:
 
         if model["TYPE"] == "Ngrams":
             await self._delete_gridfs_files(model)
+        elif model["TYPE"] == "BERT":
+            SuggestionsService._bert_cache.pop(model.get("CHECKPOINT"), None)
 
         await self._collection.delete_one({"_id": ObjectId(model_id)})
         return model
@@ -123,8 +130,7 @@ class ModelService:
 
     async def _create_ngram_model(self, model: NgramModel) -> str:
         model_dict = model.model_dump()
-        # Filtro identitario: solo i campi che identificano univocamente il modello.
-        # Non si include GLOBAL/DOMAIN_MODEL_FILE_ID perché non sono ancora valorizzati.
+
         identity_filter = {
             "TYPE": "Ngrams",
             "LM_SCORE": model_dict["LM_SCORE"],
@@ -148,11 +154,15 @@ class ModelService:
         return await self._train_and_persist_ngram(model_dict)
 
     async def _train_and_persist_ngram(self, model_dict: dict) -> str:
-        global_model, domain_model, _ = pipeline_train(
+        loop = asyncio.get_running_loop()
+        train_func = partial(
+            pipeline_train,
             lm_type=model_dict["LM_SCORE"],
             gamma=model_dict["GAMMA"],
             n=model_dict["N"],
         )
+        global_model, domain_model, _ = await loop.run_in_executor(None, train_func)
+
         model_dict["GLOBAL_MODEL_FILE_ID"] = await self._save_to_gridfs(global_model)
         model_dict["DOMAIN_MODEL_FILE_ID"] = await self._save_to_gridfs(domain_model)
         model_dict.setdefault("TYPE", "Ngrams")
@@ -179,5 +189,6 @@ class ModelService:
         for key in file_keys:
             try:
                 await self._fs.delete_by_name(model[key])
+                SuggestionsService._ngram_cache.pop(model[key], None)
             except Exception:
                 pass

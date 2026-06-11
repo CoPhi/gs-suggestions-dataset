@@ -362,13 +362,17 @@ def fill_mask(
             if not decoded:
                 continue
 
-            # Filtriamo candidati che contengono caratteri latini (Intrusione Inglese/Latino)
-            if re.search(r'[a-zA-Z]', decoded):
+            # Filtriamo candidati che contengono caratteri latini (Intrusione Inglese/Latino) o numeri
+            if re.search(r'[a-zA-Z0-9]', decoded):
                 continue
 
             # Controllo sui falsi positivi: una lacuna indicata da puntini (singola o in una parola)
-            # non accetta candidati contenenti spazi vuoti o punteggiatura spuria
-            if " " in decoded or any(p in decoded for p in ".,;:!?'\"()[]{}|"):
+            # non accetta candidati contenenti spazi vuoti o punteggiatura estesa
+            if " " in decoded or any(p in decoded for p in ".,;:!?'\"()[]{}|-—_`~«»<>\\/*+&^%$#@="):
+                continue
+                
+            # Assicuriamoci che il candidato contenga effettivamente lettere
+            if not any(c.isalpha() for c in decoded):
                 continue
 
             candidate_str = decoded
