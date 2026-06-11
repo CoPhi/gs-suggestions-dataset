@@ -34,16 +34,7 @@ export class AppComponent {
     this.curr_id.set(target.value);
   }
 
-  toggleModels() {
-    const models = document.querySelectorAll('#modelsCard');
-    models.forEach((model) => {
-      if ((model as HTMLElement).style.display === 'none') {
-        (model as HTMLElement).style.display = 'block';
-      } else {
-        (model as HTMLElement).style.display = 'none';
-      }
-    });
-  }
+
 
   showAlert(message: string, type: string) {
     const alert = document.createElement('div');

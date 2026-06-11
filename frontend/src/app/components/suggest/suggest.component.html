@@ -1,8 +1,14 @@
-
-<div class="list-group-item suggestion-card" (dblclick)="copyToClipboard()">
-    <div class="d-flex w-100 justify-content-between">
-        <h6 class="mb-1"> {{ token() }} </h6>
-        <small class="text-muted"> {{ score() }}</small>
+<div class="card suggestion-card border-0 shadow-sm mb-3">
+    <div class="card-body">
+        <div class="d-flex w-100 justify-content-between align-items-start mb-2">
+            <div>
+                <span class="badge bg-primary fs-6 rounded-pill px-3 py-2 me-2">{{ token() }}</span>
+                <span class="text-muted small">Score: <strong>{{ score() }}</strong></span>
+            </div>
+            <button class="btn btn-sm btn-outline-secondary copy-btn" (click)="copyToClipboard()" title="Copia token">
+                <i class="bi bi-clipboard"></i> Copia
+            </button>
+        </div>
+        <p class="mb-0 text-dark fs-5 mt-3" style="line-height: 1.5;">{{ sentence() }}</p>
     </div>
-    <p class="mb-1"> {{ sentence() }}</p>
 </div>

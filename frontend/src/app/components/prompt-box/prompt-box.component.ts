@@ -13,7 +13,7 @@ export class PromptBoxComponent {
   curr_id = model.required<string | null>();
   isGenerating = input.required<boolean>();
 
-  toggleModels = output<void>();
+
   onGenerate = output<{ text: string, modelID: string, num_tokens: number, num_predictions: number }>();
 
   selectedModel = computed(() => {
@@ -114,7 +114,4 @@ export class PromptBoxComponent {
     this.onGenerate.emit({ text, modelID, num_tokens, num_predictions: Number(num_predictions) });
   }
 
-  triggerToggleModels() {
-    this.toggleModels.emit();
-  }
 }

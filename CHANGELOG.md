@@ -7,9 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 
-## [Unreleased]
+## [0.6.0]
 
 ### Added
+
+- Implementazione di un sistema di LRU cache per i modelli BERT, in modo da ridurne il tempo di caricamento. Ora, il sistema mantiene in memoria gli ultimi 3 modelli BERT caricati, consentendo un recupero quasi istantaneo in caso di riutilizzo.
+- Ottimizzazione fase di decoding: implementazione di filtri più stringenti per l'accettazione dei suggerimenti del modello BERT. Vengono ora scartati i candidati che contengono caratteri latini, numeri o punteggiatura estesa, oltre ai falsi positivi dovuti a lacune rappresentate da puntini.
+- Aumento della beam size per considerare più candidati ad ogni generazione. 
+- Refactoring del frontend per migliorare la manutenibilità e l'usabilità.
+    - Model selection tramite modal box.
+    - Suggestion box ridefinita per migliorare la UX: i token suggeriti dal modello sono ora sempre visualizzati in corsivo.
+- Hyperparameter tuning tramite wandb sweep sui principali iperparametri per il finetuning dei modello: learning rate, numero di layers da freezare, chunk size, batch size, mlm probability, epoche, etc.     
 
 
 ### Changed

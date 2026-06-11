@@ -34,7 +34,8 @@
             } @else {
                 <button class="btn btn-light rounded-pill btn-sm d-flex align-items-center gap-2 model-select-btn" 
                         type="button" 
-                        (click)="triggerToggleModels(); $event.stopPropagation()">
+                        data-bs-toggle="modal" data-bs-target="#modelsModal"
+                        (click)="$event.stopPropagation()">
                     <i class="bi bi-magic"></i> Scegli Modello
                 </button>
             }

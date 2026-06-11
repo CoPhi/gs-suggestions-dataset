@@ -22,13 +22,23 @@
             [models]="models()" 
             [(curr_id)]="curr_id" 
             [isGenerating]="isGenerating()"
-            (toggleModels)="toggleModels()"
             (onGenerate)="generateSuggestions($event)">
         </app-prompt-box>
 
-        @if (!isGenerating() && !selectedModel() && models().length > 0) {
-            <div class="mt-4" id="modelsCard" style="display: none;">
-                <app-models-box [models]="models()" [(curr_id)]="curr_id" />
+        @if (!isGenerating() && models().length > 0) {
+            <!-- Models Modal -->
+            <div class="modal fade" id="modelsModal" tabindex="-1" aria-labelledby="modelsModalLabel" aria-hidden="true">
+                <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+                    <div class="modal-content rounded-4 border-0 shadow-lg">
+                        <div class="modal-header bg-success text-white rounded-top-4">
+                            <h5 class="modal-title" id="modelsModalLabel"><i class="bi bi-robot"></i> Seleziona un Modello</h5>
+                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <div class="modal-body p-4 bg-light">
+                            <app-models-box [models]="models()" [(curr_id)]="curr_id" />
+                        </div>
+                    </div>
+                </div>
             </div>
         }
 

@@ -1,6 +1,6 @@
 [project]
 name = "gs-suggestions-dataset"
-version = "0.5.0"
+version = "0.6.0"
 description = ""
 authors = [{ name = "Gabriele", email = "gabrielegiannessi@gmail.com" }]
 requires-python = ">=3.12,<3.13"
