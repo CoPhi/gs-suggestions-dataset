@@ -492,6 +492,22 @@ def evaluate_metrics_on_test_set(
         f"  CosSim (Max):  @1: {all_metrics.get('cos_sim_top1_max', 0):.2f}% | @5: {all_metrics.get('cos_sim_top5_max', 0):.2f}% | @10: {all_metrics.get('cos_sim_top10_max', 0):.2f}% | @20: {all_metrics.get('cos_sim_top20_max', 0):.2f}%\n"
         f"  CosSim (Mean): @1: {all_metrics.get('cos_sim_top1_mean', 0):.2f}% | @5: {all_metrics.get('cos_sim_top5_mean', 0):.2f}% | @10: {all_metrics.get('cos_sim_top10_mean', 0):.2f}% | @20: {all_metrics.get('cos_sim_top20_mean', 0):.2f}%"
     )
+
+    import wandb
+    if wandb.run is not None:
+        columns = ["Context", "Gold Label", "Top 20 Predictions"]
+        data = []
+        # Logghiamo i primi 100 casi per non appesantire troppo W&B
+        for i, case in enumerate(pool[:100]):
+            if i < len(predictions_text):
+                gold = ", ".join(case.y) if isinstance(case.y, list) else case.y
+                # Formattiamo i primi 20 suggerimenti senza assegnare il punteggio
+                top_preds = " | ".join([s[0] for s in predictions_text[i][:20]])
+                data.append([case.x, gold, top_preds])
+        
+        table = wandb.Table(columns=columns, data=data)
+        wandb.log({f"{split_name}/predictions_table": table})
+
     return all_metrics
 
 
