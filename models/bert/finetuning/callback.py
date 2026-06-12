@@ -130,6 +130,7 @@ class CustomEvaluationCallback(TrainerCallback):
                         candidates=all_texts_to_embed,
                         model=model,
                         tokenizer=self.tokenizer,
+                        checkpoint=self.checkpoint,
                     )
                     gold_emb = embs[-1]
                     cand_embs = embs[:-1]

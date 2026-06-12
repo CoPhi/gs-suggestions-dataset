@@ -424,6 +424,7 @@ def evaluate_metrics_on_test_set(
                     candidates=all_texts_to_embed,
                     model=model,
                     tokenizer=tokenizer,
+                    checkpoint=checkpoint,
                 )
 
                 gold_emb = embs[-1]

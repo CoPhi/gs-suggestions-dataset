@@ -69,6 +69,7 @@ def get_contextual_embeddings(
     candidates: List[str],
     model: PreTrainedModel,
     tokenizer: PreTrainedTokenizer,
+    checkpoint: str = None,
     device: torch.device = None,
     batch_size: int = 32,
 ) -> List[torch.Tensor]:
@@ -87,6 +88,35 @@ def get_contextual_embeddings(
 
     embeddings = []
     model.eval()
+
+    # Normalizzazione model-specific coerente con fill_mask
+    if checkpoint is None:
+        config = {
+            "remove_punct": False,
+            "strip_diacritics": True,
+            "case_folding": "fold",
+        }
+    else:
+        try:
+            config = get_model_config(checkpoint)
+        except ValueError:
+            config = {
+                "remove_punct": False,
+                "strip_diacritics": True,
+                "case_folding": "fold",
+            }
+
+    if tokenizer.unk_token:
+        text_with_gap = text_with_gap.replace(UNK_TOKEN, tokenizer.unk_token)
+
+    text_with_gap = process_editorial_marks(text_with_gap, preserve_lacunae=True)
+    text_with_gap = normalize_greek(
+        text_with_gap,
+        case_folding=config.get("case_folding", "upper"),
+        strip_diacritics_flag=config.get("strip_diacritics", True),
+    )
+    if config.get("remove_punct"):
+        text_with_gap = remove_punctuation(text_with_gap, preserve_lacunae=True)
 
     # Troviamo l'indice di inizio e fine della lacuna nella stringa testuale originale
     gap_match = re.search(r"\[\.+\]", text_with_gap)
@@ -363,14 +393,16 @@ def fill_mask(
                 continue
 
             # Filtriamo candidati che contengono caratteri latini (Intrusione Inglese/Latino) o numeri
-            if re.search(r'[a-zA-Z0-9]', decoded):
+            if re.search(r"[a-zA-Z0-9]", decoded):
                 continue
 
             # Controllo sui falsi positivi: una lacuna indicata da puntini (singola o in una parola)
             # non accetta candidati contenenti spazi vuoti o punteggiatura estesa
-            if " " in decoded or any(p in decoded for p in ".,;:!?'\"()[]{}|-—_`~«»<>\\/*+&^%$#@="):
+            if " " in decoded or any(
+                p in decoded for p in ".,;:!?'\"()[]{}|-—_`~«»<>\\/*+&^%$#@="
+            ):
                 continue
-                
+
             # Assicuriamoci che il candidato contenga effettivamente lettere
             if not any(c.isalpha() for c in decoded):
                 continue
@@ -393,7 +425,7 @@ def fill_mask(
     all_cands = [(item, score, True) for item, score in matching_candidates]
     if not return_raw:
         all_cands += [(item, score, False) for item, score in fallback_candidates]
-        
+
     all_cands.sort(key=lambda x: (x[2], x[1]), reverse=True)
 
     for item, score, _ in all_cands:
