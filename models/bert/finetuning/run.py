@@ -90,7 +90,7 @@ def main():
     parser.add_argument(
         "--logging_steps",
         type=int,
-        default=5000,
+        default=50,
         help="Frequenza di log (steps) per la loss su wandb",
     )
     parser.add_argument(
