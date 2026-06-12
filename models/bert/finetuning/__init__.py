@@ -99,7 +99,7 @@ class ModelRegistry:
                 "hyperparameters": {
                     "chunk_size": 256,
                     "batch_size": 128,
-                    "lr": 2e-5,
+                    "lr": 2.107981566771331e-05,
                     "epochs": 3,
                     "num_layers_to_freeze": 10,
                     "weight_decay": 0.01,
