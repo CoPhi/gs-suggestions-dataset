@@ -99,6 +99,12 @@ def main():
         dest="push_to_hub",
         help="Disabilita il caricamento del modello su HuggingFace Hub al termine",
     )
+    parser.add_argument(
+        "--dataset_name",
+        type=str,
+        default="CNR-ILC/gs-dataset-tlg-uncased",
+        help="Dataset da usare per il finetuning",
+    )
 
     args = parser.parse_args()
 
@@ -157,6 +163,12 @@ def main():
         else config.get("lr_scheduler_type", "linear")
     )
 
+    dataset_name = (
+        args.dataset_name
+        if args.dataset_name is not None
+        else "CNR-ILC/gs-dataset-tlg-uncased"
+    )
+
     pipeline_finetuning(
         checkpoint=checkpoint,
         base_model=base_model,
@@ -172,6 +184,7 @@ def main():
         lr_scheduler_type=lr_scheduler_type,
         push_to_hub=args.push_to_hub,
         logging_steps=args.logging_steps,
+        dataset_name=dataset_name,
     )
 
 
