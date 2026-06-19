@@ -533,8 +533,37 @@ def pipeline_finetuning(
     max_eval_cases: int = 500,
 ) -> Trainer:
     """
-    Esegue la pipeline completa di finetuning MLM.
-    Gli iperparametri devono essere passati esplicitamente.
+    Esegue la pipeline completa di finetuning di tipo Masked Language Modeling (MLM).
+
+    Questa funzione si occupa di caricare il modello e il tokenizer, preparare il dataset
+    applicando la normalizzazione model-specific, configurare i parametri di training e
+    l'ottimizzatore (con supporto al freezing parziale dei layer), addestrare il modello,
+    eseguire la valutazione su un set di test (pre e post fine-tuning) tracciando le metriche 
+    e loggando le tabelle di predizione su Weights & Biases (W&B), e opzionalmente effettuare
+    il push del modello finale su Hugging Face Hub.
+
+    Args:
+        checkpoint (str): Identificativo o percorso del checkpoint fine-tuned target (es. 'CNR-ILC/gs-GreBerta').
+        base_model (str): Identificativo o percorso del modello pre-addestrato di partenza per i pesi (es. 'bowphs/GreBerta').
+        batch_size (int): Dimensione del batch per dispositivo per il training.
+        chunk_size (int): Dimensione dei blocchi (in numero di token) in cui viene suddiviso il corpus per MLM.
+        epochs (int): Numero di epoche di addestramento.
+        lr (float): Learning rate iniziale per l'ottimizzatore AdamW.
+        num_layers_to_freeze (int): Numero di layer iniziali dell'encoder del modello da congelare (non addestrare).
+        weight_decay (float): Coefficiente di regolarizzazione L2 (weight decay) per i parametri attivi.
+        warmup_ratio (float): Quota di step di addestramento dedicata alla fase di warmup lineare del learning rate.
+        mlm_probability (float): Probabilità di mascheramento dei token per il data collator MLM.
+        max_span_length (int): Lunghezza massima degli span da mascherare (per collator SpanMLM, se supportato).
+        lr_scheduler_type (str): Tipo di scheduler per il learning rate (es. 'cosine', 'linear').
+        logging_steps (int, optional): Frequenza dei log di training in numero di step. Default: 50.
+        push_to_hub (bool, optional): Se True, esegue il push del modello e tokenizer addestrati su Hugging Face Hub al termine. Default: False.
+        dataset_name (str, optional): Nome o percorso del dataset Hugging Face per il training. Default: 'CNR-ILC/gs-dataset-tlg-uncased'.
+        eval_dataset_name (str | None, optional): Nome del dataset di validazione contenente casi reali. Se None, i casi vengono generati sinteticamente. Default: None.
+        evaluate_on_test (bool, optional): Se True, esegue la valutazione di baseline (Pre-FT) e finale (Post-FT) sul set di test. Default: True.
+        max_eval_cases (int, optional): Numero massimo di casi di test da valutare per split durante la valutazione delle metriche. Default: 500.
+
+    Returns:
+        Trainer: L'istanza dell'oggetto `Trainer` di Hugging Face configurata e utilizzata per il training.
     """
     config = get_model_config(checkpoint)
 
