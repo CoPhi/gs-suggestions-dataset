@@ -494,6 +494,7 @@ def evaluate_metrics_on_test_set(
     )
 
     import wandb
+
     if wandb.run is not None:
         columns = ["Context", "Gold Label", "Top 20 Predictions"]
         data = []
@@ -504,7 +505,7 @@ def evaluate_metrics_on_test_set(
                 # Formattiamo i primi 20 suggerimenti senza assegnare il punteggio
                 top_preds = " | ".join([s[0] for s in predictions_text[i][:20]])
                 data.append([case.x, gold, top_preds])
-        
+
         table = wandb.Table(columns=columns, data=data)
         wandb.log({f"{split_name}/predictions_table": table})
 
@@ -550,11 +551,13 @@ def pipeline_finetuning(
     tokenizer = AutoTokenizer.from_pretrained(base_model)
     tokenizer.model_max_length = 512
 
-    if GAP_TOKEN not in tokenizer.get_vocab():
-        tokenizer.add_special_tokens({"additional_special_tokens": [GAP_TOKEN]})
-        print(f"[setup] GAP token '{GAP_TOKEN}' aggiunto al vocabolario.")
+    # Decommenta se utilizzi il DataCollatorForSyntheticGap
 
-    model.resize_token_embeddings(len(tokenizer), mean_resizing=True)
+    # if GAP_TOKEN not in tokenizer.get_vocab():
+    #     tokenizer.add_special_tokens({"additional_special_tokens": [GAP_TOKEN]})
+    #     print(f"[setup] GAP token '{GAP_TOKEN}' aggiunto al vocabolario.")
+
+    # model.resize_token_embeddings(len(tokenizer), mean_resizing=True)
 
     # Dataset
     print("Preparazione Dataset...")
