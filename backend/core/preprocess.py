@@ -21,6 +21,7 @@ from backend.core import (
     NOTES_REGEX,
     OBELISK_REGEX,
     COMBINED_DACTYL_PATTERNS,
+    LATIN_REFERENCE_REGEX,
 )
 
 
@@ -60,7 +61,7 @@ def get_token_core_and_lacuna_status(token: str) -> tuple[str, bool]:
     core = clean_token
     if core.endswith(".") and len(core) > 1:
         before_dot = core[-2]
-        if is_alpha_or_mark(before_dot):
+        if before_dot != ".":
             core = core[:-1]
             
     is_lacuna = False
@@ -837,6 +838,13 @@ def process_double_obelisks(text: str) -> str:
     return NOTES_REGEX.sub("", text)
 
 
+def process_latin_references(text: str) -> str:
+    """
+    Rimuove i riferimenti latini come (Deut. 21, 18—21).
+    """
+    return LATIN_REFERENCE_REGEX.sub("", text)
+
+
 def process_doubts(text: str) -> str:
     """
     Rimuove i punti interrogativi da una stringa di testo.
@@ -859,6 +867,7 @@ def process_editorial_marks(text: str, preserve_lacunae: bool = False) -> str:
 
     # Applica le varie trasformazioni
     trasformations = [
+        process_latin_references,
         process_integrations,
         process_leiden_lb,
         process_unclear_signs,

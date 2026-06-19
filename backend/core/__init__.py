@@ -45,6 +45,7 @@ EXPUNCTION_REGEX = re.compile(r"\{\{(.*?)\}\}|\{(.*?)\}")
 VACAT_REGEX = re.compile(r"vac\.|vacat")
 NOTES_REGEX = re.compile(r"‡\d+")
 OBELISK_REGEX = re.compile(r"†.*?†")
+LATIN_REFERENCE_REGEX = re.compile(r"\([^)]*[a-zA-Z][^)]*\)\.?\s*")
 
 # Tabella dei diacritici
 _DIACRITIC_TABLE = {
