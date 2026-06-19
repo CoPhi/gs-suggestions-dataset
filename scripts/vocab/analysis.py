@@ -1,5 +1,6 @@
 import json
 import pathlib
+import argparse
 from collections import Counter
 from transformers import AutoTokenizer
 from tqdm import tqdm
@@ -19,9 +20,9 @@ DATA_DIR = pathlib.Path("data")
 OUT_DIR = pathlib.Path("scripts/vocab")
 
 
-def load_hf_texts() -> list[str]:
-    print("Download del dataset 'CNR-ILC/gs-dataset-train' da HuggingFace Hub...")
-    dataset = load_dataset("CNR-ILC/gs-dataset-train", split="train")
+def load_hf_texts(dataset_name: str) -> list[str]:
+    print(f"Download del dataset '{dataset_name}' da HuggingFace Hub...")
+    dataset = load_dataset(dataset_name, split="train")
     return [item["text"] for item in dataset]
 
 
@@ -51,7 +52,7 @@ def normalize_text(text: str, config: dict, unk_token: str) -> str:
     return norm_text
 
 
-def analyze_model_vocab(model_name: str, texts: list[str]) -> dict:
+def analyze_model_vocab(model_name: str, texts: list[str], dataset_name: str) -> dict:
     print(f"\n--- Analisi Modello: {model_name} ---")
     tokenizer = AutoTokenizer.from_pretrained(model_name)
     config = get_model_config(model_name)
@@ -128,8 +129,9 @@ def analyze_model_vocab(model_name: str, texts: list[str]) -> dict:
 
     # Salvataggio distribuzione frequenza
     OUT_DIR.mkdir(parents=True, exist_ok=True)
+    safe_dataset_name = dataset_name.replace("/", "_")
     safe_name = model_name.replace("/", "_")
-    out_file = OUT_DIR / f"{safe_name}_freq.json"
+    out_file = OUT_DIR / f"{safe_dataset_name}_{safe_name}_freq.json"
     with open(out_file, "w", encoding="utf-8") as f:
         json.dump(dict(sorted_freqs), f, ensure_ascii=False, indent=2)
     print(f"Distribuzione salvata in {out_file}")
@@ -149,8 +151,17 @@ def analyze_model_vocab(model_name: str, texts: list[str]) -> dict:
 
 
 def main():
-    print("Avvio Analisi del Vocabolario...")
-    texts = load_hf_texts()
+    parser = argparse.ArgumentParser(description="Analisi del vocabolario sui dataset HuggingFace")
+    parser.add_argument(
+        "--dataset",
+        type=str,
+        default="CNR-ILC/gs-dataset-train",
+        help="Nome del dataset HuggingFace da analizzare"
+    )
+    args = parser.parse_args()
+
+    print(f"Avvio Analisi del Vocabolario per il dataset '{args.dataset}'...")
+    texts = load_hf_texts(args.dataset)
     if not texts:
         print("Nessun testo scaricato dal dataset. Interruzione.")
         return
@@ -158,13 +169,14 @@ def main():
 
     results = []
     for model in MODELS:
-        res = analyze_model_vocab(model, texts)
+        res = analyze_model_vocab(model, texts, args.dataset)
         results.append(res)
 
     # Salva il file di riassunto MarkDown
-    summary_file = OUT_DIR / "analysis_summary.md"
+    safe_dataset_name = args.dataset.replace("/", "_")
+    summary_file = OUT_DIR / f"{safe_dataset_name}_analysis_summary.md"
     with open(summary_file, "w", encoding="utf-8") as f:
-        f.write("# Riassunto Analisi del Vocabolario\n\n")
+        f.write(f"# Riassunto Analisi del Vocabolario - Dataset: {args.dataset}\n\n")
         f.write(
             "| Modello | Totale Token | Tokens/Word | UNK Count | UNK Rate | 50% Coverage | 90% Coverage | 95% Coverage |\n"
         )
