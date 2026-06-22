@@ -26,7 +26,7 @@ import wandb
 
 from torch.optim import AdamW
 from collections import defaultdict
-from typing import Any
+from typing import Any, Literal
 from itertools import chain
 from datasets import load_dataset, DatasetDict, Dataset
 from transformers import (
@@ -109,7 +109,7 @@ def _init_wandb(
 
 
 def generate_synthetic_cases(
-    dataset: Dataset, n: int, min_gap: int = 1, max_gap: int = 6, seed: int = 42
+    dataset: Dataset, n: int, min_gap: int = 1, max_gap: int = 6, seed: int = 42, policy: Literal["default", "word", "suffix"] = "default"
 ) -> list[DevCase]:
     """
     Genera casi di test sintetici mascherando sottostringhe casuali (di lunghezza min_gap - max_gap)
@@ -138,20 +138,36 @@ def generate_synthetic_cases(
         match = rng.choice(valid_matches)
         word = match.group()
 
-        max_possible_gap = min(max_gap, len(word))
-        gap_length = rng.randint(min_gap, max_possible_gap)
-        start_in_word = rng.randint(0, len(word) - gap_length)
+        if policy == "word":
+            gap_length = len(word)
+            start_in_word = 0
+            placeholder = f"[{'.' * gap_length}]"
+            masked_word = placeholder
+            missing_fragment = word
+        elif policy == "suffix":
+            max_possible_gap = min(max_gap, len(word) - 1)
+            if max_possible_gap < min_gap:
+                continue
+            gap_length = rng.randint(min_gap, max_possible_gap)
+            start_in_word = len(word) - gap_length
+            placeholder = f"[{'.' * gap_length}]"
+            masked_word = word[:start_in_word] + placeholder
+            missing_fragment = word[start_in_word:]
+        else:
+            max_possible_gap = min(max_gap, len(word))
+            gap_length = rng.randint(min_gap, max_possible_gap)
+            start_in_word = rng.randint(0, len(word) - gap_length)
 
-        placeholder = f"[{'.' * gap_length}]"
-        masked_word = (
-            word[:start_in_word] + placeholder + word[start_in_word + gap_length :]
-        )
+            placeholder = f"[{'.' * gap_length}]"
+            masked_word = (
+                word[:start_in_word] + placeholder + word[start_in_word + gap_length :]
+            )
+
+            missing_fragment = word[start_in_word : start_in_word + gap_length]
 
         start_idx = match.start()
         end_idx = match.end()
         x_text = text[:start_idx] + masked_word + text[end_idx:]
-
-        missing_fragment = word[start_in_word : start_in_word + gap_length]
 
         cases.append(
             DevCase(
@@ -209,7 +225,9 @@ def prepare_data(
     checkpoint: str,
     dataset_name: str = "CNR-ILC/gs-dataset-tlg-uncased",
     eval_dataset_name: str | None = None,
-) -> tuple[DatasetDict, list[DevCase], list[DevCase]]:
+    n_dev: int = 300,
+    n_test: int = 1000,
+) -> tuple[DatasetDict, list[DevCase], dict[str, list[DevCase]]]:
     """
     Carica il training set e l'eval set da HuggingFace Hub, applica la
     normalizzazione model-specific e raggruppa in chunk per il training MLM.
@@ -223,7 +241,7 @@ def prepare_data(
 
     Returns:
         (lm_datasets, dev_cases, test_cases): DatasetDict pronti per il Trainer,
-        lista DevCase per il dev set e lista DevCase per il test set.
+        lista DevCase per il dev set e dizionario di liste DevCase per i test set (divisi per policy).
     """
 
     print(f"Loading raw corpus from '{dataset_name}'...")
@@ -259,14 +277,18 @@ def prepare_data(
         print(f"Loading eval set from '{eval_dataset_name}'...")
         eval_dataset = load_dataset(eval_dataset_name)
         dev_cases = _load_eval_split(eval_dataset, "dev")
-        test_cases = _load_eval_split(eval_dataset, "test")
+        test_cases = {"default": _load_eval_split(eval_dataset, "test")}
     else:
         print(
             "eval_dataset_name non fornito, genero casi sintetici da 'dev' e 'test' set..."
         )
 
-        dev_cases = generate_synthetic_cases(corpus_dataset["dev"], n=300, max_gap=6)
-        test_cases = generate_synthetic_cases(corpus_dataset["test"], n=1000, max_gap=6)
+        dev_cases = generate_synthetic_cases(corpus_dataset["dev"], n=n_dev, max_gap=6)
+        test_cases = {
+            "default": generate_synthetic_cases(corpus_dataset["test"], n=n_test, max_gap=6, policy="default"),
+            "word": generate_synthetic_cases(corpus_dataset["test"], n=n_test, max_gap=6, policy="word"),
+            "suffix": generate_synthetic_cases(corpus_dataset["test"], n=n_test, max_gap=6, policy="suffix"),
+        }
 
     print(f"Applying model-specific normalization for [{checkpoint}]...")
     normalized_datasets = {}
@@ -408,6 +430,7 @@ def evaluate_metrics_on_test_set(
                 beam_size=50,
                 method="modified_best_to_worst",
                 return_raw=False,
+                use_vocab_filter=True,
             )
 
             # --- INTEGRAZIONE COSINE SIMILARITY ---
@@ -594,6 +617,7 @@ def pipeline_finetuning(
         checkpoint=checkpoint,
         dataset_name=dataset_name,
         eval_dataset_name=eval_dataset_name,
+        n_dev=max_eval_cases,
     )
 
     lm_datasets = lm_datasets.map(
@@ -621,23 +645,27 @@ def pipeline_finetuning(
         lr_scheduler_type=lr_scheduler_type,
     )
 
-    pre_ft_metrics = None
+    pre_ft_metrics_dict = {}
     if evaluate_on_test:
         print("Valutazione baseline sul TEST set (Pre-FT)...")
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         model.to(device)
 
-        pre_ft_metrics = evaluate_metrics_on_test_set(
-            split_name="test_pre_ft",
-            cases=eval_test_cases,
-            model=model,
-            tokenizer=tokenizer,
-            checkpoint=checkpoint,
-        )
+        for policy_name, cases in eval_test_cases.items():
+            print(f"Valutazione baseline (Pre-FT) per policy: {policy_name}")
+            split_label = f"test_pre_ft_{policy_name}"
+            metrics = evaluate_metrics_on_test_set(
+                split_name=split_label,
+                cases=cases,
+                model=model,
+                tokenizer=tokenizer,
+                checkpoint=checkpoint,
+            )
+            pre_ft_metrics_dict[policy_name] = metrics
 
-        if pre_ft_metrics and wandb.run is not None:
-            pre_ft_logs = {f"test_pre_ft/{k}": v for k, v in pre_ft_metrics.items()}
-            wandb.log(pre_ft_logs)
+            if metrics and wandb.run is not None:
+                pre_ft_logs = {f"{split_label}/{k}": v for k, v in metrics.items()}
+                wandb.log(pre_ft_logs)
 
     # Training setup
     output_dir = f"./models/bert/finetuning/gs/{ckpt_short}"
@@ -696,7 +724,7 @@ def pipeline_finetuning(
         num_training_steps=num_training_steps,
     )
 
-    dev_pool = stratified_sample_by_gap(eval_dev_cases, n=300, seed=42)
+    dev_pool = stratified_sample_by_gap(eval_dev_cases, n=max_eval_cases, seed=42)
 
     eval_callback = CustomEvaluationCallback(
         dev_cases_pool=dev_pool,
@@ -725,31 +753,30 @@ def pipeline_finetuning(
     trainer.save_metrics("eval", metrics)
     trainer.save_state()
 
-    post_ft_metrics = None
+    post_ft_metrics_dict = {}
     if evaluate_on_test:
         print("Valutazione finale sul TEST set (Post-FT)...")
-        post_ft_metrics = evaluate_metrics_on_test_set(
-            split_name="test_post_ft",
-            cases=eval_test_cases,
-            model=model,
-            tokenizer=tokenizer,
-            checkpoint=checkpoint,
-        )
+        
+        for policy_name, cases in eval_test_cases.items():
+            print(f"Valutazione finale (Post-FT) per policy: {policy_name}")
+            split_label = f"test_post_ft_{policy_name}"
+            metrics = evaluate_metrics_on_test_set(
+                split_name=split_label,
+                cases=cases,
+                model=model,
+                tokenizer=tokenizer,
+                checkpoint=checkpoint,
+            )
+            post_ft_metrics_dict[policy_name] = metrics
 
-        if post_ft_metrics:
-            post_ft_logs = {f"test_post_ft/{k}": v for k, v in post_ft_metrics.items()}
-            trainer.save_metrics("test_post_ft", post_ft_logs)
-            if wandb.run is not None:
-                wandb.log(post_ft_logs)
+            if metrics:
+                post_ft_logs = {f"{split_label}/{k}": v for k, v in metrics.items()}
+                trainer.save_metrics(split_label, post_ft_logs)
+                if wandb.run is not None:
+                    wandb.log(post_ft_logs)
 
     # Generazione tabella comparativa
-    if pre_ft_metrics and post_ft_metrics:
-        print("\n" + "-" * 70)
-        print("                  CONFRONTO METRICHE: PRE-FT VS POST-FT (TEST SET)")
-        print("-" * 70)
-        print(f"{'Metrica':<25} | {'Pre-FT':<10} | {'Post-FT':<10} | {'Delta':<10}")
-        print("-" * 70)
-
+    if pre_ft_metrics_dict and post_ft_metrics_dict:
         comparison_keys = [
             ("top1", "Exact Match @1"),
             ("top5", "Exact Match @5"),
@@ -765,24 +792,37 @@ def pipeline_finetuning(
             ("cos_sim_top20_max", "CosSim Max @20"),
         ]
 
-        table_data = []
-        for key, name in comparison_keys:
-            val_pre = pre_ft_metrics.get(key, 0.0)
-            val_post = post_ft_metrics.get(key, 0.0)
-            delta = val_post - val_pre
-            delta_str = f"{delta:+.2f}%" if delta != 0 else "0.00%"
-            print(f"{name:<25} | {val_pre:>8.2f}% | {val_post:>8.2f}% | {delta_str:>8}")
-            table_data.append([name, val_pre, val_post, delta])
+        for policy_name in pre_ft_metrics_dict.keys():
+            pre_ft_metrics = pre_ft_metrics_dict.get(policy_name, {})
+            post_ft_metrics = post_ft_metrics_dict.get(policy_name, {})
+            
+            if not pre_ft_metrics or not post_ft_metrics:
+                continue
 
-        print("=" * 80 + "\n")
+            print("\n" + "-" * 70)
+            print(f"                  CONFRONTO METRICHE: PRE-FT VS POST-FT (TEST SET - POLICY: {policy_name.upper()})")
+            print("-" * 70)
+            print(f"{'Metrica':<25} | {'Pre-FT':<10} | {'Post-FT':<10} | {'Delta':<10}")
+            print("-" * 70)
 
-        if wandb.run is not None:
-            wb_table = wandb.Table(
-                columns=["Metrica", "Pre-FT (%)", "Post-FT (%)", "Delta (%)"]
-            )
-            for row in table_data:
-                wb_table.add_data(*row)
-            wandb.log({"confronto_pre_post_ft": wb_table})
+            table_data = []
+            for key, name in comparison_keys:
+                val_pre = pre_ft_metrics.get(key, 0.0)
+                val_post = post_ft_metrics.get(key, 0.0)
+                delta = val_post - val_pre
+                delta_str = f"{delta:+.2f}%" if delta != 0 else "0.00%"
+                print(f"{name:<25} | {val_pre:>8.2f}% | {val_post:>8.2f}% | {delta_str:>8}")
+                table_data.append([name, val_pre, val_post, delta])
+
+            print("=" * 80 + "\n")
+
+            if wandb.run is not None:
+                wb_table = wandb.Table(
+                    columns=["Metrica", "Pre-FT (%)", "Post-FT (%)", "Delta (%)"]
+                )
+                for row in table_data:
+                    wb_table.add_data(*row)
+                wandb.log({f"confronto_pre_post_ft_{policy_name}": wb_table})
 
     if push_to_hub:
         print(f"Push del modello su HuggingFace Hub [{checkpoint}]...")

@@ -22,6 +22,7 @@ from backend.core.preprocess import (
     strip_diacritics,
 )
 from models.bert.finetuning import GAP_TOKEN, get_model_config
+from models.bert.inference.vocab import get_normalized_vocab
 
 
 def estimate_mask_range(
@@ -243,6 +244,8 @@ def fill_mask(
     method: str = "modified_best_to_worst",
     return_raw: bool = False,
     normalize_probs: bool = False,
+    use_vocab_filter: bool = False,
+    vocab_path: str = "grc.wl",
 ) -> List[Tuple[str | List[int], float]]:
 
     device = next(model.parameters()).device
@@ -283,6 +286,19 @@ def fill_mask(
     # Rilevamento parola parziale: controlliamo se c'è un carattere alfabetico attaccato alla lacuna
     # (es. "φ[..]ερώτερον" oppure "[.....]ας") prima di sostituire la lacuna.
     is_partial = bool(re.search(r"[^\W\d_]\[\.+\]|\[\.+\][^\W\d_]", text))
+
+    word_prefix = ""
+    word_suffix = ""
+    if use_vocab_filter and not return_raw:
+        # Trova il prefisso e suffisso alfabetico attorno alla lacuna per ricostruire la parola
+        match_word = re.search(r"([^\W\d_]*)\[\.+\]([^\W\d_]*)", text)
+        if match_word:
+            word_prefix = match_word.group(1)
+            word_suffix = match_word.group(2)
+        
+        vocab = get_normalized_vocab(vocab_path)
+        if not vocab:
+            use_vocab_filter = False
 
     text = re.sub(r"\[\.+\]", GAP_TOKEN, text, count=1)
 
@@ -438,6 +454,21 @@ def fill_mask(
                 strip_diacritics_flag=config.get("strip_diacritics"),
             )
         )
+        
+        # Filtro vocabolario
+        if use_vocab_filter and not return_raw:
+            reconstructed = word_prefix + item + word_suffix
+            norm_recon = normalize_greek(
+                reconstructed, 
+                case_folding="fold", 
+                strip_diacritics_flag=True
+            )
+            norm_recon = remove_punctuation(norm_recon)
+            norm_recon = re.sub(r'[\s\u200B-\u200D\uFEFF]', '', norm_recon).strip()
+            
+            if norm_recon not in vocab:
+                continue
+
         if key not in seen:
             seen.add(key)
             unique_candidates.append((item if return_raw else key, score))
