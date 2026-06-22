@@ -498,8 +498,8 @@ def evaluate_metrics_on_test_set(
     if wandb.run is not None:
         columns = ["Context", "Gold Label", "Top 20 Predictions"]
         data = []
-        # Logghiamo i primi 100 casi per non appesantire troppo W&B
-        for i, case in enumerate(pool[:100]):
+        # Logghiamo i casi su W&B
+        for i, case in enumerate(pool):
             if i < len(predictions_text):
                 gold = ", ".join(case.y) if isinstance(case.y, list) else case.y
                 # Formattiamo i primi 20 suggerimenti senza assegnare il punteggio
@@ -538,7 +538,7 @@ def pipeline_finetuning(
     Questa funzione si occupa di caricare il modello e il tokenizer, preparare il dataset
     applicando la normalizzazione model-specific, configurare i parametri di training e
     l'ottimizzatore (con supporto al freezing parziale dei layer), addestrare il modello,
-    eseguire la valutazione su un set di test (pre e post fine-tuning) tracciando le metriche 
+    eseguire la valutazione su un set di test (pre e post fine-tuning) tracciando le metriche
     e loggando le tabelle di predizione su Weights & Biases (W&B), e opzionalmente effettuare
     il push del modello finale su Hugging Face Hub.
 

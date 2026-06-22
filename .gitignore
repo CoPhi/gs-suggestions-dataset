@@ -26,6 +26,7 @@ uv.lock
 # Dati pesanti pre-elaborati
 data/*
 !data/tlg_*.json
+grc.wl
 
 # wandb logs
 wandb/
