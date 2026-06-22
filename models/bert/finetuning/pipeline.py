@@ -522,12 +522,29 @@ def evaluate_metrics_on_test_set(
         columns = ["Context", "Gold Label", "Top 20 Predictions"]
         data = []
         # Logghiamo i casi su W&B
-        for i, case in enumerate(pool):
-            if i < len(predictions_text):
-                gold = ", ".join(case.y) if isinstance(case.y, list) else case.y
-                # Formattiamo i primi 20 suggerimenti senza assegnare il punteggio
-                top_preds = " | ".join([s[0] for s in predictions_text[i][:20]])
-                data.append([case.x, gold, top_preds])
+        for i in range(len(predictions_text)):
+            gold = ", ".join(gold_labels[i]) if isinstance(gold_labels[i], list) else gold_labels[i]
+            context = contexts[i]
+            
+            # Otteniamo i gold label normalizzati del caso corrente per il matching
+            norm_golds = normalized_gold_labels[i]
+            if isinstance(norm_golds, list):
+                gold_set = {g.strip() for g in norm_golds}
+            else:
+                gold_set = {norm_golds.strip()}
+
+            # Formattiamo i primi 20 suggerimenti includendo lo score ed evidenziando la gold label
+            formatted_preds = []
+            for s in predictions_text[i][:20]:
+                pred_word = s[0]
+                score = s[1]
+                if pred_word.strip() in gold_set:
+                    formatted_preds.append(f"**{pred_word}** ({score:.4f})")
+                else:
+                    formatted_preds.append(f"{pred_word} ({score:.4f})")
+                    
+            top_preds = " | ".join(formatted_preds)
+            data.append([context, gold, top_preds])
 
         table = wandb.Table(columns=columns, data=data)
         wandb.log({f"{split_name}/predictions_table": table})
