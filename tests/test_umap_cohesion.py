@@ -10,6 +10,7 @@ from transformers import AutoTokenizer, AutoModelForMaskedLM
 from models.bert.inference.predict import fill_mask, get_contextual_embeddings
 from models.bert.evaluation.plot import plot_umap_suggestions_cluster
 from models.bert.dataset.dev_set import DevCase
+from models.bert.evaluation.metrics import check_gold_in_dense_cluster
 
 
 def test_umap_cohesion_comparison():
@@ -169,13 +170,24 @@ def test_umap_cohesion_comparison():
             print(
                 f"Plausibilità (sim. coseno max candidato vs Gold): {max_gold_sim:.4f}"
             )
-        else:
-            mean_gold_sim, max_gold_sim = 0.0, 0.0
+        # Calcolo Inclusione nel Cluster Denso (Approccio A)
+        cluster_info = check_gold_in_dense_cluster(
+            candidate_embeddings=candidate_embeddings,
+            gold_embedding=gold_embedding,
+            percentile_threshold=95.0,
+        )
+        print(
+            f"Inclusione Cluster Denso (Appr. A): In-Cluster = {cluster_info['is_inside_cluster']} | "
+            f"Margin = {cluster_info['inclusion_margin']:.4f} | "
+            f"Radius = {cluster_info['cluster_radius']:.4f} | "
+            f"Gold Distance = {cluster_info['gold_centroid_distance']:.4f}"
+        )
 
         results[label] = {
             "cohesion": cohesion,
             "mean_gold_similarity": mean_gold_sim,
             "max_gold_similarity": max_gold_sim,
+            "cluster_info": cluster_info,
             "suggestions": candidate_labels,
         }
         print()
@@ -203,6 +215,14 @@ def test_umap_cohesion_comparison():
         plausibility_status = "AUMENTATA (Migliore)" if diff_gold > 0 else "DIMINUITA"
         print(
             f"  -> La plausibilità media è {plausibility_status} di {abs(diff_gold):.4f}"
+        )
+
+        pre_in = pre["cluster_info"]["is_inside_cluster"]
+        post_in = post["cluster_info"]["is_inside_cluster"]
+        pre_m = pre["cluster_info"]["inclusion_margin"]
+        post_m = post["cluster_info"]["inclusion_margin"]
+        print(
+            f"Inclusione Cluster Denso (Appr. A): Pre-FT = {pre_in} (margine: {pre_m:+.2f}) | Post-FT = {post_in} (margine: {post_m:+.2f})"
         )
 
         print("\nInterpretazione delle Metriche:")
