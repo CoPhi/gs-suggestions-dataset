@@ -238,7 +238,8 @@ def fill_mask(
     model: PreTrainedModel,
     tokenizer: PreTrainedTokenizer,
     checkpoint: str = None,
-    n_chars: int = None,
+    n_chars: int | tuple[int, int] = None,
+    char_tolerance: int = 0,
     K: int = 20,
     beam_size: int = 50,
     method: str = "modified_best_to_worst",
@@ -279,9 +280,20 @@ def fill_mask(
     if n_chars is None:
         match = re.search(r"\[(\.+)\]", text)
         if match:
-            n_chars = len(match.group(1))
+            extracted_len = len(match.group(1))
+            min_chars = max(1, extracted_len - char_tolerance)
+            max_chars = extracted_len + char_tolerance
+            center_chars = extracted_len
         else:
             raise ValueError("n_chars non fornito e non trovato nel testo")
+    elif isinstance(n_chars, (tuple, list)):
+        min_chars = max(1, int(n_chars[0]))
+        max_chars = max(min_chars, int(n_chars[1]))
+        center_chars = (min_chars + max_chars) // 2
+    else:
+        min_chars = max(1, int(n_chars) - char_tolerance)
+        max_chars = int(n_chars) + char_tolerance
+        center_chars = int(n_chars)
 
     # Rilevamento parola parziale: controlliamo se c'è un carattere alfabetico attaccato alla lacuna
     # (es. "φ[..]ερώτερον" oppure "[.....]ας") prima di sostituire la lacuna.
@@ -302,8 +314,11 @@ def fill_mask(
 
     text = re.sub(r"\[\.+\]", GAP_TOKEN, text, count=1)
 
-    k_min, k_max, k_max_theoretical = estimate_mask_range(
-        n_chars, tokenizer, is_partial_word=is_partial
+    k_min, _, _ = estimate_mask_range(
+        min_chars, tokenizer, is_partial_word=is_partial
+    )
+    _, k_max, k_max_theoretical = estimate_mask_range(
+        max_chars, tokenizer, is_partial_word=is_partial
     )
 
     matching_candidates: List[Tuple[str | List[int], float]] = []
@@ -388,7 +403,7 @@ def fill_mask(
             log_p_hcb = cand[0]
             token_ids = cand[1:]
 
-            prior_prob = p_gaptoks_prior(k, k_min, k_max_theoretical, n_chars)
+            prior_prob = p_gaptoks_prior(k, k_min, k_max_theoretical, center_chars)
             log_prior = math.log(prior_prob + 1e-12)
             final_score = log_p_hcb + log_prior
 
@@ -425,10 +440,12 @@ def fill_mask(
 
             candidate_str = decoded
 
-            # Controllo lunghezza: se corrisponde, va nei candidati principali, altrimenti nei fallback
+            # Controllo lunghezza: se rientra nell'intervallo [min_chars, max_chars], va nei candidati principali
             base_chars = strip_diacritics(candidate_str)
-            if len(base_chars) == n_chars:
-                matching_candidates.append((candidate_str, final_score))
+            cand_len = len(base_chars)
+            if min_chars <= cand_len <= max_chars:
+                len_penalty = -0.1 * abs(cand_len - center_chars) if center_chars > 0 else 0.0
+                matching_candidates.append((candidate_str, final_score + len_penalty))
             else:
                 fallback_candidates.append((candidate_str, final_score))
 
