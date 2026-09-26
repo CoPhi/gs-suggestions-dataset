@@ -17,6 +17,7 @@ class DevCase:
     gap_length: int  # numero dei caratteri alfabetici della lacuna
     corpus_id: str
     file_id: str
+    gap_type: str = "default"  # "default" | "word" | "suffix"
 
 
 def build_dev_cases(
