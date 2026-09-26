@@ -374,3 +374,144 @@ def evaluate_cosine_similarity_topk(
     return metrics
 
 
+def check_gold_in_dense_cluster(
+    candidate_embeddings: list[torch.Tensor],
+    gold_embedding: torch.Tensor,
+    percentile_threshold: float = 95.0,
+) -> dict[str, float | bool]:
+    """
+    Verifica se la gold label cade all'interno dell'ipersfera densa formata dai candidati
+    nello spazio degli hidden states dell'ultimo layer di BERT (Approccio A).
+    
+    Args:
+        candidate_embeddings: Lista di tensori [hidden_dim] generati da get_contextual_embeddings.
+        gold_embedding: Tensore [hidden_dim] della gold label.
+        percentile_threshold: Percentile delle distanze dal centroide usato come raggio del cluster (default: 95.0).
+        
+    Returns:
+        Dizionario contenente:
+            - is_inside_cluster (bool): True se la gold label ricade entro il raggio del cluster denso.
+            - inclusion_margin (float): Margine relativo normalizzato (positivo = interno, negativo = outlier).
+            - cluster_radius (float): Raggio dell'ipersfera densa (in distanza coseno [0, 2]).
+            - gold_centroid_distance (float): Distanza coseno tra gold label e centroide dei candidati.
+            - gold_centroid_cosine_sim (float): Similarità coseno tra gold label e centroide.
+    """
+    import torch.nn.functional as F
+
+    if not candidate_embeddings:
+        return {
+            "is_inside_cluster": False,
+            "inclusion_margin": -1.0,
+            "cluster_radius": 0.0,
+            "gold_centroid_distance": 1.0,
+            "gold_centroid_cosine_sim": 0.0,
+        }
+
+    cands_tensor = torch.stack([
+        torch.mean(emb, dim=0) if emb.dim() != 1 else emb 
+        for emb in candidate_embeddings
+    ])
+    gold = gold_embedding.mean(dim=0) if gold_embedding.dim() != 1 else gold_embedding
+
+    # Normalizzazione L2 sferica per operare sulla geometria del coseno
+    cands_norm = F.normalize(cands_tensor, p=2, dim=1)
+    gold_norm = F.normalize(gold.unsqueeze(0), p=2, dim=1)
+
+    # Centroide (baricentro) semantico del cluster
+    centroid = torch.mean(cands_norm, dim=0, keepdim=True)
+    centroid_norm = F.normalize(centroid, p=2, dim=1)
+
+    # Distanze coseno di ciascun candidato dal centroide: d = 1 - cos_sim
+    cand_centroid_sims = F.cosine_similarity(cands_norm, centroid_norm, dim=1)
+    cand_distances = (1.0 - cand_centroid_sims).detach().cpu().numpy()
+
+    cluster_radius = float(np.percentile(cand_distances, percentile_threshold))
+
+    # Distanza e similarità della gold label dal centroide
+    gold_centroid_sim = F.cosine_similarity(gold_norm, centroid_norm, dim=1).item()
+    gold_distance = 1.0 - gold_centroid_sim
+
+    is_inside = bool(gold_distance <= cluster_radius)
+    margin = (cluster_radius - gold_distance) / (cluster_radius + 1e-12)
+
+    return {
+        "is_inside_cluster": is_inside,
+        "inclusion_margin": float(margin),
+        "cluster_radius": cluster_radius,
+        "gold_centroid_distance": float(gold_distance),
+        "gold_centroid_cosine_sim": float(gold_centroid_sim),
+    }
+
+
+def evaluate_dense_cluster_inclusion_batch(
+    cluster_results: list[dict[str, float | bool]],
+) -> dict[str, float]:
+    """
+    Aggrega le metriche di inclusione nel cluster denso per un intero insieme di test.
+    
+    Returns:
+        Dizionario con metriche aggregate:
+            - cluster_inclusion_rate (%): Percentuale di casi con gold label inclusa nel cluster denso.
+            - mean_inclusion_margin: Margine medio di inclusione (>0 indica inclusione profonda).
+            - mean_gold_centroid_cosine_sim (%): Similarità media tra gold label e baricentro dei suggerimenti.
+    """
+    if not cluster_results:
+        return {
+            "cluster_inclusion_rate": 0.0,
+            "mean_inclusion_margin": 0.0,
+            "mean_gold_centroid_cosine_sim": 0.0,
+        }
+
+    inside_flags = [1.0 if res.get("is_inside_cluster") else 0.0 for res in cluster_results]
+    margins = [float(res.get("inclusion_margin", 0.0)) for res in cluster_results]
+    centroid_sims = [float(res.get("gold_centroid_cosine_sim", 0.0)) for res in cluster_results]
+
+    return {
+        "cluster_inclusion_rate": float(np.mean(inside_flags) * 100.0),
+        "mean_inclusion_margin": float(np.mean(margins)),
+        "mean_gold_centroid_cosine_sim": float(np.mean(centroid_sims) * 100.0),
+    }
+
+
+def compute_context_noise_ratio(
+    text_with_gap: str, window_chars: int = 150
+) -> float:
+    """
+    Calcola il rapporto di rumore contestuale (Contextual Noise Ratio) attorno alla lacuna.
+    Considera come elementi di rumore:
+    - Token <UNK> (trasposizione di lacune secondarie)
+    - Lacune secondarie residue ([...], [..], ecc.)
+    - Caratteri speciali/editoriali o punti sottoscritti non risolti
+    
+    Args:
+        text_with_gap: Testo contenente la lacuna principale formattata come '[....]'.
+        window_chars: Finestra di caratteri a sinistra e a destra della lacuna da analizzare.
+        
+    Returns:
+        Rapporto di rumore contestuale normalizzato in [0.0, 1.0].
+    """
+    gap_pattern = r"\[\.+\]"
+    match = re.search(gap_pattern, text_with_gap)
+    if not match:
+        context_str = text_with_gap
+    else:
+        start_idx = max(0, match.start() - window_chars)
+        end_idx = min(len(text_with_gap), match.end() + window_chars)
+        left_ctx = text_with_gap[start_idx : match.start()]
+        right_ctx = text_with_gap[match.end() : end_idx]
+        context_str = left_ctx + " " + right_ctx
+
+    if not context_str.strip():
+        return 0.0
+
+    unk_count = len(re.findall(r"<UNK>|\[UNK\]", context_str, re.IGNORECASE))
+    secondary_gaps = len(re.findall(r"\[\.+\]", context_str))
+    damaged_marks = len(re.findall(r"[\u0323\uFFFD\?]", context_str))
+
+    noisy_effective_chars = (unk_count * 4) + (secondary_gaps * 4) + damaged_marks
+    total_chars = max(1, len(context_str.replace(" ", "")))
+
+    ratio = min(1.0, noisy_effective_chars / total_chars)
+    return float(ratio)
+
+
