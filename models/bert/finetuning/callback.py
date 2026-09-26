@@ -8,6 +8,8 @@ from models.bert.evaluation.metrics import (
     evaluate_bertscore_topk_text,
     evaluate_cosine_similarity_topk,
     evaluate_contextual_similarity,
+    check_gold_in_dense_cluster,
+    evaluate_dense_cluster_inclusion_batch,
 )
 from backend.core.preprocess import normalize_greek
 from models.bert.finetuning import get_model_config
@@ -118,6 +120,7 @@ class CustomEvaluationCallback(TrainerCallback):
 
         # Cosine Similarity @K
         all_similarities = []
+        all_cluster_results = []
         for i, case in enumerate(self.dev_cases_pool):
             if i < len(predictions_text) and predictions_text[i]:
                 cand_texts = [s[0] for s in predictions_text[i]]
@@ -137,13 +140,18 @@ class CustomEvaluationCallback(TrainerCallback):
 
                     similarities = evaluate_contextual_similarity(cand_embs, gold_emb)
                     all_similarities.append(similarities)
+
+                    cluster_info = check_gold_in_dense_cluster(cand_embs, gold_emb)
+                    all_cluster_results.append(cluster_info)
                 except Exception as e:
                     print(
                         f"[Evaluation Error] Cosine Similarity fallita per case {case}: {e}"
                     )
                     all_similarities.append([])
+                    all_cluster_results.append({"is_inside_cluster": False, "inclusion_margin": -1.0})
             else:
                 all_similarities.append([])
+                all_cluster_results.append({"is_inside_cluster": False, "inclusion_margin": -1.0})
 
         try:
             cos_sim_metrics = evaluate_cosine_similarity_topk(
@@ -153,8 +161,14 @@ class CustomEvaluationCallback(TrainerCallback):
             print(f"[Evaluation Error] evaluate_cosine_similarity_topk fallito: {e}")
             cos_sim_metrics = {}
 
+        try:
+            cluster_metrics = evaluate_dense_cluster_inclusion_batch(all_cluster_results)
+        except Exception as e:
+            print(f"[Evaluation Error] evaluate_dense_cluster_inclusion_batch fallito: {e}")
+            cluster_metrics = {}
+
         # Unione dei risultati e calcolo metrica composita
-        all_metrics = {**topk_metrics, **bertscore_metrics, **cos_sim_metrics}
+        all_metrics = {**topk_metrics, **bertscore_metrics, **cos_sim_metrics, **cluster_metrics}
 
         top1_em = all_metrics.get("top1", 0)
         cossim_max_top1 = all_metrics.get("cos_sim_top1_max", 0)
@@ -216,6 +230,11 @@ class CustomEvaluationCallback(TrainerCallback):
                 f"{name:<25} | {v1:>8.2f}% | {v5:>8.2f}% | {v10:>8.2f}% | {v20:>8.2f}%"
             )
 
+        in_cluster_rate = all_metrics.get("cluster_inclusion_rate", 0.0)
+        in_margin = all_metrics.get("mean_inclusion_margin", 0.0)
+        centroid_cos = all_metrics.get("mean_gold_centroid_cosine_sim", 0.0)
+        print("-" * 80)
+        print(f"Cluster Inclus. (Appr. A) | Rate: {in_cluster_rate:>5.2f}% | Margin: {in_margin:>5.2f} | Centroid CosSim: {centroid_cos:>5.2f}%")
         print("=" * 80 + "\n")
 
         # log su wandb

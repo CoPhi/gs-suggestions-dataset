@@ -176,6 +176,7 @@ def generate_synthetic_cases(
                 gap_length=gap_length,
                 corpus_id="synthetic",
                 file_id="synthetic",
+                gap_type=policy,
             )
         )
 
@@ -194,6 +195,7 @@ def _load_eval_split(eval_dataset: DatasetDict, split_name: str) -> list[DevCase
                     gap_length=row["gap_length"],
                     corpus_id=row["corpus_id"],
                     file_id=row["file_id"],
+                    gap_type=row.get("gap_type", "default"),
                 )
             )
     return cases
@@ -280,10 +282,20 @@ def prepare_data(
         test_cases = {"default": _load_eval_split(eval_dataset, "test")}
     else:
         print(
-            "eval_dataset_name non fornito, genero casi sintetici da 'dev' e 'test' set..."
+            "eval_dataset_name non fornito, genero casi sintetici da 'dev' e 'test' set (stratificazione 2D: default, word, suffix)..."
         )
-
-        dev_cases = generate_synthetic_cases(corpus_dataset["dev"], n=n_dev, max_gap=6)
+        n_per_policy_dev = max(1, n_dev // 3)
+        dev_cases = (
+            generate_synthetic_cases(
+                corpus_dataset["dev"], n=n_per_policy_dev, max_gap=6, policy="default"
+            )
+            + generate_synthetic_cases(
+                corpus_dataset["dev"], n=n_per_policy_dev, max_gap=6, policy="word"
+            )
+            + generate_synthetic_cases(
+                corpus_dataset["dev"], n=n_per_policy_dev, max_gap=6, policy="suffix"
+            )
+        )
         test_cases = {
             "default": generate_synthetic_cases(corpus_dataset["test"], n=n_test, max_gap=6, policy="default"),
             "word": generate_synthetic_cases(corpus_dataset["test"], n=n_test, max_gap=6, policy="word"),
@@ -309,19 +321,21 @@ def stratified_sample_by_gap(
     cases: list[DevCase], n: int, seed: int = 42
 ) -> list[DevCase]:
     """
-    Esegue un campionamento stratificato per gap_length, mantenendo la distribuzione
-    originale dei gap_length nel pool di DevCase.
-    Restituisce una lista di n casi campionati stratificati per la lunghezza della lacuna.
+    Esegue un campionamento stratificato 2D (gap_length, gap_type),
+    mantenendo bilanciate sia le lunghezze delle lacune (1-6 caratteri)
+    sia le diverse tipologie di lacuna ('default', 'word', 'suffix').
+    Restituisce una lista di n casi campionati.
     """
     buckets = defaultdict(list)
     for case in cases:
-        buckets[case.gap_length].append(case)
+        gap_type = getattr(case, "gap_type", "default")
+        buckets[(case.gap_length, gap_type)].append(case)
 
     total = len(cases)
     sampled = []
     rng = random.Random(seed)
 
-    for gap_len, bucket in sorted(buckets.items()):
+    for (gap_len, gap_type), bucket in sorted(buckets.items()):
         quota = max(1, round(n * len(bucket) / total))
         sampled.extend(rng.sample(bucket, min(quota, len(bucket))))
 
@@ -408,6 +422,8 @@ def evaluate_metrics_on_test_set(
         evaluate_topK_text,
         evaluate_bertscore_topk_text,
         evaluate_cosine_similarity_topk,
+        check_gold_in_dense_cluster,
+        evaluate_dense_cluster_inclusion_batch,
     )
 
     pool = cases[:max_cases] if max_cases else cases
@@ -417,6 +433,7 @@ def evaluate_metrics_on_test_set(
     gold_labels: list[str] = []
     contexts: list[str] = []
     all_similarities: list[list[float]] = []
+    all_cluster_results: list[dict[str, float | bool]] = []
 
     for case in pool:
         try:
@@ -433,7 +450,7 @@ def evaluate_metrics_on_test_set(
                 use_vocab_filter=True,
             )
 
-            # --- INTEGRAZIONE COSINE SIMILARITY ---
+            # --- INTEGRAZIONE COSINE SIMILARITY & CLUSTER INCLUSION ---
             cand_texts = [s[0] for s in suggestions]
 
             if cand_texts:
@@ -455,8 +472,12 @@ def evaluate_metrics_on_test_set(
 
                 similarities = evaluate_contextual_similarity(cand_embs, gold_emb)
                 all_similarities.append(similarities)
+
+                cluster_info = check_gold_in_dense_cluster(cand_embs, gold_emb)
+                all_cluster_results.append(cluster_info)
             else:
                 all_similarities.append([])
+                all_cluster_results.append({"is_inside_cluster": False, "inclusion_margin": -1.0})
 
             predictions_text.append(suggestions)
             gold_labels.append(case.y)
@@ -505,15 +526,19 @@ def evaluate_metrics_on_test_set(
         similarities_list=all_similarities, k_values=[1, 5, 10, 20]
     )
 
+    # 4. Calcolo Inclusione nel Cluster Denso (Approccio A)
+    cluster_metrics = evaluate_dense_cluster_inclusion_batch(all_cluster_results)
+
     # Uniamo le metriche
-    all_metrics = {**topk_metrics, **bert_s, **cos_sim_metrics}
+    all_metrics = {**topk_metrics, **bert_s, **cos_sim_metrics, **cluster_metrics}
 
     print(
         f"[{split_name.upper()} SET]\n"
         f"  Exact Match:   Top-1 EM: {all_metrics.get('top1', 0):.2f}% | Top-5 EM: {all_metrics.get('top5', 0):.2f}% | Top-10 EM: {all_metrics.get('top10', 0):.2f}% | Top-20 EM: {all_metrics.get('top20', 0):.2f}%\n"
         f"  BERTScore:     F1@1: {all_metrics.get('bertscore_f1_top1', 0):.2f}% | F1@5: {all_metrics.get('bertscore_f1_top5', 0):.2f}% | F1@10: {all_metrics.get('bertscore_f1_top10', 0):.2f}% | F1@20: {all_metrics.get('bertscore_f1_top20', 0):.2f}%\n"
         f"  CosSim (Max):  @1: {all_metrics.get('cos_sim_top1_max', 0):.2f}% | @5: {all_metrics.get('cos_sim_top5_max', 0):.2f}% | @10: {all_metrics.get('cos_sim_top10_max', 0):.2f}% | @20: {all_metrics.get('cos_sim_top20_max', 0):.2f}%\n"
-        f"  CosSim (Mean): @1: {all_metrics.get('cos_sim_top1_mean', 0):.2f}% | @5: {all_metrics.get('cos_sim_top5_mean', 0):.2f}% | @10: {all_metrics.get('cos_sim_top10_mean', 0):.2f}% | @20: {all_metrics.get('cos_sim_top20_mean', 0):.2f}%"
+        f"  CosSim (Mean): @1: {all_metrics.get('cos_sim_top1_mean', 0):.2f}% | @5: {all_metrics.get('cos_sim_top5_mean', 0):.2f}% | @10: {all_metrics.get('cos_sim_top10_mean', 0):.2f}% | @20: {all_metrics.get('cos_sim_top20_mean', 0):.2f}%\n"
+        f"  Cluster Inc.:  In-Cluster Rate: {all_metrics.get('cluster_inclusion_rate', 0):.2f}% | Mean Margin: {all_metrics.get('mean_inclusion_margin', 0):.2f} | Centroid CosSim: {all_metrics.get('mean_gold_centroid_cosine_sim', 0):.2f}%"
     )
 
     import wandb
