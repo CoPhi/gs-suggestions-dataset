@@ -167,23 +167,20 @@ class CustomEvaluationCallback(TrainerCallback):
             print(f"[Evaluation Error] evaluate_dense_cluster_inclusion_batch fallito: {e}")
             cluster_metrics = {}
 
-        # Unione dei risultati e calcolo metrica composita
+        # Unione dei risultati
         all_metrics = {**topk_metrics, **bertscore_metrics, **cos_sim_metrics, **cluster_metrics}
-
-        top1_em = all_metrics.get("top1", 0)
-        cossim_max_top1 = all_metrics.get("cos_sim_top1_max", 0)
-        all_metrics["composite_score"] = (top1_em + cossim_max_top1) / 2
 
         # Aggiornamento dello stato del Trainer
         eval_callback_logs = {f"eval_{k}": v for k, v in all_metrics.items()}
         state.log_history[-1].update(eval_callback_logs)
 
         # Stampa a terminale in formato tabellare
-        c_score = all_metrics.get("composite_score", 0.0)
+        top1_em = all_metrics.get("top1", 0.0)
+        in_cluster_rate = all_metrics.get("cluster_inclusion_rate", 0.0)
 
         print("\n" + "=" * 80)
         print(
-            f" EVALUATION | Epoch: {state.epoch:<5} | Step: {state.global_step:<6} | Composite Score: {c_score:.2f}%"
+            f" EVALUATION | Epoch: {state.epoch:<5} | Step: {state.global_step:<6} | Top-1 EM: {top1_em:.2f}% | Cluster Inc: {in_cluster_rate:.2f}%"
         )
         print("=" * 80)
         print(f"{'Metric':<25} | {'@1':<10} | {'@5':<10} | {'@10':<10} | {'@20':<10}")
@@ -234,12 +231,11 @@ class CustomEvaluationCallback(TrainerCallback):
         in_margin = all_metrics.get("mean_inclusion_margin", 0.0)
         centroid_cos = all_metrics.get("mean_gold_centroid_cosine_sim", 0.0)
         print("-" * 80)
-        print(f"Cluster Inclus. (Appr. A) | Rate: {in_cluster_rate:>5.2f}% | Margin: {in_margin:>5.2f} | Centroid CosSim: {centroid_cos:>5.2f}%")
+        print(f"Cluster Inclus. | Rate: {in_cluster_rate:>5.2f}% | Margin: {in_margin:>5.2f} | Centroid CosSim: {centroid_cos:>5.2f}%")
         print("=" * 80 + "\n")
 
         # log su wandb
         logs = {f"eval/{k}": v for k, v in all_metrics.items()}
-        logs["eval_composite_score"] = all_metrics["composite_score"]
         logs["train/global_step"] = state.global_step
         logs["epoch"] = state.epoch
 

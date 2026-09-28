@@ -42,7 +42,7 @@ def extract_eval_metrics_from_trainer(trainer) -> dict[str, float]:
         return {}
 
     for entry in reversed(trainer.state.log_history):
-        if "eval_top1" in entry or "eval_composite_score" in entry:
+        if "eval_top1" in entry:
             return entry
 
     return {}
@@ -148,7 +148,6 @@ def create_objective(
         trial.set_user_attr("cos_sim_top1_max", cos_sim_top1)
         trial.set_user_attr("mean_inclusion_margin", float(metrics.get("eval_mean_inclusion_margin", -1.0)))
         trial.set_user_attr("mean_gold_centroid_cosine_sim", float(metrics.get("eval_mean_gold_centroid_cosine_sim", 0.0)))
-        trial.set_user_attr("composite_score", float(metrics.get("eval_composite_score", 0.0)))
 
         print("\n" + "-" * 60)
         print(f" RISULTATI TRIAL {trial.number}:")

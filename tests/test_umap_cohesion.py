@@ -177,7 +177,7 @@ def test_umap_cohesion_comparison():
             percentile_threshold=95.0,
         )
         print(
-            f"Inclusione Cluster Denso (Appr. A): In-Cluster = {cluster_info['is_inside_cluster']} | "
+            f"Inclusione Cluster Denso: In-Cluster = {cluster_info['is_inside_cluster']} | "
             f"Margin = {cluster_info['inclusion_margin']:.4f} | "
             f"Radius = {cluster_info['cluster_radius']:.4f} | "
             f"Gold Distance = {cluster_info['gold_centroid_distance']:.4f}"
@@ -222,7 +222,7 @@ def test_umap_cohesion_comparison():
         pre_m = pre["cluster_info"]["inclusion_margin"]
         post_m = post["cluster_info"]["inclusion_margin"]
         print(
-            f"Inclusione Cluster Denso (Appr. A): Pre-FT = {pre_in} (margine: {pre_m:+.2f}) | Post-FT = {post_in} (margine: {post_m:+.2f})"
+            f"Inclusione Cluster Denso: Pre-FT = {pre_in} (margine: {pre_m:+.2f}) | Post-FT = {post_in} (margine: {post_m:+.2f})"
         )
 
         print("\nInterpretazione delle Metriche:")

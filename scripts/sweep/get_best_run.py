@@ -32,6 +32,12 @@ def main():
         default=None,
         help="Entità/Username di WandB (di default ricavato dall'API)",
     )
+    parser.add_argument(
+        "--metric",
+        type=str,
+        default="eval/top1",
+        help="Metrica target su cui selezionare la miglior run (default: 'eval/top1')",
+    )
     args = parser.parse_args()
 
     # Inizializza l'API di Wandb
@@ -101,35 +107,38 @@ def main():
             print(f" - {err}")
         return
 
-    # Filtra le run completate con successo che hanno calcolato il composite score
-    valid_runs = [
-        r
-        for r in runs
-        if r.state == "finished" and "eval/composite_score" in r.summary
+    # Determina la chiave della metrica da estrarre
+    target_metric = args.metric
+    candidate_keys = [
+        target_metric,
+        f"eval/{target_metric.replace('eval/', '')}",
+        f"eval_{target_metric.replace('eval/', '')}",
+        "eval/top1",
+        "eval_top1",
+        "eval/cluster_inclusion_rate",
+        "eval_composite_score",
     ]
 
-    if not valid_runs:
-        # Prova a cercare la chiave senza prefisso "eval/" per retrocompatibilità
-        valid_runs = [
-            r
-            for r in runs
-            if r.state == "finished" and "eval_composite_score" in r.summary
-        ]
-        score_key = "eval_composite_score"
-    else:
-        score_key = "eval/composite_score"
+    score_key = None
+    valid_runs = []
+    for k in candidate_keys:
+        v_runs = [r for r in runs if r.state == "finished" and k in r.summary]
+        if v_runs:
+            score_key = k
+            valid_runs = v_runs
+            break
 
     if not valid_runs:
-        print("Nessuna run completata con successo contenente 'composite_score' trovata.")
+        print(f"Nessuna run completata con successo contenente la metrica '{target_metric}' trovata.")
         return
 
-    # Ordina le run per trovare la migliore (composite score più alto)
+    # Ordina le run per trovare la migliore (punteggio più alto)
     best_run = max(valid_runs, key=lambda r: r.summary[score_key])
     best_score = best_run.summary[score_key]
 
     print("\n" + "=" * 60)
     print(f" RUN MIGLIORE TROVATA: {best_run.name} ({best_run.id})")
-    print(f" Composite Score: {best_score:.2f}%")
+    print(f" Metrica ({score_key}): {best_score:.2f}%")
     print("=" * 60)
 
     # Estrae la configurazione
