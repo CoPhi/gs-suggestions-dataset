@@ -153,6 +153,123 @@ Se stai sviluppando attivamente o testando modifiche al codice del backend o del
 
 ---
 
+## 5. Addestramento e Ottimizzazione dei Modelli BERT
+
+Il framework supporta il pre-addestramento (MLM) e il fine-tuning di modelli linguistici BERT specializzati per il greco antico su frammenti e lacune papirologiche.
+
+I modelli gestiti centralmente tramite `ModelRegistry` sono:
+- `CNR-ILC/gs-GreBerta` (base: `bowphs/GreBerta`)
+- `CNR-ILC/gs-aristoBERTo` (base: `Jacobo/aristoBERTo`)
+- `CNR-ILC/gs-Logion` (base: `cabrooks/LOGION-50k_wordpiece`)
+
+Per un riepilogo rapido di tutti i comandi disponibili è possibile digitare in qualsiasi momento:
+```bash
+make help
+```
+
+---
+
+### 5.1 Addestramento Modelli (Fine-Tuning)
+
+È possibile addestrare i modelli sia con le configurazioni ottimali predefinite (definite in `ModelRegistry`) sia sovrascrivendo i parametri da riga di comando.
+
+#### Addestramento Standard o con Iperparametri Personalizzati:
+```bash
+# Esempio 1: Addestramento di GreBERTa con configurazione di default
+make train MODEL=gs-GreBerta
+
+# Esempio 2: Personalizzazione di epoche, learning rate e batch size
+make train MODEL=gs-aristoBERTo EPOCHS=3 LR=1.5e-5 BATCH_SIZE=64
+
+# Esempio 3: Addestramento senza caricamento su Hugging Face Hub
+make train MODEL=gs-Logion NO_PUSH=true
+```
+
+#### Smoke-Test Rapido di Verifica:
+Per verificare che l'ambiente, la GPU e i dataset funzionino correttamente senza attendere tutte le epoche e senza pubblicare su Hugging Face (esegue 1 epoca, batch 32, `--no_push_to_hub`):
+```bash
+make train-test MODEL=gs-GreBerta
+```
+
+---
+
+### 5.2 Ottimizzazione Multi-Obiettivo con NSGA-II (Optuna)
+
+Nel restauro di testi antichi, l'accuratezza lessicale rigida (**Top-1 Exact Match**) e la plausibilità semantica/coesione contestuale (**Cluster Inclusion Rate**) sono obiettivi concorrenti. Il progetto integra l'algoritmo genetico **NSGA-II** (*Non-dominated Sorting Genetic Algorithm II*, Deb et al., 2002) tramite **Optuna**, permettendo di trovare la **Frontiera di Pareto** senza imporre pesi arbitrari a priori.
+
+#### Passo 1: Avviare la Ricerca NSGA-II
+```bash
+# Avvio standard (25 trial, popolazione di 8 individui, obiettivi 2D: Top-1 EM vs Cluster Inc.)
+make hpo-nsga2 MODEL=gs-GreBerta
+
+# Con parametri personalizzati
+make hpo-nsga2 MODEL=gs-GreBerta TRIALS=30 POPULATION=10 OBJECTIVES=2d
+```
+
+> [!NOTE]
+> Tutti i trial vengono salvati in un database SQLite locale (`optuna_nsga_studies.db`). L'esecuzione può essere interrotta e ripresa in qualsiasi momento. Al termine, viene generato automaticamente un grafico interattivo della frontiera in formato HTML (`pareto_front_*.html`).
+
+#### Passo 2: Analisi della Frontiera di Pareto e Identificazione del Knee Point
+Ispeziona la frontiera di Pareto estratta da NSGA-II e identifica automaticamente il punto di massimo compromesso matematico (**Knee Point**, minima distanza euclidea dall'Utopia Point $[1, 1]$ nello spazio normalizzato):
+```bash
+make pareto MODEL=gs-GreBerta SELECTION=knee
+```
+
+Strategie di selezione supportate (`SELECTION`):
+- `knee`: Miglior compromesso tra accuratezza lessicale e plausibilità semantica (consigliato).
+- `max_em`: Massima precisione lessicale (modello conservativo su congetture storiche).
+- `max_cluster`: Massima coesione semantica ed inclusione delle gold label nel cluster predittivo.
+
+#### Passo 3: Addestramento Finale del Modello Pareto-Ottimale
+Una volta individuata la configurazione desiderata, puoi addestrare il modello finale a regime e caricarlo su Hugging Face Hub con un unico comando:
+```bash
+make pareto-train MODEL=gs-GreBerta SELECTION=knee
+```
+
+---
+
+### 5.3 Ottimizzazione con Weights & Biases Sweeps (Single-Objective)
+
+In alternativa a NSGA-II, è possibile utilizzare l'ottimizzatore bayesiano su metrica composita tramite W&B Sweeps:
+
+```bash
+# 1. Inizializzare lo sweep (restituisce SWEEP_ID)
+make sweep SWEEP_YAML=models/bert/finetuning/sweep_greBERTa.yaml
+
+# 2. Avviare l'agente per eseguire le run
+make sweep-agent SWEEP_ID=<tuo_sweep_id>
+
+# 3. Visualizzare a terminale la miglior configurazione trovata
+make sweep-best SWEEP_ID=<tuo_sweep_id>
+```
+
+---
+
+### 5.4 Esecuzione su Macchina Remota (Best Practice)
+
+Quando si eseguono addestramenti o sweep su server remoti via SSH:
+
+1. **Variabili d'ambiente**: assicurarsi che il file `.env` sulla macchina remota contenga:
+   ```bash
+   HF_TOKEN=tuo_token_huggingface
+   WANDB_API_KEY=tuo_token_wandb
+   ```
+2. **Sessione persistente con `tmux`** (per evitare interruzioni in caso di disconnessione SSH):
+   ```bash
+   # Avviare una sessione persistente
+   tmux new -s training
+
+   # Selezionare la GPU ed eseguire
+   CUDA_VISIBLE_DEVICES=0 make train MODEL=gs-GreBerta
+
+   # Per staccarsi dalla sessione: premere Ctrl+B, poi D
+   # Per riconnettersi:
+   tmux attach -t training
+   ```
+3. **Selezione specifica della GPU**: anteporre `CUDA_VISIBLE_DEVICES=<id_gpu>` (es. `CUDA_VISIBLE_DEVICES=0 make hpo-nsga2 ...`).
+
+---
+
 ## Changelog
 
 Per monitorare lo stato di avanzamento del progetto, incluse nuove funzionalità, correzioni di bug, refactoring e aggiornamenti dei pacchetti, puoi fare riferimento al file [CHANGELOG.md](CHANGELOG.md).
