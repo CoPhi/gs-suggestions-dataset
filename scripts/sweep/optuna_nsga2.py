@@ -56,12 +56,17 @@ def create_objective(
     eval_dataset_name: str | None,
     max_eval_cases: int,
     objectives_mode: str = "2d",  # "2d" (top1, cluster_inclusion) o "3d" (+ cos_sim)
+    study_name: str = "optuna_nsga2",
 ):
     """
     Crea la funzione obiettivo multi-obiettivo da passare ad Optuna.
     """
 
     def objective(trial: "optuna.Trial") -> tuple[float, ...]:
+        current_study_name = (
+            study_name
+            or (trial.study.study_name if hasattr(trial, "study") else "optuna_nsga2")
+        )
         # Pulizia preventiva della memoria GPU
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
@@ -116,11 +121,11 @@ def create_objective(
                 max_eval_cases=max_eval_cases,
                 logging_steps=50,
                 run_name=trial_run_name,
-                wandb_group=study_name,
+                wandb_group=current_study_name,
                 wandb_tags=trial_tags,
                 wandb_job_type="optuna_trial",
                 extra_config={
-                    "optuna_study": study_name,
+                    "optuna_study": current_study_name,
                     "optuna_trial": trial.number,
                     "objectives_mode": objectives_mode,
                 },
@@ -296,6 +301,7 @@ def main():
         eval_dataset_name=args.eval_dataset_name,
         max_eval_cases=args.max_eval_cases,
         objectives_mode=args.objectives,
+        study_name=study_name,
     )
 
     # 4. Avvio dell'ottimizzazione multi-obiettivo
