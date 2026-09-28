@@ -67,6 +67,12 @@ def main():
         choices=["knee", "max_em", "max_cluster"],
         help="Criterio di selezione del modello: 'knee' (miglior compromesso), 'max_em' (massimo EM), 'max_cluster' (massima plausibilità)",
     )
+    parser.add_argument(
+        "--checkpoint",
+        type=str,
+        default=None,
+        help="Checkpoint esplicito (opzionale se deducibile dal nome dello studio)",
+    )
     args = parser.parse_args()
 
     if optuna is None:
@@ -134,11 +140,12 @@ def main():
         print("\nAvvio dell'addestramento finale per la configurazione selezionata...")
         # Risaliamo al checkpoint dal nome dello studio o chiediamo all'utente
         # Esempio: studio 'nsga_gs_greberta_2d' -> checkpoint 'CNR-ILC/gs-GreBerta'
-        ckpt_candidate = None
-        for ckpt in ModelRegistry().configs.keys():
-            if ckpt.split("/")[-1].lower().replace("-", "_") in args.study_name.lower():
-                ckpt_candidate = ckpt
-                break
+        ckpt_candidate = args.checkpoint
+        if not ckpt_candidate:
+            for ckpt in ModelRegistry().configs.keys():
+                if ckpt.split("/")[-1].lower().replace("-", "_") in args.study_name.lower():
+                    ckpt_candidate = ckpt
+                    break
 
         if not ckpt_candidate:
             print("Impossibile dedurre il checkpoint dal nome dello studio. Specifica manualmente con --checkpoint.")
