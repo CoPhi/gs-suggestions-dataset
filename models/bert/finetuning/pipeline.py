@@ -68,6 +68,11 @@ def _init_wandb(
     mlm_probability: float,
     max_span_length: int,
     lr_scheduler_type: str,
+    run_name: str | None = None,
+    wandb_group: str | None = None,
+    wandb_tags: list[str] | None = None,
+    wandb_job_type: str | None = None,
+    extra_config: dict | None = None,
 ) -> str:
     """
     Inizializza una run W&B sul progetto principale 'gs-suggestions'.
@@ -75,7 +80,8 @@ def _init_wandb(
     Restituisce il run_name generato per coerenza con TrainingArguments.
     """
     ckpt_short = checkpoint.split("/")[-1]
-    run_name = f"{ckpt_short}_lr{lr}_bs{batch_size}_ep{epochs}"
+    if not run_name:
+        run_name = f"{ckpt_short}_lr{lr}_bs{batch_size}_ep{epochs}"
 
     config_dict = {
         "checkpoint": checkpoint,
@@ -92,18 +98,30 @@ def _init_wandb(
         "lr_scheduler_type": lr_scheduler_type,
         "gap_token": GAP_TOKEN,
     }
+    if extra_config:
+        config_dict.update(extra_config)
+
+    tags = wandb_tags if wandb_tags is not None else [ckpt_short, "finetuning", "mlm"]
 
     if wandb.run is None:
-        wandb.init(
-            project=WANDB_PROJECT,
-            name=run_name,
-            config=config_dict,
-            tags=[ckpt_short, "finetuning", "mlm"],
-            resume="allow",
-        )
+        init_kwargs = {
+            "project": WANDB_PROJECT,
+            "name": run_name,
+            "config": config_dict,
+            "tags": tags,
+            "resume": "allow",
+        }
+        if wandb_group:
+            init_kwargs["group"] = wandb_group
+        if wandb_job_type:
+            init_kwargs["job_type"] = wandb_job_type
+        wandb.init(**init_kwargs)
     else:
         wandb.run.name = run_name
         wandb.config.update(config_dict, allow_val_change=True)
+        if wandb_tags:
+            current_tags = list(wandb.run.tags) if wandb.run.tags else []
+            wandb.run.tags = list(set(current_tags + wandb_tags))
 
     return run_name
 
@@ -596,6 +614,11 @@ def pipeline_finetuning(
     eval_dataset_name: str | None = None,
     evaluate_on_test: bool = True,
     max_eval_cases: int = 500,
+    run_name: str | None = None,
+    wandb_group: str | None = None,
+    wandb_tags: list[str] | None = None,
+    wandb_job_type: str | None = None,
+    extra_config: dict | None = None,
 ) -> Trainer:
     """
     Esegue la pipeline completa di finetuning di tipo Masked Language Modeling (MLM).
@@ -685,6 +708,11 @@ def pipeline_finetuning(
         mlm_probability=mlm_probability,
         max_span_length=max_span_length,
         lr_scheduler_type=lr_scheduler_type,
+        run_name=run_name,
+        wandb_group=wandb_group,
+        wandb_tags=wandb_tags,
+        wandb_job_type=wandb_job_type,
+        extra_config=extra_config,
     )
 
     pre_ft_metrics_dict = {}

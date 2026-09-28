@@ -152,8 +152,7 @@ def main():
             return
 
         base_model = ModelRegistry().base_model_map.get(ckpt_candidate)
-        p = selected.params
-
+        ckpt_short = ckpt_candidate.split("/")[-1]
         pipeline_finetuning(
             checkpoint=ckpt_candidate,
             base_model=base_model,
@@ -169,6 +168,15 @@ def main():
             lr_scheduler_type=p.get("lr_scheduler_type", "cosine"),
             push_to_hub=True,
             evaluate_on_test=True,
+            run_name=f"pareto_selected_{ckpt_short}_{args.selection_strategy}",
+            wandb_group=args.study_name,
+            wandb_tags=[ckpt_short, "pareto_selected", args.selection_strategy, "production"],
+            wandb_job_type="pareto_production_train",
+            extra_config={
+                "optuna_study": args.study_name,
+                "selected_trial": selected.number,
+                "selection_strategy": args.selection_strategy,
+            },
         )
 
 

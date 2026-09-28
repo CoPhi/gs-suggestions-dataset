@@ -90,8 +90,9 @@ def create_objective(
             f"chunk={chunk_size}, freeze={num_layers_to_freeze}, wd={weight_decay}"
         )
         print("\n" + "=" * 80)
-        print(f" AVVIO {trial_desc}")
-        print("=" * 80)
+        ckpt_short = checkpoint.split("/")[-1]
+        trial_run_name = f"trial_{trial.number:03d}_{ckpt_short}"
+        trial_tags = [ckpt_short, "optuna", "nsga2", f"obj_{objectives_mode}"]
 
         # 2. Esecuzione del finetuning
         try:
@@ -114,6 +115,15 @@ def create_objective(
                 eval_dataset_name=eval_dataset_name,
                 max_eval_cases=max_eval_cases,
                 logging_steps=50,
+                run_name=trial_run_name,
+                wandb_group=study_name,
+                wandb_tags=trial_tags,
+                wandb_job_type="optuna_trial",
+                extra_config={
+                    "optuna_study": study_name,
+                    "optuna_trial": trial.number,
+                    "objectives_mode": objectives_mode,
+                },
             )
 
             metrics = extract_eval_metrics_from_trainer(trainer)
