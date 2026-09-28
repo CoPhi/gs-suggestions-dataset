@@ -228,7 +228,31 @@ make pareto-train MODEL=gs-GreBerta SELECTION=knee
 
 ---
 
-### 5.3 Ottimizzazione con Weights & Biases Sweeps (Single-Objective)
+### 5.3 Confronto Diretto Pre-FT vs Post-FT su Test Set
+
+Per confrontare le prestazioni del modello base (**Pre-FT**, es. `bowphs/GreBerta`) rispetto alla versione fine-tunata (**Post-FT**, es. `CNR-ILC/gs-GreBerta`) su un test set specifico (senza dover riavviare un addestramento):
+
+```bash
+# Esempio 1: Confronto standard sul test set ufficiale con gold label (CNR-ILC/gs-dataset-eval)
+make compare MODEL=gs-GreBerta
+
+# Esempio 2: Confronto su un test set dedicato (es. Filodemo) e numero di casi personalizzato
+make compare MODEL=gs-GreBerta EVAL_DATASET=CNR-ILC/gs-eval-philodemus MAX_EVAL_CASES=500
+
+# Esempio 3: Esportazione della tabella comparativa e dei delta in JSON e CSV
+make compare MODEL=gs-GreBerta OUTPUT_JSON=comparison_greberta.json OUTPUT_CSV=comparison_greberta.csv
+```
+
+Il comando produce a terminale una tabella comparativa dettagliata che evidenzia:
+- **Exact Match**: Top-1, Top-5, Top-10, Top-20
+- **BERTScore F1**: @1, @5, @10, @20
+- **Cosine Similarity (Max e Mean)**: @1, @5, @10, @20
+- **Cluster Inclusion (Plausibilità Semantica)**: In-Cluster Rate, Margin, Gold Centroid CosSim
+- **Delta**: variazione netta tra modello pre-addestrato e modello post-finetuning.
+
+---
+
+### 5.4 Ottimizzazione con Weights & Biases Sweeps (Single-Objective)
 
 In alternativa a NSGA-II, è possibile utilizzare l'ottimizzatore bayesiano su metrica composita tramite W&B Sweeps:
 
@@ -245,7 +269,7 @@ make sweep-best SWEEP_ID=<tuo_sweep_id>
 
 ---
 
-### 5.4 Esecuzione su Macchina Remota (Best Practice)
+### 5.5 Esecuzione su Macchina Remota (Best Practice)
 
 Quando si eseguono addestramenti o sweep su server remoti via SSH:
 

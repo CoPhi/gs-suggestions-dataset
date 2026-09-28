@@ -45,6 +45,13 @@ SELECTION ?= knee
 SWEEP_YAML ?= models/bert/finetuning/sweep_greBERTa.yaml
 SWEEP_ID ?=
 
+# Parametri Valutazione & Confronto Pre-FT vs Post-FT
+EVAL_DATASET ?= CNR-ILC/gs-dataset-eval
+SPLIT ?= test
+BASE_MODEL ?=
+OUTPUT_JSON ?=
+OUTPUT_CSV ?=
+
 .PHONY: help data requirements requirements-api \
         run-api run-frontend \
         run stop restart \
@@ -53,6 +60,7 @@ SWEEP_ID ?=
         release-api release-frontend release \
         train train-test \
         hpo-nsga2 pareto pareto-train \
+        compare \
         sweep sweep-agent sweep-best
 
 # ---------------------------------------------------------
@@ -74,6 +82,11 @@ help:
 	@echo "  make pareto                Ispeziona la frontiera di Pareto e mostra il Knee Point"
 	@echo "                             (es. make pareto MODEL=gs-GreBerta SELECTION=knee)"
 	@echo "  make pareto-train          Addestra ed esegue il push del modello selezionato da Pareto"
+	@echo ""
+	@echo "Confronto e Valutazione (Pre-FT vs Post-FT):"
+	@echo "  make compare               Confronta baseline Pre-FT e modello Post-FT su un test set"
+	@echo "                             (es. make compare MODEL=gs-GreBerta EVAL_DATASET=CNR-ILC/gs-dataset-eval)"
+	@echo "                             (es. make compare MODEL=gs-GreBerta EVAL_DATASET=CNR-ILC/gs-eval-philodemus)"
 	@echo ""
 	@echo "WandB Sweeps:"
 	@echo "  make sweep                 Inizializza lo sweep WandB (SWEEP_YAML=...)"
@@ -139,7 +152,22 @@ pareto-train:
 		--train_selected
 
 # ---------------------------------------------------------
-# 3. W&B Sweeps (Alternativa Single-Objective)
+# 3. Confronto e Valutazione (Pre-FT vs Post-FT)
+# ---------------------------------------------------------
+
+compare:
+	@echo "=== Confronto Pre-FT vs Post-FT per [$(CHECKPOINT)] sul test set [$(EVAL_DATASET)] (Split: $(SPLIT)) ==="
+	uv run python -m scripts.evaluate_comparison \
+		--checkpoint "$(CHECKPOINT)" \
+		$(if $(strip $(BASE_MODEL)),--base_model "$(BASE_MODEL)",) \
+		--eval_dataset_name "$(EVAL_DATASET)" \
+		--split "$(SPLIT)" \
+		--max_cases $(MAX_EVAL_CASES) \
+		$(if $(strip $(OUTPUT_JSON)),--output_json "$(OUTPUT_JSON)",) \
+		$(if $(strip $(OUTPUT_CSV)),--output_csv "$(OUTPUT_CSV)",)
+
+# ---------------------------------------------------------
+# 4. W&B Sweeps (Alternativa Single-Objective)
 # ---------------------------------------------------------
 
 sweep:
