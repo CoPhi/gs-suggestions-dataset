@@ -45,6 +45,11 @@ from models.bert.dataset.load import prepare_dataset_for_model
 from models.bert.dataset.dev_set import DevCase
 from models.bert.finetuning import get_model_config, GAP_TOKEN, WANDB_PROJECT
 from models.bert.finetuning.callback import CustomEvaluationCallback
+from models.bert.finetuning.model_card import (
+    generate_model_card,
+    save_model_card,
+    push_model_card_to_hub,
+)
 from transformers import DataCollatorForLanguageModeling
 from models.bert.evaluation.metrics import (
     reset_scorer_cache,
@@ -860,6 +865,9 @@ def pipeline_finetuning(
             ("cos_sim_top5_max", "CosSim Max @5"),
             ("cos_sim_top10_max", "CosSim Max @10"),
             ("cos_sim_top20_max", "CosSim Max @20"),
+            ("cluster_inclusion_rate", "Cluster Inclusion Rate"),
+            ("mean_inclusion_margin", "Mean Inclusion Margin"),
+            ("mean_gold_centroid_cosine_sim", "Gold Centroid CosSim"),
         ]
 
         for policy_name in pre_ft_metrics_dict.keys():
@@ -880,23 +888,60 @@ def pipeline_finetuning(
                 val_pre = pre_ft_metrics.get(key, 0.0)
                 val_post = post_ft_metrics.get(key, 0.0)
                 delta = val_post - val_pre
-                delta_str = f"{delta:+.2f}%" if delta != 0 else "0.00%"
-                print(f"{name:<25} | {val_pre:>8.2f}% | {val_post:>8.2f}% | {delta_str:>8}")
+                is_pct = "margin" not in key.lower()
+                delta_str = (f"{delta:+.2f}%" if delta != 0 else "0.00%") if is_pct else f"{delta:+.4f}"
+                pre_str = f"{val_pre:>8.2f}%" if is_pct else f"{val_pre:>8.4f}"
+                post_str = f"{val_post:>8.2f}%" if is_pct else f"{val_post:>8.4f}"
+                print(f"{name:<25} | {pre_str} | {post_str} | {delta_str:>8}")
                 table_data.append([name, val_pre, val_post, delta])
 
             print("=" * 80 + "\n")
 
             if wandb.run is not None:
                 wb_table = wandb.Table(
-                    columns=["Metrica", "Pre-FT (%)", "Post-FT (%)", "Delta (%)"]
+                    columns=["Metrica", "Pre-FT", "Post-FT", "Delta"]
                 )
                 for row in table_data:
                     wb_table.add_data(*row)
                 wandb.log({f"confronto_pre_post_ft_{policy_name}": wb_table})
 
+    # Creazione della Model Card arricchita
+    hyperparams_summary = {
+        "epochs": epochs,
+        "batch_size": batch_size,
+        "lr": lr,
+        "chunk_size": chunk_size,
+        "num_layers_to_freeze": num_layers_to_freeze,
+        "weight_decay": weight_decay,
+        "warmup_ratio": warmup_ratio,
+        "mlm_probability": mlm_probability,
+        "max_span_length": max_span_length,
+        "lr_scheduler_type": lr_scheduler_type,
+    }
+
+    card_content = generate_model_card(
+        checkpoint=checkpoint,
+        base_model=base_model,
+        dataset_name=dataset_name,
+        pre_ft_metrics=pre_ft_metrics_dict,
+        post_ft_metrics=post_ft_metrics_dict,
+        eval_metrics=metrics,
+        hyperparameters=hyperparams_summary,
+        preprocessing_config=config,
+    )
+    save_model_card(card_content, output_dir)
+
     if push_to_hub:
-        print(f"Push del modello su HuggingFace Hub [{checkpoint}]...")
+        print(f"Push del modello e della Model Card su HuggingFace Hub [{checkpoint}]...")
+        # Impedisce al Trainer di sovrascrivere la nostra Model Card con il template standard minimale
+        trainer.create_model_card = lambda *args, **kwargs: None
+        save_model_card(card_content, output_dir)
         trainer.push_to_hub()
+        # Upload esplicito della Model Card come garanzia
+        try:
+            push_model_card_to_hub(checkpoint, card_content)
+        except Exception as e:
+            print(f"[ModelCard] Warning durante upload esplicito su Hub: {e}")
 
     wandb.finish()
     print("Finetuning completato.")

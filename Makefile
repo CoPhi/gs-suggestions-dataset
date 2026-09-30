@@ -51,6 +51,11 @@ SPLIT ?= test
 BASE_MODEL ?=
 OUTPUT_JSON ?=
 OUTPUT_CSV ?=
+POLICY ?= default
+UPDATE_CARD ?= false
+PUSH_CARD ?= false
+OUTPUT_CARD ?=
+FROM_JSON ?=
 
 .PHONY: help data requirements requirements-api \
         run-api run-frontend \
@@ -60,7 +65,7 @@ OUTPUT_CSV ?=
         release-api release-frontend release \
         train train-test \
         hpo-nsga2 pareto pareto-train \
-        compare \
+        compare model-card \
         sweep sweep-agent sweep-best
 
 # ---------------------------------------------------------
@@ -83,10 +88,12 @@ help:
 	@echo "                             (es. make pareto MODEL=gs-GreBerta SELECTION=knee)"
 	@echo "  make pareto-train          Addestra ed esegue il push del modello selezionato da Pareto"
 	@echo ""
-	@echo "Confronto e Valutazione (Pre-FT vs Post-FT):"
+	@echo "Confronto, Valutazione (Pre-FT vs Post-FT) e Model Card:"
 	@echo "  make compare               Confronta baseline Pre-FT e modello Post-FT su un test set"
-	@echo "                             (es. make compare MODEL=gs-GreBerta EVAL_DATASET=CNR-ILC/gs-dataset-eval)"
-	@echo "                             (es. make compare MODEL=gs-GreBerta EVAL_DATASET=CNR-ILC/gs-eval-philodemus)"
+	@echo "                             (es. make compare MODEL=gs-GreBerta EVAL_DATASET=CNR-ILC/gs-dataset-tlg-uncased POLICY=all)"
+	@echo "                             Opzioni: UPDATE_CARD=true, PUSH_CARD=true, OUTPUT_CARD=README.md"
+	@echo "  make model-card            Genera / pubblica su Hugging Face Hub la Model Card con metriche"
+	@echo "                             (es. make model-card MODEL=gs-GreBerta FROM_JSON=results.json PUSH_CARD=true)"
 	@echo ""
 	@echo "WandB Sweeps:"
 	@echo "  make sweep                 Inizializza lo sweep WandB (SWEEP_YAML=...)"
@@ -162,9 +169,23 @@ compare:
 		$(if $(strip $(BASE_MODEL)),--base_model "$(BASE_MODEL)",) \
 		--eval_dataset_name "$(EVAL_DATASET)" \
 		--split "$(SPLIT)" \
+		--policy "$(POLICY)" \
 		--max_cases $(MAX_EVAL_CASES) \
 		$(if $(strip $(OUTPUT_JSON)),--output_json "$(OUTPUT_JSON)",) \
-		$(if $(strip $(OUTPUT_CSV)),--output_csv "$(OUTPUT_CSV)",)
+		$(if $(strip $(OUTPUT_CSV)),--output_csv "$(OUTPUT_CSV)",) \
+		$(if $(filter true,$(UPDATE_CARD)),--update_model_card,) \
+		$(if $(filter true,$(PUSH_CARD)),--push_model_card,) \
+		$(if $(strip $(OUTPUT_CARD)),--output_model_card "$(OUTPUT_CARD)",)
+
+model-card:
+	@echo "=== Generazione / Pubblicazione Model Card per [$(CHECKPOINT)] ==="
+	uv run python -m scripts.publish_model_card \
+		--checkpoint "$(CHECKPOINT)" \
+		$(if $(strip $(BASE_MODEL)),--base_model "$(BASE_MODEL)",) \
+		$(if $(strip $(FROM_JSON)),--from_json "$(FROM_JSON)",) \
+		$(if $(strip $(DATASET)),--dataset_name "$(DATASET)",) \
+		$(if $(strip $(OUTPUT_CARD)),--output "$(OUTPUT_CARD)",) \
+		$(if $(filter true,$(PUSH_CARD)),--push_to_hub,)
 
 # ---------------------------------------------------------
 # 4. W&B Sweeps (Alternativa Single-Objective)

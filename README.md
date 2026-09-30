@@ -228,27 +228,33 @@ make pareto-train MODEL=gs-GreBerta SELECTION=knee
 
 ---
 
-### 5.3 Confronto Diretto Pre-FT vs Post-FT su Test Set
+### 5.3 Confronto Diretto Pre-FT vs Post-FT e Pubblicazione Model Card
 
-Per confrontare le prestazioni del modello base (**Pre-FT**, es. `bowphs/GreBerta`) rispetto alla versione fine-tunata (**Post-FT**, es. `CNR-ILC/gs-GreBerta`) su un test set specifico (senza dover riavviare un addestramento):
+Per confrontare le prestazioni del modello base (**Pre-FT**, es. `bowphs/GreBerta`) rispetto alla versione fine-tunata (**Post-FT**, es. `CNR-ILC/gs-GreBerta`) su un test set specifico (senza dover riavviare un addestramento) e generare o pubblicare la **Model Card arricchita** su Hugging Face Hub:
 
 ```bash
-# Esempio 1: Confronto standard sul test set ufficiale con gold label (CNR-ILC/gs-dataset-eval)
-make compare MODEL=gs-GreBerta
+# Esempio 1: Confronto sul dataset di testing TLG per tutte le policy di lacuna (default, word, suffix)
+make compare MODEL=gs-GreBerta EVAL_DATASET=CNR-ILC/gs-dataset-tlg-uncased POLICY=all
 
-# Esempio 2: Confronto su un test set dedicato (es. Filodemo) e numero di casi personalizzato
-make compare MODEL=gs-GreBerta EVAL_DATASET=CNR-ILC/gs-eval-philodemus MAX_EVAL_CASES=500
+# Esempio 2: Confronto con generazione della Model Card in locale (README.md)
+make compare MODEL=gs-GreBerta EVAL_DATASET=CNR-ILC/gs-dataset-tlg-uncased POLICY=all UPDATE_CARD=true OUTPUT_CARD=README_gs-GreBerta.md
 
-# Esempio 3: Esportazione della tabella comparativa e dei delta in JSON e CSV
-make compare MODEL=gs-GreBerta OUTPUT_JSON=comparison_greberta.json OUTPUT_CSV=comparison_greberta.csv
+# Esempio 3: Confronto e pubblicazione diretta della Model Card su Hugging Face Hub
+make compare MODEL=gs-GreBerta EVAL_DATASET=CNR-ILC/gs-dataset-tlg-uncased POLICY=all PUSH_CARD=true
+
+# Esempio 4: Pubblicazione / aggiornamento della Model Card da un file JSON precedentemente salvato
+make model-card MODEL=gs-GreBerta FROM_JSON=comparison_greberta.json PUSH_CARD=true
 ```
 
-Il comando produce a terminale una tabella comparativa dettagliata che evidenzia:
+Il confronto produce sia a terminale sia nella Model Card una tabella dettagliata che evidenzia:
 - **Exact Match**: Top-1, Top-5, Top-10, Top-20
 - **BERTScore F1**: @1, @5, @10, @20
 - **Cosine Similarity (Max e Mean)**: @1, @5, @10, @20
 - **Cluster Inclusion (Plausibilità Semantica)**: In-Cluster Rate, Margin, Gold Centroid CosSim
-- **Delta**: variazione netta tra modello pre-addestrato e modello post-finetuning.
+- **Delta ($\Delta$)**: variazione netta tra modello pre-addestrato e modello post-finetuning con indicatori di progresso (`+X.XX% 🟢`).
+
+> [!TIP]
+> Durante il fine-tuning standard (`make train` o `pipeline_finetuning`), se `push_to_hub=True`, la pipeline genera e carica automaticamente su Hugging Face Hub la Model Card arricchita comprensiva dei metadati completi, iperparametri e della tabella comparativa Pre vs Post-FT con i delta su TLG!
 
 ---
 
