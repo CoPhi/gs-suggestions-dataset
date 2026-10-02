@@ -379,11 +379,11 @@ ithaca-setup:
 
 ithaca-data:
 	@echo "Preparazione dataset TLG per Ithaca..."
-	python3 -m models.ithaca.dataset.prepare_tlg --dataset_name "$(DATASET)" --output_dir data/ithaca
+	uv run python -m models.ithaca.dataset.prepare_tlg --dataset_name "$(DATASET)" --output_dir data/ithaca
 
 ithaca-train:
 	@echo "Avvio fine-tuning Ithaca su TLG con freezing teste di attribuzione..."
-	python3 -m models.ithaca.finetuning.train \
+	uv run python -m models.ithaca.finetuning.train \
 		--train_path data/ithaca/tlg_train.jsonl \
 		--val_path data/ithaca/tlg_val.jsonl \
 		--checkpoint_path $(ITHACA_BASE_CKPT) \
@@ -394,7 +394,7 @@ ithaca-train:
 
 ithaca-compare:
 	@echo "Valutazione comparativa Ithaca Pre-FT vs Post-FT (policy: default, word, suffix)..."
-	python3 -m models.ithaca.evaluation.compare \
+	uv run python -m models.ithaca.evaluation.compare \
 		--pre_checkpoint $(ITHACA_BASE_CKPT) \
 		--post_checkpoint $(ITHACA_FT_CKPT) \
 		--test_path data/ithaca/tlg_test.jsonl \
@@ -402,7 +402,7 @@ ithaca-compare:
 
 ithaca-publish:
 	@echo "Pubblicazione modello Ithaca fine-tunato su Hugging Face Hub ($(ITHACA_REPO_ID))..."
-	python3 scripts/publish_ithaca_hub.py \
+	uv run python scripts/publish_ithaca_hub.py \
 		--repo_id "$(ITHACA_REPO_ID)" \
 		--checkpoint_path $(ITHACA_FT_CKPT) \
 		--config_path checkpoints/ithaca/config.json \

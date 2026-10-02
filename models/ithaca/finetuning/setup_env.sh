@@ -49,9 +49,18 @@ else
     echo "[4/5] Checkpoint base $CHECKPOINT_FILE già presente."
 fi
 
+# Determinazione dell'eseguibile Python (preferenza uv / .venv rispetto al python di sistema)
+if command -v uv &> /dev/null; then
+    PYTHON_EXEC="uv run python"
+elif [ -f ".venv/bin/python" ]; then
+    PYTHON_EXEC=".venv/bin/python"
+else
+    PYTHON_EXEC="python3"
+fi
+
 # 6. Verifica installazione
 echo "[5/5] Verifica dell'ambiente JAX e caricamento checkpoint..."
-python3 -c "
+$PYTHON_EXEC -c "
 import jax
 import pickle
 print(f'JAX Version: {jax.__version__}')
@@ -66,6 +75,5 @@ except Exception as e:
     print(f'Nota durante la lettura del pickle: {e}')
 "
 
-
-echo "Setup completato! Pronto per la preparazione dati e fine-tuning.  "
+echo "Setup completato! Pronto per la preparazione dati e fine-tuning."
 
