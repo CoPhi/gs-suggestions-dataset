@@ -103,7 +103,12 @@ def get_or_load_ithaca(checkpoint: str) -> tuple:
     @jax.jit
     def forward_fn(p, text_char, text_word):
         variables = p if (isinstance(p, dict) and "params" in p) else {"params": p}
-        outputs = model.apply(variables, text_char=text_char, text_word=text_word)
+        outputs = model.apply(
+            variables,
+            text_char=text_char,
+            text_word=text_word,
+            is_training=False,
+        )
         return jax.nn.softmax(outputs["char"], axis=-1)
 
     _LOADED_MODELS[resolved] = (model, params, alphabet, config, forward_fn)

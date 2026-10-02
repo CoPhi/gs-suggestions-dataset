@@ -235,6 +235,12 @@ def main():
         action="store_true",
         help="Disabilita il freezing delle teste di attribuzione (non consigliato su TLG)",
     )
+    parser.add_argument(
+        "--seed",
+        type=int,
+        default=42,
+        help="Seed per la riproducibilità e l'inizializzazione del dropout RNG",
+    )
     args = parser.parse_args()
 
     # Disabilita preallocazione della VRAM in JAX
@@ -280,14 +286,19 @@ def main():
         params=params,
     )
     opt_state = optimizer.init(params)
+    rng = jax.random.PRNGKey(args.seed)
 
     # Definizione Loss Function (solo sui token mascherati)
-    def loss_fn(p, batch):
+    def loss_fn(p, batch, dropout_rng=None):
         variables = p if (isinstance(p, dict) and "params" in p) else {"params": p}
+        is_training = dropout_rng is not None
+        rngs = {"dropout": dropout_rng} if is_training else {}
         outputs = model.apply(
             variables,
             text_char=batch["text_char"],
             text_word=batch["text_word"],
+            is_training=is_training,
+            rngs=rngs,
         )
         logits_char = outputs["char"]  # [batch, max_len, vocab_char_size]
 
@@ -312,17 +323,18 @@ def main():
         return masked_loss, accuracy
 
     @jax.jit
-    def train_step(p, opt_s, batch):
+    def train_step(p, opt_s, batch, rng_key):
+        rng_key, step_rng = jax.random.split(rng_key)
         (loss_val, acc_val), grads = jax.value_and_grad(loss_fn, has_aux=True)(
-            p, batch
+            p, batch, step_rng
         )
         updates, new_opt_s = optimizer.update(grads, opt_s, p)
         new_params = optax.apply_updates(p, updates)
-        return new_params, new_opt_s, loss_val, acc_val
+        return new_params, new_opt_s, loss_val, acc_val, rng_key
 
     @jax.jit
     def eval_step(p, batch):
-        return loss_fn(p, batch)
+        return loss_fn(p, batch, dropout_rng=None)
 
     print("\n--- INIZIO FINE-TUNING ITHACA (TLG) ---")
     best_val_loss = float("inf")
@@ -338,7 +350,9 @@ def main():
 
         train_losses, train_accs = [], []
         for step, batch in enumerate(train_gen, 1):
-            params, opt_state, loss_v, acc_v = train_step(params, opt_state, batch)
+            params, opt_state, loss_v, acc_v, rng = train_step(
+                params, opt_state, batch, rng
+            )
             train_losses.append(float(loss_v))
             train_accs.append(float(acc_v))
 
