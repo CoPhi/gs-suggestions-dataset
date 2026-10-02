@@ -9,24 +9,26 @@ tok = prepare_dataset_for_model(raw, checkpoint)
 
 from __future__ import annotations
 
+import os
 from functools import partial
 
 from datasets import Dataset, DatasetDict, DatasetInfo
+from dotenv import load_dotenv
+from huggingface_hub import login
 from transformers import AutoTokenizer
 
 from backend.core import UNK_TOKEN
 from backend.core.cleaner import load_abs, load_test_set, split_abs_herc_dev
 from backend.core.preprocess import (
-    remove_punctuation,
     normalize_greek,
+    remove_punctuation,
 )
 from models.bert.dataset import (
-    CORPUS_CHECKPOINT,
-    EVAL_CHECKPOINT,
     _CORPUS_DESCRIPTION,
     _EVAL_DESCRIPTION,
+    CORPUS_CHECKPOINT,
+    EVAL_CHECKPOINT,
 )
-
 from models.bert.dataset.dev_set import DevCase, build_dev_set
 from models.bert.dataset.train_set import build_train_set
 from models.bert.finetuning import (
@@ -35,9 +37,6 @@ from models.bert.finetuning import (
     MIN_SENT_TOKEN_TRESHOLD,
     get_model_config,
 )
-from huggingface_hub import login
-from dotenv import load_dotenv
-import os
 
 # Hub
 
