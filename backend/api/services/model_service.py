@@ -10,7 +10,7 @@ from pymongo.errors import DuplicateKeyError
 
 from backend.api.database import collection, fs
 from backend.api.exceptions import ModelAlreadyExistsError, ModelNotFoundError
-from backend.api.models import BERTModel, NgramModel, Model
+from backend.api.models import BERTModel, NgramModel, Model, IthacaModel
 from backend.config.settings import BERT_CHECKPOINTS, GAMMA, LM_TYPES, N
 from models.ngrams.train.training import pipeline_train
 from backend.api.services.suggestions_service import SuggestionsService
@@ -36,11 +36,13 @@ class ModelService:
         return [await self._serial_model(str(m["_id"])) for m in models]
 
     async def create_model(self, model: Model) -> str:
-        """Crea un modello Ngram o BERT, lo memorizza nel db e restituisce il suo ID."""
+        """Crea un modello Ngram, BERT o Ithaca, lo memorizza nel db e restituisce il suo ID."""
         if isinstance(model, NgramModel):
             return await self._create_ngram_model(model)
         if isinstance(model, BERTModel):
             return await self._create_bert_model(model)
+        if isinstance(model, IthacaModel):
+            return await self._create_ithaca_model(model)
         raise ValueError("Unsupported model type")
 
     async def init_models(self) -> list[str]:
@@ -178,6 +180,12 @@ class ModelService:
         identity_filter = {"TYPE": "BERT", "CHECKPOINT": checkpoint}
         await self._check_duplicate(identity_filter)
         model_dict = {"CHECKPOINT": checkpoint, "TYPE": "BERT"}
+        return await self._insert_one_safe(model_dict)
+
+    async def _create_ithaca_model(self, model: IthacaModel) -> str:
+        model_dict = model.model_dump()
+        identity_filter = {"TYPE": "Ithaca", "CHECKPOINT": model_dict["CHECKPOINT"]}
+        await self._check_duplicate(identity_filter)
         return await self._insert_one_safe(model_dict)
 
     async def _delete_gridfs_files(self, model: dict) -> None:

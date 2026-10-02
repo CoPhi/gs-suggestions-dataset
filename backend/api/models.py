@@ -20,8 +20,12 @@ class NgramModel(BaseModel):
 class BERTModel(BaseModel):
     CHECKPOINT: str = Field(description="Nome del modello BERT da utilizzare")
     TYPE: Literal["BERT"]
+
+class IthacaModel(BaseModel):
+    CHECKPOINT: str = Field(description="Nome del checkpoint o repo Hugging Face di Ithaca")
+    TYPE: Literal["Ithaca"]
     
-Model = Union[NgramModel, BERTModel]
+Model = Union[NgramModel, BERTModel, IthacaModel]
 
 class ModelsResponse(BaseModel): 
     models: List[Model]
@@ -42,3 +46,4 @@ class PredictionsResponse(BaseModel):
 class ModelType(str, Enum):
     NGRAMS = "Ngrams"
     BERT = "BERT"
+    ITHACA = "Ithaca"

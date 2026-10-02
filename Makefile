@@ -360,3 +360,50 @@ release-frontend: build-frontend
 
 release: release-api release-frontend
 	@echo "Release $(VERSION) completata"
+
+# ---------------------------------------------------------
+# 11. Ithaca Fine-Tuning & Evaluation Pipeline
+# ---------------------------------------------------------
+ITHACA_BASE_CKPT ?= checkpoints/ithaca/checkpoint_v1.pkl
+ITHACA_FT_CKPT ?= checkpoints/ithaca/checkpoint_tlg.pkl
+ITHACA_REPO_ID ?= CNR-ILC/gs-ithaca-tlg
+ITHACA_EPOCHS ?= 3
+ITHACA_BATCH_SIZE ?= 8
+ITHACA_LR ?= 2e-5
+
+.PHONY: ithaca-setup ithaca-data ithaca-train ithaca-compare ithaca-publish
+
+ithaca-setup:
+	@echo "Configurazione ambiente e download checkpoint Ithaca..."
+	bash models/ithaca/finetuning/setup_env.sh
+
+ithaca-data:
+	@echo "Preparazione dataset TLG per Ithaca..."
+	python3 -m models.ithaca.dataset.prepare_tlg --dataset_name "$(DATASET)" --output_dir data/ithaca
+
+ithaca-train:
+	@echo "Avvio fine-tuning Ithaca su TLG con freezing teste di attribuzione..."
+	python3 -m models.ithaca.finetuning.train \
+		--train_path data/ithaca/tlg_train.jsonl \
+		--val_path data/ithaca/tlg_val.jsonl \
+		--checkpoint_path $(ITHACA_BASE_CKPT) \
+		--output_dir checkpoints/ithaca \
+		--epochs $(ITHACA_EPOCHS) \
+		--batch_size $(ITHACA_BATCH_SIZE) \
+		--lr $(ITHACA_LR)
+
+ithaca-compare:
+	@echo "Valutazione comparativa Ithaca Pre-FT vs Post-FT (policy: default, word, suffix)..."
+	python3 -m models.ithaca.evaluation.compare \
+		--pre_checkpoint $(ITHACA_BASE_CKPT) \
+		--post_checkpoint $(ITHACA_FT_CKPT) \
+		--test_path data/ithaca/tlg_test.jsonl \
+		--output_json eval/results/eval_results_ithaca_comparison.json
+
+ithaca-publish:
+	@echo "Pubblicazione modello Ithaca fine-tunato su Hugging Face Hub ($(ITHACA_REPO_ID))..."
+	python3 scripts/publish_ithaca_hub.py \
+		--repo_id "$(ITHACA_REPO_ID)" \
+		--checkpoint_path $(ITHACA_FT_CKPT) \
+		--config_path checkpoints/ithaca/config.json \
+		--eval_json eval/results/eval_results_ithaca_comparison.json

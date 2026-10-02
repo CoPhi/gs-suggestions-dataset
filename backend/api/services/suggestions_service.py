@@ -70,6 +70,8 @@ class SuggestionsService:
         try:
             if model_type == ModelType.BERT:
                 return await self._predict_bert(model, context, num_predictions)
+            if model_type == ModelType.ITHACA:
+                return await self._predict_ithaca(model, context, num_predictions)
         except RepositoryNotFoundError:
             raise ModelNotFoundError(
                 f"Checkpoint '{model['CHECKPOINT']}' not found on HuggingFace Hub"
@@ -174,6 +176,31 @@ class SuggestionsService:
             {
                 "sentence": re.sub(BERT_LACUNA_PATTERN, p[0], context, count=1).lower(),
                 "token_str": p[0].lower(),
+                "score": float(p[1]),
+            }
+            for p in suggestions
+        ]
+
+    async def _predict_ithaca(
+        self, model: dict, context: str, num_predictions: Any
+    ) -> list[dict]:
+        """Genera predizioni usando il modello Ithaca specificato dal checkpoint."""
+        checkpoint = model["CHECKPOINT"]
+        from models.ithaca.inference.predict import fill_mask_ithaca
+
+        loop = asyncio.get_running_loop()
+        predict_func = partial(
+            fill_mask_ithaca,
+            text=context,
+            checkpoint=checkpoint,
+            K=num_predictions.value,
+        )
+        suggestions = await loop.run_in_executor(None, predict_func)
+
+        return [
+            {
+                "sentence": re.sub(BERT_LACUNA_PATTERN, p[0], context, count=1),
+                "token_str": p[0],
                 "score": float(p[1]),
             }
             for p in suggestions
