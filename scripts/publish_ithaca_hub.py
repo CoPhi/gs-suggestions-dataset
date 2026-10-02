@@ -61,7 +61,7 @@ Mentre il modello Ithaca originale è stato addestrato esclusivamente su iscrizi
 
 ## Caratteristiche Principali
 - **Architettura Character-Level**: modella il testo a livello di singoli caratteri anziché subword (BPE/WordPiece), eliminando il problema del disallineamento morfologico nelle terminazioni flessive (desinenze).
-- **Transformer BigBird**: attenzione sparsa con supporto a finestre di contesto lunghe (fino a 1024 caratteri).
+- **Transformer BigBird**: attenzione sparsa con supporto a finestre di contesto lunghe (fino a 768 caratteri).
 - **Freezing delle teste di attribuzione**: durante il fine-tuning i rami di attribuzione geografica e temporale sono stati congelati, focalizzando i gradienti esclusivamente sul restauro testuale (*masked character prediction*).
 
 ## Dettagli di Addestramento

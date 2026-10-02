@@ -57,7 +57,7 @@ DEFAULT_ITHACA_CONFIG = {
     "emb_dim": 512,
     "qkv_dim": 512,
     "mlp_dim": 2048,
-    "max_len": 1024,
+    "max_len": 768,
     "causal_mask": False,
     "feature_combine_type": "concat",
     "posemb_combine_type": "add",

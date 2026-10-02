@@ -188,7 +188,7 @@ def fill_mask_ithaca(
 
     # 3. Caricamento modello e vocabolario
     _, params, alphabet, config, forward_fn = get_or_load_ithaca(checkpoint)
-    max_len = config.get("max_len", 1024)
+    max_len = int(config.get("max_len", 768))
 
     # 4. Tokenizzazione input per JAX
     char2idx = getattr(alphabet, "char2idx", None) or {

@@ -3,7 +3,7 @@ Pipeline di normalizzazione e preparazione del dataset TLG per Ithaca.
 
 Converte il testo del TLG nel formato epigrafico atteso da Ithaca:
 1. All-caps (maiuscolo) e rimozione completa dei segni diacritici (accenti, spiriti, iota sottoscritto).
-2. Segmentazione in chunk di lunghezza <= 1024 caratteri (finestra di contesto di BigBird).
+2. Segmentazione in chunk di lunghezza <= 768 caratteri (finestra di contesto di BigBird/Ithaca).
 3. Generazione controllata delle lacune nel formato di Ithaca ([----]) stratificata per policy:
    - 'default': lacuna casuale di 1-6 caratteri all'interno di una parola.
    - 'word': intera parola mascherata.
@@ -45,7 +45,7 @@ def clean_to_ithaca_alphabet(text: str) -> str:
     return re.sub(r"[ \t]+", " ", cleaned).strip()
 
 
-def chunk_text(text: str, max_chars: int = 800) -> list[str]:
+def chunk_text(text: str, max_chars: int = 700) -> list[str]:
     """
     Divide un testo lungo in chunk di dimensione massima `max_chars`,
     spezzando preferibilmente sui confini di parola o punteggiatura.
@@ -187,8 +187,8 @@ def prepare_tlg_dataset(
         norm_text = normalize_greek(text, case_folding="upper", strip_diacritics_flag=True)
         # 2. Pulizia secondo l'alfabeto di Ithaca
         clean_text = clean_to_ithaca_alphabet(norm_text)
-        # 3. Chunking a <= 800 caratteri
-        chunks = chunk_text(clean_text, max_chars=800)
+        # 3. Chunking a <= 700 caratteri
+        chunks = chunk_text(clean_text, max_chars=700)
         all_chunks.extend(chunks)
 
     rng.shuffle(all_chunks)

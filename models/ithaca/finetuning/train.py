@@ -46,15 +46,14 @@ from models.ithaca.finetuning.checkpoint import (
 def encode_sequence(
     text_ithaca: str,
     alphabet: Any,
-    max_len: int = 1024,
-) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    max_len: int = 768,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """
     Codifica una stringa formattata Ithaca (contenente es. '[----]')
     negli array numpy attesi dal modello:
     - text_char: ID dei caratteri (pad='#' per riempimento)
     - text_word: ID delle parole dal vocabolario ausiliario
     - mask_pos: maschera binaria (1 nelle posizioni da predire, 0 altrove)
-    - target_char: ID del carattere corretto nelle posizioni mascherate
     """
     char2idx = getattr(alphabet, "char2idx", None) or {
         c: i for i, c in enumerate(alphabet.idx2char)
@@ -102,7 +101,7 @@ def encode_sequence(
 def load_jsonl_dataset(
     file_path: str,
     alphabet: Any,
-    max_len: int = 1024,
+    max_len: int = 768,
     limit: int | None = None,
 ) -> list[dict[str, np.ndarray]]:
     """Carica e codifica gli esempi dal file JSONL in array pronti per i batch."""
@@ -121,6 +120,10 @@ def load_jsonl_dataset(
             char_ids, word_ids, mask_pos = encode_sequence(
                 text_ithaca, alphabet, max_len=max_len
             )
+
+            # Salta eventuali campioni senza caratteri mascherati nella finestra
+            if np.sum(mask_pos) == 0:
+                continue
 
             # Crea il vettore target_chars rimpiazzando i trattini con i caratteri gold
             char2idx = getattr(alphabet, "char2idx", None) or {
@@ -255,9 +258,10 @@ def main():
 
     model = Model(**config)
 
-    print("Caricamento e codifica dataset di training e validazione...")
-    train_data = load_jsonl_dataset(args.train_path, alphabet)
-    val_data = load_jsonl_dataset(args.val_path, alphabet)
+    max_len = int(config.get("max_len", 768))
+    print(f"Caricamento e codifica dataset di training e validazione (max_len={max_len})...")
+    train_data = load_jsonl_dataset(args.train_path, alphabet, max_len=max_len)
+    val_data = load_jsonl_dataset(args.val_path, alphabet, max_len=max_len)
     print(f"Casi di training: {len(train_data)} | Casi di validazione: {len(val_data)}")
 
     steps_per_epoch = len(train_data) // args.batch_size
