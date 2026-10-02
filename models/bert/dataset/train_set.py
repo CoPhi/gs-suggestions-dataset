@@ -7,13 +7,14 @@ model-specific avviene a valle in `load.py` tramite `prepare_dataset_for_model`.
 """
 
 from __future__ import annotations
-from backend.core import _CASE_FOLDING
 
 from typing import Any
+
 from datasets import Dataset
 from tqdm import tqdm
-from backend.core import UNK_TOKEN
-from backend.core.cleaner import get_sentences, SentenceRecord
+
+from backend.core import _CASE_FOLDING, UNK_TOKEN
+from backend.core.cleaner import SentenceRecord, get_sentences
 from models.bert.finetuning import MIN_SENT_TOKEN_TRESHOLD
 
 # Helpers interni

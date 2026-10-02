@@ -57,6 +57,19 @@ PUSH_CARD ?= false
 OUTPUT_CARD ?=
 FROM_JSON ?=
 
+# Parametri Gestione & Pubblicazione Dataset
+DATASET_TARGET ?= herc
+MIN_GAP ?= 1
+MAX_GAP ?= 6
+DATASET_TEST_SIZE ?= 0.2
+DATASET_REPO ?=
+PUSH_DATASET ?= true
+
+DATASET_ARGS := --min-gap $(MIN_GAP) --max-gap $(MAX_GAP) --test-size $(DATASET_TEST_SIZE)
+ifneq ($(strip $(DATASET_REPO)),)
+    DATASET_ARGS += --repo-id "$(DATASET_REPO)"
+endif
+
 .PHONY: help data requirements requirements-api \
         run-api run-frontend \
         run stop restart \
@@ -66,7 +79,8 @@ FROM_JSON ?=
         train train-test \
         hpo-nsga2 pareto pareto-train \
         compare model-card \
-        sweep sweep-agent sweep-best
+        sweep sweep-agent sweep-best \
+        dataset-herc dataset-eval dataset-train dataset-tlg dataset-all dataset-dry-run
 
 # ---------------------------------------------------------
 # 0. Help / Riepilogo Comandi
@@ -94,6 +108,15 @@ help:
 	@echo "                             Opzioni: UPDATE_CARD=true, PUSH_CARD=true, OUTPUT_CARD=README.md"
 	@echo "  make model-card            Genera / pubblica su Hugging Face Hub la Model Card con metriche"
 	@echo "                             (es. make model-card MODEL=gs-GreBerta FROM_JSON=results.json PUSH_CARD=true)"
+	@echo ""
+	@echo "Dataset Hugging Face (Composizione & Pubblicazione):"
+	@echo "  make dataset-herc          Genera e pubblica il benchmark Ercolano (CNR-ILC/gs-dataset-herc)"
+	@echo "  make dataset-eval          Genera e pubblica il dataset di valutazione generale (CNR-ILC/gs-dataset-eval)"
+	@echo "  make dataset-train         Genera e pubblica il corpus di addestramento MAAT (CNR-ILC/gs-dataset-train)"
+	@echo "  make dataset-tlg           Genera e pubblica i dataset TLG (CNR-ILC/gs-dataset-tlg-uncased/cased)"
+	@echo "  make dataset-all           Genera e pubblica tutti i dataset su Hugging Face Hub"
+	@echo "  make dataset-dry-run       Verifica in locale senza caricare su HF (DATASET_TARGET=herc|eval|train|tlg)"
+	@echo "                             (Opzioni: PUSH_DATASET=false, MIN_GAP=1, MAX_GAP=6, DATASET_REPO=...)"
 	@echo ""
 	@echo "WandB Sweeps:"
 	@echo "  make sweep                 Inizializza lo sweep WandB (SWEEP_YAML=...)"
@@ -188,7 +211,43 @@ model-card:
 		$(if $(filter true,$(PUSH_CARD)),--push_to_hub,)
 
 # ---------------------------------------------------------
-# 4. W&B Sweeps (Alternativa Single-Objective)
+# 4. Gestione e Pubblicazione Dataset (Hugging Face Hub)
+# ---------------------------------------------------------
+
+dataset-herc:
+	@echo "=== Generazione e Pubblicazione Dataset Ercolano [CNR-ILC/gs-dataset-herc] ==="
+	uv run python -m models.bert.dataset.load --target herc $(if $(filter false,$(PUSH_DATASET)),,--push) $(DATASET_ARGS)
+
+dataset-eval:
+	@echo "=== Generazione e Pubblicazione Dataset Valutazione Generale [CNR-ILC/gs-dataset-eval] ==="
+	uv run python -m models.bert.dataset.load --target eval $(if $(filter false,$(PUSH_DATASET)),,--push) $(DATASET_ARGS)
+
+dataset-train:
+	@echo "=== Generazione e Pubblicazione Corpus Addestramento MAAT [CNR-ILC/gs-dataset-train] ==="
+	uv run python -m models.bert.dataset.load --target train $(if $(filter false,$(PUSH_DATASET)),,--push) $(DATASET_ARGS)
+
+dataset-tlg:
+	@echo "=== Generazione e Pubblicazione Corpus TLG [CNR-ILC/gs-dataset-tlg-*] ==="
+	uv run python -m models.bert.dataset.load --target tlg $(if $(filter false,$(PUSH_DATASET)),,--push) $(DATASET_ARGS)
+
+dataset-all:
+	@echo "=== Generazione e Pubblicazione di TUTTI i Dataset su Hugging Face Hub ==="
+	uv run python -m models.bert.dataset.load --target all $(if $(filter false,$(PUSH_DATASET)),,--push) $(DATASET_ARGS)
+
+dataset-dry-run:
+	@echo "=== Verifica in Locale (Dry Run) Dataset [$(DATASET_TARGET)] (no push) ==="
+	uv run python -m models.bert.dataset.load --target $(DATASET_TARGET) $(DATASET_ARGS)
+
+# ---------------------------------------------------------
+# 5. Data Ingestion
+# ---------------------------------------------------------
+
+data:
+	uv run python -m scripts.data.corpus_downloader
+	uv run python -m scripts.data.split
+
+# ---------------------------------------------------------
+# 6. W&B Sweeps (Alternativa Single-Objective)
 # ---------------------------------------------------------
 
 sweep:
@@ -209,14 +268,6 @@ sweep-best:
 	fi
 	uv run python -m scripts.sweep.get_best_run --sweep_id $(SWEEP_ID)
 
-# ---------------------------------------------------------
-# 4. Data Ingestion
-# ---------------------------------------------------------
-
-data:
-	uv run python -m scripts.data.corpus_downloader
-	uv run python -m scripts.data.split
-
 requirements:
 	uv export --format requirements-txt -o requirements.txt --no-hashes
 	sed -i "s|file://$(PWD)/packages/|file:./packages/|g" requirements.txt
@@ -228,7 +279,7 @@ requirements-api:
 	rm requirements.txt.tmp
 
 # ---------------------------------------------------------
-# 5. Run Services Locally (Development)
+# 7. Run Services Locally (Development)
 # ---------------------------------------------------------
 
 run-api:
@@ -242,7 +293,7 @@ run-frontend: frontend/node_modules
 	cd frontend && npm run start
 
 # ---------------------------------------------------------
-# 6. Multi-Container Environment (Docker Compose)
+# 8. Multi-Container Environment (Docker Compose)
 # ---------------------------------------------------------
 
 run:
@@ -254,7 +305,7 @@ stop:
 restart: stop run
 
 # ---------------------------------------------------------
-# 7. Docker Build Images (Local/Multi-Arch)
+# 9. Docker Build Images (Local/Multi-Arch)
 # ---------------------------------------------------------
 
 build-api: requirements
@@ -278,7 +329,7 @@ build-frontend:
 		./frontend
 
 # ---------------------------------------------------------
-# 8. Docker Image Deploy & Release
+# 10. Docker Image Deploy & Release
 # ---------------------------------------------------------
 
 tag-api:

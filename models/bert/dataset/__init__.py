@@ -1,5 +1,7 @@
 CORPUS_CHECKPOINT = "CNR-ILC/gs-dataset-train"
 EVAL_CHECKPOINT = "CNR-ILC/gs-dataset-eval"
+TLG_CHECKPOINT = "CNR-ILC/gs-dataset-tlg"
+HERC_CHECKPOINT = "CNR-ILC/gs-dataset-herc"
 
 BERT_UNK_TOKEN = "[UNK]"
 
@@ -59,3 +61,48 @@ critiche presenti nel MAAT corpus. Ogni esempio contiene:
 | `dev`  | Casi di sviluppo (blocchi P.Herc.) con gold label |
 | `test` | Casi di test finali con gold label |
 """
+
+_TLG_DESCRIPTION = """\
+Corpus di greco antico esclusivo del TLG (Thesaurus Linguae Graecae) per il 
+pre-addestramento (MLM) di modelli BERT.
+"""
+
+_HERC_DESCRIPTION = """\
+Dataset di benchmark e valutazione su testi papirologici ercolanesi (P.Herc.) per modelli linguistici (BERT e n-grammi).
+
+## Fonti dei dati
+
+I testi provengono dalle edizioni critiche dei Papiri di Ercolano all'interno del corpus MAAT 
+(Machine-Actionable Ancient Text) e dai casi di test inediti verificati da esperti filologi (PHerc. 1004).
+
+## Gold label
+
+Le etichette di riferimento (`y`) sono le **integrazioni critiche proposte dagli editori papirologi**, 
+estratte fedelmente dai supplementi tra parentesi quadre (`[...]`).
+
+Ogni esempio contiene:
+- `x` – testo di contesto con lacuna mascherata nel formato `[...]`
+- `y` – lista delle parole/token integrati (gold labels reali)
+- `gap_length` – lunghezza in caratteri alfabetici della lacuna (1–6 caratteri)
+- `corpus_id` / `file_id` – identificativi del frammento e documento
+
+## Split
+
+| Split | Contenuto |
+|-------|-----------|
+| `dev`  | Casi reali estratti sistematicamente dai blocchi MAAT appartenenti a papiri di Ercolano (`P.Herc.`) |
+| `test` | Casi di test controllati e inediti annotati da filologi esperti (es. PHerc. 1004) |
+"""
+
+__all__ = [
+    "BERT_UNK_TOKEN",
+    "CORPUS_CHECKPOINT",
+    "EVAL_CHECKPOINT",
+    "HERC_CHECKPOINT",
+    "TLG_CHECKPOINT",
+    "_CORPUS_DESCRIPTION",
+    "_EVAL_DESCRIPTION",
+    "_HERC_DESCRIPTION",
+    "_TLG_DESCRIPTION",
+]
+
