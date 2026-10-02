@@ -29,11 +29,17 @@ fi
 
 # 4. Installazione dipendenze JAX, Flax, Optax
 echo "[3/5] Installazione e sincronizzazione dipendenze JAX/Flax/Optax via uv..."
+JAX_PKG="jax"
+if command -v nvidia-smi &> /dev/null; then
+    echo "Rilevata GPU NVIDIA! Configurazione con supporto CUDA 12..."
+    JAX_PKG="jax[cuda12]"
+fi
+
 if command -v uv &> /dev/null; then
-    uv add "jax" "flax" "optax" "chex"
+    uv add "$JAX_PKG" "flax" "optax" "chex"
     uv pip install -e "$ITHACA_ENGINE_DIR" --no-deps || true
 else
-    pip install "jax" "flax" "optax" "chex"
+    pip install "$JAX_PKG" "flax" "optax" "chex"
     pip install -e "$ITHACA_ENGINE_DIR" --no-deps || true
 fi
 
