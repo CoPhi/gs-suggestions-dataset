@@ -164,7 +164,10 @@ def create_optimizer_with_freezing(
                 str(getattr(k, "key", k)) for k in path
             ).lower()
             # Blocchiamo esplicitamente le teste di attribuzione data e regione
-            if any(head in path_str for head in ["output_date", "output_subregions", "date_mlp", "region_mlp"]):
+            if any(head in path_str for head in [
+                "output_date", "output_subregions", "date_mlp", "region_mlp",
+                "mlpblock_2", "mlpblock_3", "dense_2", "dense_3"
+            ]):
                 return "frozen"
             return "trainable"
         return jax.tree_util.tree_map_with_path(_label_leaf, p)

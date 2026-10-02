@@ -109,7 +109,17 @@ def get_or_load_ithaca(checkpoint: str) -> tuple:
             text_word=text_word,
             is_training=False,
         )
-        return jax.nn.softmax(outputs["char"], axis=-1)
+        if isinstance(outputs, (tuple, list)):
+            if len(outputs) > 0 and isinstance(outputs[0], (tuple, list)):
+                logits_char = outputs[0][2]
+            else:
+                logits_char = outputs[2]
+        elif isinstance(outputs, dict):
+            logits_char = outputs.get("char") or outputs.get("logits_mask") or outputs.get("mask")
+        else:
+            logits_char = outputs
+
+        return jax.nn.softmax(logits_char, axis=-1)
 
     _LOADED_MODELS[resolved] = (model, params, alphabet, config, forward_fn)
     return _LOADED_MODELS[resolved]
