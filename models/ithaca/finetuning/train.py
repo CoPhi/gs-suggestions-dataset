@@ -300,7 +300,17 @@ def main():
             is_training=is_training,
             rngs=rngs,
         )
-        logits_char = outputs["char"]  # [batch, max_len, vocab_char_size]
+        # Ithaca restituisce la tupla: (pred_date, logits_subregion, logits_mask, logits_nsp)
+        # dove logits_mask (indice 2) corrisponde ai logits sui caratteri mascherati
+        if isinstance(outputs, (tuple, list)):
+            if len(outputs) > 0 and isinstance(outputs[0], (tuple, list)):
+                logits_char = outputs[0][2]
+            else:
+                logits_char = outputs[2]
+        elif isinstance(outputs, dict):
+            logits_char = outputs.get("char") or outputs.get("logits_mask") or outputs.get("mask")
+        else:
+            logits_char = outputs
 
         # One-hot encoding del target
         vocab_size = logits_char.shape[-1]
