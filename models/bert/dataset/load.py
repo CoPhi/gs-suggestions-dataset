@@ -26,7 +26,6 @@ import argparse
 import os
 from functools import partial
 from pathlib import Path
-from typing import Any
 
 from datasets import Dataset, DatasetDict, DatasetInfo
 from dotenv import load_dotenv
@@ -63,7 +62,6 @@ from models.bert.finetuning import (
     MIN_SENT_TOKEN_TRESHOLD,
     get_model_config,
 )
-
 
 # ==============================================================================
 # 1. AUTENTICAZIONE E HUB UTILITIES
