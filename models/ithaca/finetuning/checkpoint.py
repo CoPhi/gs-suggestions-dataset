@@ -11,6 +11,7 @@ import urllib.request
 from pathlib import Path
 from typing import Any
 
+import jax
 import optax
 
 CHECKPOINT_URL = (
@@ -42,12 +43,40 @@ def ensure_checkpoint_exists(
     return str(path)
 
 
+DEFAULT_ITHACA_CONFIG = {
+    "vocab_char_size": 164,
+    "vocab_word_size": 100004,
+    "output_subregions": 85,
+    "output_date": 160,
+    "output_date_dist": True,
+    "output_return_emb": False,
+    "use_output_mlp": True,
+    "num_heads": 8,
+    "num_layers": 6,
+    "word_char_emb_dim": 192,
+    "emb_dim": 512,
+    "qkv_dim": 512,
+    "mlp_dim": 2048,
+    "max_len": 1024,
+    "causal_mask": False,
+    "feature_combine_type": "concat",
+    "posemb_combine_type": "add",
+    "region_date_pooling": "first",
+    "learn_pos_emb": True,
+    "use_bfloat16": False,
+    "dropout_rate": 0.1,
+    "attention_dropout_rate": 0.1,
+    "activation_fn": "gelu",
+    "model_type": "bigbird",
+}
+
+
 def load_ithaca_checkpoint(path: str) -> dict[str, Any]:
     """
     Carica il checkpoint serializzato (.pkl) di Ithaca e ne estrae componenti chiave:
     - params: dizionario dei pesi Flax Linen
-    - alphabet: mapping caratteri e vocabolario parole
-    - config: iperparametri del modello BigBird
+    - alphabet: mapping caratteri e vocabolario parole (GreekAlphabet)
+    - config: iperparametri del modello BigBird (da 'model_config', 'config' o default)
     - region_map: metadati geografici
     """
     if not os.path.exists(path):
@@ -59,7 +88,48 @@ def load_ithaca_checkpoint(path: str) -> dict[str, Any]:
     if not isinstance(data, dict):
         raise TypeError(f"Formato non valido per il checkpoint '{path}'")
 
-    return data
+    # 1. Configurazione modello: cerca 'model_config' (ufficiale DeepMind) o 'config'
+    config_raw = data.get("model_config") or data.get("config")
+    if config_raw is not None:
+        config = dict(config_raw)
+    else:
+        config = DEFAULT_ITHACA_CONFIG.copy()
+
+    # 2. Normalizzazione parametri Flax Linen (garantisce struttura 'params')
+    raw_params = data.get("params", data)
+    if isinstance(raw_params, dict) and "params" in raw_params and isinstance(raw_params["params"], dict):
+        params = raw_params
+    elif isinstance(raw_params, dict):
+        params = {"params": raw_params}
+    else:
+        params = raw_params
+
+    # 3. Istanza alfabeto greco
+    alphabet_data = data.get("alphabet")
+    try:
+        from ithaca.util.alphabet import GreekAlphabet
+    except ImportError:
+        import sys
+        sys.path.insert(0, "packages/ithaca_engine")
+        from ithaca.util.alphabet import GreekAlphabet
+
+    alphabet = GreekAlphabet()
+    if isinstance(alphabet_data, dict):
+        if "idx2word" in alphabet_data:
+            alphabet.idx2word = alphabet_data["idx2word"]
+        if "word2idx" in alphabet_data:
+            alphabet.word2idx = alphabet_data["word2idx"]
+    elif alphabet_data is not None and hasattr(alphabet_data, "idx2word"):
+        alphabet = alphabet_data
+
+    return {
+        "params": params,
+        "alphabet": alphabet,
+        "config": config,
+        "model_config": config,
+        "region_map": data.get("region_map", {}),
+        "metadata": data.get("metadata", {}),
+    }
 
 
 def create_optimizer_with_freezing(
@@ -68,6 +138,7 @@ def create_optimizer_with_freezing(
     total_steps: int = 10000,
     weight_decay: float = 1e-4,
     freeze_attribution_heads: bool = True,
+    params: Any | None = None,
 ) -> optax.GradientTransformation:
     """
     Crea un ottimizzatore Optax (AdamW con cosine decay e warmup).
@@ -87,17 +158,22 @@ def create_optimizer_with_freezing(
     if not freeze_attribution_heads:
         return adamw
 
-    # Funzione di partizionamento dei parametri: 'frozen' vs 'trainable'
-    def param_partition_fn(param_path, _):
-        path_str = "/".join(str(p) for p in param_path).lower()
-        # Blocchiamo esplicitamente le teste di attribuzione data e regione
-        if any(head in path_str for head in ["output_date", "output_subregions", "date_mlp", "region_mlp"]):
-            return "frozen"
-        return "trainable"
+    def _get_labels(p):
+        def _label_leaf(path, _):
+            path_str = "/".join(
+                str(getattr(k, "key", k)) for k in path
+            ).lower()
+            # Blocchiamo esplicitamente le teste di attribuzione data e regione
+            if any(head in path_str for head in ["output_date", "output_subregions", "date_mlp", "region_mlp"]):
+                return "frozen"
+            return "trainable"
+        return jax.tree_util.tree_map_with_path(_label_leaf, p)
+
+    param_labels = _get_labels(params) if params is not None else _get_labels
 
     return optax.multi_transform(
         {"trainable": adamw, "frozen": optax.set_to_zero()},
-        param_partition_fn,
+        param_labels,
     )
 
 
@@ -119,6 +195,7 @@ def save_finetuned_checkpoint(
         "params": params,
         "alphabet": alphabet,
         "config": config,
+        "model_config": config,
         "metadata": metadata or {},
     }
 

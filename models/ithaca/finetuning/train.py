@@ -273,13 +273,15 @@ def main():
         warmup_steps=args.warmup_steps,
         total_steps=total_steps,
         freeze_attribution_heads=freeze_heads,
+        params=params,
     )
     opt_state = optimizer.init(params)
 
     # Definizione Loss Function (solo sui token mascherati)
     def loss_fn(p, batch):
+        variables = p if (isinstance(p, dict) and "params" in p) else {"params": p}
         outputs = model.apply(
-            {"params": p},
+            variables,
             text_char=batch["text_char"],
             text_word=batch["text_word"],
         )

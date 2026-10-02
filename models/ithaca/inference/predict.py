@@ -85,9 +85,9 @@ def get_or_load_ithaca(checkpoint: str) -> tuple:
     if resolved in _LOADED_MODELS:
         return _LOADED_MODELS[resolved]
 
-    with open(resolved, "rb") as f:
-        ckpt_data = pickle.load(f)
+    from models.ithaca.finetuning.checkpoint import load_ithaca_checkpoint
 
+    ckpt_data = load_ithaca_checkpoint(resolved)
     params = ckpt_data["params"]
     alphabet = ckpt_data["alphabet"]
     config = ckpt_data["config"]
@@ -102,7 +102,8 @@ def get_or_load_ithaca(checkpoint: str) -> tuple:
 
     @jax.jit
     def forward_fn(p, text_char, text_word):
-        outputs = model.apply({"params": p}, text_char=text_char, text_word=text_word)
+        variables = p if (isinstance(p, dict) and "params" in p) else {"params": p}
+        outputs = model.apply(variables, text_char=text_char, text_word=text_word)
         return jax.nn.softmax(outputs["char"], axis=-1)
 
     _LOADED_MODELS[resolved] = (model, params, alphabet, config, forward_fn)
