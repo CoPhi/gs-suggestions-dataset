@@ -28,9 +28,9 @@ else
 fi
 
 # 4. Installazione dipendenze JAX, Flax, Optax
-echo "[3/5] Installazione dipendenze JAX/Flax/Optax via uv / pip..."
+echo "[3/5] Installazione e sincronizzazione dipendenze JAX/Flax/Optax via uv..."
 if command -v uv &> /dev/null; then
-    uv pip install "jax" "flax" "optax" "chex"
+    uv add "jax" "flax" "optax" "chex"
     uv pip install -e "$ITHACA_ENGINE_DIR" --no-deps || true
 else
     pip install "jax" "flax" "optax" "chex"
@@ -51,7 +51,7 @@ fi
 
 # Determinazione dell'eseguibile Python (preferenza uv / .venv rispetto al python di sistema)
 if command -v uv &> /dev/null; then
-    PYTHON_EXEC="uv run python"
+    PYTHON_EXEC="uv run --no-sync python"
 elif [ -f ".venv/bin/python" ]; then
     PYTHON_EXEC=".venv/bin/python"
 else
