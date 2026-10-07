@@ -80,7 +80,8 @@ endif
         hpo-nsga2 pareto pareto-train \
         compare model-card \
         sweep sweep-agent sweep-best \
-        dataset-herc dataset-eval dataset-train dataset-tlg dataset-all dataset-dry-run
+        dataset-herc dataset-eval dataset-train dataset-tlg dataset-all dataset-dry-run \
+        ithaca ithaca-setup ithaca-data ithaca-train ithaca-compare ithaca-publish
 
 # ---------------------------------------------------------
 # 0. Help / Riepilogo Comandi
@@ -94,6 +95,19 @@ help:
 	@echo "  make train                 Addestra il modello con configurazione di default o CLI"
 	@echo "                             (es. make train MODEL=gs-GreBerta EPOCHS=3 LR=2e-5)"
 	@echo "  make train-test            Smoke-test rapido (1 epoca, bs 32, no push)"
+	@echo ""
+	@echo "Pipeline Ithaca (Fine-Tuning & Valutazione JAX/Flax):"
+	@echo "  make ithaca                Mostra la panoramica dei comandi della pipeline Ithaca"
+	@echo "  make ithaca-setup          Configura l'ambiente JAX/Flax e scarica il checkpoint base Ithaca"
+	@echo "  make ithaca-data           Prepara il dataset TLG in formato epigrafico per Ithaca"
+	@echo "                             (Opzioni: DATASET=CNR-ILC/gs-dataset-tlg-uncased)"
+	@echo "  make ithaca-train          Avvia il fine-tuning di Ithaca (freezing teste attribuzione)"
+	@echo "                             (es. make ithaca-train ITHACA_EPOCHS=3 ITHACA_BATCH_SIZE=8 ITHACA_LR=2e-5)"
+	@echo "                             (Opzioni: ITHACA_BASE_CKPT=... ITHACA_FT_CKPT=...)"
+	@echo "  make ithaca-compare        Confronta Ithaca Pre-FT vs Post-FT su test set stratificato"
+	@echo "                             (policy: default, word, suffix con metriche Top-1/5/20 e CER)"
+	@echo "  make ithaca-publish        Pubblica checkpoint, configurazione e Model Card su Hugging Face Hub"
+	@echo "                             (es. make ithaca-publish ITHACA_REPO_ID=CNR-ILC/gs-ithaca-tlg)"
 	@echo ""
 	@echo "Ottimizzazione Multi-Obiettivo (NSGA-II con Optuna):"
 	@echo "  make hpo-nsga2             Avvia la ricerca NSGA-II (Exact Match vs Cluster Inclusion)"
@@ -371,7 +385,29 @@ ITHACA_EPOCHS ?= 3
 ITHACA_BATCH_SIZE ?= 8
 ITHACA_LR ?= 2e-5
 
-.PHONY: ithaca-setup ithaca-data ithaca-train ithaca-compare ithaca-publish
+.PHONY: ithaca ithaca-setup ithaca-data ithaca-train ithaca-compare ithaca-publish
+
+ithaca:
+	@echo "=========================================================================="
+	@echo "          PIPELINE ITHACA: FINE-TUNING & VALUTAZIONE (JAX/FLAX)"
+	@echo "=========================================================================="
+	@echo "Passaggi per eseguire la pipeline completa:"
+	@echo ""
+	@echo "1. Setup ambiente JAX e checkpoint base:"
+	@echo "   make ithaca-setup"
+	@echo ""
+	@echo "2. Preparazione dataset TLG epigrafico [----]:"
+	@echo "   make ithaca-data [DATASET=$(DATASET)]"
+	@echo ""
+	@echo "3. Avvio fine-tuning Ithaca su TLG (freezing teste attribuzione):"
+	@echo "   make ithaca-train [ITHACA_EPOCHS=$(ITHACA_EPOCHS) ITHACA_BATCH_SIZE=$(ITHACA_BATCH_SIZE) ITHACA_LR=$(ITHACA_LR)]"
+	@echo ""
+	@echo "4. Valutazione e confronto Pre-FT vs Post-FT:"
+	@echo "   make ithaca-compare"
+	@echo ""
+	@echo "5. Pubblicazione su Hugging Face Hub (checkpoint, config, Model Card):"
+	@echo "   make ithaca-publish [ITHACA_REPO_ID=$(ITHACA_REPO_ID)]"
+	@echo "=========================================================================="
 
 ithaca-setup:
 	@echo "Configurazione ambiente e download checkpoint Ithaca..."

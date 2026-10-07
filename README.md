@@ -300,6 +300,59 @@ Quando si eseguono addestramenti o sweep su server remoti via SSH:
 
 ---
 
+## 6. Fine-Tuning e Valutazione di Ithaca (JAX/Flax)
+
+Il framework supporta l'adattamento (fine-tuning) del modello **Ithaca** (Google DeepMind, Assael et al., *Nature* 2022) per il restauro del testo greco sui papiri ercolanesi e sulla letteratura greca antica tramite il corpus **TLG (Thesaurus Linguae Graecae)**.
+
+A differenza dell'addestramento originale su iscrizioni epigrafiche (corpus PHI), il modello viene adattato al registro linguistico letterario e filosofico congelando le teste di attribuzione geografica e temporale per concentrare la capacità del modello sul restauro testuale a livello di carattere (*character-level masked language modeling*).
+
+Per visualizzare tutti i comandi disponibili digitare:
+```bash
+make help
+# oppure per la guida rapida a Ithaca:
+make ithaca
+```
+
+### Pipeline Completa:
+
+1. **Configurazione dell'ambiente e checkpoint base**:
+   Scarica il checkpoint pre-addestrato di DeepMind (`checkpoint_v1.pkl`), clona il motore Ithaca e configura l'ambiente JAX/Flax:
+   ```bash
+   make ithaca-setup
+   ```
+
+2. **Preparazione del dataset TLG**:
+   Normalizza il corpus TLG in maiuscolo epigrafico senza diacritici e genera lacune sintetiche stratificate (`default`, `word`, `suffix`):
+   ```bash
+   make ithaca-data
+   # Oppure specificando un dataset personalizzato:
+   make ithaca-data DATASET=CNR-ILC/gs-dataset-tlg-uncased
+   ```
+
+3. **Esecuzione del Fine-Tuning**:
+   Allena il Transformer BigBird e la testa di restauro MLM congelando le teste di datazione e localizzazione:
+   ```bash
+   make ithaca-train
+   # Con parametri personalizzati:
+   make ithaca-train ITHACA_EPOCHS=3 ITHACA_BATCH_SIZE=8 ITHACA_LR=2e-5
+   ```
+
+4. **Valutazione comparativa (Pre-FT vs Post-FT)**:
+   Confronta le prestazioni di infilling del checkpoint base rispetto a quello fine-tunato calcolando Top-1/5/20 Accuracy e Character Error Rate (CER):
+   ```bash
+   make ithaca-compare
+   ```
+
+5. **Pubblicazione su Hugging Face Hub**:
+   Carica il checkpoint fine-tunato, la configurazione e la Model Card arricchita con la tabella dei benchmark sul repository di Hugging Face Hub:
+   ```bash
+   make ithaca-publish
+   # Oppure specificando il repository target:
+   make ithaca-publish ITHACA_REPO_ID=CNR-ILC/gs-ithaca-tlg
+   ```
+
+---
+
 ## Changelog
 
 Per monitorare lo stato di avanzamento del progetto, incluse nuove funzionalità, correzioni di bug, refactoring e aggiornamenti dei pacchetti, puoi fare riferimento al file [CHANGELOG.md](CHANGELOG.md).
