@@ -15,6 +15,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import sys
 import time
 from pathlib import Path
@@ -49,11 +50,11 @@ def encode_sequence(
     max_len: int = 768,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """
-    Codifica una stringa formattata Ithaca (contenente es. '[----]')
+    Codifica una stringa formattata Ithaca (contenente es. trattini '----' per le posizioni mascherate)
     negli array numpy attesi dal modello:
-    - text_char: ID dei caratteri (pad='#' per riempimento)
-    - text_word: ID delle parole dal vocabolario ausiliario
-    - mask_pos: maschera binaria (1 nelle posizioni da predire, 0 altrove)
+    - text_char: ID dei caratteri (con SOS '<' come prefisso e pad='#' per riempimento)
+    - text_word: ID delle parole dal vocabolario ausiliario allineati ai caratteri tramite regex
+    - mask_pos: maschera binaria (1.0 nelle posizioni da predire '-', 0.0 altrove)
     """
     char2idx = getattr(alphabet, "char2idx", None) or {
         c: i for i, c in enumerate(alphabet.idx2char)
@@ -64,36 +65,31 @@ def encode_sequence(
 
     pad_char_id = char2idx.get(alphabet.pad, 0)
     unk_char_id = char2idx.get(alphabet.unk, 1)
-    pad_word_id = word2idx.get(alphabet.pad, 0)
     unk_word_id = word2idx.get(alphabet.unk, 1)
 
-    chars = list(text_ithaca)[:max_len]
+    # 1. Pulizia testo: rimozione di eventuali parentesi quadre editoriali, conversione in minuscolo
+    clean_text = text_ithaca.replace("[", "").replace("]", "").replace(".", "-").lower()
 
+    # 2. Prefisso SOS ('<') fondamentale per i positional embeddings di BigBird
+    text_with_sos = str(alphabet.sos) + clean_text
+    text_padded = text_with_sos + str(alphabet.pad) * max(0, max_len - len(text_with_sos))
+    text_padded = text_padded[:max_len]
+
+    # 3. Array dei caratteri e maschera binaria
     char_ids = np.full(max_len, pad_char_id, dtype=np.int32)
-    word_ids = np.full(max_len, pad_word_id, dtype=np.int32)
     mask_pos = np.zeros(max_len, dtype=np.float32)
 
-    # Identifica le posizioni tra '[' e ']' che contengono '-'
-    in_gap = False
-    for i, c in enumerate(chars):
+    for i, c in enumerate(text_padded):
         char_ids[i] = char2idx.get(c, unk_char_id)
-        if c == "[":
-            in_gap = True
-        elif c == "]":
-            in_gap = False
-        elif in_gap and c == "-":
+        if c == alphabet.missing:
             mask_pos[i] = 1.0
 
-    # Tokenizzazione parole a livello di base
-    words = text_ithaca.split(" ")
-    curr_char_idx = 0
-    for w in words:
-        w_id = word2idx.get(w, unk_word_id)
-        w_len = len(w)
-        for offset in range(w_len):
-            if curr_char_idx + offset < max_len:
-                word_ids[curr_char_idx + offset] = w_id
-        curr_char_idx += w_len + 1
+    # 4. Array delle parole: regex per estrarre parole senza attaccare punteggiatura
+    word_ids = np.full(max_len, unk_word_id, dtype=np.int32)
+    for m in re.finditer(r"\w+", text_padded):
+        w_str = m.group()
+        if w_str in word2idx:
+            word_ids[m.start() : m.end()] = word2idx[w_str]
 
     return char_ids, word_ids, mask_pos
 
@@ -109,13 +105,18 @@ def load_jsonl_dataset(
     if not os.path.exists(file_path):
         raise FileNotFoundError(f"File dataset non trovato: {file_path}")
 
+    char2idx = getattr(alphabet, "char2idx", None) or {
+        c: i for i, c in enumerate(alphabet.idx2char)
+    }
+    unk_char_id = char2idx.get(alphabet.unk, 1)
+
     with open(file_path, "r", encoding="utf-8") as f:
         for idx, line in enumerate(f):
             if limit and idx >= limit:
                 break
             row = json.loads(line.strip())
-            text_ithaca = row["text_ithaca"]
-            gold_target = row["gold_target"]
+            text_ithaca = row.get("text_ithaca") or row.get("text_leiden")
+            gold_target = str(row["gold_target"]).lower()
 
             char_ids, word_ids, mask_pos = encode_sequence(
                 text_ithaca, alphabet, max_len=max_len
@@ -126,16 +127,13 @@ def load_jsonl_dataset(
                 continue
 
             # Crea il vettore target_chars rimpiazzando i trattini con i caratteri gold
-            char2idx = getattr(alphabet, "char2idx", None) or {
-                c: i for i, c in enumerate(alphabet.idx2char)
-            }
             target_ids = np.array(char_ids, copy=True)
             gold_chars = list(gold_target)
             gold_ptr = 0
 
             for i in range(max_len):
                 if mask_pos[i] == 1.0 and gold_ptr < len(gold_chars):
-                    target_ids[i] = char2idx.get(gold_chars[gold_ptr], 1)
+                    target_ids[i] = char2idx.get(gold_chars[gold_ptr], unk_char_id)
                     gold_ptr += 1
 
             dataset.append(

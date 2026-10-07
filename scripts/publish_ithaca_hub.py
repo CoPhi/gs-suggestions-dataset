@@ -63,12 +63,13 @@ Mentre il modello Ithaca originale è stato addestrato esclusivamente su iscrizi
 - **Architettura Character-Level**: modella il testo a livello di singoli caratteri anziché subword (BPE/WordPiece), eliminando il problema del disallineamento morfologico nelle terminazioni flessive (desinenze).
 - **Transformer BigBird**: attenzione sparsa con supporto a finestre di contesto lunghe (fino a 768 caratteri).
 - **Freezing delle teste di attribuzione**: durante il fine-tuning i rami di attribuzione geografica e temporale sono stati congelati, focalizzando i gradienti esclusivamente sul restauro testuale (*masked character prediction*).
+- **Decodifica con HCB Beam Search**: impiega la correzione pseudo-likelihood HCB (*Hammersley-Clifford-Besag Infilling*) con strategia non-sequenziale Best-to-Worst, garantendo coerenza statistica e allineamento metodologico con i modelli BERT del framework.
 
 ## Dettagli di Addestramento
 - **Base Model:** `{base_model}`
 - **Corpus di Fine-Tuning:** `{dataset_name}`
 - **Framework:** JAX / Flax Linen / Optax
-- **Convenzione lacune:** Formato epigrafico `[----]` (maiuscolo, privo di accenti e spiriti).
+- **Convenzione lacune:** Formato Leiden standard `[...]` o trattini `----` (testo normalizzato privo di accenti e spiriti).
 
 """
     if table_md:

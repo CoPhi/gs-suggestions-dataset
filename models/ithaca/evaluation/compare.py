@@ -52,36 +52,52 @@ def evaluate_checkpoint_on_cases(
     checkpoint_path: str,
     cases: list[dict],
     k_list: tuple[int, ...] = (1, 5, 20),
+    strategy: str = "hcb_best_to_worst",
+    beam_size: int = 20,
 ) -> dict[str, dict[str, float]]:
     """
-    Esegue l'infilling su una lista di casi di test e raggruppa le metriche per policy.
+    Esegue l'infilling su una lista di casi di test e raggruppa le metriche per policy,
+    utilizzando HCB beam search.
     """
     results_by_policy = defaultdict(
-        lambda: {"top1": [], "top5": [], "top20": [], "cer": []}
+        lambda: {"top1": [], "top5": [], "top20": [], "cer": [], "mrr": []}
     )
 
-    print(f"Valutazione modello '{checkpoint_path}' su {len(cases)} casi...")
+    print(
+        f"Valutazione modello '{checkpoint_path}' su {len(cases)} casi "
+        f"(strategia: {strategy}, beam_size: {beam_size})..."
+    )
     t0 = time.time()
 
     for idx, case in enumerate(cases, 1):
-        text_ithaca = case.get("text_ithaca") or case.get("text_leiden")
-        gold = case["gold_target"].upper()
+        # Preferisci text_leiden o text_ithaca
+        text_input = case.get("text_leiden") or case.get("text_ithaca") or case.get("text")
+        gold = case["gold_target"].upper().strip()
         policy = case.get("policy", "default")
 
         try:
             preds = fill_mask_ithaca(
-                text=text_ithaca,
+                text=text_input,
                 checkpoint=checkpoint_path,
                 K=max(k_list),
+                beam_size=beam_size,
+                strategy=strategy,
             )
-            pred_strings = [p[0].upper() for p in preds]
-        except (FileNotFoundError, ValueError, TypeError, RuntimeError, OSError):
+            pred_strings = [p[0].upper().strip() for p in preds]
+        except Exception as e:
+            if idx <= 3:
+                print(f"\n[Avviso] Errore di decodifica al caso {idx}: {e}")
             pred_strings = []
 
         # Exact Match Top-K
         t1 = 1.0 if (len(pred_strings) > 0 and pred_strings[0] == gold) else 0.0
         t5 = 1.0 if gold in pred_strings[:5] else 0.0
         t20 = 1.0 if gold in pred_strings[:20] else 0.0
+
+        # Mean Reciprocal Rank (MRR)
+        mrr = 0.0
+        if gold in pred_strings:
+            mrr = 1.0 / (pred_strings.index(gold) + 1)
 
         # CER sul primo suggerimento (o 1.0 se non predice)
         best_cand = pred_strings[0] if pred_strings else ""
@@ -90,12 +106,14 @@ def evaluate_checkpoint_on_cases(
         results_by_policy[policy]["top1"].append(t1)
         results_by_policy[policy]["top5"].append(t5)
         results_by_policy[policy]["top20"].append(t20)
+        results_by_policy[policy]["mrr"].append(mrr)
         results_by_policy[policy]["cer"].append(cer)
 
         # Traccia anche le metriche globali aggregate
         results_by_policy["overall"]["top1"].append(t1)
         results_by_policy["overall"]["top5"].append(t5)
         results_by_policy["overall"]["top20"].append(t20)
+        results_by_policy["overall"]["mrr"].append(mrr)
         results_by_policy["overall"]["cer"].append(cer)
 
         if idx % 25 == 0 or idx == len(cases):
@@ -107,11 +125,13 @@ def evaluate_checkpoint_on_cases(
     # Aggregazione delle medie
     aggregated = {}
     for pol, metrics in results_by_policy.items():
+        count = max(len(metrics["top1"]), 1)
         aggregated[pol] = {
-            "top1_acc": float(sum(metrics["top1"]) / max(len(metrics["top1"]), 1)),
-            "top5_acc": float(sum(metrics["top5"]) / max(len(metrics["top5"]), 1)),
-            "top20_acc": float(sum(metrics["top20"]) / max(len(metrics["top20"]), 1)),
-            "mean_cer": float(sum(metrics["cer"]) / max(len(metrics["cer"]), 1)),
+            "top1_acc": float(sum(metrics["top1"]) / count),
+            "top5_acc": float(sum(metrics["top5"]) / count),
+            "top20_acc": float(sum(metrics["top20"]) / count),
+            "mrr": float(sum(metrics["mrr"]) / count),
+            "mean_cer": float(sum(metrics["cer"]) / count),
             "count": len(metrics["top1"]),
         }
 
@@ -161,6 +181,7 @@ def render_comparison_table(
         lines.append(_row("Top-1 Exact Match", p_pre["top1_acc"], p_post["top1_acc"]))
         lines.append(_row("Top-5 Exact Match", p_pre["top5_acc"], p_post["top5_acc"]))
         lines.append(_row("Top-20 Exact Match", p_pre["top20_acc"], p_post["top20_acc"]))
+        lines.append(_row("Mean Reciprocal Rank (MRR)", p_pre["mrr"], p_post["mrr"], is_pct=False))
         lines.append(_row("Character Error Rate (CER)", p_pre["mean_cer"], p_post["mean_cer"], is_pct=False, lower_is_better=True))
 
     return "\n".join(lines)
@@ -195,10 +216,22 @@ def main():
         help="Numero massimo di casi di test da valutare (default: 300)",
     )
     parser.add_argument(
-        "--output_json",
+        "--strategy",
         type=str,
-        default="eval/results/eval_results_ithaca_comparison.json",
-        help="File di output JSON dei risultati",
+        default="hcb_best_to_worst",
+        choices=[
+            "hcb_best_to_worst",
+            "hcb_left_to_right",
+            "standard_best_to_worst",
+            "standard_left_to_right",
+        ],
+        help="Strategia di decodifica beam search (default: hcb_best_to_worst)",
+    )
+    parser.add_argument(
+        "--beam_size",
+        type=int,
+        default=20,
+        help="Dimensione del beam per la decodifica (default: 20)",
     )
     args = parser.parse_args()
 
@@ -219,10 +252,14 @@ def main():
     print(f"Caricati {len(cases)} casi di test per la valutazione.")
 
     # 1. Valutazione Pre-FT
-    pre_metrics = evaluate_checkpoint_on_cases(args.pre_checkpoint, cases)
+    pre_metrics = evaluate_checkpoint_on_cases(
+        args.pre_checkpoint, cases, strategy=args.strategy, beam_size=args.beam_size
+    )
 
     # 2. Valutazione Post-FT
-    post_metrics = evaluate_checkpoint_on_cases(args.post_checkpoint, cases)
+    post_metrics = evaluate_checkpoint_on_cases(
+        args.post_checkpoint, cases, strategy=args.strategy, beam_size=args.beam_size
+    )
 
     # 3. Tabella comparativa
     table_md = render_comparison_table(pre_metrics, post_metrics)

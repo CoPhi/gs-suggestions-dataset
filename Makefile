@@ -384,6 +384,8 @@ ITHACA_REPO_ID ?= CNR-ILC/gs-ithaca-tlg
 ITHACA_EPOCHS ?= 3
 ITHACA_BATCH_SIZE ?= 8
 ITHACA_LR ?= 2e-5
+ITHACA_STRATEGY ?= hcb_best_to_worst
+ITHACA_BEAM_SIZE ?= 20
 
 .PHONY: ithaca ithaca-setup ithaca-data ithaca-train ithaca-compare ithaca-publish
 
@@ -402,8 +404,8 @@ ithaca:
 	@echo "3. Avvio fine-tuning Ithaca su TLG (freezing teste attribuzione):"
 	@echo "   make ithaca-train [ITHACA_EPOCHS=$(ITHACA_EPOCHS) ITHACA_BATCH_SIZE=$(ITHACA_BATCH_SIZE) ITHACA_LR=$(ITHACA_LR)]"
 	@echo ""
-	@echo "4. Valutazione e confronto Pre-FT vs Post-FT:"
-	@echo "   make ithaca-compare"
+	@echo "4. Valutazione e confronto Pre-FT vs Post-FT (HCB Beam Search):"
+	@echo "   make ithaca-compare [ITHACA_STRATEGY=$(ITHACA_STRATEGY) ITHACA_BEAM_SIZE=$(ITHACA_BEAM_SIZE)]"
 	@echo ""
 	@echo "5. Pubblicazione su Hugging Face Hub (checkpoint, config, Model Card):"
 	@echo "   make ithaca-publish [ITHACA_REPO_ID=$(ITHACA_REPO_ID)]"
@@ -429,11 +431,13 @@ ithaca-train:
 		--lr $(ITHACA_LR)
 
 ithaca-compare:
-	@echo "Valutazione comparativa Ithaca Pre-FT vs Post-FT (policy: default, word, suffix)..."
+	@echo "Valutazione comparativa Ithaca Pre-FT vs Post-FT (HCB Beam Search, policy: default, word, suffix)..."
 	uv run --no-sync python -m models.ithaca.evaluation.compare \
 		--pre_checkpoint $(ITHACA_BASE_CKPT) \
 		--post_checkpoint $(ITHACA_FT_CKPT) \
 		--test_path data/ithaca/tlg_test.jsonl \
+		--strategy $(ITHACA_STRATEGY) \
+		--beam_size $(ITHACA_BEAM_SIZE) \
 		--output_json eval/results/eval_results_ithaca_comparison.json
 
 ithaca-publish:

@@ -111,7 +111,29 @@ def load_ithaca_checkpoint(path: str) -> dict[str, Any]:
     except ImportError:
         import sys
         sys.path.insert(0, "packages/ithaca_engine")
-        from ithaca.util.alphabet import GreekAlphabet
+        try:
+            from ithaca.util.alphabet import GreekAlphabet
+        except ImportError:
+            import numpy as np
+
+            class GreekAlphabet:
+                """Fallback autonomo di GreekAlphabet conforme alle specifiche di DeepMind Ithaca."""
+                def __init__(self):
+                    self.pad = '#'
+                    self.sos = '<'
+                    self.unk = '^'
+                    self.space = ' '
+                    self.missing = '-'
+                    greek_chars = list('αβγδεζηθικλμνξοπρςστυφχψωϙϛ')
+                    numerals = list('0')
+                    punctuation = list('.')
+                    self.idx2char = np.array(
+                        [self.pad, self.sos, self.unk, self.space, self.missing] +
+                        greek_chars + numerals + punctuation
+                    )
+                    self.char2idx = {c: i for i, c in enumerate(self.idx2char)}
+                    self.idx2word = np.array([self.pad, self.sos, self.unk])
+                    self.word2idx = {w: i for i, w in enumerate(self.idx2word)}
 
     alphabet = GreekAlphabet()
     if isinstance(alphabet_data, dict):

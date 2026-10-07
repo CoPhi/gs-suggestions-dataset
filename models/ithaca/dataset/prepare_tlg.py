@@ -25,22 +25,17 @@ from datasets import load_dataset
 
 from backend.core.preprocess import normalize_greek
 
-# Caratteri ammessi nell'alfabeto epigrafico standard di Ithaca (maiuscolo + numeri + spazi + punteggiatura base)
-ITHACA_ALLOWED_CHARS = set(
-    "ΑΒΓΔΕΖΗΘΙΚΛΜΝΞΟΠΡΣΤΥΦΧΨΩ"
-    "0123456789"
-    " .,;:·-"
-)
+# Caratteri ammessi nell'alfabeto standard di Ithaca (minuscolo + numeri + spazi + punteggiatura base)
+GREEK_CHARS = set("αβγδεζηθικλμνξοπρςστυφχψωϙϛ")
+ITHACA_ALLOWED_CHARS = GREEK_CHARS.union(set("0123456789 .-"))
 
 
 def clean_to_ithaca_alphabet(text: str) -> str:
     """
     Rimuove caratteri incompatibili con l'alfabeto di Ithaca,
-    mantenendo lettere greche maiuscole, spazi e marcatori.
+    mantenendo lettere greche minuscole, cifre, spazi, punti e trattini.
     """
-    # Conserviamo i caratteri speciali per le lacune come '[', ']', '-', '.'
-    allowed = ITHACA_ALLOWED_CHARS.union({"[", "]", "-", "."})
-    cleaned = "".join(c if c in allowed else " " for c in text)
+    cleaned = "".join(c if c in ITHACA_ALLOWED_CHARS else " " for c in text)
     # Normalizza spazi multipli in spazio singolo
     return re.sub(r"[ \t]+", " ", cleaned).strip()
 
@@ -86,13 +81,13 @@ def inject_lacuna(
     - word: parola intera (tra min_gap e max_gap caratteri).
     - suffix: terminazione flessiva / desinenza finale della parola (1-6 caratteri).
 
-    Restituisce un dizionario con testo mascherato (Ithaca [----] e Leiden [....]) e gold label.
+    Restituisce un dizionario con testo mascherato (Ithaca a trattini puri e Leiden [....]) e gold label.
     """
     if rng is None:
         rng = random.Random()
 
-    # Trova tutte le parole composte da sole lettere greche maiuscole
-    matches = list(re.finditer(r"[Α-Ω]{2,}", text))
+    # Trova tutte le parole composte da sole lettere greche minuscole
+    matches = list(re.finditer(r"[α-ωϛϙ]{2,}", text))
     if not matches:
         return None
 
@@ -129,8 +124,8 @@ def inject_lacuna(
 
     target_fragment = word[start_in_word : start_in_word + gap_len]
 
-    # Formattazione Ithaca: trattini racchiusi da quadre [----]
-    placeholder_ithaca = f"[{'-' * gap_len}]"
+    # Formattazione Ithaca: trattini puri senza parentesi quadre
+    placeholder_ithaca = "-" * gap_len
     masked_word_ithaca = (
         word[:start_in_word] + placeholder_ithaca + word[start_in_word + gap_len :]
     )
@@ -163,28 +158,46 @@ def prepare_tlg_dataset(
     seed: int = 42,
 ) -> dict[str, int]:
     """
-    Esegue l'intera pipeline di caricamento, normalizzazione epigrafica,
+    Esegue l'intera pipeline di caricamento, normalizzazione,
     chunking e generazione delle lacune multi-policy per Ithaca.
     """
     rng = random.Random(seed)
     out_path = Path(output_dir)
     out_path.mkdir(parents=True, exist_ok=True)
 
-    print(f"Caricamento dataset TLG da HuggingFace: '{dataset_name}'...")
-    ds = load_dataset(dataset_name)
-    train_split = ds["train"] if "train" in ds else ds[next(iter(ds.keys()))]
+    raw_texts: list[str] = []
+    # 1. Tentativo da Hugging Face
+    try:
+        print(f"Caricamento dataset TLG da HuggingFace: '{dataset_name}'...")
+        ds = load_dataset(dataset_name)
+        train_split = ds["train"] if "train" in ds else ds[next(iter(ds.keys()))]
+        raw_texts = list(train_split["text"])
+    except Exception as e:
+        print(f"[Avviso] Caricamento HuggingFace non riuscito ({e}). Ricerca file TLG locali...")
+        for fname in ["data/tlg_0.json", "data/tlg_1.json"]:
+            fpath = Path(fname)
+            if fpath.exists():
+                with open(fpath, "r", encoding="utf-8") as f:
+                    blocks = json.load(f)
+                    for b in blocks:
+                        t = b.get("training_text") or b.get("text")
+                        if t:
+                            raw_texts.append(t)
+        if not raw_texts:
+            raise FileNotFoundError(
+                f"Impossibile reperire i testi TLG né da HF '{dataset_name}' né da data/tlg_*.json"
+            )
 
-    raw_texts = train_split["text"]
     if max_samples and len(raw_texts) > max_samples:
         raw_texts = raw_texts[:max_samples]
 
-    print(f"Normalizzazione di {len(raw_texts)} testi in greco maiuscolo epigrafico...")
+    print(f"Normalizzazione di {len(raw_texts)} testi in greco minuscolo normalizzato...")
     all_chunks: list[str] = []
     for text in raw_texts:
         if not text or len(text.strip()) < 20:
             continue
-        # 1. Normalizzazione maiuscola e rimozione diacritici
-        norm_text = normalize_greek(text, case_folding="upper", strip_diacritics_flag=True)
+        # 1. Normalizzazione minuscola e rimozione diacritici (conforme a GreekAlphabet)
+        norm_text = normalize_greek(text, case_folding="lower", strip_diacritics_flag=True)
         # 2. Pulizia secondo l'alfabeto di Ithaca
         clean_text = clean_to_ithaca_alphabet(norm_text)
         # 3. Chunking a <= 700 caratteri
@@ -237,7 +250,9 @@ def prepare_tlg_dataset(
         "total_cases": n_total,
         "splits": counts,
         "policies": policies,
-        "format": "Ithaca [----] and Leiden [....]",
+        "format": "Ithaca (trattini puri) and Leiden [....]",
+        "case_folding": "lower",
+        "diacritics": False,
     }
     with open(out_path / "dataset_summary.json", "w", encoding="utf-8") as f:
         json.dump(summary, f, indent=2)
