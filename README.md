@@ -338,9 +338,11 @@ make ithaca
    ```
 
 4. **Valutazione comparativa (Pre-FT vs Post-FT)**:
-   Confronta le prestazioni di infilling del checkpoint base rispetto a quello fine-tunato calcolando Top-1/5/20 Accuracy e Character Error Rate (CER):
+   Confronta le prestazioni di infilling del checkpoint base rispetto a quello fine-tunato calcolando Top-1/5/20 Accuracy, MRR e Character Error Rate (CER), salvando il report JSON, la tabella Markdown e il CSV:
    ```bash
    make ithaca-compare
+   # Con personalizzazione dei file di destinazione (JSON, CSV, Markdown):
+   make ithaca-compare ITHACA_OUTPUT_JSON=eval/results/eval_results_ithaca_comparison.json ITHACA_OUTPUT_CSV=eval/results/eval_results_ithaca_comparison.csv ITHACA_OUTPUT_MD=eval/results/eval_results_ithaca_comparison.md
    ```
 
 5. **Pubblicazione su Hugging Face Hub**:

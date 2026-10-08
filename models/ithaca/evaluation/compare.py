@@ -187,6 +187,42 @@ def render_comparison_table(
     return "\n".join(lines)
 
 
+def extract_comparison_rows(
+    pre_metrics: dict[str, dict[str, float]],
+    post_metrics: dict[str, dict[str, float]],
+) -> list[dict]:
+    """Estrae i record comparativi con policy, metrica, valori pre/post e delta."""
+    metrics_meta = [
+        ("top1_acc", "Top-1 Exact Match", True, False),
+        ("top5_acc", "Top-5 Exact Match", True, False),
+        ("top20_acc", "Top-20 Exact Match", True, False),
+        ("mrr", "Mean Reciprocal Rank (MRR)", False, False),
+        ("mean_cer", "Character Error Rate (CER)", False, True),
+    ]
+    rows = []
+    policy_order = ["overall", "suffix", "word", "default"]
+    for pol in policy_order:
+        if pol not in pre_metrics or pol not in post_metrics:
+            continue
+        p_pre = pre_metrics[pol]
+        p_post = post_metrics[pol]
+        for key, label, is_pct, lower_is_better in metrics_meta:
+            pre_v = float(p_pre.get(key, 0.0))
+            post_v = float(p_post.get(key, 0.0))
+            delta = post_v - pre_v
+            rows.append({
+                "policy": pol,
+                "metric": label,
+                "metric_key": key,
+                "pre_ft": pre_v,
+                "post_ft": post_v,
+                "delta": delta,
+                "is_percentage": is_pct,
+                "lower_is_better": lower_is_better,
+            })
+    return rows
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Confronto comparativo Pre-FT vs Post-FT per Ithaca"
@@ -233,6 +269,24 @@ def main():
         default=20,
         help="Dimensione del beam per la decodifica (default: 20)",
     )
+    parser.add_argument(
+        "--output_json",
+        type=str,
+        default="eval/results/eval_results_ithaca_comparison.json",
+        help="Percorso per salvare il report di valutazione comparativa in formato JSON (default: eval/results/eval_results_ithaca_comparison.json)",
+    )
+    parser.add_argument(
+        "--output_csv",
+        type=str,
+        default=None,
+        help="Percorso opzionale per salvare la tabella comparativa in formato CSV",
+    )
+    parser.add_argument(
+        "--output_md",
+        type=str,
+        default=None,
+        help="Percorso opzionale per salvare la tabella comparativa in formato Markdown",
+    )
     args = parser.parse_args()
 
     if not os.path.exists(args.test_path):
@@ -269,22 +323,49 @@ def main():
     print(table_md)
     print("=" * 70 + "\n")
 
-    # 4. Esportazione JSON
-    out_json_path = Path(args.output_json)
-    out_json_path.parent.mkdir(parents=True, exist_ok=True)
-    report = {
-        "pre_checkpoint": args.pre_checkpoint,
-        "post_checkpoint": args.post_checkpoint,
-        "test_dataset": args.test_path,
-        "cases_evaluated": len(cases),
-        "pre_metrics": pre_metrics,
-        "post_metrics": post_metrics,
-        "markdown_table": table_md,
-    }
-    with open(out_json_path, "w", encoding="utf-8") as f:
-        json.dump(report, f, indent=2)
+    # 4. Estrazione righe tabulari
+    rows = extract_comparison_rows(pre_metrics, post_metrics)
 
-    print(f"Report di valutazione salvato in: {out_json_path}")
+    # 5. Esportazione JSON
+    if args.output_json:
+        out_json_path = Path(args.output_json)
+        out_json_path.parent.mkdir(parents=True, exist_ok=True)
+        report = {
+            "pre_checkpoint": args.pre_checkpoint,
+            "post_checkpoint": args.post_checkpoint,
+            "test_dataset": args.test_path,
+            "strategy": args.strategy,
+            "beam_size": args.beam_size,
+            "cases_evaluated": len(cases),
+            "pre_metrics": pre_metrics,
+            "post_metrics": post_metrics,
+            "comparison": rows,
+            "markdown_table": table_md,
+        }
+        with open(out_json_path, "w", encoding="utf-8") as f:
+            json.dump(report, f, indent=2, ensure_ascii=False)
+        print(f"Report di valutazione salvato in: {out_json_path}")
+
+    # 6. Esportazione CSV opzionale
+    if args.output_csv:
+        import csv
+        out_csv_path = Path(args.output_csv)
+        out_csv_path.parent.mkdir(parents=True, exist_ok=True)
+        fieldnames = ["policy", "metric", "metric_key", "pre_ft", "post_ft", "delta"]
+        with open(out_csv_path, "w", encoding="utf-8", newline="") as f:
+            writer = csv.DictWriter(f, fieldnames=fieldnames, extrasaction="ignore")
+            writer.writeheader()
+            for r in rows:
+                writer.writerow(r)
+        print(f"Tabella comparativa CSV salvata in: {out_csv_path}")
+
+    # 7. Esportazione Markdown opzionale
+    if args.output_md:
+        out_md_path = Path(args.output_md)
+        out_md_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(out_md_path, "w", encoding="utf-8") as f:
+            f.write(table_md + "\n")
+        print(f"Tabella comparativa Markdown salvata in: {out_md_path}")
 
 
 if __name__ == "__main__":
