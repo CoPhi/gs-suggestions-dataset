@@ -106,6 +106,7 @@ help:
 	@echo "                             (Opzioni: ITHACA_BASE_CKPT=... ITHACA_FT_CKPT=...)"
 	@echo "  make ithaca-compare        Confronta Ithaca Pre-FT vs Post-FT su test set stratificato"
 	@echo "                             (policy: default, word, suffix con metriche Top-1/5/20 e CER)"
+	@echo "                             (Opzioni: ITHACA_OUTPUT_JSON=... ITHACA_OUTPUT_CSV=... ITHACA_OUTPUT_MD=...)"
 	@echo "  make ithaca-publish        Pubblica checkpoint, configurazione e Model Card su Hugging Face Hub"
 	@echo "                             (es. make ithaca-publish ITHACA_REPO_ID=CNR-ILC/gs-ithaca-tlg)"
 	@echo ""
@@ -386,6 +387,11 @@ ITHACA_BATCH_SIZE ?= 8
 ITHACA_LR ?= 2e-5
 ITHACA_STRATEGY ?= hcb_best_to_worst
 ITHACA_BEAM_SIZE ?= 20
+ITHACA_TEST_PATH ?= data/ithaca/tlg_test.jsonl
+ITHACA_MAX_CASES ?= 300
+ITHACA_OUTPUT_JSON ?= eval/results/eval_results_ithaca_comparison.json
+ITHACA_OUTPUT_CSV ?=
+ITHACA_OUTPUT_MD ?=
 
 .PHONY: ithaca ithaca-setup ithaca-data ithaca-train ithaca-compare ithaca-publish
 
@@ -406,6 +412,7 @@ ithaca:
 	@echo ""
 	@echo "4. Valutazione e confronto Pre-FT vs Post-FT (HCB Beam Search):"
 	@echo "   make ithaca-compare [ITHACA_STRATEGY=$(ITHACA_STRATEGY) ITHACA_BEAM_SIZE=$(ITHACA_BEAM_SIZE)]"
+	@echo "                       [ITHACA_OUTPUT_JSON=...] [ITHACA_OUTPUT_CSV=...] [ITHACA_OUTPUT_MD=...]"
 	@echo ""
 	@echo "5. Pubblicazione su Hugging Face Hub (checkpoint, config, Model Card):"
 	@echo "   make ithaca-publish [ITHACA_REPO_ID=$(ITHACA_REPO_ID)]"
@@ -435,10 +442,13 @@ ithaca-compare:
 	uv run --no-sync python -m models.ithaca.evaluation.compare \
 		--pre_checkpoint $(ITHACA_BASE_CKPT) \
 		--post_checkpoint $(ITHACA_FT_CKPT) \
-		--test_path data/ithaca/tlg_test.jsonl \
+		--test_path $(ITHACA_TEST_PATH) \
+		--max_cases $(ITHACA_MAX_CASES) \
 		--strategy $(ITHACA_STRATEGY) \
 		--beam_size $(ITHACA_BEAM_SIZE) \
-		--output_json eval/results/eval_results_ithaca_comparison.json
+		--output_json $(ITHACA_OUTPUT_JSON) \
+		$(if $(strip $(ITHACA_OUTPUT_CSV)),--output_csv "$(ITHACA_OUTPUT_CSV)",) \
+		$(if $(strip $(ITHACA_OUTPUT_MD)),--output_md "$(ITHACA_OUTPUT_MD)",)
 
 ithaca-publish:
 	@echo "Pubblicazione modello Ithaca fine-tunato su Hugging Face Hub ($(ITHACA_REPO_ID))..."
@@ -446,4 +456,4 @@ ithaca-publish:
 		--repo_id "$(ITHACA_REPO_ID)" \
 		--checkpoint_path $(ITHACA_FT_CKPT) \
 		--config_path checkpoints/ithaca/config.json \
-		--eval_json eval/results/eval_results_ithaca_comparison.json
+		--eval_json $(ITHACA_OUTPUT_JSON)
