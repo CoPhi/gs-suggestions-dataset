@@ -40,6 +40,13 @@ def get_service() -> ModelService:
                                 "MODEL_FILE_ID": "string",
                             },
                         },
+                        "IthacaModel": {
+                            "summary": "Example Ithaca Model",
+                            "value": {
+                                "CHECKPOINT": "CNR-ILC/gs-ithaca-tlg",
+                                "TYPE": "Ithaca",
+                            },
+                        },
                     }
                 }
             },
@@ -110,6 +117,11 @@ async def create_model(
                     "summary": "Esempio creazione modello BERT",
                     "description": "Parametri per la creazione di un modello BERT.",
                     "value": {"CHECKPOINT": "CNR-ILC/gs-aristoBERTo", "TYPE": "BERT"},
+                },
+                "Ithaca": {
+                    "summary": "Esempio creazione modello Ithaca",
+                    "description": "Parametri per la creazione e memorizzazione su database di un modello Ithaca per l'inferenza.",
+                    "value": {"CHECKPOINT": "CNR-ILC/gs-ithaca-tlg", "TYPE": "Ithaca"},
                 },
             },
         ),

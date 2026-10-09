@@ -37,7 +37,13 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="gs-api",
     version=get_version(),
-    description="""API per GreekSchools. Questa API è progettata per offrire l'accesso a modelli linguistici basati su n-grammi e BERT per la generazione di supplementi testuali. """,
+    description="""API per GreekSchools. Questa API offre l'accesso e la gestione del ciclo di vita di modelli linguistici basati su N-grammi, BERT e Ithaca per la generazione di supplementi testuali e il restauro di testi antichi con decodifica HCB.
+
+### Modelli supportati:
+- **Ngrams**: Modelli statistici MLE e Lidstone con K-smoothing.
+- **BERT**: Modelli Masked Language Modeling (es. `CNR-ILC/gs-aristoBERTo`, `CNR-ILC/gs-GreBerta`, `CNR-ILC/gs-Logion`).
+- **Ithaca**: Modello BigBird character-level fine-tunato sul corpus TLG (es. `CNR-ILC/gs-ithaca-tlg`) con decoding HCB beam search per il ripristino di lacune papirologiche ed epigrafiche.
+""",
     lifespan=lifespan,
 )
 app.add_middleware(

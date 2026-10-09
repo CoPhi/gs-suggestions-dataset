@@ -7,7 +7,50 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 
-## [0.6.0]
+## [0.7.0] - 2026-10-09
+
+### Added
+- **Supporto al modello Ithaca (Google DeepMind) & Restauro Character-Level**:
+  - Integrazione completa del modello Ithaca (BigBird character-level) e dell'infrastruttura di training/inferenza basata su JAX, Flax Linen e Optax (`models/ithaca`).
+  - Pipeline di preprocessing e normalizzazione del corpus TLG (*Thesaurus Linguae Graecae*) per l'adattamento all'alfabeto epigrafico e letterario greco (`models/ithaca/dataset/prepare_tlg.py`).
+  - Fine-tuning su TLG con allineamento della sequenza a 768 caratteri e freezing selettivo dei rami di attribuzione geografica e temporale per focalizzare l'ottimizzazione sul restauro testuale.
+  - Implementazione della decodifica condizionata **HCB (Hammersley-Clifford-Besag) Beam Search** con strategia non-sequenziale Best-to-Worst e sottrazione del pivot del token maschera (`models/ithaca/inference/predict.py`).
+  - Integrazione di Ithaca nei servizi FastAPI (`backend/api`): registrazione e memorizzazione del modello in MongoDB (`POST /models`), esecuzione delle inferenze (`GET /predictions`), esempi interattivi OpenAPI/Swagger e documentazione dedicata (`backend/api/README.md`).
+  - Suite di valutazione comparativa Pre-FT vs Post-FT per Ithaca (`models/ithaca/evaluation/compare.py`) con calcolo di Top-1/5/20 Accuracy, Character Error Rate (CER) e Mean Reciprocal Rank (MRR).
+  - Script di pubblicazione del modello Ithaca e della relativa Model Card su Hugging Face Hub (`scripts/publish_ithaca_hub.py`).
+  - Suite di test dedicata al decoding HCB di Ithaca (`tests/test_ithaca_hcb.py`).
+
+- **Ottimizzazione Multi-Obiettivo degli Iperparametri (Optuna NSGA-II)**:
+  - Framework di HPO multi-obiettivo con algoritmo genetico NSGA-II (`scripts/sweep/optuna_nsga2.py`) per bilanciare simultaneamente loss di validazione, accuratezza Top-K e coesione semantica.
+  - Modulo di analisi del fronte di Pareto e selezione della soluzione di compromesso (*Knee point selection*) (`scripts/sweep/optuna_pareto_analysis.py`).
+  - Integrazione degli studi Optuna con logging e sincronizzazione su Weights & Biases (W&B).
+  - Nuovi target nel `Makefile`: `make opt` e `make opt-pareto`.
+
+- **Benchmark Comparativo & Generazione Automatica di Model Card**:
+  - Script di benchmark per il confronto sistematico Pre-FT vs Post-FT su dataset di test (`scripts/evaluate_comparison.py`), con esportazione dei risultati in formati JSON, CSV e tabelle Markdown.
+  - Modulo per la generazione automatica di **Model Card** su Hugging Face Hub (`models/bert/finetuning/model_card.py`, `scripts/publish_model_card.py`) complete di metadati YAML per Digital Classics, iperparametri e snippet di inferenza Python.
+  - Suite di test dedicata `tests/test_model_card.py`.
+
+- **Stratificazione del Dev/Test Set su 2 Livelli & Metriche di Cluster Cohesion**:
+  - Stratificazione del dataset di valutazione in base alla policy di lacuna: `default` (sottostringa casuale), `word` (parola intera) e `suffix` (desinenza/terminazione flessiva) (`models/bert/dataset/dev_set.py`).
+  - Supporto per lacune di lunghezza arbitraria in fase di inferenza BERT (`models/bert/inference/predict.py`).
+  - Introduzione delle metriche di coesione dei cluster (UMAP, silhouette score, cluster inclusion per le gold label) integrate nel callback di validazione (`HCBEvaluationCallback`) e nei test di regressione (`tests/test_umap_cohesion.py`).
+
+- **Gestione Unificata e Pubblicazione Dataset Papyrologici**:
+  - Integrazione e pubblicazione su Hugging Face Hub del dataset dei Papiri di Ercolano (`CNR-ILC/gs-dataset-pherc-uncased`) e del dataset di valutazione stratificato (`models/bert/dataset/load.py`, `models/bert/dataset/README.md`).
+  - Nuovi comandi nel `Makefile` per la pubblicazione selettiva dei dataset (`make publish-dataset-pherc`, `make publish-dataset-eval`, `make publish-datasets`).
+
+### Changed
+- Refactoring del `Makefile` con comandi modulari e parametrici per training BERT, HPO Optuna, valutazione comparativa, pubblicazione di dataset/model card e gestione di Ithaca (`make ithaca`, `make ithaca-compare`).
+- Rimozione del composite score scalare dal tracciamento degli esperimenti in favore del monitoraggio multi-obiettivo delle metriche native.
+- Aggiornamento della documentazione `README.md` con le guide complete a HPO Optuna, benchmarking comparativo e fine-tuning di Ithaca.
+
+### Fixed
+- Allineamento delle dipendenze e configurazione JAX per librerie GPU NVIDIA con gestore di pacchetti `uv`.
+- Correzione dell'estrazione dei logit e dei tuple di output nell'architettura Ithaca.
+- Gestione della mappatura degli alfabeti e delle etichette dei parametri Optax per il caricamento dei pesi DeepMind originali.
+
+## [0.6.0] - 2026-06-22
 
 ### Added
 
