@@ -1,6 +1,6 @@
 [project]
 name = "gs-suggestions-dataset"
-version = "0.6.0"
+version = "0.7.1"
 description = ""
 authors = [{ name = "Gabriele", email = "gabrielegiannessi@gmail.com" }]
 requires-python = ">=3.12,<3.13"
@@ -43,6 +43,7 @@ dependencies = [
     "flax>=0.8.0",
     "optax>=0.2.0",
     "chex>=0.1.8",
+    "dspy>=3.4.0",
 ]
 
 [tool.uv]
