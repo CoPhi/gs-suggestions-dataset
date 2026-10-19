@@ -1,4 +1,4 @@
-import { Component, inject, input } from '@angular/core';
+import { Component, inject, input, output } from '@angular/core';
 import { ReactiveFormsModule, FormsModule } from '@angular/forms';
 import { ApiService, SuggestionInterface } from '../../services/api.service';
 import { SuggestComponent } from '../suggest/suggest.component';
@@ -13,5 +13,10 @@ export class SuggestsBoxComponent {
 
   api = inject(ApiService);
   suggestions = input.required<SuggestionInterface[]>();
+  onClose = output<void>();
+
+  close() {
+    this.onClose.emit();
+  }
 
 }

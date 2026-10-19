@@ -1,4 +1,4 @@
-<div class="prompt-box shadow-sm rounded-4 p-3 bg-white" [formGroup]="form" [class.focused]="isFocused" (click)="focusTextarea()">
+<div class="prompt-box shadow-sm rounded-4 p-3 bg-white" [formGroup]="form" [class.focused]="isFocused" (click)="focusTextarea($event)">
     
     <!-- Textarea -->
     <textarea class="form-control border-0 shadow-none prompt-textarea" 
@@ -11,47 +11,118 @@
     </textarea>
     
     <!-- Toolbar inside the box at the bottom -->
-    <div class="d-flex justify-content-between align-items-end mt-2 prompt-toolbar">
-        <!-- Left: Model selection & Parameters -->
-        <div class="d-flex align-items-center gap-2 flex-wrap">
-            @if (selectedModel() !== null) {
-                <div class="badge-model d-flex align-items-center">
-                    {{ curr_type_model() }}
-                    <i class="bi bi-x-circle ms-2 cursor-pointer remove-model-btn" (click)="curr_id.set(null); $event.stopPropagation()"></i>
-                </div>
-                
-                <!-- Num predictions -->
-                <div class="minimal-input-group d-flex align-items-center" title="Numero di predizioni">
-                    <i class="bi bi-list-ol text-muted me-1" style="font-size: 0.9rem;"></i>
-                    <select class="minimal-select" formControlName="num_predictions" (click)="$event.stopPropagation()">
-                        <option value="1">1</option>
-                        <option value="5">5</option>
-                        <option value="10">10</option>
-                        <option value="20">20</option>
-                    </select>
-                </div>
-
-            } @else {
-                <button class="btn btn-light rounded-pill btn-sm d-flex align-items-center gap-2 model-select-btn" 
-                        type="button" 
-                        data-bs-toggle="modal" data-bs-target="#modelsModal"
-                        (click)="$event.stopPropagation()">
-                    <i class="bi bi-magic"></i> Scegli Modello
-                </button>
-            }
+    <div class="d-flex justify-content-between align-items-center mt-2 prompt-toolbar flex-wrap gap-2">
+        <!-- Left: Parameters -->
+        <div class="d-flex align-items-center gap-2">
+            <!-- Num predictions -->
+            <div class="minimal-input-group d-flex align-items-center" title="Numero di predizioni">
+                <i class="bi bi-list-ol text-muted me-1" style="font-size: 0.9rem;"></i>
+                <span class="text-muted small me-1">Predizioni:</span>
+                <select class="minimal-select" formControlName="num_predictions">
+                    <option [value]="1">1</option>
+                    <option [value]="5">5</option>
+                    <option [value]="10">10</option>
+                    <option [value]="20">20</option>
+                </select>
+            </div>
         </div>
 
-        <!-- Right: Action buttons -->
+        <!-- Right: Model selection dropdown menu + Clear + Submit buttons -->
         <div class="d-flex align-items-center gap-2">
+            <!-- Menù a tendina Modelli con opzione di espansione/ingrandimento -->
+            <div class="dropdown model-dropdown" [class.show]="isDropdownOpen()">
+                <div class="input-group input-group-sm model-control-group shadow-sm">
+                    <!-- Dropdown Trigger -->
+                    <button class="btn btn-outline-secondary model-dropdown-trigger d-flex align-items-center gap-2 dropdown-toggle" 
+                            type="button" 
+                            id="modelSelectDropdown"
+                            (click)="toggleDropdown($event)"
+                            [attr.aria-expanded]="isDropdownOpen()"
+                            title="Seleziona modello per l'inferenza">
+                        @if (selectedModel(); as sm) {
+                            <span class="text-truncate model-name-text">{{ selectedModelLabel() }}</span>
+                        } @else {
+                            <span class="text-muted model-name-text">Seleziona Modello</span>
+                        }
+                    </button>
+
+                    <!-- Bottone Ingrandisci per esporre la model box con dettagli ulteriori -->
+                    <button class="btn btn-outline-secondary model-expand-btn d-flex align-items-center justify-content-center" 
+                            type="button" 
+                            data-bs-toggle="modal" 
+                            data-bs-target="#modelsModal"
+                            (click)="closeDropdown()"
+                            title="Ingrandisci ed esplora tutti i dettagli dei modelli">
+                        <i class="bi bi-arrows-angle-expand"></i>
+                    </button>
+                </div>
+
+                <!-- Menù a tendina con lista modelli -->
+                <ul class="dropdown-menu dropdown-menu-end shadow-lg border-0 rounded-3 p-2 model-dropdown-menu" 
+                    [class.show]="isDropdownOpen()"
+                    aria-labelledby="modelSelectDropdown">
+                    <li class="dropdown-header d-flex justify-content-between align-items-center px-3 py-1 mb-1">
+                        <span class="text-uppercase fw-bold text-muted small">Modelli disponibili ({{ models().length }})</span>
+                    </li>
+
+                    @for (m of models(); track m._id) {
+                        <li>
+                            <button class="dropdown-item d-flex align-items-center justify-content-between rounded-2 px-3 py-2 mb-1 model-dropdown-item"
+                                    [class.active-item]="curr_id() === m._id"
+                                    type="button"
+                                    (click)="selectModel(m._id)">
+                                <span class="fw-medium text-truncate me-2">{{ getModelLabel(m) }}</span>
+                                @if (curr_id() === m._id) {
+                                    <span class="badge bg-primary-subtle text-primary border border-primary-subtle ms-2">In uso</span>
+                                }
+                            </button>
+                        </li>
+                    }
+
+                    @if (models().length === 0) {
+                        <li class="px-3 py-2 text-muted small fst-italic">Nessun modello registrato</li>
+                    }
+
+                    @if (curr_id() !== null) {
+                        <li>
+                            <button class="dropdown-item d-flex align-items-center gap-2 text-muted small rounded-2 px-3 py-1 mt-1"
+                                    type="button"
+                                    (click)="removeModelSelection()">
+                                <i class="bi bi-x-circle text-danger"></i>
+                                <span>Rimuovi selezione modello</span>
+                            </button>
+                        </li>
+                    }
+
+                    <li><hr class="dropdown-divider my-2"></li>
+
+                    <!-- Ingrandisci model box -->
+                    <li>
+                        <button class="dropdown-item d-flex align-items-center gap-2 text-primary fw-semibold rounded-2 px-3 py-2 expand-modal-item"
+                                type="button"
+                                data-bs-toggle="modal" 
+                                data-bs-target="#modelsModal"
+                                (click)="closeDropdown()">
+                            <i class="bi bi-arrows-angle-expand"></i>
+                            <span>Ingrandisci e vedi dettagli modelli...</span>
+                        </button>
+                    </li>
+                </ul>
+            </div>
+
+            <!-- Clear text button -->
             @if (form.get('text')?.value?.length > 0) {
-            <button class="btn btn-icon text-muted" (click)="clearForm(); $event.stopPropagation()" type="button" title="Pulisci testo">
-                <i class="bi bi-eraser"></i>
-            </button>
+                <button class="btn btn-icon text-muted" (click)="clearForm()" type="button" title="Pulisci testo">
+                    <i class="bi bi-eraser"></i>
+                </button>
             }
+
+            <!-- Submit button for inference -->
             <button class="btn btn-primary rounded-circle send-btn d-flex align-items-center justify-content-center" 
-                    (click)="generateSuggestions(); $event.stopPropagation()" 
+                    (click)="generateSuggestions()" 
                     [disabled]="isGenerating() || form.invalid" 
-                    type="button">
+                    type="button"
+                    title="Invia testo per l'inferenza">
                 @if (isGenerating()) {
                     <div class="spinner-border spinner-border-sm text-white" role="status"></div>
                 } @else {
@@ -70,12 +141,12 @@
                 <span class="text-danger"><i class="bi bi-exclamation-triangle me-1"></i>Inserisci un testo valido</span>
             }
             @if (form.get('text')?.hasError('notMasked')) {
-                <span class="text-danger"><i class="bi bi-exclamation-triangle me-1"></i>Inserisci un testo con una lacuna: <code>[...]</code></span>
+                <span class="text-danger"><i class="bi bi-exclamation-triangle me-1"></i>Inserisci un testo con una lacuna: <code>[...]</code> o <code>[---]</code></span>
             }
         }@else if(form.get('text')?.dirty && form.get('text')?.valid){
             <span class="text-success"><i class="bi bi-check-circle me-1"></i>Testo valido per la generazione</span>
         } @else {
-            <span>Utilizza <code>[...]</code> per definire la lacuna da completare.</span>
+            <span>Utilizza <code>[...]</code> o <code>[---]</code> per definire la lacuna da completare.</span>
         }
     </div>
 </div>

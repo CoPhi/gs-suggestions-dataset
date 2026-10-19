@@ -1,6 +1,7 @@
-import { Component, computed, effect, input, model, output } from '@angular/core';
+import { Component, ElementRef, HostListener, computed, effect, inject, input, model, output, signal } from '@angular/core';
 import { AbstractControl, FormControl, FormGroup, ReactiveFormsModule, ValidationErrors, Validators } from '@angular/forms';
 import { modelType } from '../../services/api.service';
+import { NotificationService } from '../../services/notification.service';
 
 @Component({
   selector: 'app-prompt-box',
@@ -9,18 +10,85 @@ import { modelType } from '../../services/api.service';
   styleUrl: './prompt-box.component.css'
 })
 export class PromptBoxComponent {
+  notifications = inject(NotificationService);
+  private elementRef = inject(ElementRef);
+
   models = input.required<modelType[]>();
   curr_id = model.required<string | null>();
   isGenerating = input.required<boolean>();
 
-
   onGenerate = output<{ text: string, modelID: string, num_tokens: number, num_predictions: number }>();
+
+  isDropdownOpen = signal<boolean>(false);
 
   selectedModel = computed(() => {
     return this.curr_id() ? this.models().find((model) => model._id === this.curr_id()) || null : null;
   });
 
   curr_type_model = computed(() => this.selectedModel()?.TYPE);
+
+  selectedModelLabel = computed(() => {
+    const m = this.selectedModel();
+    if (!m) return null;
+    if (m.TYPE === 'Ithaca') {
+      const name = m.CHECKPOINT.includes('/') ? m.CHECKPOINT.split('/').pop() : m.CHECKPOINT;
+      return `Ithaca: ${name}`;
+    }
+    if (m.TYPE === 'BERT') {
+      const name = m.CHECKPOINT.includes('/') ? m.CHECKPOINT.split('/').pop() : m.CHECKPOINT;
+      return `BERT: ${name}`;
+    }
+    return `N-grammi (${m.LM_SCORE})`;
+  });
+
+  getModelLabel(m: modelType): string {
+    if (m.TYPE === 'Ithaca') {
+      const name = m.CHECKPOINT.includes('/') ? m.CHECKPOINT.split('/').pop() : m.CHECKPOINT;
+      return `Ithaca (${name})`;
+    }
+    if (m.TYPE === 'BERT') {
+      const name = m.CHECKPOINT.includes('/') ? m.CHECKPOINT.split('/').pop() : m.CHECKPOINT;
+      return `BERT (${name})`;
+    }
+    return `N-grammi (${m.LM_SCORE}${m.N ? `, n=${m.N}` : ''})`;
+  }
+
+  toggleDropdown(event?: Event) {
+    if (event) {
+      event.stopPropagation();
+    }
+    this.isDropdownOpen.update(open => !open);
+  }
+
+  closeDropdown() {
+    this.isDropdownOpen.set(false);
+  }
+
+  selectModel(id: string) {
+    this.curr_id.set(id);
+    this.closeDropdown();
+  }
+
+  removeModelSelection() {
+    this.curr_id.set(null);
+    this.closeDropdown();
+  }
+
+  @HostListener('document:click', ['$event'])
+  onDocumentClick(event: MouseEvent) {
+    if (!this.isDropdownOpen()) return;
+    const target = event.target as HTMLElement | null;
+    if (target && !this.elementRef.nativeElement.querySelector('.model-dropdown')?.contains(target)) {
+      this.closeDropdown();
+    }
+  }
+
+  @HostListener('document:keydown.escape')
+  onEscape() {
+    if (this.isDropdownOpen()) {
+      this.closeDropdown();
+    }
+  }
 
   isFocused = false;
   form: FormGroup;
@@ -42,11 +110,17 @@ export class PromptBoxComponent {
 
   isContextValid = (c: AbstractControl): ValidationErrors | null => {
     if (!c.value || c.value.trim() === '') return { notvalid: true };
-    const regex = /\[\.{1,}\]/;
+    const regex = /\[(\.{1,}|\-{1,})\]/;
     return regex.test(c.value) ? null : { notMasked: true };
   }
 
-  focusTextarea() {
+  focusTextarea(event?: MouseEvent) {
+    if (event) {
+      const target = event.target as HTMLElement | null;
+      if (target?.closest('.prompt-toolbar')) {
+        return;
+      }
+    }
     const textarea = document.getElementById('inputText');
     if (textarea) {
       textarea.focus();
@@ -57,19 +131,8 @@ export class PromptBoxComponent {
     this.form.get('text')?.reset('');
   }
 
-  showAlert(message: string, type: string) {
-    const alert = document.createElement('div');
-    alert.className = `alert alert-${type} alert-dismissible fade show mt-3 fixed-top w-50 mx-auto shadow-sm`;
-    alert.style.zIndex = '9999';
-    alert.innerHTML = `
-          ${message}
-          <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-      `;
-    document.body.appendChild(alert);
-    setTimeout(() => {
-      alert.classList.remove('show');
-      setTimeout(() => alert.remove(), 150);
-    }, 5000);
+  showAlert(message: string, type: 'success' | 'danger' | 'warning' | 'info') {
+    this.notifications.showAlert(message, type);
   }
 
   generateSuggestions() {

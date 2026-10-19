@@ -13,6 +13,11 @@ describe('SuggestComponent', () => {
     .compileComponents();
 
     fixture = TestBed.createComponent(SuggestComponent);
+    fixture.componentRef.setInput('suggest', {
+      sentence: 'foo [test] bar',
+      token_str: 'test',
+      score: 0.95
+    });
     component = fixture.componentInstance;
     fixture.detectChanges();
   });

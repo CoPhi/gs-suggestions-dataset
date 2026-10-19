@@ -1,0 +1,18 @@
+.close-btn {
+    width: 32px;
+    height: 32px;
+    border-color: rgba(255, 255, 255, 0.45);
+    color: #ffffff;
+    transition: all 0.2s ease-in-out;
+}
+
+.close-btn:hover {
+    background-color: rgba(255, 255, 255, 0.25);
+    border-color: #ffffff;
+    color: #ffffff;
+    transform: scale(1.08);
+}
+
+.close-btn:active {
+    transform: scale(0.95);
+}

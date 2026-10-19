@@ -25,12 +25,10 @@ export class ApiService {
     );
   }
 
-   deleteModel(model_id: string): Observable<string> {
-    return this.http.delete<{ description: string }>(`${this.apiUrl}/models/${model_id}`, {
+   deleteModel(model_id: string): Observable<any> {
+    return this.http.delete<any>(`${this.apiUrl}/models/${model_id}`, {
       responseType: 'json'
-    }).pipe(
-      map(response => response.description)
-    )
+    });
   }
 
   generateSuggestion(model_id: string, context: string, num_tokens: number, num_predictions: number ): Observable<SuggestionInterface[]> {
@@ -43,12 +41,18 @@ export class ApiService {
   }
 }
 
-export type modelType = BERTModelInterface | NgramsModelInterface;
+export type modelType = BERTModelInterface | NgramsModelInterface | IthacaModelInterface;
 
 export interface BERTModelInterface {
   _id: string; // ID del modello
   CHECKPOINT: string; // Nome del modello BERT da utilizzare
   TYPE: "BERT"; // Tipo di modello
+}
+
+export interface IthacaModelInterface {
+  _id: string; // ID del modello
+  CHECKPOINT: string; // Nome del checkpoint o repo Hugging Face di Ithaca
+  TYPE: "Ithaca"; // Tipo di modello
 }
 
 export interface NgramsModelInterface {

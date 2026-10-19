@@ -1,48 +1,104 @@
-<!-- @if (isBERT()) { -->
-<div class="col rounded-3 mb-3 h-100 ">
-  <div class="card model-card shadow-sm h-100">
-    <div class="card-body">
-      <div class="d-flex flex-row align-items-center mb-3">
-        <div class="flex-grow-0">
-          @if (isBERT()) {
-          <h5 class="card-title mb-0">BERT</h5>
-          } @else {
-          <h5 class="card-title mb-0">N-grammi</h5>
-          }
-        </div>
-
-        <!-- Delete e copy dei modelli -->
-         <div class="flex-wrap justify-content-end ms-auto d-flex gap-2">
-           <button class="btn btn-sm btn-outline-primary copy-model-id"
-             data-bs-dismiss="modal"
-             (click)="set_currentID()">
-             <i class="bi bi-clipboard"></i> Seleziona
-           </button>
-           <button class="btn btn-sm btn-outline-danger copy-model-id" (click)="deleteModel()">
-             <i class="bi bi-trash-fill"></i>
-           </button>
-         </div>
-      </div>
-
-
-      <ul class="list-group list-group-flush mb-3">
-        @if (isBERT()) {
-          <li class="list-group-item"><strong>Tipo:</strong> BERT</li>
-          <li class="list-group-item"><strong>Checkpoint:</strong> {{ bertmodel().CHECKPOINT }} </li>
-        }@else {
-          @if (ngramsmodel().LM_SCORE == "LIDSTONE") {
-            <li class="list-group-item"><strong>Tipo di score:</strong> {{ ngramsmodel().LM_SCORE }} ( Gamma: {{
-              ngramsmodel().GAMMA }}) </li>
-          } @else {
-            <li class="list-group-item"><strong>Tipo di score:</strong> {{ ngramsmodel().LM_SCORE }} </li>
-          }
-          <li class="list-group-item"><strong>Dimensionalità del modello (N-grammi):</strong> {{ ngramsmodel().N }}</li>
-          @if (ngramsmodel().CORPUS_NAMES) {
-            <li class="list-group-item"><strong>Lista di corpus di addestramento:</strong> {{ ngramsmodel().CORPUS_NAMES }}
-            </li>
-          }
-        }
-      </ul>
+<div class="card model-card h-100 shadow-sm" [class.selected-card]="curr_id() === id()">
+  <!-- Card Header -->
+  <div class="card-header bg-transparent border-bottom-0 pt-3 px-3 pb-2 d-flex justify-content-between align-items-center">
+    <div class="d-flex align-items-center gap-2">
+      @if (isBERT()) {
+        <span class="badge-type badge-bert">BERT</span>
+      } @else if (isIthaca()) {
+        <span class="badge-type badge-ithaca">Ithaca</span>
+      } @else {
+        <span class="badge-type badge-ngrams">N-grammi</span>
+      }
     </div>
+
+    @if (curr_id() === id()) {
+      <span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill px-2 py-1 small">
+        <i class="bi bi-check-circle-fill me-1"></i> In uso
+      </span>
+    }
+  </div>
+
+  <!-- Card Body -->
+  <div class="card-body px-3 py-2 d-flex flex-column flex-grow-1">
+    @if (isBERT()) {
+      <div class="mb-3">
+        <span class="field-label">Checkpoint</span>
+        <div class="code-box" title="{{ bertmodel().CHECKPOINT }}">
+          <code>{{ bertmodel().CHECKPOINT }}</code>
+        </div>
+      </div>
+      <div class="meta-row">
+        <span class="meta-label">Architettura</span>
+        <span class="meta-value">Masked LM (BERT)</span>
+      </div>
+    } @else if (isIthaca()) {
+      <div class="mb-3">
+        <span class="field-label">Checkpoint</span>
+        <div class="code-box" title="{{ ithacamodel().CHECKPOINT }}">
+          <code>{{ ithacamodel().CHECKPOINT }}</code>
+        </div>
+      </div>
+      <div class="meta-row">
+        <span class="meta-label">Architettura</span>
+        <span class="meta-value">BigBird Character-Level</span>
+      </div>
+      <div class="meta-row">
+        <span class="meta-label">Decodifica</span>
+        <span class="badge bg-light text-dark border">HCB Beam Search</span>
+      </div>
+    } @else {
+      <div class="meta-row mt-1">
+        <span class="meta-label">Tipo di score</span>
+        <span class="meta-value">
+          {{ ngramsmodel().LM_SCORE }}
+          @if (ngramsmodel().GAMMA !== null && ngramsmodel().GAMMA !== undefined) {
+            <small class="text-muted">(γ={{ ngramsmodel().GAMMA }})</small>
+          }
+        </span>
+      </div>
+      <div class="meta-row">
+        <span class="meta-label">Ordine N-grammi</span>
+        <span class="badge bg-primary-subtle text-primary border border-primary-subtle fw-bold">n = {{ ngramsmodel().N }}</span>
+      </div>
+      @if (ngramsmodel().CORPUS_NAMES && ngramsmodel().CORPUS_NAMES.length > 0) {
+        <div class="mt-2 mb-2">
+          <span class="field-label">Corpus di training</span>
+          <div class="d-flex flex-wrap gap-1 mt-1">
+            @for (c of ngramsmodel().CORPUS_NAMES; track c) {
+              <span class="badge bg-secondary-subtle text-secondary border small">{{ c }}</span>
+            }
+          </div>
+        </div>
+      }
+    }
+  </div>
+
+  <!-- Card Footer: Pinned at the bottom -->
+  <div class="card-footer bg-transparent border-top pt-2 px-3 pb-3 mt-auto d-flex justify-content-between align-items-center">
+    <button class="btn btn-sm btn-outline-danger delete-btn d-flex align-items-center gap-1"
+            type="button"
+            (click)="deleteModel(); $event.stopPropagation()"
+            title="Elimina modello dal database">
+      <i class="bi bi-trash3"></i>
+      <span>Elimina</span>
+    </button>
+
+    @if (curr_id() === id()) {
+      <button class="btn btn-sm btn-success d-flex align-items-center gap-1" 
+              type="button" 
+              disabled>
+        <i class="bi bi-check-circle-fill"></i>
+        <span>In uso</span>
+      </button>
+    } @else {
+      <button class="btn btn-sm btn-outline-primary select-btn d-flex align-items-center gap-1"
+              type="button"
+              data-bs-dismiss="modal"
+              (click)="set_currentID()"
+              title="Seleziona questo modello per la generazione">
+        <i class="bi bi-check-circle"></i>
+        <span>Seleziona</span>
+      </button>
+    }
   </div>
 </div>

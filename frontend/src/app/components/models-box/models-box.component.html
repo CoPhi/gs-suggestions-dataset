@@ -1,5 +1,13 @@
-<div class="row row-cols-1 row-cols-sm-2 row-cols-md-3 row-cols-lg-4 gy-3" id="modelsContainer">
-    @for (model of models(); track $index) {
-    <app-model [(curr_id)]="curr_id" [model]="model" [(models)]="models"></app-model>
-    }
-</div>
+@if (models().length > 0) {
+    <div class="models-grid" id="modelsContainer">
+        @for (model of models(); track model._id) {
+            <app-model [(curr_id)]="curr_id" [model]="model" [(models)]="models" />
+        }
+    </div>
+} @else {
+    <div class="text-center py-5 px-3 bg-white rounded-4 shadow-sm border">
+        <i class="bi bi-inbox fs-1 text-muted d-block mb-3"></i>
+        <h5 class="fw-bold text-dark">Nessun modello disponibile</h5>
+        <p class="text-muted mb-0 small">Non sono presenti modelli registrati nel database. Aggiungi un modello per iniziare l'inferenza.</p>
+    </div>
+}

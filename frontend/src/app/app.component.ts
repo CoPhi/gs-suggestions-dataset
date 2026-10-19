@@ -7,6 +7,8 @@ import { ModelsBoxComponent } from "./components/models-box/models-box.component
 import { NotificationService } from './services/notification.service';
 import { PromptBoxComponent } from './components/prompt-box/prompt-box.component';
 
+import { Subscription } from 'rxjs';
+
 @Component({
   selector: 'app-root',
   imports: [SuggestsBoxComponent, ModelsBoxComponent, PromptBoxComponent],
@@ -28,43 +30,43 @@ export class AppComponent {
   });
 
   isGenerating = signal<boolean>(false);
+  private currentRequestSubscription: Subscription | null = null;
 
   setCurrentID($event: Event) {
     const target = $event.target as HTMLInputElement;
     this.curr_id.set(target.value);
   }
 
+  showAlert(message: string, type: 'success' | 'danger' | 'warning' | 'info' = 'info') {
+    this.notifications.showAlert(message, type);
+  }
 
-
-  showAlert(message: string, type: string) {
-    const alert = document.createElement('div');
-    alert.className = `alert alert-${type} alert-dismissible fade show mt-3 fixed-top w-50 mx-auto shadow-sm`;
-    alert.style.zIndex = '9999';
-    alert.innerHTML = `
-          ${message}
-          <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-      `;
-
-    document.body.appendChild(alert);
-
-    setTimeout(() => {
-      alert.classList.remove('show');
-      setTimeout(() => alert.remove(), 150);
-    }, 5000);
+  closeSuggestions() {
+    if (this.currentRequestSubscription) {
+      this.currentRequestSubscription.unsubscribe();
+      this.currentRequestSubscription = null;
+    }
+    this.suggestions.set(null);
   }
 
   generateSuggestions(payload: { text: string, modelID: string, num_tokens: number, num_predictions: number }) {
+    if (this.currentRequestSubscription) {
+      this.currentRequestSubscription.unsubscribe();
+      this.currentRequestSubscription = null;
+    }
     this.isGenerating.set(true);
     const { text, modelID, num_tokens, num_predictions } = payload;
 
-    this.api.generateSuggestion(modelID, text, num_tokens, num_predictions).subscribe({
+    this.currentRequestSubscription = this.api.generateSuggestion(modelID, text, num_tokens, num_predictions).subscribe({
       next: (response) => {
         this.suggestions.set(response);
         this.isGenerating.set(false);
-        this.notifications.showLocalNotification()
+        const count = response?.length || 0;
+        this.notifications.showSuccess(`Suggerimenti pronti! Generate con successo ${count} predizioni.`);
+        this.notifications.showLocalNotification();
       },
       error: () => {
-        this.showAlert('Errore durante la generazione dei suggerimenti', 'danger');
+        this.notifications.showDanger('Errore durante la generazione dei suggerimenti');
         this.isGenerating.set(false);
       },
       complete: () => {

@@ -12,6 +12,25 @@
     </div>
 </div>
 
+<!-- Alert container per notifiche reattive (successo generazione, eliminazione modello dal db, ecc.) -->
+<div class="position-fixed top-0 start-50 translate-middle-x p-3 alert-toast-container" style="z-index: 1090; min-width: 320px; max-width: 600px; width: 90%;">
+    @for (alert of notifications.alerts(); track alert.id) {
+        <div class="alert alert-{{ alert.type }} alert-dismissible fade show shadow-lg d-flex align-items-center mb-2" role="alert">
+            @if (alert.type === 'danger') {
+                <i class="bi bi-exclamation-octagon-fill fs-5 me-2 text-danger"></i>
+            } @else if (alert.type === 'success') {
+                <i class="bi bi-check-circle-fill fs-5 me-2 text-success"></i>
+            } @else if (alert.type === 'warning') {
+                <i class="bi bi-exclamation-triangle-fill fs-5 me-2 text-warning"></i>
+            } @else {
+                <i class="bi bi-info-circle-fill fs-5 me-2 text-info"></i>
+            }
+            <div class="flex-grow-1 fw-medium">{{ alert.message }}</div>
+            <button type="button" class="btn-close" (click)="notifications.removeAlert(alert.id)" aria-label="Close"></button>
+        </div>
+    }
+</div>
+
 <div class="container-fluid py-5 d-flex flex-column align-items-center min-vh-100 bg-light-modern">
     <div class="col-12 col-md-10 col-lg-8">
         
@@ -25,14 +44,20 @@
             (onGenerate)="generateSuggestions($event)">
         </app-prompt-box>
 
-        @if (!isGenerating() && models().length > 0) {
+        @if (!isGenerating()) {
             <!-- Models Modal -->
             <div class="modal fade" id="modelsModal" tabindex="-1" aria-labelledby="modelsModalLabel" aria-hidden="true">
                 <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
-                    <div class="modal-content rounded-4 border-0 shadow-lg">
-                        <div class="modal-header bg-success text-white rounded-top-4">
-                            <h5 class="modal-title" id="modelsModalLabel"><i class="bi bi-robot"></i> Seleziona un Modello</h5>
-                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                    <div class="modal-content rounded-4 border-0 shadow-lg overflow-hidden">
+                        <div class="modal-header bg-dark text-white px-4 py-3 border-0">
+                            <div class="d-flex align-items-center gap-2">
+                                <i class="bi bi-boxes fs-4 text-primary"></i>
+                                <div>
+                                    <h5 class="modal-title fw-bold mb-0" id="modelsModalLabel">Dettagli Modelli di Linguaggio</h5>
+                                    <small class="text-white-50">{{ models().length }} modelli disponibili per l'inferenza</small>
+                                </div>
+                            </div>
+                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Chiudi"></button>
                         </div>
                         <div class="modal-body p-4 bg-light">
                             <app-models-box [models]="models()" [(curr_id)]="curr_id" />
@@ -45,10 +70,15 @@
         @if (suggestions() !== null && !isGenerating()) {
             <div class="mt-4">
                 @if (suggestions()!.length > 0) {
-                <app-suggests-box [suggestions]="suggestions()!" />
+                <app-suggests-box [suggestions]="suggestions()!" (onClose)="closeSuggestions()" />
                 }
                 @else {
-                <div class="text-center p-5 text-muted bg-white rounded-4 shadow-sm mt-3">
+                <div class="text-center p-5 text-muted bg-white rounded-4 shadow-sm mt-3 position-relative">
+                    <button type="button" 
+                            class="btn-close position-absolute top-0 end-0 m-3" 
+                            (click)="closeSuggestions()" 
+                            aria-label="Chiudi"
+                            title="Chiudi finestra"></button>
                     <i class="bi bi-emoji-frown fs-1 mb-3 d-block text-warning"></i>
                     <h5 class="fw-bold">Nessun suggerimento trovato</h5>
                     <p>Riprova con un’altra richiesta o scegli un altro modello.</p>
