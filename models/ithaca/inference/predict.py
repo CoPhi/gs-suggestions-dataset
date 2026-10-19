@@ -255,6 +255,17 @@ def decode_gap_hcb_beam_search(
     return [(s, float(w / sum_w)) for (s, _), w in zip(top_results, raw_weights)]
 
 
+def clear_ithaca_cache() -> None:
+    """Svuota la cache dei modelli Ithaca caricati e libera le compilazioni JIT di JAX."""
+    _LOADED_MODELS.clear()
+    try:
+        import jax
+
+        jax.clear_caches()
+    except Exception:
+        pass
+
+
 def fill_mask_ithaca(
     text: str,
     checkpoint: str = "checkpoints/ithaca/checkpoint_tlg.pkl",
@@ -267,6 +278,10 @@ def fill_mask_ithaca(
         "standard_left_to_right",
     ] = "hcb_best_to_worst",
     temperature: float = 1.0,
+    params_override: Any | None = None,
+    alphabet_override: Any | None = None,
+    config_override: dict | None = None,
+    forward_fn_override: Any | None = None,
 ) -> list[tuple[str, float]]:
     """
     Funzione di interfaccia principale compatibile con l'API di GreekSchools:
@@ -284,17 +299,50 @@ def fill_mask_ithaca(
     is_input_upper = any(c.isupper() for c in text)
     gap_len = len(match.group(1))
 
-    # Sostituiamo la lacuna con trattini puri per la tokenizzazione interna di Ithaca
-    text_with_hyphens = text[: match.start()] + ("-" * gap_len) + text[match.end() :]
+    # Caricamento modello e vocabolario (con supporto a override in-memory per trial Optuna)
+    if (
+        params_override is not None
+        and alphabet_override is not None
+        and config_override is not None
+        and forward_fn_override is not None
+    ):
+        params = params_override
+        alphabet = alphabet_override
+        config = config_override
+        forward_fn = forward_fn_override
+    else:
+        _, loaded_params, loaded_alphabet, loaded_config, loaded_forward_fn = get_or_load_ithaca(checkpoint)
+        params = params_override if params_override is not None else loaded_params
+        alphabet = alphabet_override if alphabet_override is not None else loaded_alphabet
+        config = config_override if config_override is not None else loaded_config
+        forward_fn = forward_fn_override if forward_fn_override is not None else loaded_forward_fn
+
+    max_len = int(config.get("max_len", 768))
+
+    unk_char = str(alphabet.unk)
+
+    prefix = text[: match.start()]
+    suffix = text[match.end() :]
+
+    # Uniforma tutte le altre lacune secondarie presenti nel contesto a carattere UNK di Ithaca ('^')
+    # evitando che '<' di <UNK> venga scambiato per SOS o che i punti vengano trattati come punteggiatura
+    def _clean_secondary_gaps(s: str) -> str:
+        s = re.sub(r"<[^>]+>", unk_char, s)
+        s = re.sub(r"\[(\.+|\-+)\]", lambda m: unk_char * len(m.group(1)), s)
+        s = re.sub(r"(?<!\.)\.{2,}(?!\.)", lambda m: unk_char * len(m.group(0)), s)
+        s = re.sub(r"\-+", lambda m: unk_char * len(m.group(0)), s)
+        return s
+
+    prefix_clean = _clean_secondary_gaps(prefix)
+    suffix_clean = _clean_secondary_gaps(suffix)
+
+    # Sostituiamo la sola lacuna target con trattini puri per la tokenizzazione interna di Ithaca
+    text_with_hyphens = prefix_clean + ("-" * gap_len) + suffix_clean
 
     # 2. Normalizzazione testo (minuscolo, senza diacritici, conforme a GreekAlphabet)
     clean_text = normalize_greek(
         text_with_hyphens, case_folding="lower", strip_diacritics_flag=True
     )
-
-    # 3. Caricamento modello e vocabolario
-    _, params, alphabet, config, forward_fn = get_or_load_ithaca(checkpoint)
-    max_len = int(config.get("max_len", 768))
 
     char2idx = getattr(alphabet, "char2idx", None) or {
         c: i for i, c in enumerate(alphabet.idx2char)
@@ -348,3 +396,159 @@ def fill_mask_ithaca(
     if is_input_upper:
         return [(cand.upper(), score) for cand, score in suggestions]
     return suggestions
+
+
+def get_ithaca_contextual_embeddings(
+    text_with_gap: str,
+    candidates: list[str],
+    checkpoint: str = "checkpoints/ithaca/checkpoint_tlg.pkl",
+    params_override: Any | None = None,
+    alphabet_override: Any | None = None,
+    config_override: dict | None = None,
+    torso_fn_override: Any | None = None,
+) -> list["torch.Tensor"]:
+    """
+    Estrae gli embedding contestuali 1D (dim=512, mediati sulle posizioni dei caratteri
+    della lacuna) dal torso del modello BigBird di Ithaca (`output_return_emb=True`)
+    per ciascun candidato inserito nel contesto.
+
+    Restituisce una lista di `torch.Tensor` di forma `[emb_dim]` compatibile con
+    `evaluate_contextual_similarity` e `check_gold_in_dense_cluster`.
+    """
+    import torch
+
+    if not candidates:
+        return []
+
+    match = re.search(r"\[(\.+|\-+)\]", text_with_gap)
+    if not match:
+        match = re.search(r"(\-{1,})", text_with_gap)
+    if not match:
+        raise ValueError("Il testo non contiene alcuna lacuna valida nel formato [...] o [---]")
+
+    if (
+        params_override is not None
+        and alphabet_override is not None
+        and config_override is not None
+        and torso_fn_override is not None
+    ):
+        params = params_override
+        alphabet = alphabet_override
+        config = config_override
+        torso_fn = torso_fn_override
+    else:
+        _, loaded_params, loaded_alphabet, loaded_config, _ = get_or_load_ithaca(checkpoint)
+        params = params_override if params_override is not None else loaded_params
+        alphabet = alphabet_override if alphabet_override is not None else loaded_alphabet
+        config = config_override if config_override is not None else loaded_config
+        torso_fn = torso_fn_override
+
+    if torso_fn is None:
+        cache_key = f"__torso_fn__::{checkpoint}::{config.get('max_len', 768)}"
+        if cache_key in _LOADED_MODELS:
+            torso_fn = _LOADED_MODELS[cache_key]
+        else:
+            import jax
+
+            try:
+                from ithaca.models.model import Model
+            except ImportError:
+                sys.path.insert(0, "packages/ithaca_engine")
+                from ithaca.models.model import Model
+
+            emb_config = dict(config)
+            emb_config["output_return_emb"] = True
+            emb_model = Model(**emb_config)
+
+            @jax.jit
+            def _extract_torso(p, text_char, text_word):
+                variables = p if (isinstance(p, dict) and "params" in p) else {"params": p}
+                _, torso_out = emb_model.apply(
+                    variables,
+                    text_char=text_char,
+                    text_word=text_word,
+                    is_training=False,
+                )
+                return torso_out
+
+            torso_fn = _extract_torso
+            _LOADED_MODELS[cache_key] = torso_fn
+
+    max_len = int(config.get("max_len", 768))
+    unk_char = str(alphabet.unk)
+
+    prefix = text_with_gap[: match.start()]
+    suffix = text_with_gap[match.end() :]
+
+    def _clean_secondary_gaps(s: str) -> str:
+        s = re.sub(r"<[^>]+>", unk_char, s)
+        s = re.sub(r"\[(\.+|\-+)\]", lambda m: unk_char * len(m.group(1)), s)
+        s = re.sub(r"(?<!\.)\.{2,}(?!\.)", lambda m: unk_char * len(m.group(0)), s)
+        s = re.sub(r"\-+", lambda m: unk_char * len(m.group(0)), s)
+        return s
+
+    prefix_norm = normalize_greek(
+        _clean_secondary_gaps(prefix), case_folding="lower", strip_diacritics_flag=True
+    )
+    suffix_norm = normalize_greek(
+        _clean_secondary_gaps(suffix), case_folding="lower", strip_diacritics_flag=True
+    )
+
+    char2idx = getattr(alphabet, "char2idx", None) or {
+        c: i for i, c in enumerate(alphabet.idx2char)
+    }
+    word2idx = getattr(alphabet, "word2idx", None) or {
+        w: i for i, w in enumerate(alphabet.idx2word)
+    }
+    pad_char_id = char2idx.get(alphabet.pad, 0)
+    unk_char_id = char2idx.get(alphabet.unk, 1)
+    unk_word_id = word2idx.get(alphabet.unk, 1)
+
+    num_cands = len(candidates)
+    batch_char = np.full((num_cands, max_len), pad_char_id, dtype=np.int32)
+    batch_word = np.full((num_cands, max_len), unk_word_id, dtype=np.int32)
+    span_ranges: list[tuple[int, int]] = []
+
+    for b_idx, cand in enumerate(candidates):
+        cand_norm = normalize_greek(
+            str(cand), case_folding="lower", strip_diacritics_flag=True
+        ).strip()
+        if not cand_norm:
+            cand_norm = unk_char
+
+        full_clean = prefix_norm + cand_norm + suffix_norm
+        text_with_sos = str(alphabet.sos) + full_clean
+        text_padded = (
+            text_with_sos + str(alphabet.pad) * max(0, max_len - len(text_with_sos))
+        )[:max_len]
+
+        # Posizioni del candidato (offset +1 per SOS)
+        span_start = min(1 + len(prefix_norm), max_len - 1)
+        span_end = min(span_start + max(len(cand_norm), 1), max_len)
+        span_ranges.append((span_start, span_end))
+
+        for i, c in enumerate(text_padded):
+            batch_char[b_idx, i] = char2idx.get(c, unk_char_id)
+
+        for m in re.finditer(r"\w+", text_padded):
+            w_str = m.group()
+            if w_str in word2idx:
+                batch_word[b_idx, m.start() : m.end()] = word2idx[w_str]
+
+    import jax.numpy as jnp
+
+    torso_embeddings = np.array(
+        torso_fn(params, jnp.array(batch_char), jnp.array(batch_word)),
+        dtype=np.float32,
+    )
+
+    pooled_tensors: list[torch.Tensor] = []
+    for b_idx, (s_start, s_end) in enumerate(span_ranges):
+        if s_end > s_start:
+            span_vec = torso_embeddings[b_idx, s_start:s_end, :].mean(axis=0)
+        else:
+            span_vec = torso_embeddings[b_idx, s_start, :]
+        pooled_tensors.append(torch.from_numpy(span_vec))
+
+    return pooled_tensors
+

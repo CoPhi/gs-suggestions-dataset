@@ -26,9 +26,11 @@ def build_model_card(
     base_model: str = "deepmind/ithaca",
     dataset_name: str = "CNR-ILC/gs-dataset-tlg-uncased",
     eval_json_path: str | None = None,
+    hyperparameters: dict | None = None,
 ) -> str:
-    """Genera il contenuto Markdown della Model Card con metadati YAML e benchmark."""
+    """Genera il contenuto Markdown della Model Card con metadati YAML, iperparametri e benchmark."""
     table_md = ""
+    eval_data: dict = {}
     if eval_json_path and os.path.exists(eval_json_path):
         try:
             with open(eval_json_path, "r", encoding="utf-8") as f:
@@ -36,6 +38,8 @@ def build_model_card(
             table_md = eval_data.get("markdown_table", "")
         except Exception:
             pass
+
+    hp = hyperparameters or eval_data.get("hyperparameters") or {}
 
     card = f"""---
 language:
@@ -62,16 +66,24 @@ Mentre il modello Ithaca originale è stato addestrato esclusivamente su iscrizi
 ## Caratteristiche Principali
 - **Architettura Character-Level**: modella il testo a livello di singoli caratteri anziché subword (BPE/WordPiece), eliminando il problema del disallineamento morfologico nelle terminazioni flessive (desinenze).
 - **Transformer BigBird**: attenzione sparsa con supporto a finestre di contesto lunghe (fino a 768 caratteri).
-- **Freezing delle teste di attribuzione**: durante il fine-tuning i rami di attribuzione geografica e temporale sono stati congelati, focalizzando i gradienti esclusivamente sul restauro testuale (*masked character prediction*).
+- **Freezing Selettivo**: durante il fine-tuning i rami di attribuzione geografica e temporale (e i blocchi iniziali dell'encoder selezionati tramite NSGA-II) sono stati congelati, focalizzando i gradienti sul restauro testuale (*masked character prediction*).
 - **Decodifica con HCB Beam Search**: impiega la correzione pseudo-likelihood HCB (*Hammersley-Clifford-Besag Infilling*) con strategia non-sequenziale Best-to-Worst, garantendo coerenza statistica e allineamento metodologico con i modelli BERT del framework.
 
 ## Dettagli di Addestramento
 - **Base Model:** `{base_model}`
 - **Corpus di Fine-Tuning:** `{dataset_name}`
 - **Framework:** JAX / Flax Linen / Optax
+- **Ottimizzazione Iperparametri:** Multi-Objective Genetic Algorithm **NSGA-II** (Optuna)
 - **Convenzione lacune:** Formato Leiden standard `[...]` o trattini `----` (testo normalizzato privo di accenti e spiriti).
 
 """
+    if hp:
+        card += "## Iperparametri Ottimali (Frontiera di Pareto NSGA-II)\n\n"
+        card += "| Iperparametro | Valore |\n|:---|:---:|\n"
+        for k, v in sorted(hp.items()):
+            card += f"| `{k}` | `{v}` |\n"
+        card += "\n"
+
     if table_md:
         card += f"""## Risultati di Valutazione Comparativa (Pre-FT vs Post-FT)
 
@@ -121,6 +133,75 @@ Se utilizzi questo modello nei tuoi studi di papirologia o filologia classica, c
     return card
 
 
+def publish_ithaca_to_hub(
+    repo_id: str = "CNR-ILC/gs-ithaca-tlg",
+    checkpoint_path: str = "checkpoints/ithaca/checkpoint_tlg.pkl",
+    config_path: str = "checkpoints/ithaca/config.json",
+    eval_json_path: str = "eval/results/eval_results_ithaca_comparison.json",
+    hyperparameters: dict | None = None,
+    private: bool = False,
+) -> bool:
+    """
+    Carica su Hugging Face Hub il checkpoint fine-tunato di Ithaca (`checkpoint_tlg.pkl`),
+    la configurazione (`config.json`) e la Model Card aggiornata (`README.md`).
+    """
+    token = os.getenv("HF_TOKEN")
+    if not token:
+        print(
+            "[HuggingFace Hub] AVVISO: Variabile d'ambiente HF_TOKEN non impostata. "
+            "Salto il caricamento automatico su Hugging Face Hub."
+        )
+        return False
+
+    api = HfApi(token=token)
+
+    print(f"\nVerifica/Creazione repository Hugging Face Hub: '{repo_id}'...")
+    create_repo(
+        repo_id=repo_id,
+        repo_type="model",
+        token=token,
+        private=private,
+        exist_ok=True,
+    )
+
+    if os.path.exists(checkpoint_path):
+        print(f"Caricamento {checkpoint_path} -> checkpoint_tlg.pkl...")
+        api.upload_file(
+            path_or_fileobj=checkpoint_path,
+            path_in_repo="checkpoint_tlg.pkl",
+            repo_id=repo_id,
+            repo_type="model",
+        )
+    else:
+        print(f"AVVISO: File checkpoint {checkpoint_path} non trovato!")
+
+    if os.path.exists(config_path):
+        print(f"Caricamento {config_path} -> config.json...")
+        api.upload_file(
+            path_or_fileobj=config_path,
+            path_in_repo="config.json",
+            repo_id=repo_id,
+            repo_type="model",
+        )
+
+    print("Generazione e caricamento Model Card (README.md)...")
+    readme_content = build_model_card(
+        repo_id=repo_id,
+        eval_json_path=eval_json_path,
+        hyperparameters=hyperparameters,
+    )
+    api.upload_file(
+        path_or_fileobj=readme_content.encode("utf-8"),
+        path_in_repo="README.md",
+        repo_id=repo_id,
+        repo_type="model",
+    )
+
+    print(f"\nModello Ithaca pubblicato con successo su Hugging Face Hub!")
+    print(f"URL: https://huggingface.co/{repo_id}")
+    return True
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Pubblica il modello Ithaca fine-tunato su Hugging Face Hub"
@@ -156,60 +237,17 @@ def main():
     )
     args = parser.parse_args()
 
-    token = os.getenv("HF_TOKEN")
-    if not token:
-        print("ERRORE: Variabile d'ambiente HF_TOKEN non trovata nel file .env.")
-        sys.exit(1)
-
-    api = HfApi(token=token)
-
-    print(f"Verifica/Creazione repository Hugging Face Hub: '{args.repo_id}'...")
-    create_repo(
+    success = publish_ithaca_to_hub(
         repo_id=args.repo_id,
-        repo_type="model",
-        token=token,
-        private=args.private,
-        exist_ok=True,
-    )
-
-    # 1. Carica il Checkpoint
-    if os.path.exists(args.checkpoint_path):
-        print(f"Caricamento {args.checkpoint_path} -> checkpoint_tlg.pkl...")
-        api.upload_file(
-            path_or_fileobj=args.checkpoint_path,
-            path_in_repo="checkpoint_tlg.pkl",
-            repo_id=args.repo_id,
-            repo_type="model",
-        )
-    else:
-        print(f"AVVISO: File checkpoint {args.checkpoint_path} non trovato!")
-
-    # 2. Carica il Config
-    if os.path.exists(args.config_path):
-        print(f"Caricamento {args.config_path} -> config.json...")
-        api.upload_file(
-            path_or_fileobj=args.config_path,
-            path_in_repo="config.json",
-            repo_id=args.repo_id,
-            repo_type="model",
-        )
-
-    # 3. Genera e carica la Model Card (README.md)
-    print("Generazione Model Card (README.md)...")
-    readme_content = build_model_card(
-        repo_id=args.repo_id,
+        checkpoint_path=args.checkpoint_path,
+        config_path=args.config_path,
         eval_json_path=args.eval_json,
+        private=args.private,
     )
-    api.upload_file(
-        path_or_fileobj=readme_content.encode("utf-8"),
-        path_in_repo="README.md",
-        repo_id=args.repo_id,
-        repo_type="model",
-    )
-
-    print(f"\nModello pubblicato con successo su Hugging Face Hub!")
-    print(f"URL: https://huggingface.co/{args.repo_id}")
+    if not success:
+        sys.exit(1)
 
 
 if __name__ == "__main__":
     main()
+

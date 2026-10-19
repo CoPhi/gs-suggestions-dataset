@@ -21,6 +21,7 @@ uv.lock
 .idea/
 .vscode/
 *.pkl
+*.pkl.zlib
 .pytest_cache/
 
 # Dati pesanti pre-elaborati
@@ -34,3 +35,4 @@ wandb/
 # Scratch files
 scratch/
 requirements.txt
+packages/ithaca_engine/

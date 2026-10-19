@@ -6,10 +6,18 @@ di attribuzione (data e luogo) e salvataggio dei pesi fine-tunati.
 from __future__ import annotations
 
 import os
+import sys
 import pickle
 import urllib.request
 from pathlib import Path
 from typing import Any
+
+# Assicura inclusione del motore Ithaca se presente in packages/ithaca_engine
+ithaca_engine_path = os.path.abspath(
+    os.path.join(os.path.dirname(__file__), "../../../packages/ithaca_engine")
+)
+if os.path.isdir(ithaca_engine_path) and ithaca_engine_path not in sys.path:
+    sys.path.insert(0, ithaca_engine_path)
 
 import jax
 import optax
@@ -159,39 +167,92 @@ def create_optimizer_with_freezing(
     warmup_steps: int = 500,
     total_steps: int = 10000,
     weight_decay: float = 1e-4,
+    lr_scheduler_type: str = "cosine",
+    num_layers_to_freeze: int = 0,
     freeze_attribution_heads: bool = True,
     params: Any | None = None,
 ) -> optax.GradientTransformation:
     """
-    Crea un ottimizzatore Optax (AdamW con cosine decay e warmup).
-    Se freeze_attribution_heads=True, azzera completamente i gradienti per i layer
-    di classificazione geografica (output_subregions) e datazione (output_date),
-    concentrando l'intero gradiente sul Transformer torso e sulla testa di restauro (output_char).
+    Crea un ottimizzatore Optax (AdamW con decay cosine o linear e warmup).
+    - Se freeze_attribution_heads=True, azzera i gradienti per le teste di attribuzione
+      geografica (output_subregions) e temporale (output_date) + NSP (mlpblock_1).
+    - Se num_layers_to_freeze > 0, congela anche gli embedding iniziali e i primi N
+      blocchi dell'encoder BigBird (encoderblock_0 .. encoderblock_{N-1}).
     """
-    schedule = optax.warmup_cosine_decay_schedule(
-        init_value=0.0,
-        peak_value=learning_rate,
-        warmup_steps=warmup_steps,
-        decay_steps=total_steps,
-        end_value=1e-7,
-    )
+    safe_total_steps = max(int(total_steps), 2)
+    safe_warmup_steps = min(max(int(warmup_steps), 0), safe_total_steps - 1)
+
+    if lr_scheduler_type == "linear":
+        warmup_fn = optax.linear_schedule(
+            init_value=0.0,
+            end_value=learning_rate,
+            transition_steps=max(safe_warmup_steps, 1),
+        )
+        decay_fn = optax.linear_schedule(
+            init_value=learning_rate,
+            end_value=1e-7,
+            transition_steps=max(safe_total_steps - safe_warmup_steps, 1),
+        )
+        if safe_warmup_steps > 0:
+            schedule = optax.join_schedules(
+                schedules=[warmup_fn, decay_fn],
+                boundaries=[safe_warmup_steps],
+            )
+        else:
+            schedule = decay_fn
+    else:
+        schedule = optax.warmup_cosine_decay_schedule(
+            init_value=0.0,
+            peak_value=learning_rate,
+            warmup_steps=safe_warmup_steps,
+            decay_steps=safe_total_steps,
+            end_value=1e-7,
+        )
+
     adamw = optax.adamw(learning_rate=schedule, weight_decay=weight_decay)
 
-    if not freeze_attribution_heads:
+    if not freeze_attribution_heads and num_layers_to_freeze <= 0:
         return adamw
+
+    frozen_encoder_blocks = {
+        f"encoderblock_{i}" for i in range(max(0, int(num_layers_to_freeze)))
+    }
 
     def _get_labels(p):
         def _label_leaf(path, _):
-            path_str = "/".join(
-                str(getattr(k, "key", k)) for k in path
-            ).lower()
-            # Blocchiamo esplicitamente le teste di attribuzione data e regione
-            if any(head in path_str for head in [
-                "output_date", "output_subregions", "date_mlp", "region_mlp",
-                "mlpblock_2", "mlpblock_3", "dense_2", "dense_3"
-            ]):
+            path_parts = [str(getattr(k, "key", k)).lower() for k in path]
+            path_str = "/".join(path_parts)
+
+            # 1. Congelamento teste di attribuzione (data, regione e NSP)
+            if freeze_attribution_heads and any(
+                head in path_str
+                for head in [
+                    "output_date",
+                    "output_subregions",
+                    "date_mlp",
+                    "region_mlp",
+                    "mlpblock_1",
+                    "mlpblock_2",
+                    "mlpblock_3",
+                    "dense_1",
+                    "dense_2",
+                    "dense_3",
+                ]
+            ):
                 return "frozen"
+
+            # 2. Congelamento selettivo dei primi N blocchi BigBird e degli embedding iniziali
+            if num_layers_to_freeze > 0:
+                if any(
+                    emb in path_str
+                    for emb in ["char_embeddings", "word_embeddings", "posembed_input"]
+                ):
+                    return "frozen"
+                if any(blk in path_parts for blk in frozen_encoder_blocks):
+                    return "frozen"
+
             return "trainable"
+
         return jax.tree_util.tree_map_with_path(_label_leaf, p)
 
     param_labels = _get_labels(params) if params is not None else _get_labels
