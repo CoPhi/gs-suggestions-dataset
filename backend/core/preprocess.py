@@ -593,19 +593,19 @@ def get_head_supplement(
 ) -> Optional[str]:
     """
     Restituisce la sottostringa che precede la lacuna, identificata con `[...]`, e che segue lo spazio o l'inizio della frase.
+    Ritorna None se prima della lacuna è presente uno spazio (lacuna inter-parola).
     """
     match = SUPPLEMENTS_REGEX.search(text_case)
     if match:
         end = match.start()
+        if end == 0 or text_case[end - 1] in (" ", "\n"):
+            return None
         start = end - 1
-        while start > 0 and text_case[start] not in (" ", "\n"):
+        while start > 0 and text_case[start - 1] not in (" ", "\n"):
             start -= 1
         substring = text_case[start:end]
-        return (
-            remove_punctuation(transpile(substring, case_folding=case_folding).strip())
-            if not contains_lacunae(substring)
-            else None
-        )
+        res = remove_punctuation(transpile(substring, case_folding=case_folding).strip())
+        return res if res and not contains_lacunae(substring) else None
     return None
 
 
@@ -614,19 +614,19 @@ def get_tail_supplement(
 ) -> Optional[str]:
     """
     Restituisce la sottostringa che segue la lacuna, identificata con `[...]`, e che precede lo spazio o la fine della frase.
+    Ritorna None se dopo la lacuna è presente uno spazio (lacuna inter-parola).
     """
     match = SUPPLEMENTS_REGEX.search(text_case)
     if match:
         start = match.end()
+        if start >= len(text_case) or text_case[start] in (" ", "\n"):
+            return None
         end = start + 1
         while end < len(text_case) and text_case[end] not in (" ", "\n"):
             end += 1
         substring = text_case[start:end]
-        return (
-            remove_punctuation(transpile(substring, case_folding=case_folding).strip())
-            if not contains_lacunae(substring)
-            else None
-        )
+        res = remove_punctuation(transpile(substring, case_folding=case_folding).strip())
+        return res if res and not contains_lacunae(substring) else None
     return None
 
 
@@ -923,12 +923,14 @@ def clean_tokens(
 def test_case_contains_lacuna(test_case: str) -> Optional[str]:
     """
     Verifica se un caso di test contiene lacune, identificate da pattern specifici come `[...]`.
+    Restituisce la prima lacuna individuata (target) se presente almeno una, altrimenti None.
 
     Args:
         test_case (str): Il caso di test da verificare.
 
     Returns:
-        bool: True se il caso di test contiene lacune, False altrimenti.
+        Optional[str]: La prima lacuna trovata se presente, altrimenti None.
     """
     matches = SUPPLEMENTS_REGEX.findall(test_case)
-    return matches[0] if len(matches) == 1 else None
+    return matches[0] if len(matches) >= 1 else None
+

@@ -9,6 +9,7 @@ from backend.core.preprocess import (
     remove_punctuation,
     filter_dash,
     process_editorial_marks,
+    test_case_contains_lacuna as check_contains_lacuna,
 )
 from backend.core import UNK_TOKEN, GAP_TOKEN
 
@@ -78,7 +79,7 @@ def test_process_editorial_marks():
     # Missing lines
     assert process_editorial_marks("abc⟦---⟧def") == "abcdef"
     # Parentheses
-    assert process_editorial_marks("a(bc)") == "abc"
+    assert process_editorial_marks("α(βγ)") == "αβγ"
     # Markers
     #assert process_editorial_marks("a<bc>d") == "abcd"
     assert process_editorial_marks("a&lt;bc&gt;d") == "abcd"
@@ -90,3 +91,10 @@ def test_process_editorial_marks():
     assert process_editorial_marks("x_y") == "xy"
     # Notes
     assert process_editorial_marks("abc‡123") == "abc"
+
+def test_test_case_contains_lacuna():
+    assert check_contains_lacuna("testo senza lacuna") is None
+    assert check_contains_lacuna("testo con [....] singola") == "[....]"
+    assert check_contains_lacuna("testo con [..] prima e [....] seconda") == "[..]"
+    assert check_contains_lacuna("testo con [---] prima e [....] seconda") == "[---]"
+

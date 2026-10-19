@@ -720,13 +720,13 @@ def get_context_from_test_case(
         - ``lacuna_len``: numero di punti nella lacuna (stima dei caratteri mancanti).
 
     Raises:
-        ValueError: Se il test case non contiene esattamente una lacuna.
+        ValueError: Se il test case non contiene almeno una lacuna.
     """
     match = test_case_contains_lacuna(test_case)
     if not match:
         raise ValueError(
             "Il test case non contiene una lacuna. "
-            "Assicurati che sia presente esattamente una sequenza `[...]`."
+            "Assicurati che sia presente almeno una sequenza `[...]`."
         )
 
     # Testo a sinistra della `[` — rimuove tutto ciò che precede la `[` stessa

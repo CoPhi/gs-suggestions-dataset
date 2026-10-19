@@ -119,19 +119,24 @@ def get_contextual_embeddings(
     if config.get("remove_punct"):
         text_with_gap = remove_punctuation(text_with_gap, preserve_lacunae=True)
 
-    # Troviamo l'indice di inizio e fine della lacuna nella stringa testuale originale
-    gap_match = re.search(r"\[\.+\]", text_with_gap)
+    # Troviamo l'indice di inizio e fine della prima lacuna target
+    gap_match = re.search(r"\[(\.+|\-+)\]", text_with_gap)
     if not gap_match:
         return [torch.zeros(model.config.hidden_size).to(device) for _ in candidates]
 
-    gap_start_char = gap_match.start()
-    gap_original_end = gap_match.end()
+    # Normalizza le altre lacune secondarie a unk_token per coerenza
+    unk_tkn = tokenizer.unk_token or UNK_TOKEN
+    prefix = text_with_gap[: gap_match.start()]
+    suffix = text_with_gap[gap_match.end() :]
+    prefix = re.sub(r"\[(\.+|\-+)\]", f" {unk_tkn} ", prefix)
+    prefix = re.sub(r"(?<!\.)\.{2,}(?!\.)", f" {unk_tkn} ", prefix)
+    suffix = re.sub(r"\[(\.+|\-+)\]", f" {unk_tkn} ", suffix)
+    suffix = re.sub(r"(?<!\.)\.{2,}(?!\.)", f" {unk_tkn} ", suffix)
+    gap_start_char = len(prefix)
 
     completed_texts = []
     for cand in candidates:
-        completed_text = (
-            text_with_gap[:gap_start_char] + cand + text_with_gap[gap_original_end:]
-        )
+        completed_text = prefix + cand + suffix
         completed_texts.append(completed_text)
 
     if tokenizer.pad_token is None:
@@ -264,6 +269,13 @@ def fill_mask(
         except ValueError as e:
             print(f"{e}")
 
+    # Normalizza eventuali sequenze di puntini sciolti fuori dalle quadre a UNK_TOKEN
+    parts = re.split(r"(\[.*?\])", text)
+    text = "".join(
+        re.sub(r"\.{2,}", f" {UNK_TOKEN} ", part) if i % 2 == 0 else part
+        for i, part in enumerate(parts)
+    )
+
     if tokenizer.unk_token:
         text = text.replace(UNK_TOKEN, tokenizer.unk_token)
 
@@ -278,7 +290,7 @@ def fill_mask(
         text = remove_punctuation(text, preserve_lacunae=True)
 
     if n_chars is None:
-        match = re.search(r"\[(\.+)\]", text)
+        match = re.search(r"\[(\.+|\-+)\]", text)
         if match:
             extracted_len = len(match.group(1))
             min_chars = max(1, extracted_len - char_tolerance)
@@ -295,24 +307,27 @@ def fill_mask(
         max_chars = int(n_chars) + char_tolerance
         center_chars = int(n_chars)
 
-    # Rilevamento parola parziale: controlliamo se c'è un carattere alfabetico attaccato alla lacuna
-    # (es. "φ[..]ερώτερον" oppure "[.....]ας") prima di sostituire la lacuna.
-    is_partial = bool(re.search(r"[^\W\d_]\[\.+\]|\[\.+\][^\W\d_]", text))
+    # Rilevamento parola parziale attorno alla lacuna target
+    is_partial = bool(re.search(r"[^\W\d_]\[(\.+|\-+)\]|\[(\.+|\-+)\][^\W\d_]", text))
 
     word_prefix = ""
     word_suffix = ""
     if use_vocab_filter and not return_raw:
-        # Trova il prefisso e suffisso alfabetico attorno alla lacuna per ricostruire la parola
-        match_word = re.search(r"([^\W\d_]*)\[\.+\]([^\W\d_]*)", text)
+        match_word = re.search(r"([^\W\d_]*)\[(\.+|\-+)\]([^\W\d_]*)", text)
         if match_word:
             word_prefix = match_word.group(1)
-            word_suffix = match_word.group(2)
-        
+            word_suffix = match_word.group(3)
         vocab = get_normalized_vocab(vocab_path)
         if not vocab:
             use_vocab_filter = False
 
-    text = re.sub(r"\[\.+\]", GAP_TOKEN, text, count=1)
+    # Sostituiamo la sola lacuna target con GAP_TOKEN
+    text = re.sub(r"\[(\.+|\-+)\]", GAP_TOKEN, text, count=1)
+
+    # Uniforma tutte le altre lacune secondarie presenti nel contesto a unk_token
+    unk_tkn = tokenizer.unk_token or UNK_TOKEN
+    text = re.sub(r"\[(\.+|\-+)\]", f" {unk_tkn} ", text)
+    text = re.sub(r"\.{2,}", f" {unk_tkn} ", text)
 
     k_min, _, _ = estimate_mask_range(
         min_chars, tokenizer, is_partial_word=is_partial
