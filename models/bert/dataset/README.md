@@ -19,7 +19,7 @@ I dataset gestiti si dividono in due categorie concettuali ben distinte:
 
 | Target CLI | Checkpoint su HF Hub | Tipo | Fonti dei Dati | Split | Note Principali |
 |:---|:---|:---|:---|:---|:---|
-| **`herc`** | `CNR-ILC/gs-dataset-herc` | Valutazione | MAAT (P.Herc.) + `test_abs.json` (PHerc. 1004) | `dev`, `test` | **Benchmark Ercolano**: `test` controllato da filologi, `dev` da MAAT P.Herc. |
+| **`herc`** | `CNR-ILC/gs-dataset-herc` | Valutazione | MAAT (P.Herc.) + `test_abs.json` (PHerc. 1004) | `test` | **Benchmark Ercolano**: unico split `test` con tutti i testi P.Herc. (MAAT + casi controllati) |
 | **`eval`** | `CNR-ILC/gs-dataset-eval` | Valutazione | MAAT P.Herc (quota dev) + `test_abs.json` | `dev`, `test` | Benchmark di valutazione generale |
 | **`train`** | `CNR-ILC/gs-dataset-train` | Pre-training | Corpus MAAT (DDbDP, DCLP, EDH) | `train`, `dev` | Testo grezzo model-agnostic suddiviso per frasi |
 | **`tlg`** | `CNR-ILC/gs-dataset-tlg-uncased`<br>`CNR-ILC/gs-dataset-tlg-cased` | Pre-training | Corpus TLG (Thesaurus Linguae Graecae) | `train` | Variante con casing preservato e variante uppercase |

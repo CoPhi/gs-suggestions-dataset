@@ -90,8 +90,7 @@ Ogni esempio contiene:
 
 | Split | Contenuto |
 |-------|-----------|
-| `dev`  | Casi reali estratti sistematicamente dai blocchi MAAT appartenenti a papiri di Ercolano (`P.Herc.`) |
-| `test` | Casi di test controllati e inediti annotati da filologi esperti (es. PHerc. 1004) |
+| `test` | Unico split di valutazione contenente tutti i casi estratti dai blocchi MAAT appartenenti ai Papiri di Ercolano (`P.Herc.`) uniti ai casi controllati e annotati da filologi esperti (es. PHerc. 1004) |
 """
 
 __all__ = [

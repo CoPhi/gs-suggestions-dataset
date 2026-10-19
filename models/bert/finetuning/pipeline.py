@@ -301,8 +301,27 @@ def prepare_data(
     if eval_dataset_name:
         print(f"Loading eval set from '{eval_dataset_name}'...")
         eval_dataset = load_dataset(eval_dataset_name)
-        dev_cases = _load_eval_split(eval_dataset, "dev")
-        test_cases = {"default": _load_eval_split(eval_dataset, "test")}
+        if "dev" in eval_dataset:
+            dev_cases = _load_eval_split(eval_dataset, "dev")
+        else:
+            print(
+                f"[{eval_dataset_name}] non contiene lo split 'dev'. "
+                "Generazione casi di validazione sintetici da corpus_dataset['dev']..."
+            )
+            n_per_policy_dev = max(1, n_dev // 3)
+            dev_cases = (
+                generate_synthetic_cases(
+                    corpus_dataset["dev"], n=n_per_policy_dev, max_gap=6, policy="default"
+                )
+                + generate_synthetic_cases(
+                    corpus_dataset["dev"], n=n_per_policy_dev, max_gap=6, policy="word"
+                )
+                + generate_synthetic_cases(
+                    corpus_dataset["dev"], n=n_per_policy_dev, max_gap=6, policy="suffix"
+                )
+            )
+        test_split_name = "test" if "test" in eval_dataset else next(iter(eval_dataset.keys()))
+        test_cases = {"default": _load_eval_split(eval_dataset, test_split_name)}
     else:
         print(
             "eval_dataset_name non fornito, genero casi sintetici da 'dev' e 'test' set (stratificazione 2D: default, word, suffix)..."

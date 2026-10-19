@@ -206,8 +206,11 @@ def build_herc_eval_dataset(
 ) -> tuple[DatasetDict, str, str]:
     """
     Costruisce il benchmark di valutazione dedicato ai Papiri di Ercolano (gs-dataset-herc):
-    - Split 'dev': casi reali estratti da tutti i blocchi MAAT con "P.Herc." nel titolo
-    - Split 'test': casi controllati e verificati da esperti filologi (da test_abs.json / test_abs.csv)
+    - Split 'test': unico split contenente tutti i casi reali estratti dai blocchi MAAT con
+      "P.Herc." nel titolo uniti ai casi controllati e verificati da esperti filologi
+      (da test_abs.json / test_abs.csv). Non viene generato alcuno split 'dev' poiché
+      questi testi sono impiegati esclusivamente per la valutazione finale e non per
+      la sintonizzazione degli iperparametri.
     """
     print("\n--- Costruzione Dataset: Benchmark Papiri di Ercolano (gs-dataset-herc) ---")
     print("1. Caricamento blocchi anonimi da data/...")
@@ -217,18 +220,19 @@ def build_herc_eval_dataset(
     herc_abs = load_specific_domain_abs(all_abs, domain_title="P.Herc.")
     print(f"   Trovati {len(herc_abs)} blocchi anonimi appartenenti a P.Herc.")
 
-    print(f"3. Estrazione DevCase per split 'dev' (gap_length: {min_gap}-{max_gap or 'inf'})...")
-    dev_cases = build_dev_set(herc_abs, min_gap_length=min_gap, max_gap_length=max_gap)
-    print(f"   Generati {len(dev_cases)} casi di sviluppo da MAAT P.Herc.")
+    print(f"3. Estrazione casi da MAAT P.Herc. (gap_length: {min_gap}-{max_gap or 'inf'})...")
+    herc_cases = build_dev_set(herc_abs, min_gap_length=min_gap, max_gap_length=max_gap)
+    print(f"   Generati {len(herc_cases)} casi da MAAT P.Herc.")
 
-    print("4. Caricamento casi controllati per split 'test' (test_abs.json)...")
+    print("4. Caricamento casi controllati da test_abs.json...")
     test_abs = load_or_generate_test_abs()
-    test_cases = build_dev_set(test_abs, min_gap_length=min_gap, max_gap_length=max_gap) if test_abs else []
-    print(f"   Generati {len(test_cases)} casi di test controllati.")
+    controlled_cases = build_dev_set(test_abs, min_gap_length=min_gap, max_gap_length=max_gap) if test_abs else []
+    print(f"   Generati {len(controlled_cases)} casi controllati.")
 
-    splits: dict[str, Dataset] = {"dev": dev_set_to_hf_dataset(dev_cases)}
-    if test_cases:
-        splits["test"] = dev_set_to_hf_dataset(test_cases)
+    all_test_cases = herc_cases + controlled_cases
+    print(f"5. Unione nello split unico 'test': {len(all_test_cases)} casi totali.")
+
+    splits: dict[str, Dataset] = {"test": dev_set_to_hf_dataset(all_test_cases)}
 
     return DatasetDict(splits), HERC_CHECKPOINT, _HERC_DESCRIPTION
 
