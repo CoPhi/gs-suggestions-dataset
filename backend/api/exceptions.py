@@ -9,3 +9,6 @@ class InvalidContextError(GreekSchoolsError):
 
 class ModelAlreadyExistsError(GreekSchoolsError):
     """Sollevata quando si tenta di creare un modello già presente in MongoDB."""
+
+class DatasetNotFoundError(GreekSchoolsError):
+    """Dataset di training non disponibile per addestrare modelli personalizzati."""

@@ -20,7 +20,5 @@ COPY models/ ./models/
 
 ENV PATH="/app/.venv/bin:$PATH"
 
-# docker run -v ./data:/app/data gabrielegiannessi/gs-api:latest
-VOLUME ["/app/data"]
-
 CMD ["uv", "run", "uvicorn", "backend.api.main:app", "--host", "0.0.0.0", "--port", "8000"]
+

@@ -79,11 +79,12 @@ def pipeline_train(
     n=N,
     corpus_set=None,
     budget: Optional[int] = None,
+    train_abs: Optional[list] = None,
 ) -> tuple:
     """
     Esegue il processo di addestramento del modello linguistico a n-grammi.
     Questa funzione segue i seguenti passaggi:
-    1. Carica i dati dagli anonymous blocks specificati.
+    1. Carica i dati dagli anonymous blocks specificati (se non pre-caricati).
     2. Filtra i dati per dominio specifico.
     3. Suddivide i dati di dominio in set di addestramento e validazione (dev).
     4. Addestra due modelli linguistici:
@@ -97,11 +98,13 @@ def pipeline_train(
          n (int): Ordine del modello n-gram.
          corpus_set (iterable, opzionale): Insieme dei dati di partenza.
          budget (int, opzionale): Numero massimo di elementi da utilizzare.
+         train_abs (list, opzionale): Blocchi di testo anonimi pre-caricati.
          tuple: Una tupla contenente il modello linguistico generale (g_lm),
                   il modello linguistico di dominio (d_lm) e il set di validazione di dominio (dev_domain_abs).
     """
 
-    train_abs = load_abs(corpus_set, budget)
+    if train_abs is None:
+        train_abs = load_abs(corpus_set, budget)
     domain_abs = load_specific_domain_abs(abs=train_abs)
     train_domain_abs, dev_domain_abs = split_abs(domain_abs, test_size=0.2)
 

@@ -9,9 +9,20 @@ from bson import ObjectId
 from pymongo.errors import DuplicateKeyError
 
 from backend.api.database import collection, fs
-from backend.api.exceptions import ModelAlreadyExistsError, ModelNotFoundError
+from backend.api.exceptions import (
+    ModelAlreadyExistsError,
+    ModelNotFoundError,
+    DatasetNotFoundError,
+)
 from backend.api.models import BERTModel, NgramModel, Model, IthacaModel
-from backend.config.settings import BERT_CHECKPOINTS, GAMMA, LM_TYPES, N
+from backend.config.settings import (
+    BERT_CHECKPOINTS,
+    DATA_PATH,
+    GAMMA,
+    LM_TYPES,
+    N,
+    get_ngram_checkpoint_path,
+)
 from models.ngrams.train.training import pipeline_train
 from backend.api.services.suggestions_service import SuggestionsService
 
@@ -156,19 +167,40 @@ class ModelService:
         return await self._train_and_persist_ngram(model_dict)
 
     async def _train_and_persist_ngram(self, model_dict: dict) -> str:
+        lm_type = model_dict["LM_SCORE"]
+        gamma = model_dict.get("GAMMA")
+        n = model_dict["N"]
+
+        checkpoint_path = get_ngram_checkpoint_path(lm_type, n, gamma)
         loop = asyncio.get_running_loop()
-        train_func = partial(
-            pipeline_train,
-            lm_type=model_dict["LM_SCORE"],
-            gamma=model_dict["GAMMA"],
-            n=model_dict["N"],
-        )
-        global_model, domain_model, _ = await loop.run_in_executor(None, train_func)
+
+        if checkpoint_path.exists():
+            def _load_ckpt():
+                data = pickle.loads(zlib.decompress(checkpoint_path.read_bytes()))
+                return data["global_model"], data["domain_model"]
+
+            global_model, domain_model = await loop.run_in_executor(None, _load_ckpt)
+        else:
+            has_data = DATA_PATH.exists() and any(DATA_PATH.glob("*.json"))
+            if not has_data:
+                raise DatasetNotFoundError(
+                    f"Pretrained checkpoint for N-gram model ({lm_type}, N={n}, gamma={gamma}) "
+                    f"not found at '{checkpoint_path}', and training dataset is not available in '{DATA_PATH}'."
+                )
+
+            train_func = partial(
+                pipeline_train,
+                lm_type=lm_type,
+                gamma=gamma,
+                n=n,
+            )
+            global_model, domain_model, _ = await loop.run_in_executor(None, train_func)
 
         model_dict["GLOBAL_MODEL_FILE_ID"] = await self._save_to_gridfs(global_model)
         model_dict["DOMAIN_MODEL_FILE_ID"] = await self._save_to_gridfs(domain_model)
         model_dict.setdefault("TYPE", "Ngrams")
         return await self._insert_one_safe(model_dict)
+
 
     async def _create_bert_model(self, model: BERTModel) -> str:
         model_dict = model.model_dump()

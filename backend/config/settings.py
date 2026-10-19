@@ -37,3 +37,24 @@ MIN_FREQS = [1, 2, 3, 4]
 TEST_SIZES = [0.05, 0.1, 0.2]
 DIMENSIONS = [2, 3]
 BATCH_SIZES = [32, 64]
+
+# Percorsi checkpoint pre-addestrati N-gram
+NGRAM_CHECKPOINTS_DIR = Path("models/ngrams/checkpoints")
+
+
+def get_ngram_checkpoint_path(
+    lm_type: str,
+    n: int = N,
+    gamma: float | None = None,
+    base_dir: Path | None = None,
+) -> Path:
+    """Restituisce il percorso del file di checkpoint per una data configurazione N-gram."""
+    base = base_dir or NGRAM_CHECKPOINTS_DIR
+    lm = lm_type.upper()
+    if lm == "MLE":
+        filename = f"ngram_mle_n{n}.pkl.zlib"
+    else:
+        gamma_val = gamma if gamma is not None else GAMMA
+        filename = f"ngram_{lm.lower()}_n{n}_gamma{gamma_val}.pkl.zlib"
+    return base / filename
+

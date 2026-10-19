@@ -2,6 +2,12 @@
 tuning
 eval
 frontend
+.venv
+data
+checkpoints
+tests
+scratch
+.idea
 
 # Cache di Python
 __pycache__

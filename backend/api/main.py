@@ -10,6 +10,7 @@ from backend.api.exceptions import (
     ModelNotFoundError,
     ModelAlreadyExistsError,
     InvalidContextError,
+    DatasetNotFoundError,
 )
 from backend.api.services.model_service import ModelService
 
@@ -73,6 +74,12 @@ async def invalid_context_handler(request: Request, exc: InvalidContextError):
     return JSONResponse(status_code=400, content={"detail": str(exc)})
 
 
+@app.exception_handler(DatasetNotFoundError)
+async def dataset_not_found_handler(request: Request, exc: DatasetNotFoundError):
+    return JSONResponse(status_code=400, content={"detail": str(exc)})
+
+
 @app.exception_handler(ValueError)
 async def value_error_handler(request: Request, exc: ValueError):
     return JSONResponse(status_code=400, content={"detail": str(exc)})
+
