@@ -5,10 +5,10 @@ API_CONTAINER_NAME ?= $(API_IMAGE)
 FRONTEND_CONTAINER_NAME ?= $(FRONTEND_IMAGE)
 
 # Parametri Docker & Pubblicazione Docker Hub
-DOCKER_PLATFORMS ?= linux/amd64,linux/arm64
+DOCKER_PLATFORMS ?= linux/amd64
 DOCKER_BUILDER ?= gs-builder
 DOCKER_PUSH ?= true
-DOCKER_NO_CACHE ?= true
+DOCKER_NO_CACHE ?= false
 SKIP_TESTS ?= false
 
 comma := ,
@@ -17,10 +17,14 @@ BUILDX_ACTION = $(if $(filter true,$(DOCKER_PUSH)),--push,$(if $(findstring $(co
 # ---------------------------------------------------------
 # Parametri per Training & HPO (personalizzabili da CLI)
 # ---------------------------------------------------------
-# Checkpoint target (es. CNR-ILC/gs-GreBerta, CNR-ILC/gs-aristoBERTo, CNR-ILC/gs-Logion)
+# Checkpoint target (es. CNR-ILC/gs-GreBerta, CNR-ILC/gs-aristoBERTo, CNR-ILC/gs-Logion, oppure 'all')
 CHECKPOINT ?= CNR-ILC/gs-GreBerta
 ifdef MODEL
-    CHECKPOINT := $(if $(findstring /,$(MODEL)),$(MODEL),CNR-ILC/$(MODEL))
+    ifeq ($(MODEL),all)
+        CHECKPOINT := all
+    else
+        CHECKPOINT := $(if $(findstring /,$(MODEL)),$(MODEL),CNR-ILC/$(MODEL))
+    endif
 endif
 
 DATASET ?= CNR-ILC/gs-dataset-tlg-uncased
@@ -64,6 +68,9 @@ BASE_MODEL ?=
 OUTPUT_JSON ?=
 OUTPUT_CSV ?=
 POLICY ?= default
+WANDB ?= false
+WANDB_GROUP ?=
+WANDB_RUN_NAME ?=
 UPDATE_CARD ?= false
 PUSH_CARD ?= false
 OUTPUT_CARD ?=
@@ -140,8 +147,8 @@ help:
 	@echo ""
 	@echo "Confronto, Valutazione (Pre-FT vs Post-FT) e Model Card:"
 	@echo "  make compare               Confronta baseline Pre-FT e modello Post-FT su un test set"
-	@echo "                             (es. make compare MODEL=gs-GreBerta EVAL_DATASET=CNR-ILC/gs-dataset-tlg-uncased POLICY=all)"
-	@echo "                             Opzioni: UPDATE_CARD=true, PUSH_CARD=true, OUTPUT_CARD=README.md"
+	@echo "                             (es. make compare MODEL=gs-GreBerta|all EVAL_DATASET=CNR-ILC/gs-dataset-herc WANDB=true)"
+	@echo "                             Opzioni: WANDB=true, FROM_JSON=..., UPDATE_CARD=true, PUSH_CARD=true, OUTPUT_CARD=README.md"
 	@echo "  make model-card            Genera / pubblica su Hugging Face Hub la Model Card con metriche"
 	@echo "                             (es. make model-card MODEL=gs-GreBerta FROM_JSON=results.json PUSH_CARD=true)"
 	@echo ""
@@ -245,6 +252,10 @@ compare:
 		--max_cases $(MAX_EVAL_CASES) \
 		$(if $(strip $(OUTPUT_JSON)),--output_json "$(OUTPUT_JSON)",) \
 		$(if $(strip $(OUTPUT_CSV)),--output_csv "$(OUTPUT_CSV)",) \
+		$(if $(strip $(FROM_JSON)),--from_json $(FROM_JSON),) \
+		$(if $(filter true,$(WANDB)),--log_to_wandb,) \
+		$(if $(strip $(WANDB_GROUP)),--wandb_group "$(WANDB_GROUP)",) \
+		$(if $(strip $(WANDB_RUN_NAME)),--wandb_run_name "$(WANDB_RUN_NAME)",) \
 		$(if $(filter true,$(UPDATE_CARD)),--update_model_card,) \
 		$(if $(filter true,$(PUSH_CARD)),--push_model_card,) \
 		$(if $(strip $(OUTPUT_CARD)),--output_model_card "$(OUTPUT_CARD)",)

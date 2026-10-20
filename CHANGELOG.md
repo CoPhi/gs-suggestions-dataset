@@ -10,6 +10,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Pubblicazione su Weights & Biases e Confronto Multi-Modello BERT (`make compare`)**:
+  - Esteso [`scripts/evaluate_comparison.py`](./scripts/evaluate_comparison.py) con i flag `--log_to_wandb`, `--wandb_group`, `--wandb_run_name`, `--from_json` e il supporto a `--checkpoint all` per valutare e confrontare tutti i modelli del `ModelRegistry` (`gs-GreBerta`, `gs-aristoBERTo`, `gs-Logion`) in un'unica esecuzione.
+  - Implementate `log_bert_comparison_to_wandb` e `print_and_log_multi_model_summary` per pubblicare su W&B le metriche scalari (`test_pre_ft_*`, `test_post_ft_*`, `delta_*`), le tabelle delle predizioni qualitative (`predictions_table`), le tabelle Pre/Post-FT per singolo modello (`confronto_pre_post_ft_*`), la leaderboard ordinabile (`leaderboard_modelli_bert_*`) e la tabella comparativa affiancata (`confronto_modelli_bert_*`).
+  - Aggiornato il target `make compare` in [`Makefile`](./Makefile) con il supporto a `MODEL=all`, `WANDB=true`, `WANDB_GROUP`, `WANDB_RUN_NAME` e `FROM_JSON`.
 - **Hyperparameter Tuning Multi-Obiettivo (NSGA-II) e Tabelle W&B Pre/Post-FT per Ithaca**:
   - Esteso [`scripts/sweep/optuna_nsga2.py`](./scripts/sweep/optuna_nsga2.py) con `create_ithaca_objective` per ottimizzare congiuntamente gli iperparametri di training JAX/Optax (`lr`, `epochs`, `batch_size`, `num_layers_to_freeze` sui blocchi `encoderblock_0..5`, `weight_decay`, `warmup_ratio`, `lr_scheduler_type`, `dropout_rate`) e di decodifica HCB Beam Search (`strategy`, `temperature`).
   - Aggiunto il supporto alle modalità obiettivo `--objectives` `2d` (`Top-1 EM`, `Cluster Inclusion Rate`), `3d` (`+ CosSim Max @1`), `em_cer` (`Top-1 EM`, `Character Accuracy 1-CER`) ed `em_cer_mrr` (`+ MRR`).
@@ -44,9 +48,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Aggiornato `ModelService._train_and_persist_ngram` in [`backend/api/services/model_service.py`](./backend/api/services/model_service.py) per verificare in prima battuta la presenza dei checkpoint serializzati su disco prima di tentare il training da zero.
   - Estesa la signature di `pipeline_train` in [`models/ngrams/train/training.py`](./models/ngrams/train/training.py) per supportare il passaggio facoltativo di blocchi pre-caricati (`train_abs`), ottimizzando la memoria durante export multipli.
 
+### Fixed
+- **Risoluzione Timeout `UV_HTTP_TIMEOUT` e Disaccoppiamento Dipendenze di Training da `gs-api`**:
+  - Separati i pacchetti di addestramento, HPO, valutazione e visualizzazione (`maat`, `datasets`, `transformers[torch]`, `bert-score`, `wandb`, `optuna`, `dspy`, `pandas`, `matplotlib`, `seaborn`, `plotly`, `tabulate`, `umap-learn`, `scipy`, `scikit-learn`, `lxml`, `chex`, `jax[cuda12]`) nel gruppo `[dependency-groups] train` (incluso in `dev`) in [`pyproject.toml`](./pyproject.toml) e [`uv.lock`](./uv.lock), lasciando in `[project.dependencies]` esclusivamente i pacchetti richiesti per l'esposizione dell'API e l'inferenza (N-grammi, BERT e Ithaca).
+  - Resi lazy gli import di `wandb` in [`models/bert/finetuning/__init__.py`](./models/bert/finetuning/__init__.py), `jax`/`optax` in [`models/ithaca/finetuning/checkpoint.py`](./models/ithaca/finetuning/checkpoint.py) e `train_test_split` in [`backend/core/cleaner.py`](./backend/core/cleaner.py) per evitare il caricamento di moduli di training durante l'avvio e l'inferenza dell'API.
+
 ### Optimized
-- **Avvio Istantaneo e Riduzione Impronta `gs-api`**:
+- **Avvio Istantaneo, Build Rapida e Riduzione Impronta `gs-api`**:
   - Eliminato il collo di bottiglia dell'inizializzazione al bootstrap dell'API (oltre 7 minuti di training ed elaborazione di 1.4 GB di JSON ad ogni setup iniziale di MongoDB), sostituito da un caricamento dei checkpoint da file zlib in pochi millisecondi.
+  - Ottimizzato [`Dockerfile`](./Dockerfile) con binario ufficiale `ghcr.io/astral-sh/uv`, `UV_HTTP_TIMEOUT=600`, `uv sync --frozen --no-dev --no-cache` con esclusione delle librerie GPU NVIDIA/CUDA (`nvidia-cudnn-cu13`, `nvidia-*`, `cuda-*`, `triton`), installazione di PyTorch CPU-only (`https://download.pytorch.org/whl/cpu`) ed esecuzione diretta di `uvicorn` dal virtualenv.
+  - Snellito il contesto di build in [`.dockerignore`](./.dockerignore) (escludendo `scripts`, artefatti di training/valutazione e dati pesanti in `packages/ithaca_engine/train`) e impostati `DOCKER_PLATFORMS ?= linux/amd64` e `DOCKER_NO_CACHE ?= false` come default in [`Makefile`](./Makefile).
 
 ## [0.7.0] - 2026-10-09
 

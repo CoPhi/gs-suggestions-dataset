@@ -1,6 +1,5 @@
 import threading
 from cltk.sentence.grc import GreekRegexSentenceTokenizer
-import wandb
 import os
 from dotenv import load_dotenv
 
@@ -160,9 +159,11 @@ WANDB_API_KEY = os.getenv("WANDB_API_KEY")
 
 
 def wandb_login(api_key: str = WANDB_API_KEY) -> str:
-    if not api_key.strip():
+    if not api_key or not api_key.strip():
         return "Inserisci una API key valida."
     try:
+        import wandb
+
         wandb.login(key=api_key.strip(), relogin=True)
         return "Login wandb effettuato con successo."
     except Exception as e:

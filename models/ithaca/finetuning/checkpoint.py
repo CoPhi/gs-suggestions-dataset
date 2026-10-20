@@ -19,9 +19,6 @@ ithaca_engine_path = os.path.abspath(
 if os.path.isdir(ithaca_engine_path) and ithaca_engine_path not in sys.path:
     sys.path.insert(0, ithaca_engine_path)
 
-import jax
-import optax
-
 CHECKPOINT_URL = (
     "https://storage.googleapis.com/ithaca-resources/models/checkpoint_v1.pkl"
 )
@@ -179,6 +176,9 @@ def create_optimizer_with_freezing(
     - Se num_layers_to_freeze > 0, congela anche gli embedding iniziali e i primi N
       blocchi dell'encoder BigBird (encoderblock_0 .. encoderblock_{N-1}).
     """
+    import jax
+    import optax
+
     safe_total_steps = max(int(total_steps), 2)
     safe_warmup_steps = min(max(int(warmup_steps), 0), safe_total_steps - 1)
 

@@ -1,7 +1,6 @@
 import json
 import random
 from typing import Optional, Union, TypedDict, Any
-from sklearn.model_selection import train_test_split
 from backend.core import _CASE_FOLDING, sentence_tokenizer, _LANGUAGE
 from tqdm import tqdm
 from backend.config.settings import (
@@ -135,6 +134,8 @@ def split_abs(abs: list, test_size=TEST_SIZE) -> tuple:
     if test_size not in TEST_SIZES:
         raise ValueError(f"Test size {test_size} not found in available test sizes")
 
+    from sklearn.model_selection import train_test_split
+
     train_abs, test_abs = train_test_split(
         abs, test_size=test_size, random_state=RANDOM_SEED
     )
@@ -158,6 +159,8 @@ def split_abs_herc_dev(
     Returns:
         (train_abs, dev_abs)
     """
+    from sklearn.model_selection import train_test_split
+
     herc_abs = load_specific_domain_abs(abs, domain_title)
 
     def ab_key(ab: dict) -> tuple:

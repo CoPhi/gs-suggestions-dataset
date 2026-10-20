@@ -10,40 +10,23 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
 ]
 dependencies = [
-    "maat",
     "hcb_infilling",
     "nltk>=3.9.1,<4",
     "fastapi>=0.115.11,<0.116",
     "uvicorn>=0.34.0,<0.35",
     "cltk>=1.5.0,<2",
-    "pandas>=2.2.3,<3",
-    "matplotlib>=3.10.1,<4",
-    "datasets>=3.4.1,<4",
-    "transformers[torch]>=5.5.4,<6",
+    "transformers>=5.5.4,<6",
     "pymongo>=4.11.3,<5",
     "torch>=2.6.0,<3",
-    "bert-score>=0.3.13,<0.4",
     "python-dotenv>=1.1.0,<2",
-    "pytest-asyncio>=1.3.0,<2",
-    "wandb>=0.26.0,<0.27",
     "requests>=2.31.0",
     "numpy>=1.26.4",
-    "scikit-learn>=1.8.0",
     "tqdm>=4.67.3",
-    "lxml>=5.4.0",
     "huggingface-hub>=1.10.2",
     "pydantic>=2.12.5",
-    "seaborn>=0.13.2",
-    "tabulate>=0.10.0",
-    "umap-learn>=0.5.12",
-    "scipy>=1.12.0",
-    "optuna>=4.0.0",
-    "plotly>=5.0.0",
-    "jax[cuda12]>=0.4.30",
+    "jax>=0.4.30",
     "flax>=0.8.0",
     "optax>=0.2.0",
-    "chex>=0.1.8",
-    "dspy>=3.4.0",
 ]
 
 [tool.uv]
@@ -66,8 +49,30 @@ requires = ["uv_build>=0.11.7,<0.12.0"]
 build-backend = "uv_build"
 
 [dependency-groups]
+train = [
+    "maat",
+    "datasets>=3.4.1,<4",
+    "transformers[torch]>=5.5.4,<6",
+    "bert-score>=0.3.13,<0.4",
+    "wandb>=0.26.0,<0.27",
+    "optuna>=4.0.0",
+    "dspy>=3.4.0",
+    "pandas>=2.2.3,<3",
+    "matplotlib>=3.10.1,<4",
+    "seaborn>=0.13.2",
+    "plotly>=5.0.0",
+    "tabulate>=0.10.0",
+    "umap-learn>=0.5.12",
+    "scipy>=1.12.0",
+    "scikit-learn>=1.8.0",
+    "lxml>=5.4.0",
+    "chex>=0.1.8",
+    "jax[cuda12]>=0.4.30; sys_platform == 'linux' and platform_machine == 'x86_64'",
+]
 dev = [
-    "pytest (>=9.0.2,<10.0.0)"
+    { include-group = "train" },
+    "pytest>=9.0.2,<10.0.0",
+    "pytest-asyncio>=1.3.0,<2",
 ]
 
 [tool.pytest.ini_options]

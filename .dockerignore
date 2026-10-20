@@ -6,8 +6,20 @@ frontend
 data
 checkpoints
 tests
+scripts
+wandb
 scratch
 .idea
+.pytest_cache
+packages/ithaca_engine/.git
+packages/ithaca_engine/train
+packages/ithaca_engine/colabs
+packages/ithaca_engine/images
+models/bert/dataset
+models/bert/evaluation
+models/bert/finetuning/gs
+models/ithaca/dataset
+models/ithaca/evaluation
 
 # Cache di Python
 __pycache__
@@ -26,7 +38,9 @@ Dockerfile
 *.log
 *.tmp
 *.swp
+*.db
 .python-version
 
 # File di dati
 *.csv
+
