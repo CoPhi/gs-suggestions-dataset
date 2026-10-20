@@ -105,6 +105,7 @@ endif
         sweep sweep-agent sweep-best \
         dataset-herc dataset-eval dataset-train dataset-tlg dataset-all dataset-dry-run \
         ithaca ithaca-setup ithaca-data ithaca-train ithaca-hpo-nsga2 ithaca-pareto ithaca-pareto-train ithaca-compare ithaca-publish \
+        rag rag-index rag-compile rag-eval rag-predict \
         export-ngrams
 
 # ---------------------------------------------------------
@@ -137,6 +138,13 @@ help:
 	@echo "                             (Opzioni: ITHACA_OUTPUT_JSON=... ITHACA_WANDB=true)"
 	@echo "  make ithaca-publish        Pubblica checkpoint, configurazione e Model Card su Hugging Face Hub"
 	@echo "                             (es. make ithaca-publish ITHACA_REPO_ID=CNR-ILC/gs-ithaca-tlg)"
+	@echo ""
+	@echo "Pipeline DSPy RAG (Qwen / Llama su TLG & MAAT):"
+	@echo "  make rag                   Mostra la panoramica dei comandi della pipeline DSPy RAG"
+	@echo "  make rag-index             Costruisce e salva l'indice ibrido (BM25 + Dense Embeddings BERT) da data/"
+	@echo "  make rag-compile           Compila gli esempi few-shot del modulo DSPy (BootstrapFewShot / MIPROv2)"
+	@echo "  make rag-eval              Valuta il modulo DSPy RAG sul test set stratificato (default, word, suffix)"
+	@echo "  make rag-predict           Esegue un'inferenza interattiva mostrando loci similes e ragionamento"
 	@echo ""
 	@echo "Ottimizzazione Multi-Obiettivo (NSGA-II con Optuna):"
 	@echo "  make hpo-nsga2             Avvia la ricerca NSGA-II (Exact Match vs Cluster Inclusion / 1-CER)"
@@ -702,3 +710,72 @@ ithaca-publish:
 		--checkpoint_path $(ITHACA_FT_CKPT) \
 		--config_path checkpoints/ithaca/config.json \
 		--eval_json $(ITHACA_OUTPUT_JSON)
+
+# ---------------------------------------------------------
+# 8. Pipeline DSPy RAG (Qwen / Llama su TLG & MAAT)
+# ---------------------------------------------------------
+RAG_LM ?= Qwen/Qwen2.5-7B-Instruct
+RAG_BACKEND ?= auto
+RAG_EMBEDDER ?= CNR-ILC/gs-GreBerta
+RAG_INDEX_DIR ?= checkpoints/rag_index
+RAG_MAX_PASSAGES ?= 10000
+RAG_TOP_K_PASSAGES ?= 5
+RAG_OPTIMIZER ?= bootstrap
+RAG_MAX_TRAIN_CASES ?= 40
+RAG_COMPILED_PATH ?=
+RAG_TEXT ?= Ἆρες Ἆρες βροτολοιγὲ μιαιφόνε τειχεσιβ[....]
+
+rag:
+	@echo "=========================================================================="
+	@echo "          PIPELINE DSPy RAG: RETRIEVAL IBRIDO & LLM (QWEN / LLAMA)"
+	@echo "=========================================================================="
+	@echo "1. Costruzione dell'indice ibrido (BM25 + Dense Embeddings BERT) da data/:"
+	@echo "   make rag-index [RAG_MAX_PASSAGES=$(RAG_MAX_PASSAGES) RAG_EMBEDDER=$(RAG_EMBEDDER)]"
+	@echo ""
+	@echo "2. Compilazione automatica del modulo DSPy (BootstrapFewShot / MIPROv2):"
+	@echo "   make rag-compile [RAG_LM=$(RAG_LM) RAG_OPTIMIZER=bootstrap|miprov2]"
+	@echo ""
+	@echo "3. Valutazione su benchmark stratificati (default, word, suffix):"
+	@echo "   make rag-eval [RAG_LM=$(RAG_LM) EVAL_DATASET=$(EVAL_DATASET) POLICY=$(POLICY)]"
+	@echo ""
+	@echo "4. Test di inferenza interattiva da terminale:"
+	@echo "   make rag-predict RAG_TEXT=\"$(RAG_TEXT)\" [RAG_LM=$(RAG_LM)]"
+	@echo "=========================================================================="
+
+rag-index:
+	@echo "=== Costruzione Indice Ibrido DSPy RAG in [$(RAG_INDEX_DIR)] ==="
+	uv run --no-sync python -m models.rag.retriever \
+		--output-dir "$(RAG_INDEX_DIR)" \
+		--max-passages $(RAG_MAX_PASSAGES) \
+		--embedder "$(RAG_EMBEDDER)"
+
+rag-compile:
+	@echo "=== Compilazione Modulo DSPy GreekRAGInfiller per [$(RAG_LM)] ==="
+	uv run --no-sync python -m models.rag.optimizer \
+		--lm "$(RAG_LM)" \
+		--backend "$(RAG_BACKEND)" \
+		--optimizer "$(RAG_OPTIMIZER)" \
+		--max-train-cases $(RAG_MAX_TRAIN_CASES) \
+		$(if $(strip $(RAG_COMPILED_PATH)),--output "$(RAG_COMPILED_PATH)",)
+
+rag-eval:
+	@echo "=== Valutazione Benchmark DSPy RAG per [$(RAG_LM)] su [$(EVAL_DATASET)] ==="
+	uv run --no-sync python -m models.rag.evaluation \
+		--lm "$(RAG_LM)" \
+		--backend "$(RAG_BACKEND)" \
+		--eval-dataset "$(EVAL_DATASET)" \
+		--split "$(SPLIT)" \
+		--policy "$(POLICY)" \
+		--max-cases $(MAX_EVAL_CASES) \
+		--top-k-passages $(RAG_TOP_K_PASSAGES) \
+		$(if $(strip $(RAG_COMPILED_PATH)),--compiled-path "$(RAG_COMPILED_PATH)",) \
+		$(if $(strip $(OUTPUT_JSON)),--output-json "$(OUTPUT_JSON)",)
+
+rag-predict:
+	@echo "=== Inferenza Text-Infilling DSPy RAG con [$(RAG_LM)] ==="
+	uv run --no-sync python -m models.rag.inference \
+		--text "$(RAG_TEXT)" \
+		--lm "$(RAG_LM)" \
+		--backend "$(RAG_BACKEND)" \
+		--top-k-passages $(RAG_TOP_K_PASSAGES) \
+		$(if $(strip $(RAG_COMPILED_PATH)),--compiled-path "$(RAG_COMPILED_PATH)",)

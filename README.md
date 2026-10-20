@@ -355,6 +355,46 @@ make ithaca
 
 ---
 
+## 7. Text-Infilling con DSPy RAG e LLM Hugging Face (Qwen, Llama)
+
+Il progetto integra un quarto approccio di restauro testuale basato su **Retrieval-Augmented Generation (RAG)** orchestrato tramite il framework **DSPy (`dspy>=3.4.0`)** in [`models/rag/`](models/rag/).
+
+Il sistema combina:
+1. **Retrieval Ibrido (`GreekHybridRetriever`)**: unisce la ricerca lessicale/morfologica **BM25 + character n-grams** (per intercettare radici, prefissi e suffissi parziali attorno alla lacuna) e la ricerca semantica densa tramite **`dspy.Embedder` / `dspy.Embeddings`** (alimentata dai modelli BERT greci del progetto come `CNR-ILC/gs-GreBerta`) sui blocchi del **TLG** (`data/tlg_*.json`) e del corpus **MAAT** (`data/maat_*.json`), fondendo i ranking con **Reciprocal Rank Fusion (RRF)**.
+2. **Signature e Moduli Componibili (`GreekRAGInfiller`)**: guida modelli LLM da Hugging Face (es. `Qwen/Qwen2.5-7B-Instruct`, `meta-llama/Llama-3.1-8B-Instruct`) tramite Chain-of-Thought filologico (`GreekInfillingSignature`) e auto-correzione sui vincoli di lunghezza in caratteri (`ConstraintRefinementSignature`).
+3. **Compilazione Automatica DSPy (`BootstrapFewShot` / `MIPROv2`)**: seleziona e congela automaticamente nel prompt le migliori dimostrazioni *few-shot* dal dev set ottimizzando la metrica composita (Exact Match + Character Accuracy $1 - \text{CER}$ + rispetto della lunghezza della lacuna).
+
+Per visualizzare la guida rapida ai comandi:
+```bash
+make rag
+```
+
+### Pipeline Completa:
+
+1. **Costruzione dell'Indice Ibrido su `data/`**:
+   ```bash
+   make rag-index
+   # Personalizzando il numero massimo di passaggi o l'embedder:
+   make rag-index RAG_MAX_PASSAGES=10000 RAG_EMBEDDER=CNR-ILC/gs-GreBerta
+   ```
+
+2. **Compilazione / Ottimizzazione Few-Shot del Modulo DSPy**:
+   ```bash
+   make rag-compile RAG_LM=Qwen/Qwen2.5-7B-Instruct RAG_OPTIMIZER=bootstrap
+   ```
+
+3. **Valutazione Stratificata (`default`, `word`, `suffix`)**:
+   ```bash
+   make rag-eval RAG_LM=Qwen/Qwen2.5-7B-Instruct EVAL_DATASET=CNR-ILC/gs-dataset-eval POLICY=all
+   ```
+
+4. **Inferenza Interattiva da Terminale**:
+   ```bash
+   make rag-predict RAG_TEXT="Ἆρες Ἆρες βροτολοιγὲ μιαιφόνε τειχεσιβ[....]" RAG_LM=Qwen/Qwen2.5-7B-Instruct
+   ```
+
+---
+
 ## Changelog
 
 Per monitorare lo stato di avanzamento del progetto, incluse nuove funzionalità, correzioni di bug, refactoring e aggiornamenti dei pacchetti, puoi fare riferimento al file [CHANGELOG.md](CHANGELOG.md).
