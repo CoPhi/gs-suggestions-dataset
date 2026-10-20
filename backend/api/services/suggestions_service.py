@@ -72,6 +72,8 @@ class SuggestionsService:
                 return await self._predict_bert(model, context, num_predictions)
             if model_type == ModelType.ITHACA:
                 return await self._predict_ithaca(model, context, num_predictions)
+            if model_type == ModelType.RAG:
+                return await self._predict_rag(model, context, num_predictions)
         except RepositoryNotFoundError:
             raise ModelNotFoundError(
                 f"Checkpoint '{model['CHECKPOINT']}' not found on HuggingFace Hub"
@@ -201,6 +203,39 @@ class SuggestionsService:
             {
                 "sentence": re.sub(BERT_LACUNA_PATTERN, p[0], context, count=1),
                 "token_str": p[0],
+                "score": float(p[1]),
+            }
+            for p in suggestions
+        ]
+
+    async def _predict_rag(
+        self, model: dict, context: str, num_predictions: Any
+    ) -> list[dict]:
+        """Genera predizioni usando il sistema DSPy RAG specificato dal modello."""
+        from models.rag.inference import fill_mask_rag
+
+        checkpoint = model["CHECKPOINT"]
+        backend = model.get("BACKEND", "auto")
+        top_k_passages = int(model.get("TOP_K_PASSAGES", 5))
+        compiled_program_path = model.get("COMPILED_PROGRAM_PATH")
+
+        loop = asyncio.get_running_loop()
+        predict_func = partial(
+            fill_mask_rag,
+            text=context,
+            checkpoint=checkpoint,
+            backend=backend,
+            top_k_passages=top_k_passages,
+            compiled_program_path=compiled_program_path,
+            K=num_predictions.value,
+            normalize_probs=True,
+        )
+        suggestions = await loop.run_in_executor(None, predict_func)
+
+        return [
+            {
+                "sentence": re.sub(BERT_LACUNA_PATTERN, p[0], context, count=1).lower(),
+                "token_str": p[0].lower(),
                 "score": float(p[1]),
             }
             for p in suggestions

@@ -24,8 +24,29 @@ class BERTModel(BaseModel):
 class IthacaModel(BaseModel):
     CHECKPOINT: str = Field(description="Nome del checkpoint o repo Hugging Face di Ithaca")
     TYPE: Literal["Ithaca"]
+
+
+class RAGModel(BaseModel):
+    CHECKPOINT: str = Field(
+        description="Nome del modello LLM su Hugging Face (es. 'Qwen/Qwen2.5-7B-Instruct', 'meta-llama/Llama-3.1-8B-Instruct')"
+    )
+    BACKEND: Literal["auto", "hf_api", "local", "openai_compatible"] = Field(
+        default="auto",
+        description="Modalità di esecuzione dell'LLM: 'auto', 'hf_api', 'local' (Transformers GPU) o 'openai_compatible' (vLLM/Ollama)",
+    )
+    TOP_K_PASSAGES: int = Field(
+        default=5,
+        ge=0,
+        le=20,
+        description="Numero di passi paralleli (loci similes) da recuperare dai corpora TLG/MAAT",
+    )
+    COMPILED_PROGRAM_PATH: str | None = Field(
+        default=None,
+        description="Percorso opzionale al programma DSPy compilato (.json)",
+    )
+    TYPE: Literal["RAG"]
     
-Model = Union[NgramModel, BERTModel, IthacaModel]
+Model = Union[NgramModel, BERTModel, IthacaModel, RAGModel]
 
 class ModelsResponse(BaseModel): 
     models: List[Model]
@@ -47,3 +68,4 @@ class ModelType(str, Enum):
     NGRAMS = "Ngrams"
     BERT = "BERT"
     ITHACA = "Ithaca"
+    RAG = "RAG"

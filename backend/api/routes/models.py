@@ -47,6 +47,16 @@ def get_service() -> ModelService:
                                 "TYPE": "Ithaca",
                             },
                         },
+                        "RAGModel": {
+                            "summary": "Example DSPy RAG Model",
+                            "value": {
+                                "CHECKPOINT": "Qwen/Qwen2.5-7B-Instruct",
+                                "BACKEND": "auto",
+                                "TOP_K_PASSAGES": 5,
+                                "COMPILED_PROGRAM_PATH": None,
+                                "TYPE": "RAG",
+                            },
+                        },
                     }
                 }
             },
@@ -122,6 +132,26 @@ async def create_model(
                     "summary": "Esempio creazione modello Ithaca",
                     "description": "Parametri per la creazione e memorizzazione su database di un modello Ithaca per l'inferenza.",
                     "value": {"CHECKPOINT": "CNR-ILC/gs-ithaca-tlg", "TYPE": "Ithaca"},
+                },
+                "RAG_Qwen": {
+                    "summary": "Esempio creazione modello DSPy RAG (Qwen)",
+                    "description": "Parametri per la creazione di un modello RAG basato su DSPy e Qwen2.5-7B-Instruct.",
+                    "value": {
+                        "CHECKPOINT": "Qwen/Qwen2.5-7B-Instruct",
+                        "BACKEND": "auto",
+                        "TOP_K_PASSAGES": 5,
+                        "TYPE": "RAG",
+                    },
+                },
+                "RAG_Llama": {
+                    "summary": "Esempio creazione modello DSPy RAG (Llama)",
+                    "description": "Parametri per la creazione di un modello RAG basato su DSPy e Llama-3.1-8B-Instruct.",
+                    "value": {
+                        "CHECKPOINT": "meta-llama/Llama-3.1-8B-Instruct",
+                        "BACKEND": "auto",
+                        "TOP_K_PASSAGES": 5,
+                        "TYPE": "RAG",
+                    },
                 },
             },
         ),
