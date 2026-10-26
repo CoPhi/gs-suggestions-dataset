@@ -456,6 +456,8 @@ def evaluate_metrics_on_test_set(
     tokenizer: PreTrainedTokenizer,
     checkpoint: str,
     max_cases: int | None = None,
+    K: int = 20,
+    beam_size: int = 50,
 ) -> dict[str, float]:
     """
     Esegue la valutazione completa (TopK, BERTscore, Cosine Similarity Contestuale) su un insieme di test.
@@ -485,8 +487,8 @@ def evaluate_metrics_on_test_set(
                 n_chars=case.gap_length,
                 model=model,
                 tokenizer=tokenizer,
-                K=20,
-                beam_size=50,
+                K=K,
+                beam_size=beam_size,
                 method="modified_best_to_worst",
                 return_raw=False,
                 use_vocab_filter=True,

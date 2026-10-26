@@ -67,6 +67,8 @@ SPLIT ?= test
 BASE_MODEL ?=
 OUTPUT_JSON ?=
 OUTPUT_CSV ?=
+OUTPUT_PLOT ?=
+OUTPUT_MD ?=
 POLICY ?= default
 WANDB ?= false
 WANDB_GROUP ?=
@@ -75,6 +77,8 @@ UPDATE_CARD ?= false
 PUSH_CARD ?= false
 OUTPUT_CARD ?=
 FROM_JSON ?=
+WINDOWS ?= 2,5,10,25,50,100,-1
+MODELS ?= all
 
 # Parametri Gestione & Pubblicazione Dataset
 DATASET_TARGET ?= herc
@@ -101,7 +105,7 @@ endif
         release-api release-frontend release \
         train train-test \
         hpo-nsga2 pareto pareto-train \
-        compare model-card \
+        compare model-card eval-context-ablation \
         sweep sweep-agent sweep-best \
         dataset-herc dataset-eval dataset-train dataset-tlg dataset-all dataset-dry-run \
         ithaca ithaca-setup ithaca-data ithaca-train ithaca-hpo-nsga2 ithaca-pareto ithaca-pareto-train ithaca-compare ithaca-publish \
@@ -157,6 +161,8 @@ help:
 	@echo "  make compare               Confronta baseline Pre-FT e modello Post-FT su un test set"
 	@echo "                             (es. make compare MODEL=gs-GreBerta|all EVAL_DATASET=CNR-ILC/gs-dataset-herc WANDB=true)"
 	@echo "                             Opzioni: WANDB=true, FROM_JSON=..., UPDATE_CARD=true, PUSH_CARD=true, OUTPUT_CARD=README.md"
+	@echo "  make eval-context-ablation Esegue lo studio di ablation della finestra di contesto (word-based) sui modelli BERT"
+	@echo "                             (es. make eval-context-ablation MODELS=all|ft|base WINDOWS=2,5,10,25,50,100,-1 MAX_EVAL_CASES=50)"
 	@echo "  make model-card            Genera / pubblica su Hugging Face Hub la Model Card con metriche"
 	@echo "                             (es. make model-card MODEL=gs-GreBerta FROM_JSON=results.json PUSH_CARD=true)"
 	@echo ""
@@ -267,6 +273,21 @@ compare:
 		$(if $(filter true,$(UPDATE_CARD)),--update_model_card,) \
 		$(if $(filter true,$(PUSH_CARD)),--push_model_card,) \
 		$(if $(strip $(OUTPUT_CARD)),--output_model_card "$(OUTPUT_CARD)",)
+
+eval-context-ablation:
+	@echo "=== Studio di Ablation della Finestra di Contesto [Modelli: $(MODELS) | Finestre: $(WINDOWS)] ==="
+	uv run --no-sync python -m models.bert.evaluation.ablation \
+		--models "$(MODELS)" \
+		--windows "$(WINDOWS)" \
+		--eval_dataset_name "$(EVAL_DATASET)" \
+		--split "$(SPLIT)" \
+		--policy "$(POLICY)" \
+		--max_cases $(MAX_EVAL_CASES) \
+		$(if $(strip $(OUTPUT_JSON)),--output_json "$(OUTPUT_JSON)",) \
+		$(if $(strip $(OUTPUT_PLOT)),--output_plot "$(OUTPUT_PLOT)",) \
+		$(if $(strip $(OUTPUT_MD)),--output_md "$(OUTPUT_MD)",) \
+		$(if $(filter true,$(WANDB)),--log_to_wandb,) \
+		$(if $(strip $(WANDB_GROUP)),--wandb_group "$(WANDB_GROUP)",)
 
 model-card:
 	@echo "=== Generazione / Pubblicazione Model Card per [$(CHECKPOINT)] ==="

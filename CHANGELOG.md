@@ -10,6 +10,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Studio di Ablation della Finestra di Contesto e Resilienza Text-Infilling (`models/bert/evaluation/ablation.py`)**:
+  - Implementata la funzione `truncate_context_by_words` in [`models/bert/evaluation/ablation.py`](./models/bert/evaluation/ablation.py) per il ritaglio simmetrico e asimmetrico basato su parole greche attorno alla lacuna (`[.....]`), preservando i prefissi/suffissi intra-parola e isolando la lacuna da $W$ parole a $0$ parole di contesto esterno.
+  - Creato il benchmark CLI multi-modello `run_ablation_study` per valutare la resilienza delle architetture BERT Pre-FT (`Jacobo/aristoBERTo`, `bowphs/GreBerta`, `cabrooks/LOGION-50k_wordpiece`) e Post-FT (`CNR-ILC/gs-aristoBERTo`, `CNR-ILC/gs-GreBerta`, `CNR-ILC/gs-Logion`) su scale di finestre esponenziali ($W \in [2, 5, 10, 25, 50, 100, \text{Full}]$).
+  - Implementata la generazione di grafici a linee comparativi `plot_context_ablation_curves` (Top-1 EM, Top-5 EM, BERTScore F1 vs Window size per modello), report Markdown tabellare con calcolo del delta drop da Full Context a $W=2$ e sincronizzazione opzionale su Weights & Biases (`wandb.Table` e `wandb.Image`).
+  - Aggiunti il target `make eval-context-ablation` in [`Makefile`](./Makefile) e la suite di test unitari [`tests/test_context_ablation.py`](./tests/test_context_ablation.py).
 - **Sistema di Text-Infilling basato su DSPy RAG e LLM Hugging Face (`models/rag/`)**:
   - Creato il package [`models/rag/`](./models/rag/) per il restauro testuale in greco antico tramite Retrieval-Augmented Generation (RAG) orchestrato con **DSPy (`dspy>=3.4.0`)** e modelli LLM da Hugging Face (es. `Qwen/Qwen2.5-7B-Instruct`, `meta-llama/Llama-3.1-8B-Instruct`).
   - Implementato il supporto dual-mode agli LLM in [`models/rag/lm.py`](./models/rag/lm.py) (`build_dspy_lm`, `HuggingFaceLocalLM`, `TransformersLocalEngine` canonico `dspy.lm15`): esecuzione locale su GPU/CPU tramite `AutoModelForCausalLM` con cache LRU e quantizzazione opzionale 4-bit, Hugging Face Inference API via `HF_TOKEN` ed endpoint OpenAI-compatibili (vLLM, Ollama, TGI).
@@ -35,6 +40,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Aggiunti i target `make ithaca-hpo-nsga2`, `make ithaca-pareto` e `make ithaca-pareto-train` in [`Makefile`](./Makefile) e i relativi test unitari in [`tests/test_ithaca_hcb.py`](./tests/test_ithaca_hcb.py).
 
 ### Changed
+- **Configurabilità Parametri Beam Search in `evaluate_metrics_on_test_set`**:
+  - Aggiunti i parametri opzionali `K: int = 20` e `beam_size: int = 50` alla firma di `evaluate_metrics_on_test_set` in [`models/bert/finetuning/pipeline.py`](./models/bert/finetuning/pipeline.py), permettendo di personalizzare la profondità di ricerca per esecuzioni rapide di ablation o sweep ad alta fedeltà.
 - **Unificazione Split del Dataset `gs-dataset-herc`**:
   - Aggiornata `build_herc_eval_dataset` in [`models/bert/dataset/load.py`](./models/bert/dataset/load.py) per pubblicare `CNR-ILC/gs-dataset-herc` con un unico split `test` contenente tutti i casi estratti dai Papiri di Ercolano (sia i blocchi MAAT `P.Herc.` sia i casi controllati da `test_abs.json`), rimuovendo lo split `dev` non impiegato per l'ottimizzazione degli iperparametri.
   - Aggiornata la descrizione della Dataset Card `_HERC_DESCRIPTION` in [`models/bert/dataset/__init__.py`](./models/bert/dataset/__init__.py) e la documentazione in [`models/bert/dataset/README.md`](./models/bert/dataset/README.md).
