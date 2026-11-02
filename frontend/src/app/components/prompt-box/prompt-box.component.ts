@@ -27,30 +27,17 @@ export class PromptBoxComponent {
 
   curr_type_model = computed(() => this.selectedModel()?.TYPE);
 
+  // Mostra esclusivamente il nome del modello senza prefissi architetturali (RAG, BERT, LIDSTONE, ecc.)
   selectedModelLabel = computed(() => {
     const m = this.selectedModel();
-    if (!m) return null;
-    if (m.TYPE === 'Ithaca') {
-      const name = m.CHECKPOINT.includes('/') ? m.CHECKPOINT.split('/').pop() : m.CHECKPOINT;
-      return `Ithaca: ${name}`;
-    }
-    if (m.TYPE === 'BERT') {
-      const name = m.CHECKPOINT.includes('/') ? m.CHECKPOINT.split('/').pop() : m.CHECKPOINT;
-      return `BERT: ${name}`;
-    }
-    return `N-grammi (${m.LM_SCORE})`;
+    return m ? this.getModelLabel(m) : null;
   });
 
   getModelLabel(m: modelType): string {
-    if (m.TYPE === 'Ithaca') {
-      const name = m.CHECKPOINT.includes('/') ? m.CHECKPOINT.split('/').pop() : m.CHECKPOINT;
-      return `Ithaca (${name})`;
+    if (m.TYPE === 'RAG' || m.TYPE === 'Ithaca' || m.TYPE === 'BERT') {
+      return (m.CHECKPOINT.includes('/') ? m.CHECKPOINT.split('/').pop() : m.CHECKPOINT) || m.CHECKPOINT;
     }
-    if (m.TYPE === 'BERT') {
-      const name = m.CHECKPOINT.includes('/') ? m.CHECKPOINT.split('/').pop() : m.CHECKPOINT;
-      return `BERT (${name})`;
-    }
-    return `N-grammi (${m.LM_SCORE}${m.N ? `, n=${m.N}` : ''})`;
+    return `N-grammi${m.N ? ` (n=${m.N})` : ''}`;
   }
 
   toggleDropdown(event?: Event) {

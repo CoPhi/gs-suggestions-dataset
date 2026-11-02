@@ -1,6 +1,6 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { PromptBoxComponent } from './prompt-box.component';
-import { BERTModelInterface, IthacaModelInterface, NgramsModelInterface } from '../../services/api.service';
+import { BERTModelInterface, IthacaModelInterface, NgramsModelInterface, RAGModelInterface } from '../../services/api.service';
 
 describe('PromptBoxComponent', () => {
   let component: PromptBoxComponent;
@@ -27,6 +27,14 @@ describe('PromptBoxComponent', () => {
     TYPE: 'Ngrams'
   };
 
+  const mockRagModel: RAGModelInterface = {
+    _id: '67066928e4414eb1d8109bf4',
+    CHECKPOINT: 'Qwen/Qwen2.5-7B-Instruct',
+    BACKEND: 'auto',
+    TOP_K_PASSAGES: 5,
+    TYPE: 'RAG'
+  };
+
   beforeEach(async () => {
     await TestBed.configureTestingModule({
       imports: [PromptBoxComponent]
@@ -34,7 +42,7 @@ describe('PromptBoxComponent', () => {
 
     fixture = TestBed.createComponent(PromptBoxComponent);
     fixture.componentRef.setInput('curr_id', null);
-    fixture.componentRef.setInput('models', [mockIthacaModel, mockBertModel, mockNgramsModel]);
+    fixture.componentRef.setInput('models', [mockIthacaModel, mockBertModel, mockNgramsModel, mockRagModel]);
     fixture.componentRef.setInput('isGenerating', false);
     component = fixture.componentInstance;
     fixture.detectChanges();
@@ -45,9 +53,10 @@ describe('PromptBoxComponent', () => {
   });
 
   it('should render model labels correctly in dropdown', () => {
-    expect(component.getModelLabel(mockIthacaModel)).toBe('Ithaca (gs-ithaca-tlg)');
-    expect(component.getModelLabel(mockBertModel)).toBe('BERT (Ancient-Greek-BERT)');
-    expect(component.getModelLabel(mockNgramsModel)).toBe('N-grammi (LIDSTONE, n=3)');
+    expect(component.getModelLabel(mockIthacaModel)).toBe('gs-ithaca-tlg');
+    expect(component.getModelLabel(mockBertModel)).toBe('Ancient-Greek-BERT');
+    expect(component.getModelLabel(mockNgramsModel)).toBe('N-grammi (n=3)');
+    expect(component.getModelLabel(mockRagModel)).toBe('Qwen2.5-7B-Instruct');
   });
 
   it('should update curr_id when a model is selected', () => {
@@ -99,7 +108,7 @@ describe('PromptBoxComponent', () => {
     expect(trigger?.querySelectorAll('i').length).toBe(0);
 
     const dropdownItems = compiled.querySelectorAll('.model-dropdown-item');
-    expect(dropdownItems.length).toBe(3);
+    expect(dropdownItems.length).toBe(4);
     dropdownItems.forEach((item) => {
       // Model items should not contain model icons
       expect(item.querySelectorAll('i').length).toBe(0);

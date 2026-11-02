@@ -1,3 +1,86 @@
+<!-- Toolbar superiore per registrare nuovi modelli RAG Open-Weights -->
+<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+    <div class="text-muted small">
+        Esplora i modelli attivi o registra un nuovo modello <strong>DSPy RAG</strong> con LLM open-weights.
+    </div>
+    <button class="btn btn-sm btn-outline-primary d-flex align-items-center gap-1 add-rag-toggle-btn"
+            type="button"
+            (click)="toggleAddRagForm()">
+        <i class="bi" [class.bi-plus-circle]="!showAddRagForm()" [class.bi-dash-circle]="showAddRagForm()"></i>
+        <span>{{ showAddRagForm() ? 'Chiudi form RAG' : 'Nuovo modello RAG' }}</span>
+    </button>
+</div>
+
+@if (showAddRagForm()) {
+    <div class="card border-0 shadow-sm rounded-4 mb-4 rag-create-card" [formGroup]="ragForm">
+        <div class="card-body p-3 p-md-4">
+            <h6 class="fw-bold mb-2 text-dark">Registra Modello DSPy RAG (Open-Weights LLM)</h6>
+            <p class="text-muted small mb-3">
+                L'API gestisce automaticamente il retrieval ibrido sui corpora antichi (TLG &amp; MAAT) e l'esecuzione dell'LLM senza dipendenze hardware lato client.
+            </p>
+
+            <!-- Preset rapidi -->
+            <div class="mb-3">
+                <span class="d-block small fw-semibold text-secondary mb-1">Preset LLM consigliati:</span>
+                <div class="d-flex flex-wrap gap-1">
+                    @for (preset of ragPresets; track preset.value) {
+                        <button type="button"
+                                class="btn btn-sm preset-chip"
+                                [class.btn-primary]="ragForm.controls.checkpoint.value === preset.value"
+                                [class.btn-outline-secondary]="ragForm.controls.checkpoint.value !== preset.value"
+                                (click)="applyPreset(preset.value)">
+                            {{ preset.label }}
+                        </button>
+                    }
+                </div>
+            </div>
+
+            <div class="row g-3 align-items-end">
+                <div class="col-12 col-md-5">
+                    <label class="form-label small fw-semibold text-secondary mb-1" for="ragCheckpointInput">Checkpoint Hugging Face / Tag Ollama</label>
+                    <input id="ragCheckpointInput"
+                           type="text"
+                           class="form-control form-control-sm"
+                           formControlName="checkpoint"
+                           placeholder="es. Qwen/Qwen2.5-7B-Instruct" />
+                </div>
+
+                <div class="col-12 col-sm-6 col-md-4">
+                    <label class="form-label small fw-semibold text-secondary mb-1" for="ragBackendSelect">Strategia Backend Server</label>
+                    <select id="ragBackendSelect" class="form-select form-select-sm" formControlName="backend">
+                        <option value="auto">Automatico (auto)</option>
+                        <option value="hf_api">Serverless Inference API (hf_api)</option>
+                        <option value="openai_compatible">Runtime vLLM / Ollama (openai_compatible)</option>
+                        <option value="local">Locale Transformers (local)</option>
+                    </select>
+                </div>
+
+                <div class="col-6 col-sm-3 col-md-1">
+                    <label class="form-label small fw-semibold text-secondary mb-1" for="ragTopKInput">Loci (k)</label>
+                    <input id="ragTopKInput"
+                           type="number"
+                           min="0"
+                           max="20"
+                           class="form-control form-control-sm"
+                           formControlName="topKPassages" />
+                </div>
+
+                <div class="col-6 col-sm-3 col-md-2 d-grid">
+                    <button type="button"
+                            class="btn btn-sm btn-primary fw-semibold submit-rag-btn"
+                            [disabled]="ragForm.invalid || isCreating()"
+                            (click)="submitRagModel()">
+                        @if (isCreating()) {
+                            <span class="spinner-border spinner-border-sm me-1" role="status"></span>
+                        }
+                        Salva
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
 @if (models().length > 0) {
     <div class="models-grid" id="modelsContainer">
         @for (model of models(); track model._id) {

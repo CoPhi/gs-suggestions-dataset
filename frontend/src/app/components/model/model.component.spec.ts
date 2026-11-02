@@ -3,7 +3,7 @@ import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
 
 import { ModelComponent } from './model.component';
-import { IthacaModelInterface } from '../../services/api.service';
+import { IthacaModelInterface, RAGModelInterface } from '../../services/api.service';
 
 describe('ModelComponent', () => {
   let component: ModelComponent;
@@ -64,5 +64,32 @@ describe('ModelComponent', () => {
     const textContent = compiled.textContent || '';
     expect(textContent).not.toContain('Infilling');
     expect(textContent).not.toContain('Token Masking');
+  });
+
+  it('should identify and render RAG model card with backend and loci similes', () => {
+    const mockRagModel: RAGModelInterface = {
+      _id: '67066928e4414eb1d8109bf9',
+      CHECKPOINT: 'Qwen/Qwen2.5-7B-Instruct',
+      BACKEND: 'auto',
+      TOP_K_PASSAGES: 5,
+      COMPILED_PROGRAM_PATH: null,
+      TYPE: 'RAG'
+    };
+    fixture.componentRef.setInput('model', mockRagModel);
+    fixture.detectChanges();
+
+    expect(component.isRAG()).toBeTrue();
+    expect(component.isIthaca()).toBeFalse();
+    expect(component.isBERT()).toBeFalse();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    const badge = compiled.querySelector('.badge-type');
+    expect(badge?.textContent?.trim()).toBe('RAG');
+    expect(badge?.querySelector('i')).toBeNull();
+
+    const textContent = compiled.textContent || '';
+    expect(textContent).toContain('Qwen/Qwen2.5-7B-Instruct');
+    expect(textContent).toContain('DSPy Hybrid RAG');
+    expect(textContent).toContain('top-k = 5');
   });
 });

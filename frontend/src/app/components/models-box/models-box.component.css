@@ -4,3 +4,14 @@
     gap: 1.25rem;
     align-items: stretch;
 }
+
+.rag-create-card {
+    background: linear-gradient(180deg, #ffffff 0%, #faf5ff 100%);
+    border: 1px solid #e9d5ff !important;
+}
+
+.preset-chip {
+    font-size: 0.76rem;
+    border-radius: 50rem;
+    padding: 0.2rem 0.65rem;
+}

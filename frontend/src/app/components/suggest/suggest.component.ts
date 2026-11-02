@@ -1,6 +1,12 @@
-import { Component, computed, effect, input, InputSignal } from '@angular/core';
+import { Component, computed, input, output, signal } from '@angular/core';
 import { SuggestionInterface } from '../../services/api.service';
 import { Clipboard } from '@angular/cdk/clipboard';
+
+export interface SuggestionFeedbackEvent {
+  token_str: string;
+  sentence: string;
+  is_accepted: boolean;
+}
 
 @Component({
   selector: 'app-suggest',
@@ -11,11 +17,15 @@ import { Clipboard } from '@angular/cdk/clipboard';
 export class SuggestComponent {
 
   suggest = input.required<SuggestionInterface>();
+  // Emette al contenitore padre la scelta del filologo (validazione o scarto del supplemento)
+  onFeedback = output<SuggestionFeedbackEvent>();
 
-  
   score = computed(() => this.suggest().score);
   token = computed(() => this.suggest().token_str);
   sentence = computed(() => this.suggest().sentence);
+
+  // Stato locale della card per evidenziare visivamente se il supplemento è stato validato o scartato
+  feedbackStatus = signal<'accepted' | 'rejected' | null>(null);
 
   constructor(private clipboard: Clipboard) { }
 
@@ -34,5 +44,13 @@ export class SuggestComponent {
     this.toggleCopyToast();
   }
 
+  markFeedback(isAccepted: boolean) {
+    this.feedbackStatus.set(isAccepted ? 'accepted' : 'rejected');
+    this.onFeedback.emit({
+      token_str: this.token(),
+      sentence: this.sentence(),
+      is_accepted: isAccepted
+    });
+  }
 
 }

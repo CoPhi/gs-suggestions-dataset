@@ -49,6 +49,12 @@
     border: 1px solid #bbf7d0;
 }
 
+.badge-rag {
+    background-color: #f3e8ff;
+    color: #7e22ce;
+    border: 1px solid #d8b4fe;
+}
+
 .badge-ngrams {
     background-color: #ecfeff;
     color: #0e7490;

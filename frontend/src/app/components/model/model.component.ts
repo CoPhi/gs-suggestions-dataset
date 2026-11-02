@@ -1,5 +1,5 @@
 import { Component, computed, effect, inject, input, model } from '@angular/core';
-import { ApiService, BERTModelInterface, IthacaModelInterface, modelType, NgramsModelInterface } from '../../services/api.service';
+import { ApiService, BERTModelInterface, IthacaModelInterface, modelType, NgramsModelInterface, RAGModelInterface } from '../../services/api.service';
 import { NotificationService } from '../../services/notification.service';
 
 @Component({
@@ -20,13 +20,17 @@ export class ModelComponent {
   id = computed(() => this.model()._id); // ID del modello mostrato
   isBERT = computed(() => this.model().TYPE === 'BERT'); // Verifica se il modello è di tipo BERT
   isIthaca = computed(() => this.model().TYPE === 'Ithaca'); // Verifica se il modello è di tipo Ithaca
+  isRAG = computed(() => this.model().TYPE === 'RAG'); // Verifica se il modello è di tipo DSPy RAG
   isNgrams = computed(() => this.model().TYPE === 'Ngrams'); // Verifica se il modello è di tipo N-grams
   bertmodel = computed(() => <BERTModelInterface>this.model()); // Modello BERT
   ithacamodel = computed(() => <IthacaModelInterface>this.model()); // Modello Ithaca
+  ragmodel = computed(() => <RAGModelInterface>this.model()); // Modello RAG
   ngramsmodel = computed(() => <NgramsModelInterface>this.model()); // Modello N-grams
 
   deleteModel() {
-    const modelLabel = this.isIthaca()
+    const modelLabel = this.isRAG()
+      ? `RAG (${this.ragmodel().CHECKPOINT})`
+      : this.isIthaca()
       ? `Ithaca (${this.ithacamodel().CHECKPOINT})`
       : this.isBERT()
       ? `BERT (${this.bertmodel().CHECKPOINT})`

@@ -16,3 +16,42 @@
 .close-btn:active {
     transform: scale(0.95);
 }
+
+.rag-details-panel {
+    background-color: #faf5ff;
+    border: 1px solid #e9d5ff;
+}
+
+.rag-details-title {
+    color: #6b21a8;
+    font-size: 0.92rem;
+}
+
+.rag-toggle-link {
+    color: #7e22ce;
+    font-weight: 600;
+    font-size: 0.82rem;
+}
+
+.rag-reasoning-text {
+    line-height: 1.55;
+    white-space: pre-line;
+}
+
+.rag-passage-item {
+    background-color: #ffffff;
+    border: 1px solid #ede9fe;
+    color: #334155;
+    line-height: 1.45;
+}
+
+.hitl-refinement-panel {
+    background-color: #f8fafc;
+    border: 1px solid #cbd5e1;
+}
+
+.hitl-panel-title {
+    color: #0f172a;
+    font-size: 0.92rem;
+}
+

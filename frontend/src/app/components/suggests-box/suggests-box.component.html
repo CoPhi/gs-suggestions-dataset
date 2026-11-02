@@ -6,6 +6,31 @@
                 <i class="bi bi-check2-circle text-success me-1"></i>
                 {{ suggestions().length }} {{ suggestions().length === 1 ? 'predizione pronta' : 'predizioni pronte' }}
             </span>
+            @if (hasRagDetails()) {
+                <button type="button"
+                        class="btn btn-sm rounded-pill d-flex align-items-center gap-1 px-2 py-1 rag-toggle-btn"
+                        [class.btn-light]="showRagContext()"
+                        [class.text-dark]="showRagContext()"
+                        [class.btn-outline-light]="!showRagContext()"
+                        (click)="toggleRagContext()"
+                        title="Analisi filologica e passi paralleli (RAG)"
+                        aria-label="Analisi filologica e passi paralleli">
+                    <i class="bi bi-journal-bookmark-fill"></i>
+                </button>
+            }
+            <button type="button"
+                    class="btn btn-sm rounded-pill d-flex align-items-center gap-1 px-2 py-1 hitl-toggle-btn"
+                    [class.btn-light]="showHitlMenu() || canRefine()"
+                    [class.text-dark]="showHitlMenu() || canRefine()"
+                    [class.btn-outline-light]="!showHitlMenu() && !canRefine()"
+                    (click)="toggleHitlMenu()"
+                    title="Raffinamento guidato (Human-in-the-loop)"
+                    aria-label="Raffinamento guidato">
+                <i class="bi bi-sliders2"></i>
+                @if (rejectedCandidates().length > 0) {
+                    <span class="badge bg-danger rounded-pill" style="font-size: 0.65rem;">{{ rejectedCandidates().length }}</span>
+                }
+            </button>
             <button type="button" 
                     class="btn btn-sm btn-outline-light rounded-circle d-flex align-items-center justify-content-center p-0 close-btn" 
                     (click)="close()" 
@@ -16,9 +41,71 @@
         </div>
     </div>
     <div class="card-body p-4">
+        <!-- Menu minimale a comparsa per il Raffinamento Guidato HITL (Fase 2) -->
+        @if (showHitlMenu()) {
+            <div class="hitl-refinement-panel rounded-3 p-3 mb-3">
+                <div class="input-group input-group-sm">
+                    <input type="text"
+                           class="form-control hitl-feedback-input"
+                           placeholder="Indicazioni filologiche (es. dialetto, morfologia, semantica)..."
+                           [ngModel]="humanFeedback()"
+                           (ngModelChange)="humanFeedback.set($event)"
+                           (keyup.enter)="triggerRefinement()" />
+                    <button type="button"
+                            class="btn btn-primary hitl-refine-btn fw-semibold px-3"
+                            [disabled]="!canRefine()"
+                            (click)="triggerRefinement()">
+                        <i class="bi bi-arrow-repeat me-1"></i>Raffina
+                    </button>
+                </div>
+
+                @if (rejectedCandidates().length > 0) {
+                    <div class="d-flex align-items-center flex-wrap gap-1 mt-2">
+                        @for (cand of rejectedCandidates(); track cand) {
+                            <span class="badge bg-danger-subtle text-danger border border-danger-subtle rounded-pill d-inline-flex align-items-center gap-1 px-2 py-1 rejected-chip">
+                                <span>{{ cand }}</span>
+                                <button type="button"
+                                        class="btn-close btn-close-sm p-0 ms-1"
+                                        style="font-size: 0.55rem;"
+                                        (click)="removeRejectedCandidate(cand)"
+                                        title="Rimuovi esclusione"
+                                        aria-label="Rimuovi esclusione"></button>
+                            </span>
+                        }
+                    </div>
+                }
+            </div>
+        }
+
+        @if (hasRagDetails() && showRagContext()) {
+            <div class="rag-details-panel rounded-3 p-3 mb-3">
+                @if (philologicalReasoning()) {
+                    <div>
+                        <span class="d-block small text-uppercase fw-semibold text-secondary mb-1">Ragionamento Filologico (Chain-of-Thought)</span>
+                        <p class="mb-0 small text-dark rag-reasoning-text">{{ philologicalReasoning() }}</p>
+                    </div>
+                }
+
+                @if (retrievedPassages().length > 0) {
+                    <div [class.mt-3]="!!philologicalReasoning()">
+                        <span class="d-block small text-uppercase fw-semibold text-secondary mb-2">
+                            Passi Paralleli Recuperati ({{ retrievedPassages().length }})
+                        </span>
+                        <div class="d-flex flex-column gap-2">
+                            @for (passage of retrievedPassages(); track $index) {
+                                <div class="rag-passage-item rounded-2 p-2 small">
+                                    {{ passage }}
+                                </div>
+                            }
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+
         <div class="d-flex flex-column" id="suggestionsList">
             @for (suggest of suggestions(); track $index) {
-            <app-suggest [suggest]="suggest" />
+            <app-suggest [suggest]="suggest" (onFeedback)="handleSuggestionFeedback($event)" />
             }
         </div>
     </div>

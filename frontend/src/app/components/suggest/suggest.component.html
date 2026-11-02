@@ -1,14 +1,49 @@
-<div class="card suggestion-card border-0 shadow-sm mb-3">
+<div class="card suggestion-card shadow-sm mb-3"
+     [class.border-0]="feedbackStatus() === null"
+     [class.suggestion-accepted]="feedbackStatus() === 'accepted'"
+     [class.suggestion-rejected]="feedbackStatus() === 'rejected'">
     <div class="card-body">
-        <div class="d-flex w-100 justify-content-between align-items-start mb-2">
-            <div>
-                <span class="badge bg-primary fs-6 rounded-pill px-3 py-2 me-2">{{ token() }}</span>
+        <div class="d-flex w-100 justify-content-between align-items-start mb-2 flex-wrap gap-2">
+            <div class="d-flex align-items-center flex-wrap gap-2">
+                <span class="badge bg-primary fs-6 rounded-pill px-3 py-2">{{ token() }}</span>
                 <span class="text-muted small">Score: <strong>{{ score() }}</strong></span>
+                @if (feedbackStatus() === 'accepted') {
+                    <span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill px-2 py-1 feedback-status-badge">
+                        <i class="bi bi-check-circle-fill"></i>
+                    </span>
+                } @else if (feedbackStatus() === 'rejected') {
+                    <span class="badge bg-danger-subtle text-danger border border-danger-subtle rounded-pill px-2 py-1 feedback-status-badge">
+                        <i class="bi bi-x-circle-fill"></i>
+                    </span>
+                }
             </div>
-            <button class="btn btn-sm btn-outline-secondary copy-btn" (click)="copyToClipboard()" title="Copia token">
-                <i class="bi bi-clipboard"></i> Copia
-            </button>
+            <div class="d-flex align-items-center gap-1">
+                <button type="button"
+                        class="btn btn-sm feedback-accept-btn"
+                        [class.btn-success]="feedbackStatus() === 'accepted'"
+                        [class.btn-outline-success]="feedbackStatus() !== 'accepted'"
+                        (click)="markFeedback(true)"
+                        title="Valida supplemento"
+                        aria-label="Valida supplemento">
+                    <i class="bi bi-hand-thumbs-up"></i>
+                </button>
+                <button type="button"
+                        class="btn btn-sm feedback-reject-btn"
+                        [class.btn-danger]="feedbackStatus() === 'rejected'"
+                        [class.btn-outline-danger]="feedbackStatus() !== 'rejected'"
+                        (click)="markFeedback(false)"
+                        title="Scarta supplemento"
+                        aria-label="Scarta supplemento">
+                    <i class="bi bi-hand-thumbs-down"></i>
+                </button>
+                <button type="button"
+                        class="btn btn-sm btn-outline-secondary copy-btn"
+                        (click)="copyToClipboard()"
+                        title="Copia token">
+                    <i class="bi bi-clipboard"></i> Copia
+                </button>
+            </div>
         </div>
-        <p class="mb-0 text-dark fs-5 mt-3" style="line-height: 1.5;">{{ sentence() }}</p>
+        <p class="mb-0 text-dark fs-5 mt-3" style="line-height: 1.5;" [class.text-decoration-line-through]="feedbackStatus() === 'rejected'" [class.text-muted]="feedbackStatus() === 'rejected'">{{ sentence() }}</p>
     </div>
 </div>

@@ -60,7 +60,7 @@
                             <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Chiudi"></button>
                         </div>
                         <div class="modal-body p-4 bg-light">
-                            <app-models-box [models]="models()" [(curr_id)]="curr_id" />
+                            <app-models-box [(models)]="models" [(curr_id)]="curr_id" />
                         </div>
                     </div>
                 </div>
@@ -70,7 +70,13 @@
         @if (suggestions() !== null && !isGenerating()) {
             <div class="mt-4">
                 @if (suggestions()!.length > 0) {
-                <app-suggests-box [suggestions]="suggestions()!" (onClose)="closeSuggestions()" />
+                <app-suggests-box
+                    [suggestions]="suggestions()!"
+                    [initialHumanFeedback]="sessionHumanFeedback()"
+                    [initialRejectedCandidates]="sessionRejectedCandidates()"
+                    (onFeedback)="recordFeedback($event)"
+                    (onRefine)="refineSuggestions($event)"
+                    (onClose)="closeSuggestions()" />
                 }
                 @else {
                 <div class="text-center p-5 text-muted bg-white rounded-4 shadow-sm mt-3 position-relative">

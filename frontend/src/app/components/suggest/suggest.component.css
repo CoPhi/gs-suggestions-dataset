@@ -1,0 +1,14 @@
+.suggestion-card {
+    transition: border-color 0.2s ease, background-color 0.2s ease;
+}
+
+.suggestion-accepted {
+    border: 1.5px solid #198754 !important;
+    background-color: #f8fffb;
+}
+
+.suggestion-rejected {
+    border: 1.5px solid #dc3545 !important;
+    background-color: #fff8f8;
+    opacity: 0.85;
+}

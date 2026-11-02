@@ -6,6 +6,8 @@
         <span class="badge-type badge-bert">BERT</span>
       } @else if (isIthaca()) {
         <span class="badge-type badge-ithaca">Ithaca</span>
+      } @else if (isRAG()) {
+        <span class="badge-type badge-rag">RAG</span>
       } @else {
         <span class="badge-type badge-ngrams">N-grammi</span>
       }
@@ -45,6 +47,25 @@
       <div class="meta-row">
         <span class="meta-label">Decodifica</span>
         <span class="badge bg-light text-dark border">HCB Beam Search</span>
+      </div>
+    } @else if (isRAG()) {
+      <div class="mb-3">
+        <span class="field-label">Modello LLM (Open-Weights)</span>
+        <div class="code-box" title="{{ ragmodel().CHECKPOINT }}">
+          <code>{{ ragmodel().CHECKPOINT }}</code>
+        </div>
+      </div>
+      <div class="meta-row">
+        <span class="meta-label">Architettura</span>
+        <span class="meta-value">DSPy Hybrid RAG</span>
+      </div>
+      <div class="meta-row">
+        <span class="meta-label">Backend</span>
+        <span class="badge bg-light text-dark border">{{ ragmodel().BACKEND || 'auto' }}</span>
+      </div>
+      <div class="meta-row">
+        <span class="meta-label">Loci Similes</span>
+        <span class="badge bg-primary-subtle text-primary border border-primary-subtle fw-semibold">top-k = {{ ragmodel().TOP_K_PASSAGES }}</span>
       </div>
     } @else {
       <div class="meta-row mt-1">
