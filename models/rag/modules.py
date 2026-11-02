@@ -358,6 +358,8 @@ class GreekRAGInfiller(dspy.Module):
         word_suffix: str | None = None,
         num_candidates: int = 20,
         exclude_query_overlap: bool = False,
+        human_feedback: str = "",
+        rejected_candidates: list[str] | None = None,
     ) -> dspy.Prediction:
         # 1. Estrazione automatica dei vincoli se non specificati esplicitamente
         meta = extract_lacuna_metadata(context_with_gap)
@@ -367,11 +369,21 @@ class GreekRAGInfiller(dspy.Module):
         w_prefix = meta["word_prefix"] if word_prefix is None else word_prefix
         w_suffix = meta["word_suffix"] if word_suffix is None else word_suffix
 
+        # Normalizza i candidati scartati dal filologo (senza diacritici e case-folded)
+        # per poterli filtrare deterministicamente anche se l'LLM li ripropone con accenti diversi.
+        rejected_norm_set: set[str] = {
+            normalize_greek(r.strip(), case_folding="fold", strip_diacritics_flag=True)
+            for r in (rejected_candidates or [])
+            if r and r.strip()
+        }
+
         gap_constraints_str = format_gap_constraints(
             min_chars=req_min,
             max_chars=req_max,
             word_prefix=w_prefix,
             word_suffix=w_suffix,
+            human_feedback=human_feedback,
+            rejected_candidates=rejected_candidates,
         )
 
         # 2. Retrieval Ibrido dei passi paralleli (loci similes) da TLG e MAAT
@@ -398,7 +410,11 @@ class GreekRAGInfiller(dspy.Module):
         reasoning = getattr(gen_pred, "philological_reasoning", "") or ""
 
         valid_candidates: list[GreekCandidate] = []
-        invalid_candidates_desc: list[str] = []
+        invalid_candidates_desc: list[str] = [
+            f"{r.strip()} (scartato dal filologo)"
+            for r in (rejected_candidates or [])
+            if r and r.strip()
+        ]
         fallback_candidates: list[GreekCandidate] = []
 
         for cand in raw_candidates:
@@ -410,6 +426,9 @@ class GreekRAGInfiller(dspy.Module):
                 max_chars=req_max,
             )
             if not sanitized:
+                continue
+            norm_san = normalize_greek(sanitized, case_folding="fold", strip_diacritics_flag=True)
+            if norm_san in rejected_norm_set:
                 continue
             cand_len = len(strip_diacritics(sanitized))
             cleaned_cand = GreekCandidate(supplement=sanitized, confidence=cand.confidence)
@@ -444,6 +463,9 @@ class GreekRAGInfiller(dspy.Module):
                     )
                     if not sanitized:
                         continue
+                    norm_san = normalize_greek(sanitized, case_folding="fold", strip_diacritics_flag=True)
+                    if norm_san in rejected_norm_set:
+                        continue
                     cand_len = len(strip_diacritics(sanitized))
                     cleaned_cand = GreekCandidate(supplement=sanitized, confidence=cand.confidence)
                     if req_min <= cand_len <= req_max:
@@ -453,7 +475,7 @@ class GreekRAGInfiller(dspy.Module):
             except Exception:
                 pass
 
-        # 5. Integrazione con attestazioni dirette dai passi paralleli recuperati
+        # 5. Integrazione con attestazioni dirette dai passi paralleli recuperati (escludendo i candidati scartati)
         corpus_attestations = extract_parallel_attestations(
             context_with_gap=clean_context,
             retrieved_passages=retrieved_passages,
@@ -462,7 +484,10 @@ class GreekRAGInfiller(dspy.Module):
             word_prefix=w_prefix,
             word_suffix=w_suffix,
         )
-        valid_candidates.extend(corpus_attestations)
+        for att in corpus_attestations:
+            norm_att = normalize_greek(att.supplement, case_folding="fold", strip_diacritics_flag=True)
+            if norm_att not in rejected_norm_set:
+                valid_candidates.append(att)
 
         return dspy.Prediction(
             philological_reasoning=reasoning,

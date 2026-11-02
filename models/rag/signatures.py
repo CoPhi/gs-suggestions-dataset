@@ -48,7 +48,7 @@ class GreekInfillingSignature(dspy.Signature):
         )
     )
     retrieved_passages: list[str] = dspy.InputField(
-        desc="Passi paralleli (loci similes) recuperati dal Thesaurus Linguae Graecae (TLG) e dai papiri MAAT."
+        desc="Passi paralleli (loci similes) recuperati dal Thesaurus Linguae Graecae (TLG) e dai blocchi anonimi MAAT."
     )
     num_candidates: int = dspy.InputField(
         desc="Numero K di supplementi candidati distinti da generare, ordinati dal più probabile al meno probabile."
@@ -56,8 +56,8 @@ class GreekInfillingSignature(dspy.Signature):
 
     philological_reasoning: str = dspy.OutputField(
         desc=(
-            "Analisi sintetica grammaticale, sintattica e lessicale del contesto e dei passi paralleli "
-            "per giustificare l'integrazione e verificare il numero di lettere."
+            "Analisi sintetica in massimo 2-3 frasi brevi del contesto e dei passi paralleli "
+            "per giustificare l'integrazione e verificare il numero di lettere (non dilungarti)."
         )
     )
     candidates: list[GreekCandidate] = dspy.OutputField(
@@ -96,10 +96,13 @@ def format_gap_constraints(
     max_chars: int,
     word_prefix: str = "",
     word_suffix: str = "",
+    human_feedback: str = "",
+    rejected_candidates: list[str] | None = None,
 ) -> str:
     """
     Formatta in una stringa esplicita per l'LLM i vincoli papirologici della lacuna
-    (conteggio caratteri ed eventuale prefisso e/o suffisso intra-parola).
+    (conteggio caratteri, eventuale prefisso e/o suffisso intra-parola e vincoli
+    Human-in-the-loop forniti dal filologo nella sessione corrente).
     """
     if min_chars == max_chars:
         len_desc = f"esattamente {min_chars} lettere greche (senza contare spiriti o accenti)"
@@ -130,4 +133,20 @@ def format_gap_constraints(
             "Lacuna INTER-PAROLA (parola intera mancante separata da spazi)."
         )
 
-    return f"Lunghezza richiesta: {len_desc}. Tipo di lacuna: {morph_desc}"
+    base_constraints = f"Lunghezza richiesta: {len_desc}. Tipo di lacuna: {morph_desc}"
+
+    # Inietta nel campo gap_constraints eventuali indicazioni filologiche o esclusioni
+    # esplicite (Human-in-the-loop) senza alterare la firma compilata del modulo DSPy.
+    hitl_parts: list[str] = []
+    if human_feedback and human_feedback.strip():
+        hitl_parts.append(f"Indicazione del filologo: {human_feedback.strip()}.")
+    if rejected_candidates:
+        cleaned_rejected = [c.strip() for c in rejected_candidates if c and c.strip()]
+        if cleaned_rejected:
+            hitl_parts.append(
+                f"Supplementi già scartati dal filologo (NON proporli): {', '.join(cleaned_rejected)}."
+            )
+
+    if hitl_parts:
+        return f"{base_constraints} {' '.join(hitl_parts)}"
+    return base_constraints

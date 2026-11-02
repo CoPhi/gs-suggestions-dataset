@@ -14,8 +14,12 @@ e Llama (es. meta-llama/Llama-3.1-8B-Instruct):
 from __future__ import annotations
 
 import gc
+import json
 import os
+import re
+import urllib.request
 from collections import OrderedDict
+from pathlib import Path
 from typing import Any, Literal
 
 import dspy
@@ -44,7 +48,7 @@ class TransformersLocalEngine:
         torch_dtype: str = "auto",
         load_in_4bit: bool = False,
         default_temperature: float = 0.2,
-        default_max_tokens: int = 512,
+        default_max_tokens: int = 1024,
     ) -> None:
         self.model_id = model_id
         self.device = device or ("cuda" if torch.cuda.is_available() else "cpu")
@@ -286,6 +290,219 @@ class HuggingFaceLocalLM(dspy.LM):
 
 _LM_INSTANCES: OrderedDict[tuple[str, str, str | None, float, int, bool], dspy.BaseLM] = OrderedDict()
 
+# Circuit-breaker di sessione: se `HF_TOKEN` è presente ma privo dei permessi
+# "Make calls to Inference Providers" (es. token fine-grained solo per repo Hub),
+# evita di instradare nuove richieste `backend='auto'` verso `hf_api`.
+_HF_INFERENCE_API_UNAVAILABLE: bool = False
+
+
+def mark_hf_api_unavailable() -> None:
+    """Segna Hugging Face Serverless Inference Providers come non utilizzabile nella sessione corrente."""
+    global _HF_INFERENCE_API_UNAVAILABLE
+    _HF_INFERENCE_API_UNAVAILABLE = True
+
+
+def reset_hf_api_availability() -> None:
+    """Ripristina lo stato del circuit-breaker per Hugging Face Inference Providers (utile nei test)."""
+    global _HF_INFERENCE_API_UNAVAILABLE
+    _HF_INFERENCE_API_UNAVAILABLE = False
+
+
+def is_hf_api_unavailable() -> bool:
+    """Restituisce True se `hf_api` è stato disabilitato per assenza di permessi sul token."""
+    return _HF_INFERENCE_API_UNAVAILABLE
+
+
+def is_hf_permission_or_auth_error(exc: BaseException) -> bool:
+    """
+    Rileva se un'eccezione sollevata da DSPy/LiteLLM dipende da permessi insufficienti
+    o credenziali non valide su Hugging Face Inference Providers.
+    """
+    msg = str(exc).lower()
+    return any(
+        marker in msg
+        for marker in (
+            "sufficient permissions to call inference providers",
+            "huggingfaceexception",
+            "inference providers",
+            "401",
+            "403",
+            "invalid credentials",
+            "unauthorized",
+        )
+    )
+
+
+def get_available_system_ram_gb() -> float:
+    """
+    Legge la RAM fisica effettivamente disponibile (`MemAvailable`) da `/proc/meminfo` su Linux.
+    Usato per prevenire l'intervento dell'OOM killer del kernel quando Ollama carica modelli
+    pesanti (es. 9.6 GB) interamente su CPU (`num_gpu=0`).
+    """
+    meminfo = Path("/proc/meminfo")
+    if meminfo.exists():
+        try:
+            for line in meminfo.read_text(encoding="utf-8").splitlines():
+                if line.startswith("MemAvailable:"):
+                    parts = line.split()
+                    if len(parts) >= 2:
+                        return float(parts[1]) / (1024**2)
+        except Exception:
+            pass
+    return 8.0
+
+
+def discover_ollama_models(
+    api_base: str | None = None,
+    timeout: float = 0.4,
+    check_ram_budget: bool = True,
+) -> tuple[str | None, list[str]]:
+    """
+    Interroga il demone locale Ollama (`GET /api/tags`) sugli endpoint candidati
+    (`OLLAMA_API_BASE`, `127.0.0.1:11434`, `host.docker.internal:11434`) e restituisce
+    `(ollama_host, lista_modelli_compatibili)`.
+
+    Se `check_ram_budget=True` e la GPU ha `< 8 GB` di VRAM (per cui i modelli > 3B
+    vengono forzati su CPU con `num_gpu=0`), scarta i modelli la cui dimensione su disco
+    eccede la RAM disponibile meno 1.5 GB di margine operativo, prevenendo `oom-kill`.
+    """
+    candidates: list[str] = []
+    for base in (
+        api_base,
+        os.getenv("OLLAMA_API_BASE"),
+        "http://127.0.0.1:11434",
+        "http://host.docker.internal:11434",
+    ):
+        if base:
+            clean_base = base.removesuffix("/v1").rstrip("/")
+            if clean_base not in candidates:
+                candidates.append(clean_base)
+
+    low_vram = True
+    if torch.cuda.is_available():
+        vram_gb = torch.cuda.get_device_properties(0).total_memory / (1024**3)
+        low_vram = vram_gb < 8.0
+
+    avail_ram_gb = get_available_system_ram_gb() if check_ram_budget else 999.0
+
+    for host in candidates:
+        try:
+            req = urllib.request.Request(f"{host}/api/tags", method="GET")
+            with urllib.request.urlopen(req, timeout=timeout) as resp:
+                if resp.status != 200:
+                    continue
+                payload = json.loads(resp.read().decode("utf-8"))
+                models_list = payload.get("models") or []
+                compatible: list[str] = []
+                for m in models_list:
+                    name = m.get("name") or m.get("model")
+                    if not name:
+                        continue
+                    size_bytes = float(m.get("size") or 0)
+                    size_gb = size_bytes / (1024**3)
+                    # Su GPU < 8 GB i modelli non compatti girano su CPU (`num_gpu=0`):
+                    # richiediamo almeno 1.5 GB di margine sulla RAM disponibile per evitare OOM kill
+                    if (
+                        check_ram_budget
+                        and low_vram
+                        and not _is_compact_hf_model(name)
+                        and size_gb > 0
+                        and (size_gb + 1.5) > avail_ram_gb
+                    ):
+                        continue
+                    compatible.append(str(name))
+                return host, compatible
+        except Exception:
+            continue
+
+    return None, []
+
+
+def _is_compact_hf_model(model_id: str) -> bool:
+    """Rileva modelli compatti (<= 3B parametri) eseguibili nativamente su GPU consumer da 4-8 GB."""
+    return bool(re.search(r"(?:^|[-_/])(0\.5|1|1\.5|2|3)b(?:[-_.]|$)", model_id.lower()))
+
+
+def is_ollama_model_within_ram_budget(
+    model_name: str,
+    api_base: str | None = None,
+    timeout: float = 0.4,
+) -> tuple[bool, str]:
+    """
+    Verifica preventivamente via `GET /api/tags` se un modello Ollama può essere caricato
+    in memoria senza innescare l'OOM killer del kernel Linux quando `num_gpu=0` (GPU < 8 GB).
+    """
+    clean_name = model_name
+    for prefix in ("ollama_chat/", "ollama/", "openai/"):
+        if clean_name.startswith(prefix):
+            clean_name = clean_name[len(prefix) :]
+
+    if _is_compact_hf_model(clean_name):
+        return True, ""
+
+    if torch.cuda.is_available():
+        vram_gb = torch.cuda.get_device_properties(0).total_memory / (1024**3)
+        if vram_gb >= 8.0:
+            return True, ""
+
+    avail_ram_gb = get_available_system_ram_gb()
+    host = (api_base or os.getenv("OLLAMA_API_BASE") or "http://127.0.0.1:11434").removesuffix("/v1").rstrip("/")
+    try:
+        req = urllib.request.Request(f"{host}/api/tags", method="GET")
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            if resp.status == 200:
+                payload = json.loads(resp.read().decode("utf-8"))
+                for m in payload.get("models") or []:
+                    m_name = m.get("name") or m.get("model") or ""
+                    if m_name == clean_name or m_name.startswith(f"{clean_name}:"):
+                        size_gb = float(m.get("size") or 0) / (1024**3)
+                        if size_gb > 0 and (size_gb + 1.5) > avail_ram_gb:
+                            return (
+                                False,
+                                f"il modello Ollama '{clean_name}' ({size_gb:.1f} GiB) richiede più RAM di quella libera ({avail_ram_gb:.1f} GiB)",
+                            )
+    except Exception:
+        pass
+    return True, ""
+
+
+def get_fallback_dspy_lms(
+    checkpoint: str,
+    backend: str = "auto",
+    temperature: float = 0.2,
+    max_tokens: int = 1024,
+) -> list[dspy.BaseLM]:
+    """
+    Restituisce una coda ordinata di istanze `dspy.BaseLM` di fallback da tentare
+    qualora l'LLM primario fallisca a runtime (es. `HF_TOKEN` privo di permessi
+    Inference Providers).
+    """
+    if backend not in ("auto", "hf_api", "openai_compatible"):
+        return []
+
+    fallbacks: list[dspy.BaseLM] = []
+    ollama_host, ollama_models = discover_ollama_models(check_ram_budget=True)
+    if ollama_host and ollama_models:
+        clean_primary = checkpoint
+        for prefix in ("huggingface/", "openai/", "ollama_chat/", "ollama/"):
+            if clean_primary.startswith(prefix):
+                clean_primary = clean_primary[len(prefix) :]
+        for tag in ollama_models:
+            if tag == clean_primary:
+                continue
+            try:
+                fb_lm = build_dspy_lm(
+                    checkpoint=f"ollama_chat/{tag}",
+                    backend="openai_compatible",
+                    api_base=ollama_host,
+                    temperature=temperature,
+                    max_tokens=max_tokens,
+                )
+                fallbacks.append(fb_lm)
+            except Exception:
+                continue
+    return fallbacks
+
 
 def build_dspy_lm(
     checkpoint: str = "Qwen/Qwen2.5-7B-Instruct",
@@ -293,7 +510,7 @@ def build_dspy_lm(
     api_base: str | None = None,
     api_key: str | None = None,
     temperature: float = 0.2,
-    max_tokens: int = 512,
+    max_tokens: int = 1024,
     load_in_4bit: bool = False,
     device: str | None = None,
     cache: bool = True,
@@ -304,7 +521,7 @@ def build_dspy_lm(
 
     Args:
         checkpoint: Nome del repository su Hugging Face (es. 'Qwen/Qwen2.5-7B-Instruct',
-                    'meta-llama/Llama-3.1-8B-Instruct') oppure stringa prefissata LiteLLM.
+                    'Qwen/Qwen2.5-1.5B-Instruct') oppure tag Ollama (es. 'gemma4:e4b', 'ollama/qwen2.5:7b').
         backend: Strategia di inferenza ('auto', 'hf_api', 'local', 'openai_compatible').
         api_base: URL base per server compatibili OpenAI (vLLM, Ollama, TGI).
         api_key: Chiave API (se omessa, legge `HF_TOKEN` o `RAG_API_KEY` da `.env`).
@@ -314,22 +531,53 @@ def build_dspy_lm(
         device: Device esplicito ('cuda', 'cpu') per il caricamento locale.
         cache: Abilita la cache delle risposte di DSPy.
     """
+    is_explicit_ollama = checkpoint.startswith(("ollama/", "ollama_chat/"))
     clean_ckpt = checkpoint
-    for prefix in ("huggingface/", "openai/", "ollama/"):
+    for prefix in ("huggingface/", "openai/", "ollama_chat/", "ollama/"):
         if clean_ckpt.startswith(prefix):
             clean_ckpt = clean_ckpt[len(prefix) :]
 
+    # Riconosce tag nativi Ollama (es. 'gemma4:e4b' o 'ollama/qwen2.5:7b') distinti dai repo HF ('org/repo')
+    is_ollama_tag = is_explicit_ollama or (":" in clean_ckpt and "/" not in clean_ckpt)
     resolved_api_base = api_base or os.getenv("RAG_API_BASE")
+    if is_ollama_tag and not resolved_api_base:
+        resolved_api_base = os.getenv("OLLAMA_API_BASE", "http://127.0.0.1:11434")
+
+    has_usable_hf_token = bool(api_key or (os.getenv("HF_TOKEN") and not _HF_INFERENCE_API_UNAVAILABLE))
+
     resolved_backend = backend
-    if resolved_backend == "auto":
+    if is_ollama_tag and backend in ("auto", "openai_compatible"):
+        resolved_backend = "ollama"
+    elif resolved_backend == "auto":
         if resolved_api_base:
             resolved_backend = "openai_compatible"
         elif torch.cuda.is_available():
-            resolved_backend = "local"
-        elif os.getenv("HF_TOKEN") or api_key:
+            # Evita di caricare modelli >= 7B (~15 GB fp16) su GPU con VRAM < 12 GB se è disponibile HF_TOKEN
+            vram_gb = torch.cuda.get_device_properties(0).total_memory / (1024**3)
+            if _is_compact_hf_model(clean_ckpt) or vram_gb >= 12.0:
+                resolved_backend = "local"
+            elif has_usable_hf_token:
+                resolved_backend = "hf_api"
+            else:
+                # Se HF_TOKEN non è abilitato per Inference Providers e la GPU ha < 12 GB,
+                # verifica se c'è un modello Ollama compatibile con la RAM disponibile
+                ollama_host, ollama_models = discover_ollama_models(check_ram_budget=True)
+                if ollama_host and ollama_models:
+                    clean_ckpt = ollama_models[0]
+                    resolved_api_base = ollama_host
+                    resolved_backend = "ollama"
+                else:
+                    resolved_backend = "hf_api" if (os.getenv("HF_TOKEN") or api_key) else "local"
+        elif has_usable_hf_token:
             resolved_backend = "hf_api"
         else:
-            resolved_backend = "local"
+            ollama_host, ollama_models = discover_ollama_models(check_ram_budget=True)
+            if ollama_host and ollama_models:
+                clean_ckpt = ollama_models[0]
+                resolved_api_base = ollama_host
+                resolved_backend = "ollama"
+            else:
+                resolved_backend = "hf_api" if (os.getenv("HF_TOKEN") or api_key) else "local"
 
     cache_key = (
         clean_ckpt,
@@ -351,6 +599,24 @@ def build_dspy_lm(
             temperature=temperature,
             max_tokens=max_tokens,
             cache=cache,
+        )
+    elif resolved_backend == "ollama":
+        # Usa il provider nativo `ollama_chat/` (senza suffisso /v1) per disabilitare il thinking implicito
+        # (`think=False`, che saturerebbe `max_tokens`), limitare `num_ctx=2048` per contenere la KV-cache
+        # e forzare `num_gpu=0` su schede < 8 GB per prevenire errori `GGML_ASSERT` nello split CPU/GPU.
+        ollama_host = (resolved_api_base or "http://127.0.0.1:11434").removesuffix("/v1").rstrip("/")
+        ollama_kwargs: dict[str, Any] = {"think": False, "num_ctx": 2048}
+        if torch.cuda.is_available():
+            vram_gb = torch.cuda.get_device_properties(0).total_memory / (1024**3)
+            if vram_gb < 8.0 and not _is_compact_hf_model(clean_ckpt):
+                ollama_kwargs["num_gpu"] = 0
+        lm = dspy.LM(
+            model=f"ollama_chat/{clean_ckpt}",
+            api_base=ollama_host,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            cache=cache,
+            **ollama_kwargs,
         )
     elif resolved_backend == "openai_compatible":
         token = api_key or os.getenv("RAG_API_KEY") or os.getenv("OPENAI_API_KEY") or "EMPTY"

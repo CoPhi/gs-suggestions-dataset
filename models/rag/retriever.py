@@ -18,6 +18,7 @@ import json
 import math
 import os
 import pickle
+import random
 import re
 import zlib
 from collections import Counter, defaultdict
@@ -188,6 +189,63 @@ class GreekLexicalBM25Index:
         sorted_order = candidate_indices[np.argsort(-scores[candidate_indices])]
         return [(int(idx), float(scores[idx])) for idx in sorted_order[:top_k]]
 
+    def match_affix_words(
+        self,
+        word_prefix: str = "",
+        word_suffix: str = "",
+        min_gap_chars: int = 1,
+        max_gap_chars: int = 20,
+        top_n: int = 10,
+    ) -> list[tuple[str, str, int]]:
+        """
+        Cerca nel vocabolario indicizzato (`w:<word>`) le parole greche che iniziano con
+        `word_prefix`, terminano con `word_suffix` e hanno una parte centrale di lunghezza
+        compresa in `[min_gap_chars, max_gap_chars]`.
+
+        Restituisce una lista di tuple `(parola_intera, supplemento_centrale, doc_freq)`
+        ordinata per frequenza documentale decrescente.
+        """
+        base_prefix = (
+            normalize_greek(word_prefix, case_folding="fold", strip_diacritics_flag=True)
+            if word_prefix
+            else ""
+        )
+        base_suffix = (
+            normalize_greek(word_suffix, case_folding="fold", strip_diacritics_flag=True)
+            if word_suffix
+            else ""
+        )
+        if not base_prefix and not base_suffix:
+            return []
+
+        matches: list[tuple[str, str, int]] = []
+        prefix_len = len(base_prefix)
+        suffix_len = len(base_suffix)
+
+        for term, plist in self.postings.items():
+            if not term.startswith("w:"):
+                continue
+            word = term[2:]
+            if len(word) < prefix_len + suffix_len + min_gap_chars:
+                continue
+            if len(word) > prefix_len + suffix_len + max_gap_chars:
+                continue
+            if base_prefix and not word.startswith(base_prefix):
+                continue
+            if base_suffix and not word.endswith(base_suffix):
+                continue
+            # Esclude eventuali refusi con caratteri latini (es. 'o' latina invece di omicron)
+            if re.search(r"[a-zA-Z0-9]", word):
+                continue
+
+            end_idx = len(word) - suffix_len if suffix_len > 0 else len(word)
+            supp = word[prefix_len:end_idx]
+            if min_gap_chars <= len(supp) <= max_gap_chars:
+                matches.append((word, supp, len(plist)))
+
+        matches.sort(key=lambda item: item[2], reverse=True)
+        return matches[:top_n]
+
     def to_bytes(self) -> bytes:
         state = {
             "k1": self.k1,
@@ -310,6 +368,31 @@ def build_rag_corpus_from_data(
         if blocks_override is not None
         else load_abs(corpus_set=corpus_set, budget=budget)
     )
+
+    # `load_abs` carica sequenzialmente prima tutti i file `maat_*.json` (prevalentemente DDbDP)
+    # e solo in coda i file `tlg_*.json`. Quando `max_passages` impone un tetto di estrazione,
+    # raggruppiamo per `corpus_id` e intercaliamo in round-robin (dopo shuffle deterministico)
+    # per garantire una copertura bilanciata tra testi letterari (TLG, DCLP) e documentari.
+    if max_passages is not None and blocks_override is None and len(raw_blocks) > 1:
+        by_corpus: dict[str, list[dict[str, Any]]] = defaultdict(list)
+        for ab in raw_blocks:
+            cid = str(ab.get("corpus_id") or "unknown")
+            by_corpus[cid].append(ab)
+        rng = random.Random(42)
+        ordered_cids = sorted(
+            by_corpus.keys(),
+            key=lambda c: (0 if c == "tlg" else 1 if c == "DCLP" else 2, c),
+        )
+        for cid in ordered_cids:
+            rng.shuffle(by_corpus[cid])
+        interleaved: list[dict[str, Any]] = []
+        max_len = max(len(v) for v in by_corpus.values())
+        for idx in range(max_len):
+            for cid in ordered_cids:
+                bucket = by_corpus[cid]
+                if idx < len(bucket):
+                    interleaved.append(bucket[idx])
+        raw_blocks = interleaved
 
     passages: list[str] = []
     seen_normalized: set[str] = set()
@@ -474,7 +557,21 @@ class GreekHybridRetriever:
         candidate_pool_size = min(len(self.corpus), max(top_k * 5, 25))
 
         # Costruiamo la query arricchita con prefisso e/o suffisso della parola lacunosa
-        affix_hint = " ".join(part for part in (word_prefix, word_suffix) if part)
+        # ed espandiamo i termini lessicali compatibili con il pattern morfologico nel corpus
+        affix_parts = [part for part in (word_prefix, word_suffix) if part]
+        if word_prefix or word_suffix:
+            gap_match = re.search(r"\[(\.+|\-+)\]", query)
+            min_g = len(gap_match.group(1)) if gap_match else 1
+            max_g = min_g if gap_match else 15
+            expanded = self.lexical_index.match_affix_words(
+                word_prefix=word_prefix,
+                word_suffix=word_suffix,
+                min_gap_chars=min_g,
+                max_gap_chars=max_g,
+                top_n=5,
+            )
+            affix_parts.extend(w for w, _supp, _df in expanded)
+        affix_hint = " ".join(affix_parts)
         enriched_query = f"{query} {affix_hint}".strip()
         query_norm = normalize_for_retrieval(query)
 
@@ -621,11 +718,11 @@ def get_or_build_default_retriever(
     if cache_key in _DEFAULT_RETRIEVER_CACHE:
         return _DEFAULT_RETRIEVER_CACHE[cache_key]
 
-    idx_path = Path(index_dir)
-    if (idx_path / "hybrid_meta.json").exists():
-        retriever = GreekHybridRetriever.from_saved(idx_path)
-        _DEFAULT_RETRIEVER_CACHE[cache_key] = retriever
-        return retriever
+    for candidate_dir in (Path(index_dir), Path("checkpoints/rag_index")):
+        if (candidate_dir / "hybrid_meta.json").exists():
+            retriever = GreekHybridRetriever.from_saved(candidate_dir)
+            _DEFAULT_RETRIEVER_CACHE[cache_key] = retriever
+            return retriever
 
     if DATA_PATH.exists() and any(DATA_PATH.glob("*.json")):
         passages = build_rag_corpus_from_data(
