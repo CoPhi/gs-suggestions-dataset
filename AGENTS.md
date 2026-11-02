@@ -2,6 +2,16 @@
 
 ## Regole di Aggiornamento della Codebase
 
+### Stile del Codice e Commenti Esplicativi
+Quando scrivi o modifichi codice (Python, TypeScript, script o configurazioni):
+1. **Commenta sempre i passaggi non autoesplicativi**: aggiungi commenti sintetici e chiari (in italiano, coerenti col resto del repository) per spiegare il *perché* di scelte algoritmiche, workaround hardware/VRAM, gestione di casi limite, retrocompatibilità o flussi reattivi non ovvi.
+2. **Evita commenti ridondanti**: non commentare istruzioni banali o già autoesplicative dal nome di funzioni e variabili.
+
+### Disaccoppiamento Architetturale e Readiness Container (`gs-api`)
+Quando integri nuovi modelli o pipeline di inferenza:
+1. **Esperienza Thin-Client**: l'utente finale (filologo) deve poter invocare predizioni tramite UI/API indipendentemente dall'hardware client e senza dover configurare account o token personali (es. Hugging Face).
+2. **Autonomia di `gs-api`**: i pacchetti richiesti a runtime dall'API devono risiedere in `[project] dependencies` di [`pyproject.toml`](./pyproject.toml) (compatibili con `uv sync --frozen --no-dev`), mantenendo separati in `[dependency-groups] train` gli strumenti esclusivi di training/HPO.
+
 ### Aggiornamento Sistematico del `CHANGELOG.md`
 Ogni volta che viene effettuata una modifica o aggiunta alla codebase:
 1. **Aggiornare sempre [`CHANGELOG.md`](./CHANGELOG.md)** per riflettere i cambiamenti apportati.

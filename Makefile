@@ -404,7 +404,7 @@ restart: stop run
 
 test-api:
 	@echo "=== [QA] Esecuzione Test Suite Backend / API ==="
-	uv run python -m pytest tests/test_multiple_lacunae.py tests/backend/core/test_preprocess.py tests/backend/core/test_transpiler.py tests/test_model_service_checkpoints.py
+	uv run python -m pytest tests/test_multiple_lacunae.py tests/backend/core/test_preprocess.py tests/backend/core/test_transpiler.py tests/test_model_service_checkpoints.py tests/test_dspy_rag.py
 
 
 test-frontend:
@@ -738,8 +738,8 @@ ithaca-publish:
 RAG_LM ?= Qwen/Qwen2.5-7B-Instruct
 RAG_BACKEND ?= auto
 RAG_EMBEDDER ?= CNR-ILC/gs-GreBerta
-RAG_INDEX_DIR ?= checkpoints/rag_index
-RAG_MAX_PASSAGES ?= 10000
+RAG_INDEX_DIR ?= models/rag/index
+RAG_MAX_PASSAGES ?= 3000
 RAG_TOP_K_PASSAGES ?= 5
 RAG_OPTIMIZER ?= bootstrap
 RAG_MAX_TRAIN_CASES ?= 40

@@ -36,3 +36,6 @@ wandb/
 scratch/
 requirements.txt
 packages/ithaca_engine/
+checkpoints/
+models/rag/index/
+models/rag/checkpoints/
