@@ -9,6 +9,11 @@ services:
       - MONGO_USERNAME=${MONGO_USERNAME}
       - MONGO_PASSWORD=${MONGO_PASSWORD}
       - MONGO_HOST=mongodb
+      - HF_TOKEN=${HF_TOKEN:-}
+      - RAG_DEFAULT_LM=${RAG_DEFAULT_LM:-Qwen/Qwen2.5-7B-Instruct}
+      - RAG_DEFAULT_BACKEND=${RAG_DEFAULT_BACKEND:-auto}
+      - RAG_API_BASE=${RAG_API_BASE:-}
+      - RAG_API_KEY=${RAG_API_KEY:-}
     depends_on:
       mongodb:
         condition: service_healthy   

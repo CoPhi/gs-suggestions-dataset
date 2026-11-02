@@ -21,6 +21,9 @@ from backend.config.settings import (
     GAMMA,
     LM_TYPES,
     N,
+    RAG_CHECKPOINTS,
+    RAG_DEFAULT_BACKEND,
+    RAG_TOP_K_PASSAGES,
     get_ngram_checkpoint_path,
 )
 from models.ngrams.train.training import pipeline_train
@@ -76,6 +79,17 @@ class ModelService:
         for checkpoint in BERT_CHECKPOINTS:
             try:
                 ids.append(await self._create_bert_model_from_checkpoint(checkpoint))
+            except ModelAlreadyExistsError:
+                pass  # modello già presente, si prosegue
+        for checkpoint in RAG_CHECKPOINTS:
+            try:
+                ids.append(
+                    await self._create_rag_model_from_checkpoint(
+                        checkpoint=checkpoint,
+                        backend=RAG_DEFAULT_BACKEND,
+                        top_k_passages=RAG_TOP_K_PASSAGES,
+                    )
+                )
             except ModelAlreadyExistsError:
                 pass  # modello già presente, si prosegue
         return ids
@@ -230,6 +244,27 @@ class ModelService:
             "BACKEND": model_dict.get("BACKEND", "auto"),
         }
         await self._check_duplicate(identity_filter)
+        return await self._insert_one_safe(model_dict)
+
+    async def _create_rag_model_from_checkpoint(
+        self,
+        checkpoint: str,
+        backend: str = "auto",
+        top_k_passages: int = 5,
+    ) -> str:
+        identity_filter = {
+            "TYPE": "RAG",
+            "CHECKPOINT": checkpoint,
+            "BACKEND": backend,
+        }
+        await self._check_duplicate(identity_filter)
+        model_dict = {
+            "CHECKPOINT": checkpoint,
+            "BACKEND": backend,
+            "TOP_K_PASSAGES": top_k_passages,
+            "COMPILED_PROGRAM_PATH": None,
+            "TYPE": "RAG",
+        }
         return await self._insert_one_safe(model_dict)
 
     async def _delete_gridfs_files(self, model: dict) -> None:

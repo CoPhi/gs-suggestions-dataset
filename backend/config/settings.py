@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 
 # Parametri per lo splitting dei dati nei file
@@ -42,12 +43,13 @@ BATCH_SIZES = [32, 64]
 NGRAM_CHECKPOINTS_DIR = Path("models/ngrams/checkpoints")
 
 # Parametri di default per il sistema DSPy RAG
-RAG_INDEX_DIR = Path("checkpoints/rag_index")
+RAG_INDEX_DIR = Path(os.getenv("RAG_INDEX_DIR", "models/rag/index"))
 RAG_COMPILED_DIR = Path("models/rag/checkpoints")
-RAG_DEFAULT_LM = "Qwen/Qwen2.5-7B-Instruct"
-RAG_DEFAULT_BACKEND = "auto"
-RAG_DEFAULT_EMBEDDER = "CNR-ILC/gs-GreBerta"
-RAG_TOP_K_PASSAGES = 5
+RAG_DEFAULT_LM = os.getenv("RAG_DEFAULT_LM", "Qwen/Qwen2.5-7B-Instruct")
+RAG_DEFAULT_BACKEND = os.getenv("RAG_DEFAULT_BACKEND", "auto")
+RAG_DEFAULT_EMBEDDER = os.getenv("RAG_DEFAULT_EMBEDDER", "CNR-ILC/gs-GreBerta")
+RAG_TOP_K_PASSAGES = int(os.getenv("RAG_TOP_K_PASSAGES", "5"))
+RAG_CHECKPOINTS = [RAG_DEFAULT_LM]
 
 
 def get_ngram_checkpoint_path(

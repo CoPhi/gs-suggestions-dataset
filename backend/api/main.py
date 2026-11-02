@@ -1,6 +1,7 @@
 import tomllib
 from pathlib import Path
 from contextlib import asynccontextmanager
+import dspy
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -38,12 +39,13 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="gs-api",
     version=get_version(),
-    description="""API per GreekSchools. Questa API offre l'accesso e la gestione del ciclo di vita di modelli linguistici basati su N-grammi, BERT e Ithaca per la generazione di supplementi testuali e il restauro di testi antichi con decodifica HCB.
+    description="""API per GreekSchools. Questa API offre l'accesso e la gestione del ciclo di vita di modelli linguistici basati su N-grammi, BERT, Ithaca e DSPy RAG per la generazione di supplementi testuali e il restauro di testi antichi.
 
 ### Modelli supportati:
 - **Ngrams**: Modelli statistici MLE e Lidstone con K-smoothing.
 - **BERT**: Modelli Masked Language Modeling (es. `CNR-ILC/gs-aristoBERTo`, `CNR-ILC/gs-GreBerta`, `CNR-ILC/gs-Logion`).
 - **Ithaca**: Modello BigBird character-level fine-tunato sul corpus TLG (es. `CNR-ILC/gs-ithaca-tlg`) con decoding HCB beam search per il ripristino di lacune papirologiche ed epigrafiche.
+- **RAG**: Sistema di Retrieval-Augmented Generation orchestrato con DSPy 3.4+ su corpora antichi (TLG & MAAT) e modelli LLM open-weights (es. `Qwen/Qwen2.5-7B-Instruct`, `google/gemma-2-9b-it`, `meta-llama/Llama-3.1-8B-Instruct`).
 """,
     lifespan=lifespan,
 )
@@ -82,4 +84,30 @@ async def dataset_not_found_handler(request: Request, exc: DatasetNotFoundError)
 @app.exception_handler(ValueError)
 async def value_error_handler(request: Request, exc: ValueError):
     return JSONResponse(status_code=400, content={"detail": str(exc)})
+
+
+@app.exception_handler(dspy.utils.exceptions.LMError)
+async def dspy_lm_error_handler(request: Request, exc: Exception):
+    err_str = str(exc)
+    if "Inference Providers" in err_str or "HuggingfaceException" in err_str:
+        hint = (
+            "Il token HF_TOKEN configurato non dispone del permesso 'Make calls to Inference Providers' "
+            "su Hugging Face Hub. Abilita tale permesso sul token oppure usa il backend 'auto' con fallback locale."
+        )
+    elif "Ollama" in err_str or "Connection" in err_str:
+        hint = (
+            "Il runtime LLM locale (Ollama/vLLM) non risponde o ha esaurito la memoria RAM/VRAM disponibile."
+        )
+    else:
+        hint = (
+            "Verifica i permessi di HF_TOKEN ('Make calls to Inference Providers') "
+            "o la disponibilità del runtime locale (Ollama/vLLM)."
+        )
+    return JSONResponse(
+        status_code=502,
+        content={
+            "detail": f"Errore di comunicazione con il backend LLM del sistema RAG: {exc}. {hint}"
+        },
+    )
+
 

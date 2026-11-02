@@ -60,10 +60,37 @@ class Prediction(BaseModel):
     sentence: str
     token_str: str
     score: float
+    philological_reasoning: str | None = None
+    retrieved_passages: List[str] | None = None
 
 class PredictionsResponse(BaseModel):
     predictions: List[Prediction]
-    
+
+
+class FeedbackCreateRequest(BaseModel):
+    """Payload inviato dal filologo per validare o scartare un supplemento proposto (HITL Fase 1)."""
+
+    model_id: str = Field(description="ID del modello che ha generato il supplemento")
+    context: str = Field(description="Frammento greco con lacuna [...] sottoposto a infilling")
+    token_str: str = Field(description="Supplemento proposto oggetto di valutazione")
+    sentence: str | None = Field(
+        default=None,
+        description="Contesto completo con la lacuna colmata dal supplemento",
+    )
+    is_accepted: bool = Field(
+        description="True se il filologo valida il supplemento come plausibile/corretto, False se lo scarta"
+    )
+    notes: str | None = Field(
+        default=None,
+        description="Note filologiche o motivazione opzionale fornita dallo studioso",
+    )
+
+
+class FeedbackResponse(BaseModel):
+    id: str
+    status: str = "saved"
+
+
 class ModelType(str, Enum):
     NGRAMS = "Ngrams"
     BERT = "BERT"

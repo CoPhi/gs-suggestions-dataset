@@ -17,12 +17,13 @@ from huggingface_hub.utils import RepositoryNotFoundError
 
 from transformers import AutoModelForMaskedLM, AutoTokenizer
 
-from backend.api.database import collection, fs
+from datetime import datetime, timezone
+from backend.api.database import collection, feedback_collection, fs
 from backend.api.exceptions import InvalidContextError, ModelNotFoundError
-from backend.api.models import ModelType
+from backend.api.models import FeedbackCreateRequest, ModelType
 from models.ngrams.inference.suggests import generate_k_suggests
 from models.bert.inference.predict import fill_mask
-from backend.core.preprocess import test_case_contains_lacuna
+from backend.core.preprocess import normalize_greek, test_case_contains_lacuna
 
 LACUNA_PATTERN = r"\S*\[.*?\]\S*"
 BERT_LACUNA_PATTERN = r"\[.*?\]"
@@ -48,9 +49,51 @@ class SuggestionsService:
     _ngram_cache: dict[str, Any] = {}
     MAX_BERT_MODELS = 3
 
-    def __init__(self, db_collection=collection, gridfs=fs) -> None:
+    def __init__(
+        self,
+        db_collection=collection,
+        gridfs=fs,
+        feedback_db=feedback_collection,
+    ) -> None:
         self._collection = db_collection
         self._fs = gridfs
+        self._feedback_collection = feedback_db
+
+    async def save_feedback(self, payload: FeedbackCreateRequest) -> dict[str, str]:
+        """
+        Persiste in MongoDB la validazione o lo scarto di un supplemento da parte del filologo
+        (Human-in-the-loop Fase 1) per costruire il dataset curato di esempi positivi/negativi.
+        """
+        doc = {
+            "model_id": payload.model_id,
+            "context": payload.context,
+            "token_str": payload.token_str,
+            "sentence": payload.sentence,
+            "is_accepted": payload.is_accepted,
+            "notes": payload.notes,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        }
+        result = await self._feedback_collection.insert_one(doc)
+        return {"id": str(result.inserted_id), "status": "saved"}
+
+    async def get_feedback_list(
+        self,
+        limit: int = 100,
+        is_accepted: bool | None = None,
+    ) -> list[dict[str, Any]]:
+        """Recupera gli ultimi feedback annotati dai filologi, filtrabili per esito (accettato/scartato)."""
+        query: dict[str, Any] = {}
+        if is_accepted is not None:
+            query["is_accepted"] = is_accepted
+
+        cursor = self._feedback_collection.find(query).sort("created_at", -1).limit(limit)
+        items: list[dict[str, Any]] = []
+        async for doc in cursor:
+            serialized = dict(doc)
+            if "_id" in serialized:
+                serialized["id"] = str(serialized.pop("_id"))
+            items.append(serialized)
+        return items
 
     async def get_predictions(
         self,
@@ -58,28 +101,65 @@ class SuggestionsService:
         context: str,
         num_tokens: int,
         num_predictions: Any,
+        human_feedback: str | None = None,
+        rejected_candidates: list[str] | None = None,
     ) -> list[dict]:
         model = await self._fetch_model(model_id)
         self._validate_context(context)
         model_type = model.get("TYPE")
 
+        predictions: list[dict] | None = None
         if model_type == ModelType.NGRAMS:
-            return await self._predict_ngrams(
+            predictions = await self._predict_ngrams(
                 model, context, num_tokens, num_predictions
             )
-        try:
-            if model_type == ModelType.BERT:
-                return await self._predict_bert(model, context, num_predictions)
-            if model_type == ModelType.ITHACA:
-                return await self._predict_ithaca(model, context, num_predictions)
-            if model_type == ModelType.RAG:
-                return await self._predict_rag(model, context, num_predictions)
-        except RepositoryNotFoundError:
-            raise ModelNotFoundError(
-                f"Checkpoint '{model['CHECKPOINT']}' not found on HuggingFace Hub"
-            )
+        else:
+            try:
+                if model_type == ModelType.BERT:
+                    predictions = await self._predict_bert(
+                        model, context, num_predictions
+                    )
+                elif model_type == ModelType.ITHACA:
+                    predictions = await self._predict_ithaca(
+                        model, context, num_predictions
+                    )
+                elif model_type == ModelType.RAG:
+                    predictions = await self._predict_rag(
+                        model,
+                        context,
+                        num_predictions,
+                        human_feedback=human_feedback,
+                        rejected_candidates=rejected_candidates,
+                    )
+            except RepositoryNotFoundError:
+                raise ModelNotFoundError(
+                    f"Checkpoint '{model['CHECKPOINT']}' not found on HuggingFace Hub"
+                )
 
-        raise ModelNotFoundError(f"Unsupported model type: {model_type!r}")
+        if predictions is None:
+            raise ModelNotFoundError(f"Unsupported model type: {model_type!r}")
+
+        # Filtra deterministicamente eventuali supplementi scartati dal filologo nella sessione
+        # corrente (HITL Fase 2) su tutte le famiglie di modelli (N-grammi, BERT, Ithaca, RAG).
+        if rejected_candidates:
+            rejected_norm = {
+                normalize_greek(r.strip(), case_folding="fold", strip_diacritics_flag=True)
+                for r in rejected_candidates
+                if r and r.strip()
+            }
+            if rejected_norm:
+                predictions = [
+                    pred
+                    for pred in predictions
+                    if normalize_greek(
+                        str(pred.get("token_str", "")),
+                        case_folding="fold",
+                        strip_diacritics_flag=True,
+                    )
+                    not in rejected_norm
+                ]
+
+        return predictions
 
     # Private helpers
 
@@ -209,7 +289,12 @@ class SuggestionsService:
         ]
 
     async def _predict_rag(
-        self, model: dict, context: str, num_predictions: Any
+        self,
+        model: dict,
+        context: str,
+        num_predictions: Any,
+        human_feedback: str | None = None,
+        rejected_candidates: list[str] | None = None,
     ) -> list[dict]:
         """Genera predizioni usando il sistema DSPy RAG specificato dal modello."""
         from models.rag.inference import fill_mask_rag
@@ -220,26 +305,52 @@ class SuggestionsService:
         compiled_program_path = model.get("COMPILED_PROGRAM_PATH")
 
         loop = asyncio.get_running_loop()
-        predict_func = partial(
-            fill_mask_rag,
-            text=context,
-            checkpoint=checkpoint,
-            backend=backend,
-            top_k_passages=top_k_passages,
-            compiled_program_path=compiled_program_path,
-            K=num_predictions.value,
-            normalize_probs=True,
-        )
-        suggestions = await loop.run_in_executor(None, predict_func)
+        # Passa i parametri HITL (human_feedback / rejected_candidates) solo se valorizzati
+        # per preservare la compatibilità con eventuali mock di test con firma minimale.
+        rag_kwargs: dict[str, Any] = {
+            "text": context,
+            "checkpoint": checkpoint,
+            "backend": backend,
+            "top_k_passages": top_k_passages,
+            "compiled_program_path": compiled_program_path,
+            "K": num_predictions.value,
+            "normalize_probs": True,
+            "return_details": True,
+        }
+        if human_feedback:
+            rag_kwargs["human_feedback"] = human_feedback
+        if rejected_candidates:
+            rag_kwargs["rejected_candidates"] = rejected_candidates
 
-        return [
-            {
+        predict_func = partial(fill_mask_rag, **rag_kwargs)
+        raw_result = await loop.run_in_executor(None, predict_func)
+        # Mantiene retrocompatibilità se `fill_mask_rag` (es. in test mock) restituisce solo la lista di tuple
+        if (
+            isinstance(raw_result, tuple)
+            and len(raw_result) == 2
+            and isinstance(raw_result[1], dict)
+        ):
+            suggestions, details = raw_result
+        else:
+            suggestions, details = raw_result, {}
+
+        results: list[dict] = []
+        for idx, p in enumerate(suggestions):
+            item: dict[str, Any] = {
                 "sentence": re.sub(BERT_LACUNA_PATTERN, p[0], context, count=1).lower(),
                 "token_str": p[0].lower(),
                 "score": float(p[1]),
             }
-            for p in suggestions
-        ]
+            # Allega ragionamento filologico e loci similes solo al primo candidato per non duplicare il payload JSON
+            if idx == 0 and details:
+                reasoning = details.get("philological_reasoning")
+                passages = details.get("retrieved_passages")
+                if reasoning:
+                    item["philological_reasoning"] = reasoning
+                if passages:
+                    item["retrieved_passages"] = list(passages)
+            results.append(item)
+        return results
 
     async def _validate_hf_checkpoint(self, checkpoint: str) -> None:
         """Verifica che il checkpoint esista su HuggingFace Hub e sia un modello fill-mask."""
