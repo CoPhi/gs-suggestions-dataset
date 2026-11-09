@@ -18,8 +18,14 @@ from backend.api.models import ModelType, PredictionCount, RAGModel
 from backend.api.services.model_service import ModelService
 from backend.api.services.suggestions_service import SuggestionsService
 from models.bert.dataset.dev_set import DevCase
-from models.rag.evaluation import evaluate_rag_on_cases, format_rag_evaluation_markdown
-from models.rag.inference import fill_mask_rag
+from models.rag.evaluation import (
+    evaluate_rag_impact_on_test_abs,
+    evaluate_rag_on_cases,
+    format_rag_evaluation_markdown,
+    format_rag_impact_markdown,
+    load_cases_from_test_abs_csv,
+)
+from models.rag.inference import fill_mask_rag, is_bert_checkpoint
 from models.rag.lm import (
     _is_compact_hf_model,
     build_dspy_lm,
@@ -43,6 +49,8 @@ from models.rag.retriever import (
     GreekHybridRetriever,
     build_rag_corpus_from_data,
     normalize_for_retrieval,
+    parse_passage_metadata,
+    resolve_candidate_attestations,
 )
 from models.rag.signatures import format_gap_constraints
 
@@ -646,4 +654,394 @@ async def test_hitl_feedback_persistence_and_service_filtering():
     assert filtered_preds[0]["token_str"] == "λητα"
     assert mocked_rag.call_args.kwargs["human_feedback"] == "Solo forme omeriche"
     assert mocked_rag.call_args.kwargs["rejected_candidates"] == ["πλῆτα"]
+
+
+# ==============================================================================
+# 7. TEST ATTESTAZIONI NEL CORPUS (COT CONSULTABILE) E VALUTAZIONE TEST_ABS.CSV
+# ==============================================================================
+
+
+def test_corpus_attestations_and_rag_impact_on_test_abs():
+    """
+    Verifica che:
+    1. `parse_passage_metadata` e `resolve_candidate_attestations` identifichino
+       esattamente dove un suggerimento del retriever è attestato nella collezione
+       di documenti (corpus_id, source_id, attested_form, passage, doc_freq).
+    2. `fill_mask_rag(..., return_details=True)` restituisca `candidate_attestations`
+       e arricchisca `philological_reasoning` (CoT) con la citazione del corpus.
+    3. `load_cases_from_test_abs_csv` ed `evaluate_rag_impact_on_test_abs` valutino
+       `test_abs.csv` confrontando No-RAG vs With-RAG e generando il report Markdown.
+    """
+    meta = parse_passage_metadata("[Corpus: DCLP | P. Bagnall. 13] Ἆρες Ἆρες βροτολοιγὲ μιαιφόνε τειχεσιβλῆτα")
+    assert meta["corpus_id"] == "DCLP"
+    assert meta["source_id"] == "P. Bagnall. 13"
+    assert "τειχεσιβλῆτα" in meta["passage"]
+
+    corpus = [
+        "[Corpus: DCLP | P. Bagnall. 13] Ἆρες Ἆρες βροτολοιγὲ μιαιφόνε τειχεσιβλῆτα",
+        "[Corpus: PHerc. 1004 | col. 64] οὐ γὰρ ἦν φανερώτερα τὰ κατ' αὐτὰ λείπων ὑπὲρ ὧν ἐποίει τοὺς λόγους",
+    ]
+    retriever = GreekHybridRetriever(corpus=corpus, embedder=_dummy_greek_embedder, k=2)
+
+    atts = retriever.find_attestations(
+        supplement="λητα",
+        word_prefix="τειχεσιβ",
+        retrieved_passages=[corpus[0]],
+    )
+    assert len(atts) == 1
+    assert atts[0]["corpus_id"] == "DCLP"
+    assert atts[0]["source_id"] == "P. Bagnall. 13"
+    assert atts[0]["attested_form"] == "τειχεσιβλῆτα"
+    assert "**τειχεσιβλῆτα**" in atts[0]["highlighted_passage"]
+    assert atts[0]["doc_freq"] >= 1
+
+    dummy_lm = DummyLM(
+        [
+            {
+                "philological_reasoning": "Analisi contestuale del participio presente dai documenti recuperati.",
+                "candidates": [
+                    {
+                        "supplement": "ι",
+                        "confidence": 0.90,
+                        "rationale": "Integra il participio presente attivo λείπων coerente col verbo ἐποίει.",
+                    }
+                ],
+            }
+        ]
+    )
+    preds, details = fill_mask_rag(
+        text="τὰ κατ' αὐτὰ λε[.]πων ὑπὲρ",
+        lm=dummy_lm,
+        retriever=retriever,
+        top_k_passages=1,
+        K=5,
+        return_details=True,
+    )
+    assert preds[0][0] == "ι"
+    assert "candidate_attestations" in details
+    assert "ι" in details["candidate_attestations"]
+    assert details["candidate_attestations"]["ι"][0]["corpus_id"] == "PHerc. 1004"
+    assert "**λείπων**" in details["candidate_attestations"]["ι"][0]["highlighted_passage"]
+    assert "PHerc. 1004 | col. 64" in details["philological_reasoning"]
+    assert "**λείπων**" in details["philological_reasoning"]
+    # Verifica CoT di 2° livello (rationale specifico per suggerimento + attestazione evidenziata)
+    assert "candidate_rationales" in details
+    assert "ι" in details["candidate_rationales"]
+    assert "participio presente attivo" in details["candidate_rationales"]["ι"]
+    assert "**λείπων**" in details["candidate_rationales"]["ι"]
+    # Verifica restituzione sia dei top_k passaggi primari sia di tutti i loci similes trovati
+    assert len(details["retrieved_passages"]) == 1
+    assert len(details["all_retrieved_passages"]) == 2
+
+    # Verifica il caricamento da test_abs.csv e il confronto No-RAG vs With-RAG
+    csv_cases = load_cases_from_test_abs_csv("test_abs.csv", max_cases=3)
+    assert len(csv_cases) == 3
+
+    # Test di evaluate_rag_impact_on_test_abs su un caso controllato dove RAG recupera l'attestazione
+    test_case = [
+        DevCase(
+            x="Ἆρες Ἆρες βροτολοιγὲ μιαιφόνε τειχεσιβ[....]",
+            y=["λητα"],
+            gap_length=4,
+            corpus_id="PHerc. 1004",
+            file_id="R 1 | col. 64",
+            gap_type="suffix",
+        )
+    ]
+    ablation_lm = DummyLM(
+        [
+            # 1a chiamata (No-RAG): l'LLM senza documenti sbaglia supplemento
+            {
+                "philological_reasoning": "Ipotesi generica senza contesto documentale.",
+                "candidates": [{"supplement": "ωτα", "confidence": 0.70}],
+            },
+            {
+                "candidates": [{"supplement": "ωταc", "confidence": 0.70}],
+            },
+            # 2a chiamata (With-RAG): con il documento recuperato propone il supplemento corretto
+            {
+                "philological_reasoning": "Attestato in P. Bagnall. 13 come τειχεσιβλῆτα.",
+                "candidates": [{"supplement": "λῆτα", "confidence": 0.95}],
+            },
+        ]
+    )
+    impact = evaluate_rag_impact_on_test_abs(
+        cases=test_case,
+        lm=ablation_lm,
+        retriever=retriever,
+        top_k_passages=2,
+    )
+    assert impact["no_rag"]["overall"]["top1"] == 0.0
+    assert impact["with_rag"]["overall"]["top1"] == 100.0
+    assert impact["delta"]["overall"]["top1"] == 100.0
+    assert impact["corpus_attestation_analysis"]["gold_attested_count"] == 1
+    md_report = format_rag_impact_markdown(impact, model_name="Qwen/Qwen2.5-7B-Instruct")
+    assert "With-RAG" in md_report
+    assert "DCLP | P. Bagnall. 13" in md_report
+
+
+# ==============================================================================
+# 8. TEST POST-PROCESSING ATTESTAZIONE LESSICALE TLG (BOUNDARY RECONSTRUCTION)
+# ==============================================================================
+
+
+@pytest.mark.asyncio
+async def test_tlg_boundary_reconstruction_and_postprocessing():
+    """
+    Verifica il post-processing di attestazione lessicale sul TLG (`tlg.wl.gz`):
+    1. `get_normalized_vocab` carica il lessico pre-normalizzato uniformando `ς` -> `σ`
+       ed escludendo consonanti isolate da elisione (`δ`, `τ`).
+    2. `check_tlg_attestation` e `postprocess_tlg_attestations` ricostruiscono la forma
+       con prefisso e/o suffisso senza alterare score o ranking dei suggerimenti.
+    3. `SuggestionsService.get_predictions` valorizza `tlg_attested` e `reconstructed_word`
+       sia per i modelli MLM (BERT) dopo HCB Beam Search sia per DSPy RAG.
+    """
+    from models.bert.inference.vocab import (
+        check_tlg_attestation,
+        get_normalized_vocab,
+        postprocess_tlg_attestations,
+    )
+
+    vocab = get_normalized_vocab()
+    assert len(vocab) > 500_000
+    # Verifica normalizzazione sigma finale (ς -> σ) e presenza di forme omeriche/classiche del TLG
+    assert "τειχεσιβλητα" in vocab
+    assert "λογοσ" in vocab
+    assert "ανθρωπων" in vocab
+    # Verifica che consonanti singole spurie da elisione (δ', τ') non siano attestate come parole intere
+    assert "δ" not in vocab
+    assert "τ" not in vocab
+    assert "ο" in vocab
+
+    # 1. Boundary reconstruction con prefisso ("τειχεσιβ" + "λητα" -> "τειχεσιβλητα")
+    attested_pref, recon_pref = check_tlg_attestation(
+        supplement="λῆτα",
+        context_with_gap="Ἆρες Ἆρες βροτολοιγὲ μιαιφόνε τειχεσιβ[....]",
+        vocab=vocab,
+    )
+    assert attested_pref is True
+    assert recon_pref == "τειχεσιβλῆτα"
+
+    # 2. Boundary reconstruction con prefisso E suffisso ("τει" + "χεσι" + "βλῆτα" -> "τειχεσιβλῆτα")
+    attested_both, recon_both = check_tlg_attestation(
+        supplement="χεσι",
+        context_with_gap="βροτολοιγὲ μιαιφόνε τει[....]βλῆτα",
+        vocab=vocab,
+    )
+    assert attested_both is True
+    assert recon_both == "τειχεσιβλῆτα"
+
+    # 3. Forma inesistente nel TLG ("τειχεσιβ" + "ζζζζ" -> False)
+    attested_fake, recon_fake = check_tlg_attestation(
+        supplement="ζζζζ",
+        context_with_gap="Ἆρες Ἆρες βροτολοιγὲ μιαιφόνε τειχεσιβ[....]",
+        vocab=vocab,
+    )
+    assert attested_fake is False
+    assert recon_fake == "τειχεσιβζζζζ"
+
+    # 4. Invarianza di ranking e score durante postprocess_tlg_attestations
+    raw_cands = [("ζζζζ", 0.75), ("λητα", 0.25)]
+    annotated = postprocess_tlg_attestations(
+        candidates=raw_cands,
+        context_with_gap="Ἆρες Ἆρες βροτολοιγὲ μιαιφόνε τειχεσιβ[....]",
+        vocab=vocab,
+    )
+    assert [a["token_str"] for a in annotated] == ["ζζζζ", "λητα"]
+    assert [a["score"] for a in annotated] == [0.75, 0.25]
+    assert annotated[0]["tlg_attested"] is False
+    assert annotated[1]["tlg_attested"] is True
+    assert annotated[1]["reconstructed_word"] == "τειχεσιβλητα"
+
+    # 5. Integrazione in SuggestionsService per modelli BERT e RAG
+    mock_collection = MagicMock()
+    sugg_service = SuggestionsService(
+        db_collection=mock_collection,
+        gridfs=MagicMock(),
+        feedback_db=MagicMock(),
+    )
+    bert_id = ObjectId()
+    mock_collection.find_one = AsyncMock(
+        return_value={
+            "_id": bert_id,
+            "CHECKPOINT": "CNR-ILC/gs-GreBerta",
+            "TYPE": ModelType.BERT,
+        }
+    )
+    sugg_service._bert_cache["CNR-ILC/gs-GreBerta"] = (MagicMock(), MagicMock())
+    with patch(
+        "backend.api.services.suggestions_service.fill_mask",
+        return_value=[("ζζζζ", 0.70), ("λητα", 0.30)],
+    ):
+        bert_preds = await sugg_service.get_predictions(
+            model_id=str(bert_id),
+            context="Ἆρες Ἆρες βροτολοιγὲ μιαιφόνε τειχεσιβ[....]",
+            num_tokens=1,
+            num_predictions=PredictionCount.FIVE,
+        )
+    assert len(bert_preds) == 2
+    assert bert_preds[0]["token_str"] == "ζζζζ"
+    assert bert_preds[0]["tlg_attested"] is False
+    assert bert_preds[1]["token_str"] == "λητα"
+    assert bert_preds[1]["tlg_attested"] is True
+    assert bert_preds[1]["reconstructed_word"] == "τειχεσιβλητα"
+
+
+@pytest.mark.asyncio
+async def test_explicit_bert_neuro_lexical_rag_a_priori():
+    """
+    Verifica che il modello neuro-lessicale (BERT + RAG) possa essere scelto a priori
+    (sia tramite checkpoint BERT o backend='neuro_lexical', sia tramite use_rag=True
+    su un modello BERT) senza tentare la connessione a LLM esterni e senza etichette di fallback.
+    """
+    assert is_bert_checkpoint("CNR-ILC/gs-GreBerta") is True
+    assert is_bert_checkpoint("CNR-ILC/gs-aristoBERTo") is True
+    assert is_bert_checkpoint("CNR-ILC/gs-Logion") is True
+    assert is_bert_checkpoint("Qwen/Qwen2.5-72B-Instruct") is False
+    assert is_bert_checkpoint("meta-llama/Llama-3.3-70B-Instruct") is False
+
+    corpus = [
+        "[Corpus: tlg | Hom. Il. 5.31] Ἆρες Ἆρες βροτολοιγὲ μιαιφόνε τειχεσιβλῆτα",
+    ]
+    retriever = GreekHybridRetriever(corpus=corpus, embedder=_dummy_greek_embedder, k=1)
+
+    with (
+        patch("models.rag.inference.build_dspy_lm") as mock_build_lm,
+        patch(
+            "models.rag.inference._get_cached_mlm",
+            return_value=(MagicMock(), MagicMock()),
+        ),
+        patch(
+            "models.rag.inference.fill_mask",
+            return_value=[("λητα", -0.2), ("πολι", -1.4)],
+        ),
+    ):
+        results, details = fill_mask_rag(
+            text="Ἆρες Ἆρες βροτολοιγὲ μιαιφόνε τειχεσιβ[....]",
+            checkpoint="CNR-ILC/gs-GreBerta",
+            backend="neuro_lexical",
+            retriever=retriever,
+            K=5,
+            return_details=True,
+        )
+        # Non deve mai invocare build_dspy_lm quando il modello scelto è BERT / neuro_lexical
+        mock_build_lm.assert_not_called()
+
+    assert len(results) >= 1
+    assert results[0][0] == "λητα"
+    assert "neuro-lessicale locale" in details["philological_reasoning"]
+    assert "fallback automatico" not in details["philological_reasoning"]
+
+    # Verifica anche l'accostamento on-the-fly BERT + RAG tramite use_rag=True in SuggestionsService
+    mock_collection = MagicMock()
+    sugg_service = SuggestionsService(
+        db_collection=mock_collection,
+        gridfs=MagicMock(),
+        feedback_db=MagicMock(),
+    )
+    bert_id = ObjectId()
+    mock_collection.find_one = AsyncMock(
+        return_value={
+            "_id": bert_id,
+            "CHECKPOINT": "CNR-ILC/gs-aristoBERTo",
+            "TYPE": ModelType.BERT,
+        }
+    )
+    with patch(
+        "models.rag.inference.fill_mask_rag",
+        return_value=(
+            [("λητα", 0.92)],
+            {
+                "philological_reasoning": "Sintesi filologica eseguita in modalità neuro-lessicale locale (Retrieval Ibrido BM25+gs-aristoBERTo + HCB Beam Search)",
+                "retrieved_passages": ["[Corpus: tlg | Hom. Il. 5.31] Ἆρες Ἆρες βροτολοιγὲ μιαιφόνε τειχεσιβλῆτα"],
+                "all_retrieved_passages": ["[Corpus: tlg | Hom. Il. 5.31] Ἆρες Ἆρες βροτολοιγὲ μιαιφόνε τειχεσιβλῆτα"],
+                "candidate_attestations": {},
+                "candidate_rationales": {"λητα": "Completa la forma τειχεσιβλητα."},
+                "tlg_attestations": {"λητα": {"tlg_attested": True, "reconstructed_word": "τειχεσιβλητα"}},
+            },
+        ),
+    ) as mock_rag:
+        rag_bert_preds = await sugg_service.get_predictions(
+            model_id=str(bert_id),
+            context="Ἆρες Ἆρες βροτολοιγὲ μιαιφόνε τειχεσιβ[....]",
+            num_tokens=1,
+            num_predictions=PredictionCount.FIVE,
+            use_rag=True,
+        )
+        mock_rag.assert_called_once()
+        assert mock_rag.call_args.kwargs["checkpoint"] == "CNR-ILC/gs-aristoBERTo"
+        assert mock_rag.call_args.kwargs["backend"] == "neuro_lexical"
+
+    assert len(rag_bert_preds) == 1
+    assert rag_bert_preds[0]["token_str"] == "λητα"
+    assert "gs-aristoBERTo" in rag_bert_preds[0]["philological_reasoning"]
+
+
+@pytest.mark.asyncio
+async def test_batch_parallel_predictions_with_barrier():
+    """
+    Verifica che `get_batch_predictions` esegua in parallelo le chiamate ai modelli consultati
+    sincronizzandole tramite barriera (`asyncio.Barrier`) e restituendo i metadati del modello
+    di provenienza per ciascuna suggestion box.
+    """
+    bert_id = ObjectId()
+    rag_id = ObjectId()
+    models_db = {
+        bert_id: {
+            "_id": bert_id,
+            "CHECKPOINT": "CNR-ILC/gs-GreBerta",
+            "TYPE": ModelType.BERT,
+        },
+        rag_id: {
+            "_id": rag_id,
+            "CHECKPOINT": "Qwen/Qwen2.5-72B-Instruct",
+            "BACKEND": "auto",
+            "TOP_K_PASSAGES": 5,
+            "TYPE": ModelType.RAG,
+        },
+    }
+
+    mock_collection = MagicMock()
+    mock_collection.find_one = AsyncMock(
+        side_effect=lambda q: models_db.get(q.get("_id"))
+    )
+    sugg_service = SuggestionsService(
+        db_collection=mock_collection,
+        gridfs=MagicMock(),
+        feedback_db=MagicMock(),
+    )
+    sugg_service._bert_cache["CNR-ILC/gs-GreBerta"] = (MagicMock(), MagicMock())
+
+    with (
+        patch(
+            "backend.api.services.suggestions_service.fill_mask",
+            return_value=[("λητα", 0.85)],
+        ),
+        patch(
+            "models.rag.inference.fill_mask_rag",
+            return_value=([("βλητα", 0.91)], {"philological_reasoning": "Analisi Qwen"}),
+        ),
+    ):
+        batch_res = await sugg_service.get_batch_predictions(
+            model_ids=[str(bert_id), str(rag_id)],
+            context="Ἆρες Ἆρες βροτολοιγὲ μιαιφόνε τειχεσι[....]",
+            num_tokens=1,
+            num_predictions=PredictionCount.FIVE,
+            use_rag=False,
+        )
+
+    assert len(batch_res) == 2
+    assert batch_res[0]["model_id"] == str(bert_id)
+    assert batch_res[0]["model_label"] == "gs-GreBerta"
+    assert batch_res[0]["model_type"] == "BERT"
+    assert batch_res[0]["predictions"][0]["token_str"] == "λητα"
+
+    assert batch_res[1]["model_id"] == str(rag_id)
+    assert batch_res[1]["model_label"] == "Qwen2.5-72B-Instruct"
+    assert batch_res[1]["model_type"] == "RAG"
+    assert batch_res[1]["predictions"][0]["token_str"] == "βλητα"
+
+
+
+
 

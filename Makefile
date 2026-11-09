@@ -109,8 +109,8 @@ endif
         sweep sweep-agent sweep-best \
         dataset-herc dataset-eval dataset-train dataset-tlg dataset-all dataset-dry-run \
         ithaca ithaca-setup ithaca-data ithaca-train ithaca-hpo-nsga2 ithaca-pareto ithaca-pareto-train ithaca-compare ithaca-publish \
-        rag rag-index rag-compile rag-eval rag-predict \
-        export-ngrams
+        rag rag-index rag-compile rag-eval rag-eval-abs rag-predict \
+        export-ngrams tlg-wordlist
 
 # ---------------------------------------------------------
 # 0. Help / Riepilogo Comandi
@@ -182,6 +182,7 @@ help:
 	@echo ""
 	@echo "Dati e Servizi:"
 	@echo "  make data                  Download ed elaborazione dei corpora"
+	@echo "  make tlg-wordlist          Genera il lessico pre-normalizzato TLG (backend/core/resources/tlg.wl.gz) da tlg-bulk"
 	@echo "  make export-ngrams         Esporta i checkpoint N-gram pre-addestrati (models/ngrams/checkpoints/)"
 	@echo "  make run                   Avvia stack Docker Compose (API + Frontend + Mongo)"
 	@echo "  make run-api               Avvia server FastAPI locale con reload"
@@ -338,6 +339,10 @@ data:
 export-ngrams:
 	@echo "=== Esportazione offline dei checkpoint N-gram per gs-api ==="
 	uv run python -m scripts.export_ngram_checkpoints
+
+tlg-wordlist:
+	@echo "=== Generazione lessico pre-normalizzato TLG (backend/core/resources/tlg.wl.gz) ==="
+	uv run python -m scripts.vocab.build_tlg_wordlist
 
 
 # ---------------------------------------------------------
@@ -735,7 +740,7 @@ ithaca-publish:
 # ---------------------------------------------------------
 # 8. Pipeline DSPy RAG (Qwen / Llama su TLG & MAAT)
 # ---------------------------------------------------------
-RAG_LM ?= Qwen/Qwen2.5-7B-Instruct
+RAG_LM ?= Qwen/Qwen2.5-72B-Instruct
 RAG_BACKEND ?= auto
 RAG_EMBEDDER ?= CNR-ILC/gs-GreBerta
 RAG_INDEX_DIR ?= models/rag/index
@@ -744,6 +749,10 @@ RAG_TOP_K_PASSAGES ?= 5
 RAG_OPTIMIZER ?= bootstrap
 RAG_MAX_TRAIN_CASES ?= 40
 RAG_COMPILED_PATH ?=
+RAG_CSV_PATH ?= test_abs.csv
+RAG_OUTPUT_MD ?= eval/results/rag_test_abs_evaluation.md
+RAG_OUTPUT_CSV ?= eval/results/rag_test_abs_predictions.csv
+RAG_OUTPUT_JSON ?= eval/results/rag_test_abs_evaluation.json
 RAG_TEXT ?= Ἆρες Ἆρες βροτολοιγὲ μιαιφόνε τειχεσιβ[....]
 
 rag:
@@ -758,6 +767,7 @@ rag:
 	@echo ""
 	@echo "3. Valutazione su benchmark stratificati (default, word, suffix):"
 	@echo "   make rag-eval [RAG_LM=$(RAG_LM) EVAL_DATASET=$(EVAL_DATASET) POLICY=$(POLICY)]"
+	@echo "   make rag-eval-abs [RAG_LM=$(RAG_LM) RAG_CSV_PATH=$(RAG_CSV_PATH) RAG_TOP_K_PASSAGES=$(RAG_TOP_K_PASSAGES)]"
 	@echo ""
 	@echo "4. Test di inferenza interattiva da terminale:"
 	@echo "   make rag-predict RAG_TEXT=\"$(RAG_TEXT)\" [RAG_LM=$(RAG_LM)]"
@@ -791,6 +801,20 @@ rag-eval:
 		--top-k-passages $(RAG_TOP_K_PASSAGES) \
 		$(if $(strip $(RAG_COMPILED_PATH)),--compiled-path "$(RAG_COMPILED_PATH)",) \
 		$(if $(strip $(OUTPUT_JSON)),--output-json "$(OUTPUT_JSON)",)
+
+rag-eval-abs:
+	@echo "=== Valutazione Impatto RAG (No-RAG vs With-RAG) su [$(RAG_CSV_PATH)] per [$(RAG_LM)] ==="
+	uv run --no-sync python -m models.rag.evaluation \
+		--lm "$(RAG_LM)" \
+		--backend "$(RAG_BACKEND)" \
+		--csv-path "$(RAG_CSV_PATH)" \
+		--compare-no-rag \
+		--policy "$(POLICY)" \
+		--top-k-passages $(RAG_TOP_K_PASSAGES) \
+		$(if $(strip $(RAG_COMPILED_PATH)),--compiled-path "$(RAG_COMPILED_PATH)",) \
+		--output-md "$(RAG_OUTPUT_MD)" \
+		--output-csv "$(RAG_OUTPUT_CSV)" \
+		--output-json "$(RAG_OUTPUT_JSON)"
 
 rag-predict:
 	@echo "=== Inferenza Text-Infilling DSPy RAG con [$(RAG_LM)] ==="
