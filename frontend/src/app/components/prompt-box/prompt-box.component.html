@@ -7,7 +7,7 @@
         rows="4"
         (focus)="isFocused = true"
         (blur)="handleBlur()"
-        placeholder="Inserisci il testo con una lacuna (es: τὰς ὀφειλομένας τῇ τοῦ Ἀνθεντίου μητρὶ *...* Σισόιτος)">
+        placeholder="Inserisci il testo con una lacuna target (es: τὰς ὀφειλομένας τῇ τοῦ Ἀνθεντίου μητρὶ *...* Σισόιτος). Usa [...] per le lacune contestuali.">
     </textarea>
     
     <!-- Toolbar inside the box at the bottom -->
@@ -210,12 +210,12 @@
                 <span class="text-danger"><i class="bi bi-exclamation-triangle me-1"></i>Inserisci un testo valido</span>
             }
             @if (form.get('text')?.hasError('notMasked')) {
-                <span class="text-danger"><i class="bi bi-exclamation-triangle me-1"></i>Inserisci un testo con una lacuna: <code>*...*</code> o <code>*---*</code></span>
+                <span class="text-danger"><i class="bi bi-exclamation-triangle me-1"></i>Inserisci una lacuna target: <code>*...*</code> o <code>*---*</code> (le quadre <code>[...]</code> indicano lacune contestuali)</span>
             }
         }@else if(form.get('text')?.dirty && form.get('text')?.valid){
             <span class="text-success"><i class="bi bi-check-circle me-1"></i>Testo valido per la generazione</span>
         } @else {
-            <span>Utilizza <code>*...*</code> o <code>*---*</code> per definire la lacuna da completare. Sono ammessi esclusivamente caratteri del greco antico.</span>
+            <span>Utilizza <code>*...*</code> o <code>*---*</code> per definire la lacuna target da completare; le lacune contestuali vanno indicate con <code>[...]</code> o <code>[---]</code>. Sono ammessi esclusivamente caratteri del greco antico.</span>
         }
     </div>
 </div>

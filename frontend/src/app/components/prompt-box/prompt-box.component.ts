@@ -2,6 +2,11 @@ import { Component, ElementRef, HostListener, computed, effect, inject, input, m
 import { AbstractControl, FormControl, FormGroup, ReactiveFormsModule, ValidationErrors, Validators } from '@angular/forms';
 import { isBertCheckpoint, modelType } from '../../services/api.service';
 import { NotificationService } from '../../services/notification.service';
+import {
+  TARGET_LACUNA_REGEX,
+  normalizeLacunaeForApi,
+  stripContextLacunae,
+} from '../../utils/lacuna';
 
 @Component({
   selector: 'app-prompt-box',
@@ -236,7 +241,9 @@ export class PromptBoxComponent {
   // - diacritici combinatori greci compatibili (\u0300, \u0301, \u0304, \u0306, \u0308, \u0313, \u0314, \u0342-\u0345)
   // - spazi e ritorni a capo (\s)
   // - punteggiatura ed elisioni standard del greco antico (., ,, ;, :, ·, ', ’, ‘, ʼ, ᾽, ᾿, ´, `, «, », ", “, ”, -, ‐, ‑, –, —)
-  // - caratteri ammessi per rappresentare la lacuna (asterischi * e relativi punti/trattini interni)
+  // - caratteri ammessi per rappresentare la lacuna target (asterischi * e relativi punti/trattini interni)
+  // Le parentesi quadre non sono incluse nell'allowlist: le lacune contestuali valide
+  // vengono rimosse prima della validazione tramite `stripContextLacunae`.
   // Esclude categoricamente caratteri latini, cifre numeriche, simboli arbitrari e notazioni editoriali Leiden+ come <>, {}, []
   private readonly allowedGreekRegex = /^[\p{Script=Greek}\s*.\u002D\u2010\u2011\u2013\u2014,;:·\x27’‘ʼ᾽᾿´`«»"“”\u0300\u0301\u0304\u0306\u0308\u0313\u0314\u0342\u0343\u0344\u0345]+$/u;
 
@@ -269,15 +276,16 @@ export class PromptBoxComponent {
       return { unknownCharacters: true };
     }
     // Controllo positivo vincolante (allowlist): verifica che la stringa contenga unicamente caratteri del greco antico,
-    // punteggiatura standard e i simboli ammessi per la lacuna (asterischi * e punti/trattini),
-    // respingendo aggiunte degli editori (<>), rimozioni ({}), parentesi quadre ([]) o caratteri non greci
-    if (!this.allowedGreekRegex.test(c.value.normalize('NFC'))) {
+    // punteggiatura standard e i simboli ammessi per la lacuna target (asterischi * e punti/trattini).
+    // Le lacune contestuali `[...]` / `[---]` sono ammesse e vengono ignorate in questa fase.
+    const textWithoutContextLacunae = stripContextLacunae(c.value.normalize('NFC'));
+    if (!this.allowedGreekRegex.test(textWithoutContextLacunae)) {
       return { unknownCharacters: true };
     }
-    // Riconosce la lacuna delimitata da asterischi (es. *...* o *---*),
-    // ammettendo anche caratteri alfabetici o diacritici greci posti ai bordi esterni della lacuna
-    const lacunaRegex = /\*\s*([\p{Script=Greek}\u0300-\u036F\x27’‘ʼ᾽᾿´`]*?)\s*(\.{1,}|-{1,})\s*([\p{Script=Greek}\u0300-\u036F\x27’‘ʼ᾽᾿´`]*?)\s*\*/u;
-    return lacunaRegex.test(c.value) ? null : { notMasked: true };
+    // Riconosce la lacuna target delimitata da asterischi (es. *...* o *---*),
+    // ammettendo anche caratteri alfabetici o diacritici greci posti ai bordi esterni della lacuna.
+    // Le sole lacune contestuali in parentesi quadre non sono sufficienti: serve un target.
+    return TARGET_LACUNA_REGEX.test(c.value) ? null : { notMasked: true };
   }
 
   focusTextarea(event?: MouseEvent) {
@@ -351,9 +359,10 @@ export class PromptBoxComponent {
     }
     const { modelID, num_tokens, num_predictions } = rawValue;
     const ids = this.effectiveSelectedIds();
-    // Pre-processing frontend della lacuna: sposta fuori i caratteri alfabetici ai bordi della lacuna
-    // e converte la rappresentazione con asterischi (es. *...*) nel formato canonico dell'API ([...])
-    const processedText = normalizedText.replace(/\*(\.{1,}|-{1,})\*/g, '[$1]');
+    // Pre-processing frontend della lacuna: sposta fuori i caratteri alfabetici ai bordi della lacuna target,
+    // neutralizza le lacune contestuali `[...]` in puntini sciolti e converte la lacuna target
+    // con asterischi (es. *...*) nel formato canonico dell'API ([...]).
+    const processedText = normalizeLacunaeForApi(normalizedText);
 
     const payload: {
       text: string;

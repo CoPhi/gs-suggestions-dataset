@@ -5,6 +5,7 @@ import { SuggestionFeedbackEvent } from './components/suggest/suggest.component'
 import { ModelsBoxComponent } from "./components/models-box/models-box.component";
 import { NotificationService } from './services/notification.service';
 import { PromptBoxComponent } from './components/prompt-box/prompt-box.component';
+import { normalizeLacunaeForApi } from './utils/lacuna';
 
 import { catchError, forkJoin, map, Observable, of, Subscription } from 'rxjs';
 
@@ -194,9 +195,11 @@ export class AppComponent {
     this.lastGenerationPayload.set(payload);
     this.isGenerating.set(true);
     const { text: rawText, modelID, modelIDs, num_tokens, num_predictions, use_rag } = payload;
-    // Pre-processing a livello di coordinamento: garantisce che la lacuna con asterischi (*...*)
-    // sia sempre convertita nel formato atteso dalle API ([...])
-    const text = (rawText || '').replace(/\*(\.{1,}|\-{1,})\*/g, '[$1]');
+    // Pre-processing a livello di coordinamento: garantisce che la lacuna target con asterischi (*...*)
+    // sia convertita nel formato atteso dalle API ([...]) e che eventuali lacune contestuali
+    // in parentesi quadre non vengano scambiate per il target. L'operazione è idempotente
+    // sui payload già normalizzati dal PromptBox.
+    const text = normalizeLacunaeForApi(rawText || '');
 
     const mergedOptions: HitlRefinementOptions | undefined =
       hitlOptions || use_rag

@@ -248,7 +248,56 @@ describe('PromptBoxComponent', () => {
     expect(component.showAlert).toHaveBeenCalledWith('la stringa contiene carattere sconosciuti', 'danger');
   });
 
-  it('should reject text containing square brackets ([]) with unknownCharacters error', () => {
+  it('should accept contextual square-bracket lacuna and convert it to loose dots', () => {
+    spyOn(component.onGenerate, 'emit');
+    component.form.controls['modelID'].setValue(mockBertModel._id);
+    component.curr_id.set(mockBertModel._id);
+    component.form.controls['text'].setValue('τὰ κατ\' [...] αὐτὰ *...* ὑπὲρ');
+    component.form.controls['num_tokens'].setValue(1);
+    component.form.controls['num_predictions'].setValue(5);
+    fixture.detectChanges();
+
+    expect(component.form.controls['text'].valid).toBeTrue();
+    expect(component.form.valid).toBeTrue();
+
+    component.generateSuggestions();
+
+    // La lacuna contestuale diventa puntini sciolti (contesto non vincolante),
+    // mentre solo quella target con asterischi diventa `[...]` per l'API.
+    expect(component.onGenerate.emit).toHaveBeenCalledWith(jasmine.objectContaining({
+      text: 'τὰ κατ\' ... αὐτὰ [...] ὑπὲρ',
+      modelID: mockBertModel._id
+    }));
+  });
+
+  it('should accept contextual hyphen lacuna and keep the asterisk target distinct', () => {
+    spyOn(component.onGenerate, 'emit');
+    component.form.controls['modelID'].setValue(mockBertModel._id);
+    component.curr_id.set(mockBertModel._id);
+    component.form.controls['text'].setValue('τὰ [---] αὐτὰ *---* ὑπὲρ');
+    component.form.controls['num_tokens'].setValue(1);
+    component.form.controls['num_predictions'].setValue(5);
+    fixture.detectChanges();
+
+    expect(component.form.controls['text'].valid).toBeTrue();
+
+    component.generateSuggestions();
+
+    expect(component.onGenerate.emit).toHaveBeenCalledWith(jasmine.objectContaining({
+      text: 'τὰ ... αὐτὰ [---] ὑπὲρ',
+      modelID: mockBertModel._id
+    }));
+  });
+
+  it('should reject text with only contextual square-bracket lacuna and no target', () => {
+    component.form.controls['text'].setValue('τὰ κατ\' [...] αὐτὰ ὑπὲρ');
+    fixture.detectChanges();
+
+    expect(component.form.controls['text'].hasError('notMasked')).toBeTrue();
+    expect(component.form.valid).toBeFalse();
+  });
+
+  it('should reject square brackets not representing a contextual lacuna', () => {
     component.form.controls['text'].setValue('τὰ [κατ\'] αὐτὰ *...* ὑπὲρ');
     fixture.detectChanges();
 

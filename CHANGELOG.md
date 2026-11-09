@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 
+## [Unreleased]
+
+### Added
+- **Distinzione UI tra Lacuna Target (`*...*`) e Lacuna Contestuale (`[...]`)**:
+  - Introdotta la utility [`frontend/src/app/utils/lacuna.ts`](./frontend/src/app/utils/lacuna.ts) per distinguere la lacuna che il filologo vuole integrare (`*...*` / `*---*`) dalle lacune già presenti nel contesto (`[...]` / `[---]`).
+  - Le lacune contestuali vengono convertite in puntini sciolti prima dell'invio alle API, così i modelli le trattano come contesto non vincolante (UNK) e non le scambiano per il target.
+  - Aggiornati [`PromptBoxComponent`](./frontend/src/app/components/prompt-box/prompt-box.component.ts) e [`AppComponent`](./frontend/src/app/app.component.ts) per applicare il pre-processing in modo idempotente anche sui payload HITL già normalizzati.
+  - Aggiornata la validazione `isContextValid`: le quadre sono ammesse solo come lacune contestuali valide, mentre resta obbligatoria almeno una lacuna target con asterischi.
+  - Aggiornati placeholder e messaggi guida in [`prompt-box.component.html`](./frontend/src/app/components/prompt-box/prompt-box.component.html).
+
+### Changed
+- La documentazione in-linea della prompt box chiarisce che `[...]` indica una lacuna contestuale non vincolante e non un errore.
+- Aggiornato [`AGENTS.md`](./AGENTS.md) con la regola dei commit sistematici e atomici per ogni implementazione completata.
+
 ## [0.8.0] - 2026-11-09
 
 ### Added
