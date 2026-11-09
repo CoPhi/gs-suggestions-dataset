@@ -6,12 +6,31 @@ from fastapi.responses import JSONResponse
 
 from backend.api.models import Model, ModelsResponse
 from backend.api.services.model_service import ModelService
+from backend.config.settings import RAG_SUPPORTED_LMS
 
 router = APIRouter(prefix="/models", tags=["Models"])
 
 
 def get_service() -> ModelService:
     return ModelService()
+
+
+@router.get(
+    "/rag/supported-lms",
+    summary="Lista dei modelli LLM supportati e verificati per il sistema DSPy RAG",
+    responses={
+        200: {
+            "description": "Catalogo dei modelli LLM per Hugging Face Router e Ollama locale",
+        }
+    },
+)
+async def get_supported_rag_lms():
+    """
+    Restituisce l'elenco dei modelli LLM verificati e compatibili per il sistema DSPy RAG,
+    inclusi modelli da Hugging Face Inference Providers (Qwen 72B, Llama 3.3/3.1, Gemma 3/4, DeepSeek)
+    e runtime Ollama locali.
+    """
+    return JSONResponse(status_code=200, content={"models": RAG_SUPPORTED_LMS})
 
 
 @router.get(

@@ -27,6 +27,7 @@ from backend.config.settings import (
     get_ngram_checkpoint_path,
 )
 from models.ngrams.train.training import pipeline_train
+from models.rag.inference import is_bert_checkpoint
 from backend.api.services.suggestions_service import SuggestionsService
 
 
@@ -83,10 +84,15 @@ class ModelService:
                 pass  # modello già presente, si prosegue
         for checkpoint in RAG_CHECKPOINTS:
             try:
+                rag_backend = (
+                    "neuro_lexical"
+                    if is_bert_checkpoint(checkpoint)
+                    else RAG_DEFAULT_BACKEND
+                )
                 ids.append(
                     await self._create_rag_model_from_checkpoint(
                         checkpoint=checkpoint,
-                        backend=RAG_DEFAULT_BACKEND,
+                        backend=rag_backend,
                         top_k_passages=RAG_TOP_K_PASSAGES,
                     )
                 )

@@ -23,6 +23,10 @@ from backend.api.exceptions import InvalidContextError, ModelNotFoundError
 from backend.api.models import FeedbackCreateRequest, ModelType
 from models.ngrams.inference.suggests import generate_k_suggests
 from models.bert.inference.predict import fill_mask
+from models.bert.inference.vocab import (
+    check_tlg_attestation,
+    postprocess_tlg_attestations,
+)
 from backend.core.preprocess import normalize_greek, test_case_contains_lacuna
 
 LACUNA_PATTERN = r"\S*\[.*?\]\S*"
@@ -103,6 +107,7 @@ class SuggestionsService:
         num_predictions: Any,
         human_feedback: str | None = None,
         rejected_candidates: list[str] | None = None,
+        use_rag: bool = False,
     ) -> list[dict]:
         model = await self._fetch_model(model_id)
         self._validate_context(context)
@@ -116,9 +121,25 @@ class SuggestionsService:
         else:
             try:
                 if model_type == ModelType.BERT:
-                    predictions = await self._predict_bert(
-                        model, context, num_predictions
-                    )
+                    if use_rag:
+                        # Accosta esplicitamente il modello BERT scelto al sistema RAG per il recupero
+                        # delle informazioni dai corpora (modalità neuro-lessicale a priori).
+                        rag_bert_model = {
+                            **model,
+                            "BACKEND": "neuro_lexical",
+                            "TOP_K_PASSAGES": int(model.get("TOP_K_PASSAGES", 5)),
+                        }
+                        predictions = await self._predict_rag(
+                            rag_bert_model,
+                            context,
+                            num_predictions,
+                            human_feedback=human_feedback,
+                            rejected_candidates=rejected_candidates,
+                        )
+                    else:
+                        predictions = await self._predict_bert(
+                            model, context, num_predictions
+                        )
                 elif model_type == ModelType.ITHACA:
                     predictions = await self._predict_ithaca(
                         model, context, num_predictions
@@ -148,6 +169,19 @@ class SuggestionsService:
                 if r and r.strip()
             }
             if rejected_norm:
+                # Preserva i metadati RAG (CoT e passi paralleli) se il primo candidato viene filtrato
+                saved_reasoning = next(
+                    (p.get("philological_reasoning") for p in predictions if p.get("philological_reasoning")),
+                    None,
+                )
+                saved_passages = next(
+                    (p.get("retrieved_passages") for p in predictions if p.get("retrieved_passages")),
+                    None,
+                )
+                saved_all_passages = next(
+                    (p.get("all_retrieved_passages") for p in predictions if p.get("all_retrieved_passages")),
+                    None,
+                )
                 predictions = [
                     pred
                     for pred in predictions
@@ -158,8 +192,105 @@ class SuggestionsService:
                     )
                     not in rejected_norm
                 ]
+                if predictions:
+                    if saved_reasoning and not predictions[0].get("philological_reasoning"):
+                        predictions[0]["philological_reasoning"] = saved_reasoning
+                    if saved_passages and not predictions[0].get("retrieved_passages"):
+                        predictions[0]["retrieved_passages"] = saved_passages
+                    if saved_all_passages and not predictions[0].get("all_retrieved_passages"):
+                        predictions[0]["all_retrieved_passages"] = saved_all_passages
 
         return predictions
+
+    @staticmethod
+    def _format_model_label(model: dict, use_rag: bool = False) -> str:
+        """Costruisce un'etichetta leggibile del modello per le suggestion box comparative."""
+        from models.rag.inference import is_bert_checkpoint
+
+        raw_type = model.get("TYPE", "")
+        m_type = raw_type.value if isinstance(raw_type, ModelType) else str(raw_type)
+        ckpt = str(model.get("CHECKPOINT", ""))
+        short_name = ckpt.split("/")[-1] if "/" in ckpt else ckpt
+        if m_type == ModelType.RAG.value:
+            if model.get("BACKEND") == "neuro_lexical" or is_bert_checkpoint(ckpt):
+                return f"{short_name} + RAG"
+            return short_name
+        if m_type == ModelType.BERT.value:
+            return f"{short_name} + RAG" if use_rag else short_name
+        if m_type == ModelType.ITHACA.value:
+            return short_name
+        n_order = model.get("N")
+        return f"N-grammi (n={n_order})" if n_order else "N-grammi"
+
+    async def get_batch_predictions(
+        self,
+        model_ids: list[str],
+        context: str,
+        num_tokens: int | None,
+        num_predictions: Any,
+        human_feedback: str | None = None,
+        rejected_candidates: list[str] | None = None,
+        use_rag: bool = False,
+    ) -> list[dict]:
+        """
+        Esegue in parallelo l'inferenza su più modelli sincronizzando il rilascio delle risposte
+        tramite una barriera asincrona (`asyncio.Barrier` + `asyncio.gather`), così da esporre
+        simultaneamente i risultati nella UI comparativa.
+        """
+        self._validate_context(context)
+        unique_ids = list(dict.fromkeys(mid.strip() for mid in model_ids if mid and mid.strip()))
+        if not unique_ids:
+            return []
+
+        barrier = asyncio.Barrier(len(unique_ids))
+
+        async def _consult_model_at_barrier(mid: str) -> dict:
+            model_doc: dict = {}
+            preds: list[dict] = []
+            err_msg: str | None = None
+            try:
+                model_doc = await self._fetch_model(mid)
+                preds = await self.get_predictions(
+                    model_id=mid,
+                    context=context,
+                    num_tokens=num_tokens or 1,
+                    num_predictions=num_predictions,
+                    human_feedback=human_feedback,
+                    rejected_candidates=rejected_candidates,
+                    use_rag=use_rag,
+                )
+            except Exception as exc:
+                err_msg = str(exc)
+            finally:
+                # Sincronizzazione sulla barriera: attende che tutti i modelli consultati abbiano terminato
+                try:
+                    await barrier.wait()
+                except Exception:
+                    pass
+
+            raw_type = model_doc.get("TYPE", "Unknown")
+            m_type = raw_type.value if isinstance(raw_type, ModelType) else str(raw_type)
+            ckpt = model_doc.get("CHECKPOINT")
+            effective_rag = (m_type == ModelType.RAG.value) or (
+                m_type == ModelType.BERT.value and bool(use_rag)
+            )
+            label = (
+                self._format_model_label(model_doc, use_rag=bool(use_rag))
+                if model_doc
+                else mid
+            )
+            return {
+                "model_id": mid,
+                "model_label": label,
+                "model_type": "BERT + RAG" if (m_type == ModelType.BERT.value and use_rag) else m_type,
+                "checkpoint": ckpt,
+                "use_rag": effective_rag,
+                "predictions": preds,
+                "error": err_msg,
+            }
+
+        results = await asyncio.gather(*(_consult_model_at_barrier(mid) for mid in unique_ids))
+        return list(results)
 
     # Private helpers
 
@@ -208,14 +339,21 @@ class SuggestionsService:
             k_pred=num_predictions.value,
         )
         suggestions = await loop.run_in_executor(None, predict_func)
+        annotated = postprocess_tlg_attestations(
+            candidates=[( str(s[0]), float(s[1]) ) for s in suggestions],
+            context_with_gap=context,
+            already_full_word=True,
+        )
 
         return [
             {
-                "sentence": re.sub(LACUNA_PATTERN, suggestion[0], context, count=1),
-                "token_str": suggestion[0],
-                "score": suggestion[1],
+                "sentence": re.sub(LACUNA_PATTERN, entry["token_str"], context, count=1),
+                "token_str": entry["token_str"],
+                "score": entry["score"],
+                "tlg_attested": bool(entry["tlg_attested"]),
+                "reconstructed_word": entry["reconstructed_word"],
             }
-            for suggestion in suggestions
+            for entry in annotated
         ]
 
     async def _predict_bert(
@@ -253,14 +391,20 @@ class SuggestionsService:
             checkpoint=checkpoint,
         )
         suggestions = await loop.run_in_executor(None, predict_func)
+        annotated = postprocess_tlg_attestations(
+            candidates=[(str(p[0]), float(p[1])) for p in suggestions],
+            context_with_gap=context,
+        )
 
         return [
             {
-                "sentence": re.sub(BERT_LACUNA_PATTERN, p[0], context, count=1).lower(),
-                "token_str": p[0].lower(),
-                "score": float(p[1]),
+                "sentence": re.sub(BERT_LACUNA_PATTERN, entry["token_str"], context, count=1).lower(),
+                "token_str": str(entry["token_str"]).lower(),
+                "score": float(entry["score"]),
+                "tlg_attested": bool(entry["tlg_attested"]),
+                "reconstructed_word": str(entry["reconstructed_word"]).lower(),
             }
-            for p in suggestions
+            for entry in annotated
         ]
 
     async def _predict_ithaca(
@@ -278,14 +422,20 @@ class SuggestionsService:
             K=num_predictions.value,
         )
         suggestions = await loop.run_in_executor(None, predict_func)
+        annotated = postprocess_tlg_attestations(
+            candidates=[(str(p[0]), float(p[1])) for p in suggestions],
+            context_with_gap=context,
+        )
 
         return [
             {
-                "sentence": re.sub(BERT_LACUNA_PATTERN, p[0], context, count=1),
-                "token_str": p[0],
-                "score": float(p[1]),
+                "sentence": re.sub(BERT_LACUNA_PATTERN, entry["token_str"], context, count=1),
+                "token_str": entry["token_str"],
+                "score": float(entry["score"]),
+                "tlg_attested": bool(entry["tlg_attested"]),
+                "reconstructed_word": str(entry["reconstructed_word"]).lower(),
             }
-            for p in suggestions
+            for entry in annotated
         ]
 
     async def _predict_rag(
@@ -334,21 +484,55 @@ class SuggestionsService:
         else:
             suggestions, details = raw_result, {}
 
+        candidate_attestations = (details.get("candidate_attestations") or {}) if details else {}
+        candidate_rationales = (details.get("candidate_rationales") or {}) if details else {}
+        tlg_attestations = (details.get("tlg_attestations") or {}) if details else {}
         results: list[dict] = []
         for idx, p in enumerate(suggestions):
+            token_lower = p[0].lower()
+            cand_atts = candidate_attestations.get(p[0]) or candidate_attestations.get(token_lower)
+            tlg_info = tlg_attestations.get(p[0]) or tlg_attestations.get(token_lower)
+            if tlg_info is not None:
+                is_tlg_attested = bool(tlg_info.get("tlg_attested", False))
+                reconstructed_word = str(tlg_info.get("reconstructed_word") or token_lower)
+            else:
+                # Fallback per mock di test con details vuoto: esegue boundary reconstruction + lookup TLG
+                is_tlg_attested, reconstructed_word = check_tlg_attestation(
+                    supplement=token_lower,
+                    context_with_gap=context,
+                )
+            if cand_atts and any(
+                str(a.get("corpus_id", "")).strip().lower().startswith("tlg")
+                for a in cand_atts
+            ):
+                is_tlg_attested = True
+
             item: dict[str, Any] = {
                 "sentence": re.sub(BERT_LACUNA_PATTERN, p[0], context, count=1).lower(),
-                "token_str": p[0].lower(),
+                "token_str": token_lower,
                 "score": float(p[1]),
+                "tlg_attested": is_tlg_attested,
+                "reconstructed_word": reconstructed_word.lower() if reconstructed_word else token_lower,
             }
-            # Allega ragionamento filologico e loci similes solo al primo candidato per non duplicare il payload JSON
+            # Se il retriever attesta il suggerimento nella collezione di documenti (corpus),
+            # allega l'elenco puntuale delle attestazioni (corpus_id, source_id, forma e passo evidenziato)
+            if cand_atts:
+                item["attestations"] = list(cand_atts)
+            # Allega la CoT di 2° livello (spiegazione specifica per la singola integrazione)
+            cand_rationale = candidate_rationales.get(p[0]) or candidate_rationales.get(token_lower)
+            if cand_rationale:
+                item["candidate_reasoning"] = str(cand_rationale)
+            # Allega CoT di 1° livello e loci similes (primari + completi) solo al primo candidato per non duplicare il payload JSON
             if idx == 0 and details:
                 reasoning = details.get("philological_reasoning")
                 passages = details.get("retrieved_passages")
+                all_passages = details.get("all_retrieved_passages") or passages
                 if reasoning:
                     item["philological_reasoning"] = reasoning
                 if passages:
                     item["retrieved_passages"] = list(passages)
+                if all_passages:
+                    item["all_retrieved_passages"] = list(all_passages)
             results.append(item)
         return results
 

@@ -1,5 +1,6 @@
 import os
 from pathlib import Path
+from typing import Any
 
 # Parametri per lo splitting dei dati nei file
 CORPUS_PATHS = [
@@ -45,11 +46,93 @@ NGRAM_CHECKPOINTS_DIR = Path("models/ngrams/checkpoints")
 # Parametri di default per il sistema DSPy RAG
 RAG_INDEX_DIR = Path(os.getenv("RAG_INDEX_DIR", "models/rag/index"))
 RAG_COMPILED_DIR = Path("models/rag/checkpoints")
-RAG_DEFAULT_LM = os.getenv("RAG_DEFAULT_LM", "Qwen/Qwen2.5-7B-Instruct")
+RAG_DEFAULT_LM = os.getenv("RAG_DEFAULT_LM", "Qwen/Qwen2.5-72B-Instruct")
+RAG_DEFAULT_BERT = os.getenv("RAG_DEFAULT_BERT", "CNR-ILC/gs-GreBerta")
 RAG_DEFAULT_BACKEND = os.getenv("RAG_DEFAULT_BACKEND", "auto")
 RAG_DEFAULT_EMBEDDER = os.getenv("RAG_DEFAULT_EMBEDDER", "CNR-ILC/gs-GreBerta")
 RAG_TOP_K_PASSAGES = int(os.getenv("RAG_TOP_K_PASSAGES", "5"))
-RAG_CHECKPOINTS = [RAG_DEFAULT_LM]
+RAG_CHECKPOINTS = [RAG_DEFAULT_LM, RAG_DEFAULT_BERT]
+
+# Catalogo di modelli LLM e BERT neuro-lessicali supportati per il sistema DSPy RAG
+RAG_SUPPORTED_LMS: list[dict[str, Any]] = [
+    {
+        "id": "CNR-ILC/gs-GreBerta",
+        "name": "gs-GreBerta + RAG (Neuro-lessicale locale)",
+        "category": "BERT + RAG",
+        "recommended": True,
+        "description": "Modello BERT neuro-lessicale con retrieval ibrido BM25+GreBerta, attestazioni TLG e HCB Beam Search (100% in-process locale, zero dipendenze da LLM esterni)",
+    },
+    {
+        "id": "CNR-ILC/gs-aristoBERTo",
+        "name": "gs-aristoBERTo + RAG (Neuro-lessicale locale)",
+        "category": "BERT + RAG",
+        "recommended": False,
+        "description": "Modello BERT (aristoBERTo) accostato al sistema RAG con retrieval ibrido BM25+GreBerta e attestazioni TLG (in-process locale)",
+    },
+    {
+        "id": "CNR-ILC/gs-Logion",
+        "name": "gs-Logion + RAG (Neuro-lessicale locale)",
+        "category": "BERT + RAG",
+        "recommended": False,
+        "description": "Modello BERT (Logion) accostato al sistema RAG con retrieval ibrido BM25+GreBerta e attestazioni TLG (in-process locale)",
+    },
+    {
+        "id": "Qwen/Qwen2.5-72B-Instruct",
+        "name": "Qwen 2.5 72B Instruct (Qwen)",
+        "category": "Qwen",
+        "recommended": True,
+        "description": "Modello 72B ad altissima precisione filologica e sintesi CoT articolata (HF Router)",
+    },
+    {
+        "id": "meta-llama/Llama-3.3-70B-Instruct",
+        "name": "Llama 3.3 70B Instruct (Meta)",
+        "category": "Llama",
+        "recommended": False,
+        "description": "Modello 70B di ultima generazione Meta per completamento e ragionamento (HF Router)",
+    },
+    {
+        "id": "meta-llama/Llama-3.1-8B-Instruct",
+        "name": "Llama 3.1 8B Instruct (Meta)",
+        "category": "Llama",
+        "recommended": False,
+        "description": "Modello compatto da 8B, rapido e a basso costo computazionale (HF Router)",
+    },
+    {
+        "id": "google/gemma-3-12b-it",
+        "name": "Gemma 3 12B Instruct (Google)",
+        "category": "Gemma",
+        "recommended": False,
+        "description": "Modello multilingue bilanciato Google DeepMind da 12B (HF Router)",
+    },
+    {
+        "id": "google/gemma-3-27b-it",
+        "name": "Gemma 3 27B Instruct (Google)",
+        "category": "Gemma",
+        "recommended": False,
+        "description": "Modello 27B Google DeepMind con forte competenza linguistica (HF Router)",
+    },
+    {
+        "id": "google/gemma-4-31B-it",
+        "name": "Gemma 4 31B Instruct (Google)",
+        "category": "Gemma",
+        "recommended": False,
+        "description": "Modello di frontiera Gemma 4 da 31B per inferenza avanzata (HF Router)",
+    },
+    {
+        "id": "deepseek-ai/DeepSeek-V3",
+        "name": "DeepSeek V3 (DeepSeek)",
+        "category": "DeepSeek",
+        "recommended": False,
+        "description": "Architettura Mixture-of-Experts da 671B con alta efficienza (HF Router)",
+    },
+    {
+        "id": "gemma4:e4b",
+        "name": "Gemma 4 E4B (Ollama locale)",
+        "category": "Ollama",
+        "recommended": False,
+        "description": "Esecuzione locale offline su CPU/GPU tramite demone Ollama",
+    },
+]
 
 
 def get_ngram_checkpoint_path(

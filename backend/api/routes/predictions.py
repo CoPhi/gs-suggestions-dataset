@@ -3,6 +3,7 @@ from fastapi.responses import JSONResponse, RedirectResponse
 from typing import Annotated, List, Optional
 
 from backend.api.models import (
+    BatchPredictionsResponse,
     FeedbackCreateRequest,
     FeedbackResponse,
     PredictionCount,
@@ -79,15 +80,24 @@ async def get_predictions(
             description="Lista di supplementi già scartati dal filologo da escludere nella rigenerazione",
         ),
     ] = None,
+    use_rag: Annotated[
+        Optional[bool],
+        Query(
+            title="Accosta sistema RAG",
+            description="Se True per un modello BERT, attiva a priori il recupero ibrido delle informazioni dai corpora (modalità neuro-lessicale BERT + RAG)",
+        ),
+    ] = None,
     service: SuggestionsService = Depends(get_service),
 ):
     # Mantiene la chiamata compatibile con eventuali mock/spy nei test che non espongono
-    # i parametri opzionali HITL quando non vengono passati nella query HTTP.
+    # i parametri opzionali HITL/RAG quando non vengono passati nella query HTTP.
     extra_kwargs = {}
     if human_feedback is not None:
         extra_kwargs["human_feedback"] = human_feedback
     if rejected_candidates is not None:
         extra_kwargs["rejected_candidates"] = rejected_candidates
+    if use_rag is not None:
+        extra_kwargs["use_rag"] = use_rag
 
     predictions = await service.get_predictions(
         model_id=model_id,
@@ -97,6 +107,77 @@ async def get_predictions(
         **extra_kwargs,
     )
     return JSONResponse(status_code=200, content={"predictions": predictions})
+
+
+@router.get(
+    "/predictions/batch",
+    response_model=BatchPredictionsResponse,
+    summary="Esegue in parallelo l'inferenza su più modelli sincronizzando le risposte su una barriera",
+)
+async def get_batch_predictions(
+    model_ids: Annotated[
+        List[str],
+        Query(
+            title="ID dei modelli",
+            description="Elenco degli ID dei modelli da consultare simultaneamente",
+        ),
+    ],
+    context: Annotated[
+        str,
+        Query(
+            title="Contesto di generazione",
+            description="Deve contenere una lacuna da riempire, indicata tramite `[...]`",
+            max_length=512,
+        ),
+    ],
+    num_predictions: Annotated[
+        PredictionCount,
+        Query(
+            title="Numero di predizioni da generare",
+            description="Valori consentiti: 1, 5, 10, 20",
+        ),
+    ],
+    num_tokens: Annotated[
+        Optional[int],
+        Query(
+            title="Numero di token",
+            description="Solo per modelli di tipo `Ngrams`",
+            ge=1,
+            le=10,
+        ),
+    ] = None,
+    human_feedback: Annotated[
+        Optional[str],
+        Query(
+            title="Indicazioni filologiche (Human-in-the-loop)",
+            max_length=512,
+        ),
+    ] = None,
+    rejected_candidates: Annotated[
+        Optional[List[str]],
+        Query(
+            title="Supplementi scartati",
+        ),
+    ] = None,
+    use_rag: Annotated[
+        Optional[bool],
+        Query(
+            title="Accosta sistema RAG",
+            description="Se True per i modelli BERT selezionati, attiva il recupero informazioni neuro-lessicale (BERT + RAG)",
+        ),
+    ] = None,
+    service: SuggestionsService = Depends(get_service),
+):
+    results = await service.get_batch_predictions(
+        model_ids=model_ids,
+        context=context,
+        num_tokens=num_tokens,
+        num_predictions=num_predictions,
+        human_feedback=human_feedback,
+        rejected_candidates=rejected_candidates,
+        use_rag=bool(use_rag),
+    )
+    return JSONResponse(status_code=200, content={"results": results})
 
 
 @router.post(

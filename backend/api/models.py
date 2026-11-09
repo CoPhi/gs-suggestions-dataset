@@ -28,11 +28,11 @@ class IthacaModel(BaseModel):
 
 class RAGModel(BaseModel):
     CHECKPOINT: str = Field(
-        description="Nome del modello LLM su Hugging Face (es. 'Qwen/Qwen2.5-7B-Instruct', 'meta-llama/Llama-3.1-8B-Instruct')"
+        description="Nome del modello LLM o BERT su Hugging Face (es. 'Qwen/Qwen2.5-72B-Instruct', 'CNR-ILC/gs-GreBerta')"
     )
-    BACKEND: Literal["auto", "hf_api", "local", "openai_compatible"] = Field(
+    BACKEND: Literal["auto", "hf_api", "local", "openai_compatible", "neuro_lexical"] = Field(
         default="auto",
-        description="Modalità di esecuzione dell'LLM: 'auto', 'hf_api', 'local' (Transformers GPU) o 'openai_compatible' (vLLM/Ollama)",
+        description="Modalità di esecuzione: 'auto', 'hf_api', 'local' (Transformers GPU), 'openai_compatible' (vLLM/Ollama) o 'neuro_lexical' (BERT + RAG in-process)",
     )
     TOP_K_PASSAGES: int = Field(
         default=5,
@@ -56,15 +56,77 @@ class PredictionCount(IntEnum):
     FIVE = 5
     TEN = 10
     TWENTY = 20
+class CorpusAttestation(BaseModel):
+    """Riferimento al documento del corpus in cui è attestato il suggerimento."""
+
+    corpus_id: str = Field(
+        default="unknown",
+        description="Identificativo della collezione di documenti nel corpus (es. 'tlg', 'DCLP', 'DDbDP', 'PHerc.')",
+    )
+    source_id: str = Field(
+        default="",
+        description="Titolo dell'opera, papiro o luogo di attestazione nel corpus",
+    )
+    attested_form: str = Field(
+        default="",
+        description="Parola o forma greca attestata nel documento",
+    )
+    passage: str = Field(
+        default="",
+        description="Estratto testuale del documento che attesta il suggerimento",
+    )
+    highlighted_passage: str = Field(
+        default="",
+        description="Estratto testuale del documento con l'attestazione evidenziata in grassetto (**...**)",
+    )
+    doc_freq: int = Field(
+        default=1,
+        description="Numero di documenti del corpus in cui la forma è attestata",
+    )
+    source_type: str = Field(
+        default="retrieved_passage",
+        description="Origine dell'attestazione ('retrieved_passage' o 'corpus_index')",
+    )
+
+
 class Prediction(BaseModel):
     sentence: str
     token_str: str
     score: float
+    tlg_attested: bool = Field(
+        default=False,
+        description="True se la forma ottenuta tramite boundary reconstruction col contesto è attestata nel TLG",
+    )
+    reconstructed_word: str | None = Field(
+        default=None,
+        description="Parola greca completa ricostruita concatenando prefisso, supplemento e suffisso adiacenti alla lacuna",
+    )
     philological_reasoning: str | None = None
+    candidate_reasoning: str | None = None
     retrieved_passages: List[str] | None = None
+    all_retrieved_passages: List[str] | None = None
+    attestations: List[CorpusAttestation] | None = None
 
 class PredictionsResponse(BaseModel):
     predictions: List[Prediction]
+
+
+class ModelPredictionsItem(BaseModel):
+    """Risultato delle predizioni di un singolo modello all'interno di un confronto parallelo."""
+
+    model_id: str = Field(description="ID del modello consultato")
+    model_label: str = Field(description="Etichetta leggibile del modello (es. 'gs-GreBerta + RAG')")
+    model_type: str = Field(description="Famiglia architetturale ('RAG', 'BERT', 'Ithaca', 'Ngrams')")
+    checkpoint: str | None = Field(default=None, description="Checkpoint o identificativo del modello")
+    use_rag: bool = Field(default=False, description="True se il sistema RAG di recupero informazioni è attivo")
+    predictions: List[Prediction] = Field(default_factory=list, description="Suggerimenti generati dal modello")
+    error: str | None = Field(default=None, description="Messaggio d'errore eventuale in caso di fallimento isolato")
+
+
+class BatchPredictionsResponse(BaseModel):
+    """Risposta aggregata al completamento della barriera di esecuzione parallela multi-modello."""
+
+    results: List[ModelPredictionsItem]
 
 
 class FeedbackCreateRequest(BaseModel):
