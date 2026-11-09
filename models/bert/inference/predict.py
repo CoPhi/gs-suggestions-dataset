@@ -22,7 +22,11 @@ from backend.core.preprocess import (
     strip_diacritics,
 )
 from models.bert.finetuning import GAP_TOKEN, get_model_config
-from models.bert.inference.vocab import get_normalized_vocab
+from models.bert.inference.vocab import (
+    get_normalized_vocab,
+    normalize_for_tlg_lookup,
+    postprocess_tlg_attestations,
+)
 
 
 def estimate_mask_range(
@@ -251,8 +255,9 @@ def fill_mask(
     return_raw: bool = False,
     normalize_probs: bool = False,
     use_vocab_filter: bool = False,
-    vocab_path: str = "grc.wl",
-) -> List[Tuple[str | List[int], float]]:
+    vocab_path: str | None = None,
+    return_tlg_attestations: bool = False,
+) -> List[Tuple[str | List[int], float]] | Tuple[List[Tuple[str | List[int], float]], dict[str, dict[str, str | bool]]]:
 
     device = next(model.parameters()).device
     model.eval()
@@ -310,13 +315,20 @@ def fill_mask(
     # Rilevamento parola parziale attorno alla lacuna target
     is_partial = bool(re.search(r"[^\W\d_]\[(\.+|\-+)\]|\[(\.+|\-+)\][^\W\d_]", text))
 
+    # Estrazione prefisso e suffisso attorno alla lacuna target per boundary reconstruction
     word_prefix = ""
     word_suffix = ""
-    if use_vocab_filter and not return_raw:
+    if not return_raw:
         match_word = re.search(r"([^\W\d_]*)\[(\.+|\-+)\]([^\W\d_]*)", text)
         if match_word:
             word_prefix = match_word.group(1)
             word_suffix = match_word.group(3)
+            if word_prefix.upper() == "UNK" or UNK_TOKEN in word_prefix:
+                word_prefix = ""
+            if word_suffix.upper() == "UNK" or UNK_TOKEN in word_suffix:
+                word_suffix = ""
+
+    if use_vocab_filter and not return_raw:
         vocab = get_normalized_vocab(vocab_path)
         if not vocab:
             use_vocab_filter = False
@@ -490,14 +502,8 @@ def fill_mask(
         # Filtro vocabolario
         if use_vocab_filter and not return_raw:
             reconstructed = word_prefix + item + word_suffix
-            norm_recon = normalize_greek(
-                reconstructed, 
-                case_folding="fold", 
-                strip_diacritics_flag=True
-            )
-            norm_recon = remove_punctuation(norm_recon)
-            norm_recon = re.sub(r'[\s\u200B-\u200D\uFEFF]', '', norm_recon).strip()
-            
+            norm_recon = normalize_for_tlg_lookup(reconstructed)
+
             if norm_recon not in vocab:
                 continue
 
@@ -514,5 +520,25 @@ def fill_mask(
         unique_candidates = [
             (item, p / total) for (item, _), p in zip(unique_candidates, unnorm)
         ]
+
+    # Post-processing dopo la decodifica HCB Beam Search: boundary reconstruction + lookup su TLG
+    # senza alterare gli score o il ranking dei suggerimenti restituiti.
+    if return_tlg_attestations and not return_raw:
+        postprocessed = postprocess_tlg_attestations(
+            candidates=[(str(item), float(s)) for item, s in unique_candidates],
+            word_prefix=word_prefix,
+            word_suffix=word_suffix,
+            vocab_path=vocab_path,
+        )
+        attestations_map: dict[str, dict[str, str | bool]] = {}
+        for entry in postprocessed:
+            tok = str(entry["token_str"])
+            info = {
+                "tlg_attested": bool(entry["tlg_attested"]),
+                "reconstructed_word": str(entry["reconstructed_word"]),
+            }
+            attestations_map[tok] = info
+            attestations_map[tok.lower()] = info
+        return unique_candidates, attestations_map
 
     return unique_candidates
