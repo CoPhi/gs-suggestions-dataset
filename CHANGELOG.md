@@ -7,9 +7,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 
-## [Unreleased]
+## [0.8.0] - 2026-11-09
 
 ### Added
+- **Estensione del Payload di Feedback con Dati Intrinseci, Metadati del Modello e Predisposizione per RLHF (Reinforcement Learning)**:
+  - **Schema Dati e Modelli Backend (`FeedbackCreateRequest`, `AlternativeCandidate`)**:
+    - Esteso [`FeedbackCreateRequest`](./backend/api/models.py) e introdotto lo schema [`AlternativeCandidate`](./backend/api/models.py) per includere tutti i dati intrinseci del suggerimento proposto (`score`, `rank` 1-based, `reconstructed_word`, `tlg_attested`, `candidate_reasoning`, `philological_reasoning`, `attestations`).
+    - Integrati i metadati estesi sul modello generatore (`model_label`, `model_type`, `checkpoint`, `use_rag`, `rag_backend`, `top_k`) e il supporto per preferenze RLHF (`alternative_candidates` per estrazione automatica di coppie $(y_w, y_l)$ per DPO / Bradley-Terry Reward Modeling, `session_id`, `metadata`).
+  - **Persistenza su MongoDB e Indicizzazione (`SuggestionsService`, `gs-api`)**:
+    - Aggiornato `SuggestionsService.save_feedback` in [`backend/api/services/suggestions_service.py`](./backend/api/services/suggestions_service.py) per persistere i campi estesi, serializzare attestazioni e candidati alternativi, ed eseguire il fallback automatico di arricchimento metadati interrogando la collezione modelli MongoDB qualora non passati dal client.
+    - Implementato `ensure_feedback_indices` in [`SuggestionsService`](./backend/api/services/suggestions_service.py) e integrato nel lifespan di [`backend/api/main.py`](./backend/api/main.py) per creare indici composti (`created_at`, `model_id + is_accepted`, `context`) su `feedback_collection` a supporto dell'estrazione ad alta velocità per il training RL.
+  - **Cattura e Propagazione Reattiva nel Frontend (`Angular`)**:
+    - Aggiornate le interfacce [`FeedbackPayloadInterface`](./frontend/src/app/services/api.service.ts) e [`SuggestionFeedbackEvent`](./frontend/src/app/components/suggest/suggest.component.ts) con le nuove proprietà.
+    - Esteso [`SuggestComponent.markFeedback`](./frontend/src/app/components/suggest/suggest.component.ts) per emettere score, parola ricostruita, flag TLG, CoT e attestazioni.
+    - Esteso [`SuggestsBoxComponent`](./frontend/src/app/components/suggests-box/suggests-box.component.ts) con gli input di modello (`modelId`, `checkpoint`, `useRag`) e aggiornato `handleSuggestionFeedback` per calcolare il rank ordinale e assemblare dinamicamente gli `alternative_candidates`.
+    - Perfezionato [`AppComponent.recordFeedback`](./frontend/src/app/app.component.ts) e [`frontend/src/app/app.component.html`](./frontend/src/app/app.component.html) per trasmettere tutti i metadati e isolare puntualmente il modello di provenienza anche durante il confronto parallelo a colonne affiancate.
+  - **Suite di Test**:
+    - Aggiornato `test_hitl_feedback_persistence_and_service_filtering` in [`tests/test_dspy_rag.py`](./tests/test_dspy_rag.py) per verificare la corretta persistenza su MongoDB di score, rank, CoT, metadati del modello e alternative_candidates.
+    - Aggiornati [`frontend/src/app/components/suggest/suggest.component.spec.ts`](./frontend/src/app/components/suggest/suggest.component.spec.ts) e [`frontend/src/app/components/suggests-box/suggests-box.component.spec.ts`](./frontend/src/app/components/suggests-box/suggests-box.component.spec.ts) per testare l'arricchimento dell'evento e il calcolo del ranking.
+- **Estrazione e Spostamento dei Caratteri di Bordo all'Esterno della Lacuna (`PromptBoxComponent`)**:
+  - Implementato il metodo `extractBoundaryCharactersFromLacuna` in [`frontend/src/app/components/prompt-box/prompt-box.component.ts`](./frontend/src/app/components/prompt-box/prompt-box.component.ts) per rilevare ed estrarre automaticamente eventuali caratteri alfabetici o diacritici greci collocati alle estremità interne della lacuna delimitata da asterischi (es. `*α...*` -> `α*...*`, `*...β*` -> `*...*β`, `*κα...τος*` -> `κα*...*τος`, `*α---*` -> `α*---*`).
+  - L'estrazione riduce la dimensione effettiva della lacuna e arricchisce il contesto lessicale circostante (prefissi e suffissi adiacenti) a disposizione dei modelli di inferenza (`BERT`, `DSPy RAG`, `Ithaca`, `N-grams`).
+  - Aggiornato `isContextValid` per ammettere tali caratteri di bordo prima della normalizzazione, e introdotto `handleBlur` in [`prompt-box.component.html`](./frontend/src/app/components/prompt-box/prompt-box.component.html) per riflettere lo spostamento sia all'uscita dalla textarea sia durante `generateSuggestions`.
+  - Aggiunti i test di unità in [`frontend/src/app/components/prompt-box/prompt-box.component.spec.ts`](./frontend/src/app/components/prompt-box/prompt-box.component.spec.ts) per validare l'estrazione di prefissi, suffissi, combinazioni congiunte, normalizzazione su blur e rifiuto di lettere intrappolate al centro (`*..α..*`).
+- **Validazione Vincolante (Allowlist) dei Caratteri del Greco Antico e Rifiuto dei Segni Editoriali (`<>`, `{}`, `[]`)**:
+  - **Controllo Positivo Vincolante dei Caratteri (Allowlist Greco Antico + Asterischi Lacuna)**:
+    - Sostituito il controllo a blacklist con una convalida stringente a lista bianca in [`frontend/src/app/components/prompt-box/prompt-box.component.ts`](./frontend/src/app/components/prompt-box/prompt-box.component.ts) (`isContextValid`): verifica che il testo inserito nella prompt box contenga unicamente caratteri dell'alfabeto greco antico (`\p{Script=Greek}`, blocchi politonici ed estesi), diacritici combinatori compatibili, punteggiatura greca standard (`.`, `,`, `;`, `:`, `·`, apostrofi/spiriti, virgolette, trattini) e i caratteri necessari alla delimitazione della lacuna (asterischi `*` e relativi punti/trattini interni `*...*` / `*---*`).
+    - Esclude categoricamente caratteri estranei (latini, cifre numeriche, simboli arbitrari) e tutte le notazioni editoriali papyrologiche Leiden+ come rimozioni/espunzioni (`{}`), aggiunte del copista/editore (`<>`), parentesi quadre (`[]`) e parentesi tonde (`()`), sollevando l'errore `unknownCharacters` con notifica `"la stringa contiene carattere sconosciuti"`.
+    - Aggiornati il messaggio guida e la validazione reattiva in [`frontend/src/app/components/prompt-box/prompt-box.component.html`](./frontend/src/app/components/prompt-box/prompt-box.component.html).
+  - **Rifiuto dei Segni di Aggiunta/Rimozione Editoriale lato Backend**:
+    - Esteso `_validate_context` in [`backend/api/services/suggestions_service.py`](./backend/api/services/suggestions_service.py) per rifiutare contesti contenenti caratteri di aggiunta (`<>`) o rimozione (`{}`) sollevando `InvalidContextError("la stringa contiene carattere sconosciuti")`.
+  - **Suite di Test Unitari**:
+    - Aggiunti test completi in [`frontend/src/app/components/prompt-box/prompt-box.component.spec.ts`](./frontend/src/app/components/prompt-box/prompt-box.component.spec.ts) per verificare il rifiuto vincolante di `<>`, `{}`, `[]`, caratteri latini, cifre e simboli arbitrari, e la corretta accettazione di testo greco politonico con punteggiatura e lacuna ad asterischi.
+    - Aggiunto `test_editor_markers_validation_rejection` in [`tests/test_dspy_rag.py`](./tests/test_dspy_rag.py).
 - **Badge Informativo `AI` per Ipotesi e Congetture Neurali Non Attestate**:
   - Implementate le proprietà calcolate `isPureAiHypothesis` e `aiHypothesisTooltip` in [`frontend/src/app/components/suggest/suggest.component.ts`](./frontend/src/app/components/suggest/suggest.component.ts) per rilevare quando un candidato non presenta riscontri documentari (né nel lessico canonico TLG `tlg.wl.gz` né nei passaggi recuperati dai corpora antichi tramite RAG).
   - Aggiunto il badge `.ai-hypothesis-badge` (`<i class="bi bi-cpu me-1"></i>AI`) nell'header della card in [`suggest.component.html`](./frontend/src/app/components/suggest/suggest.component.html), corredato da tooltip esplicativo (*"Forma ricostruita [...] non attestata nei corpora: congettura / ipotesi generata dal modello"*).
@@ -74,6 +104,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - **Impostazione Predefinita su `Qwen/Qwen2.5-72B-Instruct`**:
   - Aggiornata la configurazione predefinita di sistema a `Qwen/Qwen2.5-72B-Instruct` in [`.env`](./.env), [`backend/config/settings.py`](./backend/config/settings.py), [`docker-compose.yaml`](./docker-compose.yaml) e [`Makefile`](./Makefile) per garantire la massima accuratezza di Chain-of-Thought e rispetto dei vincoli morfologici senza incorrere nei limiti di route serverless di modelli 7B non attivi sul router.
+
+### Fixed
+- **Avvio dell'Immagine `gs-api` (`ModuleNotFoundError: models.bert.dataset`)**:
+  - Resi lazy gli export pubblici di [`models/rag/__init__.py`](./models/rag/__init__.py) tramite `__getattr__` (PEP 562), evitando che l'import di `models.rag.inference` esegua eager `optimizer.py` e quindi `models.bert.dataset`/`models.bert.evaluation`, esclusi dal contesto Docker in [`.dockerignore`](./.dockerignore) per alleggerire l'immagine API.
+  - Ripristinato l'avvio di `uvicorn backend.api.main:app` nell'immagine `gs-api` mantenendo separati gli strumenti di training/HPO dai runtime di inferenza.
+- **Compilazione di Produzione Angular (`SuggestsBoxComponent`)**:
+  - Ammessi valori `undefined` nei signal input (`modelId`, `modelLabel`, `modelType`, `checkpoint`, `useRag`) di [`SuggestsBoxComponent`](./frontend/src/app/components/suggests-box/suggests-box.component.ts) e nell'interfaccia [`ModelSuggestionBoxItem`](./frontend/src/app/app.component.ts), risolvendo l'errore di type checking rigoroso del template Angular (`strictTemplates`) durante `ng build` (`make test-frontend`).
 
 
 ### Added
