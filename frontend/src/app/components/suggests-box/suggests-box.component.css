@@ -90,6 +90,7 @@
 .attestation-highlight {
     background-color: #f3e8ff;
     color: #581c87;
+    border: 1px solid #d8b4fe;
     padding: 0.05rem 0.28rem;
     border-radius: 0.25rem;
     font-weight: 700;

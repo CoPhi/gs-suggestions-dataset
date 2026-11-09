@@ -67,7 +67,15 @@
                 </button>
             </div>
         </div>
-        <p class="mb-0 text-dark fs-5 mt-3" style="line-height: 1.5;" [class.text-decoration-line-through]="feedbackStatus() === 'rejected'" [class.text-muted]="feedbackStatus() === 'rejected'">{{ sentence() }}</p>
+        <p class="mb-0 text-dark fs-5 mt-3" style="line-height: 1.5;" [class.text-decoration-line-through]="feedbackStatus() === 'rejected'" [class.text-muted]="feedbackStatus() === 'rejected'">
+            @for (seg of sentenceSegments(); track $index) {
+                @if (seg.bold) {
+                    <strong class="fw-bold attestation-highlight">{{ seg.text }}</strong>
+                } @else {
+                    <span>{{ seg.text }}</span>
+                }
+            }
+        </p>
 
         @if (showCotDetails() && hasCotOrAttestations()) {
             <div class="cot-attestations-panel rounded-3 p-3 mt-3">

@@ -72,4 +72,20 @@ describe('SuggestComponent', () => {
     expect(tlgBadge.textContent?.trim()).toBe('tlg');
     expect(tlgBadge.getAttribute('title')).toContain('τειχεσιβλητα');
   });
+
+  it('should highlight the reconstructed word composed in the sentence with attestation-highlight style', () => {
+    fixture.componentRef.setInput('suggest', {
+      sentence: 'Ἆρες Ἆρες βροτολοιγὲ μιαιφόνε τειχεσιβλητα',
+      token_str: 'λητα',
+      score: 0.92,
+      reconstructed_word: 'τειχεσιβλητα'
+    });
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    const highlighted = compiled.querySelector('p strong.attestation-highlight') as HTMLElement;
+    expect(highlighted).toBeTruthy();
+    expect(highlighted.textContent?.trim()).toBe('τειχεσιβλητα');
+    expect(compiled.querySelector('p')?.textContent).toContain('Ἆρες Ἆρες βροτολοιγὲ μιαιφόνε τειχεσιβλητα');
+  });
 });

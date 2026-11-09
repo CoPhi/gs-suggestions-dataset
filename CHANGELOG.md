@@ -10,6 +10,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Evidenziazione Stilistica della Parola Ricostruita nella Sentence della Suggestion Card**:
+  - Esteso [`parseHighlightedSegments`](./frontend/src/app/components/suggest/suggest.component.ts) per supportare il matching insensibile a spiriti/accenti sia di singole forme lessicali sia di espressioni multi-parola.
+  - Aggiunta la proprietà calcolata `sentenceSegments` in [`SuggestComponent`](./frontend/src/app/components/suggest/suggest.component.ts) e aggiornato [`suggest.component.html`](./frontend/src/app/components/suggest/suggest.component.html) per applicare lo stile `.attestation-highlight` (`<strong class="fw-bold attestation-highlight">`, con testo in grassetto, sfondo soft violetto e bordo marcato `#d8b4fe`) alla parola intera composta sostituendo la lacuna con il suggerimento proposto (`reconstructedWord`).
+  - Allineata la classe `.attestation-highlight` in [`suggest.component.css`](./frontend/src/app/components/suggest/suggest.component.css) e [`suggests-box.component.css`](./frontend/src/app/components/suggests-box/suggests-box.component.css) con bordo coordinato `border: 1px solid #d8b4fe;` e aggiunti i relativi test in [`suggest.component.spec.ts`](./frontend/src/app/components/suggest/suggest.component.spec.ts).
 - **Consultazione Parallela Multi-Modello con Sincronizzazione su Barriera e Suggestion Box Orizzontali**:
   - **Parallelizzazione su Barriera lato Backend (`asyncio.Barrier` + `asyncio.gather`) e Frontend (`forkJoin`)**:
     - Aggiunti gli schemi `ModelPredictionsItem` e `BatchPredictionsResponse` in [`backend/api/models.py`](./backend/api/models.py), il metodo `SuggestionsService.get_batch_predictions` in [`backend/api/services/suggestions_service.py`](./backend/api/services/suggestions_service.py) (che sincronizza il completamento di tutti i modelli consultati su una barriera asincrona `asyncio.Barrier`) e l'endpoint `GET /predictions/batch` in [`backend/api/routes/predictions.py`](./backend/api/routes/predictions.py).

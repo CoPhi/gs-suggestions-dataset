@@ -30,9 +30,10 @@ export function normalizeGreekForMatch(value: string): string {
 }
 
 /**
- * Suddivide un testo (CoT o estratto del corpus) in segmenti normali ed evidenziati (`bold: true`),
+ * Suddivide un testo (sentence, CoT o estratto del corpus) in segmenti normali ed evidenziati (`bold: true`),
  * riconoscendo sia i marcatori Markdown `**...**` restituiti dal backend sia il match diretto
- * (insensibile ai diacritici) con le forme greche attestate (`fallbackForms`).
+ * (insensibile ai diacritici e al case folding) con le forme greche o le parole composte (`fallbackForms`).
+ * Supporta sia forme a singola parola sia espressioni multi-parola.
  */
 export function parseHighlightedSegments(
   text: string | null | undefined,
@@ -51,6 +52,13 @@ export function parseHighlightedSegments(
   const rawParts = text.split(/(\*\*[^*]+\*\*)/g).filter(p => p.length > 0);
   const segments: HighlightSegment[] = [];
 
+  // Calcola le lunghezze in parole dei target per supportare anche espressioni multi-parola
+  const targetWordCounts = Array.from(
+    new Set(
+      Array.from(normalizedTargets).map(t => t.split(/\s+/).filter(Boolean).length)
+    )
+  ).sort((a, b) => b - a);
+
   for (const part of rawParts) {
     if (part.startsWith('**') && part.endsWith('**') && part.length > 4) {
       segments.push({ text: part.slice(2, -2), bold: true });
@@ -62,21 +70,50 @@ export function parseHighlightedSegments(
       continue;
     }
 
-    // Scansiona i token alfabetici greci nel segmento per evidenziare la forma attestata
-    // anche qualora il testo non contenga già marcatori **...**
+    // Scansiona tutti i token alfabetici nel frammento per consentire il matching
+    // esatto anche con variazioni di diacritici o con espressioni a più parole.
     const tokenRegex = /([\p{L}\p{M}]+)/gu;
-    let lastIndex = 0;
+    const tokens: Array<{ word: string; start: number; end: number; norm: string }> = [];
     let match: RegExpExecArray | null;
 
     while ((match = tokenRegex.exec(part)) !== null) {
-      const word = match[0];
-      const normWord = normalizeGreekForMatch(word);
-      if (normalizedTargets.has(normWord)) {
-        if (match.index > lastIndex) {
-          segments.push({ text: part.slice(lastIndex, match.index), bold: false });
+      tokens.push({
+        word: match[0],
+        start: match.index,
+        end: match.index + match[0].length,
+        norm: normalizeGreekForMatch(match[0])
+      });
+    }
+
+    if (tokens.length === 0) {
+      segments.push({ text: part, bold: false });
+      continue;
+    }
+
+    let lastIndex = 0;
+    for (let i = 0; i < tokens.length; i++) {
+      let matchedCount = 0;
+
+      for (const wCount of targetWordCounts) {
+        if (i + wCount <= tokens.length) {
+          const candidateNorm = tokens.slice(i, i + wCount).map(t => t.norm).join(' ');
+          if (normalizedTargets.has(candidateNorm)) {
+            matchedCount = wCount;
+            break;
+          }
         }
-        segments.push({ text: word, bold: true });
-        lastIndex = match.index + word.length;
+      }
+
+      if (matchedCount > 0) {
+        const start = tokens[i].start;
+        const end = tokens[i + matchedCount - 1].end;
+
+        if (start > lastIndex) {
+          segments.push({ text: part.slice(lastIndex, start), bold: false });
+        }
+        segments.push({ text: part.slice(start, end), bold: true });
+        lastIndex = end;
+        i += matchedCount - 1;
       }
     }
 
@@ -110,6 +147,16 @@ export class SuggestComponent {
   attestations = computed<CorpusAttestationInterface[]>(() => this.suggest().attestations || []);
   // Parola ricostruita tramite boundary reconstruction (prefisso + supplemento + suffisso)
   reconstructedWord = computed<string>(() => this.suggest().reconstructed_word || this.token());
+
+  // Segmentazione della frase per applicare lo stile di evidenziazione (.attestation-highlight)
+  // alla parola composta sostituendo la lacuna con il suggerimento proposto (reconstructedWord)
+  sentenceSegments = computed<HighlightSegment[]>(() => {
+    const sent = this.sentence();
+    const word = this.reconstructedWord();
+    const tok = this.token();
+    const target = word || tok;
+    return parseHighlightedSegments(sent, target ? [target] : []);
+  });
   // Attestazione lessicale nel TLG (da post-processing post-HCB o intercettata dal retriever RAG)
   isTlgAttested = computed<boolean>(
     () =>
