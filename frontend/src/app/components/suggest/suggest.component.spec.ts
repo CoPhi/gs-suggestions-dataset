@@ -38,20 +38,26 @@ describe('SuggestComponent', () => {
     acceptBtn.click();
     fixture.detectChanges();
     expect(component.feedbackStatus()).toBe('accepted');
-    expect(component.onFeedback.emit).toHaveBeenCalledWith({
+    expect(component.onFeedback.emit).toHaveBeenCalledWith(jasmine.objectContaining({
       token_str: 'test',
       sentence: 'foo [test] bar',
-      is_accepted: true
-    });
+      is_accepted: true,
+      score: 0.95,
+      reconstructed_word: 'test',
+      tlg_attested: false
+    }));
 
     rejectBtn.click();
     fixture.detectChanges();
     expect(component.feedbackStatus()).toBe('rejected');
-    expect(component.onFeedback.emit).toHaveBeenCalledWith({
+    expect(component.onFeedback.emit).toHaveBeenCalledWith(jasmine.objectContaining({
       token_str: 'test',
       sentence: 'foo [test] bar',
-      is_accepted: false
-    });
+      is_accepted: false,
+      score: 0.95,
+      reconstructed_word: 'test',
+      tlg_attested: false
+    }));
   });
 
   it('should render the "tlg" badge with reconstructed word tooltip when tlg_attested is true', () => {

@@ -90,11 +90,14 @@
                             @if (box.suggestions.length > 0) {
                                 <app-suggests-box
                                     [suggestions]="box.suggestions"
+                                    [modelId]="box.modelId"
                                     [modelLabel]="box.modelLabel"
                                     [modelType]="box.modelType"
+                                    [checkpoint]="box.checkpoint"
+                                    [useRag]="box.use_rag"
                                     [initialHumanFeedback]="sessionHumanFeedback()"
                                     [initialRejectedCandidates]="sessionRejectedCandidates()"
-                                    (onFeedback)="recordFeedback($event)"
+                                    (onFeedback)="recordFeedback($event, box.modelId, box.modelLabel, box.modelType, box.checkpoint, box.use_rag)"
                                     (onRefine)="refineSuggestions($event)"
                                     (onClose)="closeModelBox(box.modelId)" />
                             } @else {
@@ -102,7 +105,7 @@
                                     <div class="card-header rounded-top-4 bg-secondary text-white d-flex justify-content-between align-items-center py-3">
                                         <div class="d-flex align-items-center gap-2">
                                             <span class="badge bg-dark text-white rounded-pill px-3 py-1 fw-semibold">
-                                                <i class="bi bi-cpu me-1"></i>{{ box.modelLabel }}
+                                                {{ box.modelLabel }}
                                             </span>
                                             <span class="badge bg-white text-dark border rounded-pill px-2 py-1 small fw-semibold">
                                                 {{ box.modelType }}
@@ -136,11 +139,14 @@
                 @if (suggestions()!.length > 0) {
                 <app-suggests-box
                     [suggestions]="suggestions()!"
+                    [modelId]="curr_id()"
                     [modelLabel]="activeSingleModelLabel()"
                     [modelType]="activeSingleModelType()"
+                    [checkpoint]="activeSingleModelCheckpoint()"
+                    [useRag]="lastGenerationPayload()?.use_rag"
                     [initialHumanFeedback]="sessionHumanFeedback()"
                     [initialRejectedCandidates]="sessionRejectedCandidates()"
-                    (onFeedback)="recordFeedback($event)"
+                    (onFeedback)="recordFeedback($event, curr_id(), activeSingleModelLabel(), activeSingleModelType(), activeSingleModelCheckpoint(), lastGenerationPayload()?.use_rag)"
                     (onRefine)="refineSuggestions($event)"
                     (onClose)="closeSuggestions()" />
                 }

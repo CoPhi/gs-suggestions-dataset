@@ -198,4 +198,55 @@ describe('SuggestsBoxComponent', () => {
     expect(cardPanel.textContent).toContain('Plausibilità del Suggerimento (CoT – 2° Livello)');
     expect(cardPanel.textContent).toContain('completa il vocativo epico');
   });
+
+  it('should enrich feedback event with rank, model metadata and alternative candidates for RLHF', () => {
+    spyOn(component.onFeedback, 'emit');
+    fixture.componentRef.setInput('suggestions', [
+      {
+        token_str: 'λῆτα',
+        sentence: 'Ἆρες Ἆρες βροτολοιγὲ μιαιφόνε τειχεσιβλῆτα',
+        score: 0.95,
+        tlg_attested: true
+      },
+      {
+        token_str: 'βλῆτα',
+        sentence: 'Ἆρες Ἆρες βροτολοιγὲ μιαιφόνε τειχεσιββλῆτα',
+        score: 0.75,
+        tlg_attested: false
+      }
+    ]);
+    fixture.componentRef.setInput('modelId', 'mod123');
+    fixture.componentRef.setInput('modelLabel', 'gs-GreBerta + RAG');
+    fixture.componentRef.setInput('modelType', 'BERT');
+    fixture.componentRef.setInput('checkpoint', 'CNR-ILC/gs-GreBerta');
+    fixture.componentRef.setInput('useRag', true);
+    fixture.detectChanges();
+
+    component.handleSuggestionFeedback({
+      token_str: 'λῆτα',
+      sentence: 'Ἆρες Ἆρες βροτολοιγὲ μιαιφόνε τειχεσιβλῆτα',
+      is_accepted: true,
+      score: 0.95
+    });
+
+    expect(component.onFeedback.emit).toHaveBeenCalledWith(jasmine.objectContaining({
+      token_str: 'λῆτα',
+      is_accepted: true,
+      rank: 1,
+      model_id: 'mod123',
+      model_label: 'gs-GreBerta + RAG',
+      model_type: 'BERT',
+      checkpoint: 'CNR-ILC/gs-GreBerta',
+      use_rag: true,
+      top_k: 2,
+      alternative_candidates: [
+        jasmine.objectContaining({
+          token_str: 'βλῆτα',
+          score: 0.75,
+          rank: 2,
+          tlg_attested: false
+        })
+      ]
+    }));
+  });
 });

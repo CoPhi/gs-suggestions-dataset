@@ -22,7 +22,7 @@
                 @if (isPureAiHypothesis()) {
                     <span class="badge rounded-pill px-2 py-1 ai-hypothesis-badge"
                           [attr.title]="aiHypothesisTooltip()">
-                        <i class="bi bi-cpu me-1"></i>AI
+                        AI
                     </span>
                 }
                 @if (feedbackStatus() === 'accepted') {
@@ -88,7 +88,7 @@
                 @if (effectiveReasoning()) {
                     <div class="mb-2">
                         <span class="d-block small text-uppercase fw-semibold cot-section-label mb-1">
-                            <i class="bi bi-cpu me-1"></i>{{ candidateReasoning() ? 'Plausibilità del Suggerimento (CoT – 2° Livello)' : 'Catena di Ragionamento (Chain-of-Thought)' }}
+                            {{ candidateReasoning() ? 'Plausibilità del Suggerimento (CoT – 2° Livello)' : 'Catena di Ragionamento (Chain-of-Thought)' }}
                         </span>
                         <p class="mb-0 small text-dark cot-reasoning-text">
                             @for (seg of reasoningSegments(); track $index) {

@@ -18,9 +18,12 @@ export class SuggestsBoxComponent {
 
   api = inject(ApiService);
   suggestions = input.required<SuggestionInterface[]>();
-  // Etichetta e tipo opzionali del modello da cui provengono i suggerimenti (usati nel confronto multi-modello)
-  modelLabel = input<string | null>(null);
-  modelType = input<string | null>(null);
+  // Metadati opzionali del modello da cui provengono i suggerimenti (usati nel confronto multi-modello)
+  modelId = input<string | null | undefined>(null);
+  modelLabel = input<string | null | undefined>(null);
+  modelType = input<string | null | undefined>(null);
+  checkpoint = input<string | null | undefined>(null);
+  useRag = input<boolean | null | undefined>(null);
   // Stato HITL ereditato dalla sessione padre per preservare i vincoli dopo una rigenerazione
   initialHumanFeedback = input<string>('');
   initialRejectedCandidates = input<string[]>([]);
@@ -140,7 +143,8 @@ export class SuggestsBoxComponent {
   /**
    * Gestisce la validazione o lo scarto di un singolo supplemento:
    * 1. Aggiorna la lista di esclusione in-session (Fase 2) se il candidato è scartato;
-   * 2. Propaga l'evento al componente padre per la persistenza su MongoDB (Fase 1).
+   * 2. Calcola il rank 1-based, estrae gli alternative_candidates per RLHF e allega i metadati del modello;
+   * 3. Propaga l'evento arricchito al componente padre per la persistenza su MongoDB (Fase 1 e RLHF).
    */
   handleSuggestionFeedback(event: SuggestionFeedbackEvent) {
     if (!event.is_accepted) {
@@ -153,7 +157,33 @@ export class SuggestsBoxComponent {
         list.filter(token => token !== event.token_str)
       );
     }
-    this.onFeedback.emit(event);
+
+    const all = this.suggestions();
+    const index = all.findIndex(s => s.token_str === event.token_str);
+    const rank = index >= 0 ? index + 1 : (event.rank || 1);
+    const alternativeCandidates = all
+      .filter((_, idx) => idx !== index)
+      .map((s, idx) => ({
+        token_str: s.token_str,
+        score: s.score,
+        rank: idx >= index ? idx + 2 : idx + 1,
+        tlg_attested: s.tlg_attested,
+        reconstructed_word: s.reconstructed_word || null
+      }));
+
+    const enrichedEvent: SuggestionFeedbackEvent = {
+      ...event,
+      rank,
+      model_id: this.modelId() || event.model_id || null,
+      model_label: this.modelLabel() || event.model_label || null,
+      model_type: this.modelType() || event.model_type || null,
+      checkpoint: this.checkpoint() || event.checkpoint || null,
+      use_rag: this.useRag() != null ? this.useRag()! : (event.use_rag ?? null),
+      top_k: all.length,
+      alternative_candidates: alternativeCandidates
+    };
+
+    this.onFeedback.emit(enrichedEvent);
   }
 
   removeRejectedCandidate(token: string) {

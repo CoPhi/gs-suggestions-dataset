@@ -12,6 +12,8 @@ export interface ModelSuggestionBoxItem {
   modelId: string;
   modelLabel: string;
   modelType: string;
+  checkpoint?: string | null;
+  use_rag?: boolean | null;
   suggestions: SuggestionInterface[];
   error?: string | null;
 }
@@ -84,8 +86,26 @@ export class AppComponent {
     return this.curr_id() ? this.resolveModelTypeBadge(this.curr_id()!) : null;
   });
 
+  activeSingleModelCheckpoint = computed<string | null>(() => {
+    const boxes = this.modelSuggestionBoxes();
+    if (boxes && boxes.length === 1 && boxes[0].checkpoint) {
+      return boxes[0].checkpoint;
+    }
+    const last = this.lastGenerationPayload();
+    if (last?.modelID) {
+      return this.resolveModelCheckpoint(last.modelID);
+    }
+    return this.curr_id() ? this.resolveModelCheckpoint(this.curr_id()!) : null;
+  });
+
   isGenerating = signal<boolean>(false);
   private currentRequestSubscription: Subscription | null = null;
+
+  resolveModelCheckpoint(modelId: string): string | null {
+    const m = this.models().find(item => item._id === modelId);
+    if (!m) return null;
+    return 'CHECKPOINT' in m ? m.CHECKPOINT : null;
+  }
 
   resolveModelLabel(modelId: string, useRag?: boolean): string {
     const m = this.models().find(item => item._id === modelId);
@@ -199,6 +219,8 @@ export class AppComponent {
             modelId: id,
             modelLabel: this.resolveModelLabel(id, use_rag),
             modelType: this.resolveModelTypeBadge(id, use_rag),
+            checkpoint: this.resolveModelCheckpoint(id),
+            use_rag: use_rag,
             suggestions: preds || [],
             error: null
           })),
@@ -206,6 +228,8 @@ export class AppComponent {
             modelId: id,
             modelLabel: this.resolveModelLabel(id, use_rag),
             modelType: this.resolveModelTypeBadge(id, use_rag),
+            checkpoint: this.resolveModelCheckpoint(id),
+            use_rag: use_rag,
             suggestions: [],
             error: err?.message || 'Errore durante la consultazione del modello'
           }))
@@ -246,6 +270,8 @@ export class AppComponent {
             modelId: modelID,
             modelLabel: this.resolveModelLabel(modelID, use_rag),
             modelType: this.resolveModelTypeBadge(modelID, use_rag),
+            checkpoint: this.resolveModelCheckpoint(modelID),
+            use_rag: use_rag,
             suggestions: response || []
           }
         ]);
@@ -266,12 +292,20 @@ export class AppComponent {
   }
 
   /**
-   * Invia al backend l'annotazione del filologo (Fase 1 - Dataset Curation) e aggiorna
-   * i candidati esclusi nella sessione corrente.
+   * Invia al backend l'annotazione del filologo (HITL e predisposizione per RLHF / DPO),
+   * associando i metadati del modello, i dati intrinseci del suggerimento e le esclusioni.
    */
-  recordFeedback(event: SuggestionFeedbackEvent) {
+  recordFeedback(
+    event: SuggestionFeedbackEvent,
+    boxModelId?: string | null,
+    boxModelLabel?: string | null,
+    boxModelType?: string | null,
+    boxCheckpoint?: string | null,
+    boxUseRag?: boolean | null
+  ) {
     const lastReq = this.lastGenerationPayload();
-    const modelId = lastReq?.modelID || this.curr_id() || '';
+    // Priorità al model_id specifico della colonna consultata, poi all'evento, poi all'ultima richiesta
+    const modelId = boxModelId || event.model_id || lastReq?.modelID || this.curr_id() || '';
     const context = lastReq?.text || '';
 
     if (!event.is_accepted) {
@@ -288,13 +322,36 @@ export class AppComponent {
       return;
     }
 
+    const modelLabel = boxModelLabel || event.model_label || this.activeSingleModelLabel() || null;
+    const modelType = boxModelType || event.model_type || this.activeSingleModelType() || null;
+    const checkpoint = boxCheckpoint || event.checkpoint || this.activeSingleModelCheckpoint() || null;
+    const useRag = boxUseRag !== undefined && boxUseRag !== null
+      ? boxUseRag
+      : (event.use_rag !== undefined && event.use_rag !== null ? event.use_rag : (lastReq?.use_rag ?? null));
+
     this.api.submitFeedback({
       model_id: modelId,
       context,
       token_str: event.token_str,
       sentence: event.sentence,
       is_accepted: event.is_accepted,
-      notes: this.sessionHumanFeedback() || null
+      notes: this.sessionHumanFeedback() || null,
+      // Dati intrinseci del suggerimento proposto
+      score: event.score,
+      rank: event.rank,
+      reconstructed_word: event.reconstructed_word,
+      tlg_attested: event.tlg_attested,
+      candidate_reasoning: event.candidate_reasoning,
+      philological_reasoning: event.philological_reasoning,
+      attestations: event.attestations,
+      // Metadati sul modello generatore
+      model_label: modelLabel,
+      model_type: modelType,
+      checkpoint: checkpoint,
+      use_rag: useRag,
+      top_k: event.top_k || lastReq?.num_predictions || null,
+      // Supporto per RLHF (coppie di preferenza per DPO / Reward Modeling)
+      alternative_candidates: event.alternative_candidates
     }).subscribe({
       next: () => {
         const label = event.is_accepted ? 'validato' : 'scartato';

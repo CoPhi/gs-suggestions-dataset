@@ -1,11 +1,25 @@
 import { Component, computed, input, output, signal } from '@angular/core';
-import { CorpusAttestationInterface, SuggestionInterface } from '../../services/api.service';
+import { AlternativeCandidateInterface, CorpusAttestationInterface, SuggestionInterface } from '../../services/api.service';
 import { Clipboard } from '@angular/cdk/clipboard';
 
 export interface SuggestionFeedbackEvent {
   token_str: string;
   sentence: string;
   is_accepted: boolean;
+  score?: number | null;
+  rank?: number | null;
+  reconstructed_word?: string | null;
+  tlg_attested?: boolean | null;
+  candidate_reasoning?: string | null;
+  philological_reasoning?: string | null;
+  attestations?: CorpusAttestationInterface[] | null;
+  model_id?: string | null;
+  model_label?: string | null;
+  model_type?: string | null;
+  checkpoint?: string | null;
+  use_rag?: boolean | null;
+  top_k?: number | null;
+  alternative_candidates?: AlternativeCandidateInterface[] | null;
 }
 
 export interface HighlightSegment {
@@ -230,7 +244,13 @@ export class SuggestComponent {
     this.onFeedback.emit({
       token_str: this.token(),
       sentence: this.sentence(),
-      is_accepted: isAccepted
+      is_accepted: isAccepted,
+      score: this.score(),
+      reconstructed_word: this.reconstructedWord(),
+      tlg_attested: this.isTlgAttested(),
+      candidate_reasoning: this.candidateReasoning(),
+      philological_reasoning: this.effectiveReasoning(),
+      attestations: this.attestations()
     });
   }
 

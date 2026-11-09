@@ -111,6 +111,14 @@ export interface HitlRefinementOptions {
   use_rag?: boolean;
 }
 
+export interface AlternativeCandidateInterface {
+  token_str: string;
+  score?: number | null;
+  rank?: number | null;
+  tlg_attested?: boolean | null;
+  reconstructed_word?: string | null;
+}
+
 export interface FeedbackPayloadInterface {
   model_id: string;
   context: string;
@@ -118,6 +126,25 @@ export interface FeedbackPayloadInterface {
   sentence?: string | null;
   is_accepted: boolean;
   notes?: string | null;
+  // Dati intrinseci del suggerimento proposto
+  score?: number | null;
+  rank?: number | null;
+  reconstructed_word?: string | null;
+  tlg_attested?: boolean | null;
+  candidate_reasoning?: string | null;
+  philological_reasoning?: string | null;
+  attestations?: CorpusAttestationInterface[] | null;
+  // Metadati sul modello generatore (Policy)
+  model_label?: string | null;
+  model_type?: string | null;
+  checkpoint?: string | null;
+  use_rag?: boolean | null;
+  rag_backend?: string | null;
+  top_k?: number | null;
+  // Predisposizione per Reinforcement Learning from Human Feedback (RLHF / DPO / KTO)
+  alternative_candidates?: AlternativeCandidateInterface[] | null;
+  session_id?: string | null;
+  metadata?: Record<string, any> | null;
 }
 
 export interface FeedbackResponseInterface {
