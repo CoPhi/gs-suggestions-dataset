@@ -5,7 +5,7 @@ API_CONTAINER_NAME ?= $(API_IMAGE)
 FRONTEND_CONTAINER_NAME ?= $(FRONTEND_IMAGE)
 
 # Parametri Docker & Pubblicazione Docker Hub
-DOCKER_PLATFORMS ?= linux/amd64
+DOCKER_PLATFORMS ?= linux/amd64,linux/arm64
 DOCKER_BUILDER ?= gs-builder
 DOCKER_PUSH ?= true
 DOCKER_NO_CACHE ?= false
