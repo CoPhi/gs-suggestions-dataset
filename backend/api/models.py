@@ -1,4 +1,4 @@
-from typing import List, Union, Literal
+from typing import List, Union, Literal, Any, Dict
 from pydantic import BaseModel, Field
 from enum import Enum, IntEnum
 
@@ -129,8 +129,18 @@ class BatchPredictionsResponse(BaseModel):
     results: List[ModelPredictionsItem]
 
 
+class AlternativeCandidate(BaseModel):
+    """Candidato alternativo generato nello stesso turno, per la costruzione di preference pairs per RLHF/DPO."""
+
+    token_str: str = Field(description="Supplemento alternativo proposto")
+    score: float | None = Field(default=None, description="Punteggio o confidenza assegnata dal modello")
+    rank: int | None = Field(default=None, description="Posizione di ranking (1-based) nella lista delle predizioni")
+    tlg_attested: bool | None = Field(default=None, description="True se la forma è attestata nel TLG")
+    reconstructed_word: str | None = Field(default=None, description="Parola greca ricostruita")
+
+
 class FeedbackCreateRequest(BaseModel):
-    """Payload inviato dal filologo per validare o scartare un supplemento proposto (HITL Fase 1)."""
+    """Payload inviato dal filologo per validare o scartare un supplemento proposto (HITL Fase 1 e RLHF)."""
 
     model_id: str = Field(description="ID del modello che ha generato il supplemento")
     context: str = Field(description="Frammento greco con lacuna [...] sottoposto a infilling")
@@ -145,6 +155,76 @@ class FeedbackCreateRequest(BaseModel):
     notes: str | None = Field(
         default=None,
         description="Note filologiche o motivazione opzionale fornita dallo studioso",
+    )
+
+    # Dati intrinseci del suggerimento proposto
+    score: float | None = Field(
+        default=None,
+        description="Punteggio o probabilità di confidenza assegnata dal modello generatore",
+    )
+    rank: int | None = Field(
+        default=None,
+        description="Posizione ordinale (1-based) del suggerimento all'interno della lista dei top-k",
+    )
+    reconstructed_word: str | None = Field(
+        default=None,
+        description="Parola greca completa ricostruita col contesto adiacente alla lacuna",
+    )
+    tlg_attested: bool | None = Field(
+        default=None,
+        description="True se la parola ricostruita è presente nel corpus TLG",
+    )
+    candidate_reasoning: str | None = Field(
+        default=None,
+        description="Chain-of-Thought filologica di 2° livello specifica per il candidato",
+    )
+    philological_reasoning: str | None = Field(
+        default=None,
+        description="Chain-of-Thought filologica di 1° livello sull'intero passo",
+    )
+    attestations: List[CorpusAttestation] | None = Field(
+        default=None,
+        description="Attestazioni puntuali del supplemento nei corpora storici",
+    )
+
+    # Metadati estesi sul modello generatore (Policy)
+    model_label: str | None = Field(
+        default=None,
+        description="Etichetta descrittiva del modello (es. 'gs-GreBerta + RAG')",
+    )
+    model_type: str | None = Field(
+        default=None,
+        description="Famiglia architetturale del modello ('BERT', 'RAG', 'Ithaca', 'Ngrams')",
+    )
+    checkpoint: str | None = Field(
+        default=None,
+        description="Identificativo del checkpoint Hugging Face o percorso pesi",
+    )
+    use_rag: bool | None = Field(
+        default=None,
+        description="True se la predizione è stata potenziata con retrieval RAG dai corpora",
+    )
+    rag_backend: str | None = Field(
+        default=None,
+        description="Backend di esecuzione RAG ('neuro_lexical', 'local', 'openai_compatible', 'hf_api')",
+    )
+    top_k: int | None = Field(
+        default=None,
+        description="Numero totale di candidati richiesti durante la generazione",
+    )
+
+    # Predisposizione per Reinforcement Learning from Human Feedback (RLHF / DPO / KTO)
+    alternative_candidates: List[AlternativeCandidate] | List[dict[str, Any]] | None = Field(
+        default=None,
+        description="Candidati alternativi generati nello stesso turno per supportare la creazione di coppie di preferenza per DPO/RLHF",
+    )
+    session_id: str | None = Field(
+        default=None,
+        description="Identificativo univoco di sessione di lavoro del filologo",
+    )
+    metadata: dict[str, Any] | None = Field(
+        default=None,
+        description="Dizionario per metadati addizionali o futuri iperparametri di inferenza",
     )
 
 

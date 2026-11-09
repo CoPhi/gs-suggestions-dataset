@@ -614,6 +614,20 @@ async def test_hitl_feedback_persistence_and_service_filtering():
         sentence="Ἆρες Ἆρες βροτολοιγὲ μιαιφόνε τειχεσιβλητα",
         is_accepted=True,
         notes="Epiteto omerico attestato in Il. 5.31",
+        score=0.985,
+        rank=1,
+        reconstructed_word="τειχεσιβλητα",
+        tlg_attested=True,
+        candidate_reasoning="Epiteto formulare dell'Iliade riferito al dio Ares",
+        model_label="gs-GreBerta + RAG",
+        model_type="BERT",
+        checkpoint="CNR-ILC/gs-GreBerta",
+        use_rag=True,
+        top_k=5,
+        alternative_candidates=[
+            {"token_str": "βλητα", "score": 0.82, "rank": 2, "tlg_attested": False},
+            {"token_str": "πλητα", "score": 0.45, "rank": 3, "tlg_attested": False},
+        ],
     )
     saved = await sugg_service.save_feedback(fb_req)
     assert saved["id"] == str(feedback_id)
@@ -622,6 +636,15 @@ async def test_hitl_feedback_persistence_and_service_filtering():
     inserted_doc = mock_feedback_collection.insert_one.call_args[0][0]
     assert inserted_doc["token_str"] == "λητα"
     assert inserted_doc["is_accepted"] is True
+    assert inserted_doc["score"] == 0.985
+    assert inserted_doc["rank"] == 1
+    assert inserted_doc["reconstructed_word"] == "τειχεσιβλητα"
+    assert inserted_doc["tlg_attested"] is True
+    assert inserted_doc["model_label"] == "gs-GreBerta + RAG"
+    assert inserted_doc["model_type"] == "BERT"
+    assert inserted_doc["checkpoint"] == "CNR-ILC/gs-GreBerta"
+    assert inserted_doc["use_rag"] is True
+    assert len(inserted_doc["alternative_candidates"]) == 2
     assert "created_at" in inserted_doc
 
     # Verifica che get_predictions filtri rejected_candidates e inoltri human_feedback

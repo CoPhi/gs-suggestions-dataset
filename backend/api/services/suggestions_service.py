@@ -67,8 +67,44 @@ class SuggestionsService:
     async def save_feedback(self, payload: FeedbackCreateRequest) -> dict[str, str]:
         """
         Persiste in MongoDB la validazione o lo scarto di un supplemento da parte del filologo
-        (Human-in-the-loop Fase 1) per costruire il dataset curato di esempi positivi/negativi.
+        (Human-in-the-loop Fase 1 e supporto per Reinforcement Learning / DPO / Reward Modeling).
+        Salva i dati intrinseci del suggerimento (score, reconstructed_word, attestations, rank)
+        e i metadati completi del modello generatore (model_label, model_type, checkpoint, use_rag).
         """
+        model_label = payload.model_label
+        model_type = payload.model_type
+        checkpoint = payload.checkpoint
+
+        # Se i metadati del modello non sono stati passati direttamente dal client, tenta
+        # il recupero automatico dalla collezione dei modelli per arricchire il record di feedback
+        if (not model_type or not checkpoint) and payload.model_id and ObjectId.is_valid(payload.model_id):
+            try:
+                model_doc = await self._collection.find_one({"_id": ObjectId(payload.model_id)})
+                if model_doc:
+                    model_type = model_type or model_doc.get("TYPE")
+                    checkpoint = checkpoint or model_doc.get("CHECKPOINT")
+                    if not model_label:
+                        chk = model_doc.get("CHECKPOINT") or model_doc.get("LM_SCORE") or ""
+                        model_label = f"{model_type} ({chk})" if chk else model_type
+            except Exception:
+                pass
+
+        # Serializza attestations se presenti
+        serialized_attestations = None
+        if payload.attestations:
+            serialized_attestations = [
+                a.model_dump() if hasattr(a, "model_dump") else dict(a)
+                for a in payload.attestations
+            ]
+
+        # Serializza alternative_candidates se presenti per supporto RLHF
+        serialized_alternatives = None
+        if payload.alternative_candidates:
+            serialized_alternatives = [
+                c.model_dump() if hasattr(c, "model_dump") else dict(c)
+                for c in payload.alternative_candidates
+            ]
+
         doc = {
             "model_id": payload.model_id,
             "context": payload.context,
@@ -76,10 +112,38 @@ class SuggestionsService:
             "sentence": payload.sentence,
             "is_accepted": payload.is_accepted,
             "notes": payload.notes,
+            # Dati intrinseci del suggerimento proposto
+            "score": payload.score,
+            "rank": payload.rank,
+            "reconstructed_word": payload.reconstructed_word,
+            "tlg_attested": payload.tlg_attested,
+            "candidate_reasoning": payload.candidate_reasoning,
+            "philological_reasoning": payload.philological_reasoning,
+            "attestations": serialized_attestations,
+            # Metadati sul modello generatore
+            "model_label": model_label,
+            "model_type": model_type,
+            "checkpoint": checkpoint,
+            "use_rag": payload.use_rag,
+            "rag_backend": payload.rag_backend,
+            "top_k": payload.top_k,
+            # Predisposizione RLHF / DPO / Preference Modeling
+            "alternative_candidates": serialized_alternatives,
+            "session_id": payload.session_id,
+            "metadata": payload.metadata,
             "created_at": datetime.now(timezone.utc).isoformat(),
         }
         result = await self._feedback_collection.insert_one(doc)
         return {"id": str(result.inserted_id), "status": "saved"}
+
+    async def ensure_feedback_indices(self) -> None:
+        """Crea gli indici MongoDB su feedback_collection per velocizzare l'export e il filtering per RL."""
+        try:
+            await self._feedback_collection.create_index([("created_at", -1)])
+            await self._feedback_collection.create_index([("model_id", 1), ("is_accepted", 1)])
+            await self._feedback_collection.create_index([("context", 1)])
+        except Exception:
+            pass
 
     async def get_feedback_list(
         self,

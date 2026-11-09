@@ -14,6 +14,7 @@ from backend.api.exceptions import (
     DatasetNotFoundError,
 )
 from backend.api.services.model_service import ModelService
+from backend.api.services.suggestions_service import SuggestionsService
 
 
 def get_version() -> str:
@@ -33,6 +34,11 @@ async def lifespan(app: FastAPI):
         await service.init_models()
     except Exception as e:
         print(f"Error during auto-initialization of models: {e}")
+    try:
+        sugg_service = SuggestionsService()
+        await sugg_service.ensure_feedback_indices()
+    except Exception as e:
+        print(f"Error initializing feedback indices: {e}")
     yield
 
 
