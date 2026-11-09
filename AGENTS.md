@@ -21,3 +21,10 @@ Ogni volta che viene effettuata una modifica o aggiunta alla codebase:
    - `### Fixed` (corrispondente a `fix:`): correzioni di bug, allineamenti di dipendenze, patch.
    - `### Optimized` / `### Performance` (corrispondente a `perf:`): ottimizzazioni di memoria, inferenza o velocità.
 3. Mantenere le voci sintetiche, precise e con i riferimenti ai file/moduli modificati.
+
+### Commit Sistematici delle Modifiche Implementate
+Ogni volta che viene completata un'implementazione (codice, test, configurazioni o documentazione):
+1. **Creare sempre uno o più commit** per le modifiche effettuate, senza lasciare il working tree sporco al termine del task.
+2. **Raggruppare le modifiche in commit atomici** per layer architetturale (es. `frontend`, `api`, `core`, `docs`), seguendo la skill [`conventional-commits`](./.agents/skills/conventional-commits/SKILL.md).
+3. **Usare i Conventional Commits** con messaggi in inglese e scope coerente col repository (es. `feat(frontend): ...`, `fix(api): ...`, `docs(agents): ...`).
+4. **Includere nel commit pertinente** il codice, i test e l'aggiornamento di [`CHANGELOG.md`](./CHANGELOG.md).
