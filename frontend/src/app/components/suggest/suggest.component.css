@@ -12,3 +12,72 @@
     background-color: #fff8f8;
     opacity: 0.85;
 }
+
+.tlg-attested-badge {
+    background-color: #e0f2fe;
+    color: #0369a1;
+    border: 1px solid #7dd3fc;
+    font-size: 0.78rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+}
+
+.corpus-attested-badge {
+    background-color: #f3e8ff;
+    color: #6b21a8;
+    border: 1px solid #d8b4fe;
+    font-size: 0.78rem;
+}
+
+.btn-outline-purple {
+    color: #6b21a8;
+    border: 1px solid #c084fc;
+    background-color: transparent;
+}
+
+.btn-outline-purple:hover {
+    background-color: #f3e8ff;
+    color: #581c87;
+}
+
+.btn-purple-active {
+    background-color: #7e22ce;
+    color: #ffffff;
+    border: 1px solid #7e22ce;
+}
+
+.cot-attestations-panel {
+    background-color: #faf5ff;
+    border: 1px solid #e9d5ff;
+}
+
+.cot-section-label {
+    color: #6b21a8;
+    font-size: 0.78rem;
+}
+
+.cot-reasoning-text {
+    line-height: 1.5;
+    white-space: pre-line;
+}
+
+.attestation-item {
+    background-color: #ffffff;
+    border: 1px solid #ede9fe;
+}
+
+.text-purple {
+    color: #6b21a8;
+}
+
+.attestation-passage-text {
+    line-height: 1.45;
+}
+
+.attestation-highlight {
+    background-color: #f3e8ff;
+    color: #581c87;
+    padding: 0.05rem 0.28rem;
+    border-radius: 0.25rem;
+    font-weight: 700;
+}

@@ -1,6 +1,6 @@
 import { Component, ElementRef, HostListener, computed, effect, inject, input, model, output, signal } from '@angular/core';
 import { AbstractControl, FormControl, FormGroup, ReactiveFormsModule, ValidationErrors, Validators } from '@angular/forms';
-import { modelType } from '../../services/api.service';
+import { isBertCheckpoint, modelType } from '../../services/api.service';
 import { NotificationService } from '../../services/notification.service';
 
 @Component({
@@ -17,9 +17,32 @@ export class PromptBoxComponent {
   curr_id = model.required<string | null>();
   isGenerating = input.required<boolean>();
 
-  onGenerate = output<{ text: string, modelID: string, num_tokens: number, num_predictions: number }>();
+  onGenerate = output<{
+    text: string;
+    modelID: string;
+    modelIDs?: string[];
+    num_tokens: number;
+    num_predictions: number;
+    use_rag?: boolean;
+  }>();
 
   isDropdownOpen = signal<boolean>(false);
+  // Attiva/disattiva la modalità di confronto multi-modello con esposizione della checklist nel menù a tendina
+  isCompareMode = signal<boolean>(false);
+  // Permette di accostare esplicitamente un modello BERT al sistema RAG (modalità neuro-lessicale a priori)
+  coupleBertWithRag = signal<boolean>(false);
+  // Lista opzionale di modelli selezionati per l'inferenza parallela e il confronto orizzontale
+  selectedModelIds = signal<string[]>([]);
+
+  // Restituisce l'elenco ordinato degli ID effettivamente consultati (1 o più modelli)
+  effectiveSelectedIds = computed<string[]>(() => {
+    const multi = this.selectedModelIds().filter(id => this.models().some(m => m._id === id));
+    if (multi.length > 0) {
+      return multi;
+    }
+    const single = this.curr_id();
+    return single ? [single] : [];
+  });
 
   selectedModel = computed(() => {
     return this.curr_id() ? this.models().find((model) => model._id === this.curr_id()) || null : null;
@@ -27,17 +50,118 @@ export class PromptBoxComponent {
 
   curr_type_model = computed(() => this.selectedModel()?.TYPE);
 
-  // Mostra esclusivamente il nome del modello senza prefissi architetturali (RAG, BERT, LIDSTONE, ecc.)
+  // Riconosce se un modello RAG registrato usa un checkpoint BERT (motore neuro-lessicale locale)
+  isNeuroLexicalRag(m: modelType): boolean {
+    return m.TYPE === 'RAG' && (m.BACKEND === 'neuro_lexical' || isBertCheckpoint(m.CHECKPOINT));
+  }
+
+  // Etichetta del modello selezionato: esplicita '+ RAG' o il conteggio dei modelli in confronto parallelo
   selectedModelLabel = computed(() => {
+    const ids = this.effectiveSelectedIds();
+    if (ids.length > 1) {
+      return `Confronto (${ids.length} modelli)`;
+    }
     const m = this.selectedModel();
-    return m ? this.getModelLabel(m) : null;
+    if (!m) return null;
+    const base = this.getModelLabel(m);
+    if (m.TYPE === 'BERT' && this.coupleBertWithRag()) {
+      return `${base} + RAG`;
+    }
+    return base;
   });
 
   getModelLabel(m: modelType): string {
     if (m.TYPE === 'RAG' || m.TYPE === 'Ithaca' || m.TYPE === 'BERT') {
-      return (m.CHECKPOINT.includes('/') ? m.CHECKPOINT.split('/').pop() : m.CHECKPOINT) || m.CHECKPOINT;
+      const shortName = (m.CHECKPOINT.includes('/') ? m.CHECKPOINT.split('/').pop() : m.CHECKPOINT) || m.CHECKPOINT;
+      if (this.isNeuroLexicalRag(m)) {
+        return `${shortName} + RAG`;
+      }
+      return shortName;
     }
     return `N-grammi${m.N ? ` (n=${m.N})` : ''}`;
+  }
+
+  getModelBadge(m: modelType): string {
+    if (this.isNeuroLexicalRag(m)) {
+      return 'BERT + RAG';
+    }
+    if (m.TYPE === 'RAG') {
+      return 'RAG';
+    }
+    if (m.TYPE === 'BERT') {
+      return 'BERT';
+    }
+    if (m.TYPE === 'Ithaca') {
+      return 'Ithaca';
+    }
+    return 'N-grammi';
+  }
+
+  toggleBertRag(event?: Event) {
+    if (event) {
+      event.stopPropagation();
+    }
+    this.coupleBertWithRag.update(v => !v);
+  }
+
+  selectBertWithRag(id: string, event?: Event) {
+    if (event) {
+      event.stopPropagation();
+    }
+    this.curr_id.set(id);
+    this.selectedModelIds.set([id]);
+    this.coupleBertWithRag.set(true);
+    this.closeDropdown();
+  }
+
+  toggleCompareMode(event?: Event) {
+    if (event) {
+      event.stopPropagation();
+    }
+    const nextState = !this.isCompareMode();
+    this.isCompareMode.set(nextState);
+    if (!nextState) {
+      // Uscendo dalla modalità confronto si ripristina la selezione singola sul modello primario corrente
+      const primary = this.curr_id();
+      this.selectedModelIds.set(primary ? [primary] : []);
+    } else if (this.selectedModelIds().length === 0 && this.curr_id()) {
+      this.selectedModelIds.set([this.curr_id()!]);
+    }
+  }
+
+  isModelInComparison(id: string): boolean {
+    return this.effectiveSelectedIds().includes(id);
+  }
+
+  toggleModelComparison(id: string, event?: Event) {
+    if (event) {
+      event.stopPropagation();
+    }
+    this.isCompareMode.set(true);
+    const current = [...this.effectiveSelectedIds()];
+    const idx = current.indexOf(id);
+    if (idx >= 0) {
+      current.splice(idx, 1);
+    } else {
+      current.push(id);
+    }
+    this.selectedModelIds.set(current);
+    this.curr_id.set(current.length > 0 ? current[0] : null);
+  }
+
+  selectAllModelsForComparison(event?: Event) {
+    if (event) {
+      event.stopPropagation();
+    }
+    this.isCompareMode.set(true);
+    const allIds = this.models().map(m => m._id);
+    if (this.effectiveSelectedIds().length === allIds.length) {
+      this.selectedModelIds.set([]);
+      this.curr_id.set(null);
+    } else {
+      this.selectedModelIds.set(allIds);
+      this.curr_id.set(allIds[0] || null);
+    }
   }
 
   toggleDropdown(event?: Event) {
@@ -52,12 +176,24 @@ export class PromptBoxComponent {
   }
 
   selectModel(id: string) {
+    if (this.isCompareMode()) {
+      this.toggleModelComparison(id);
+      return;
+    }
+    const chosen = this.models().find(m => m._id === id);
+    if (chosen && chosen.TYPE !== 'BERT') {
+      this.coupleBertWithRag.set(false);
+    }
     this.curr_id.set(id);
+    this.selectedModelIds.set([id]);
     this.closeDropdown();
   }
 
   removeModelSelection() {
     this.curr_id.set(null);
+    this.selectedModelIds.set([]);
+    this.isCompareMode.set(false);
+    this.coupleBertWithRag.set(false);
     this.closeDropdown();
   }
 
@@ -161,7 +297,27 @@ export class PromptBoxComponent {
     }
 
     const { text, modelID, num_tokens, num_predictions } = this.form.getRawValue();
-    this.onGenerate.emit({ text, modelID, num_tokens, num_predictions: Number(num_predictions) });
+    const ids = this.effectiveSelectedIds();
+    const payload: {
+      text: string;
+      modelID: string;
+      modelIDs?: string[];
+      num_tokens: number;
+      num_predictions: number;
+      use_rag?: boolean;
+    } = {
+      text,
+      modelID,
+      num_tokens,
+      num_predictions: Number(num_predictions)
+    };
+    if (ids.length > 1) {
+      payload.modelIDs = ids;
+    }
+    if ((this.curr_type_model() === 'BERT' || ids.some(id => this.models().find(m => m._id === id)?.TYPE === 'BERT')) && this.coupleBertWithRag()) {
+      payload.use_rag = true;
+    }
+    this.onGenerate.emit(payload);
   }
 
 }

@@ -1,5 +1,5 @@
 import { Component, computed, effect, inject, input, model } from '@angular/core';
-import { ApiService, BERTModelInterface, IthacaModelInterface, modelType, NgramsModelInterface, RAGModelInterface } from '../../services/api.service';
+import { ApiService, BERTModelInterface, isBertCheckpoint, IthacaModelInterface, modelType, NgramsModelInterface, RAGModelInterface } from '../../services/api.service';
 import { NotificationService } from '../../services/notification.service';
 
 @Component({
@@ -26,6 +26,11 @@ export class ModelComponent {
   ithacamodel = computed(() => <IthacaModelInterface>this.model()); // Modello Ithaca
   ragmodel = computed(() => <RAGModelInterface>this.model()); // Modello RAG
   ngramsmodel = computed(() => <NgramsModelInterface>this.model()); // Modello N-grams
+  isNeuroLexicalRAG = computed(() => {
+    if (!this.isRAG()) return false;
+    const rm = this.ragmodel();
+    return rm.BACKEND === 'neuro_lexical' || isBertCheckpoint(rm.CHECKPOINT);
+  });
 
   deleteModel() {
     const modelLabel = this.isRAG()

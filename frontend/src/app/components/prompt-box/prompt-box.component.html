@@ -61,21 +61,87 @@
                 <ul class="dropdown-menu dropdown-menu-end shadow-lg border-0 rounded-3 p-2 model-dropdown-menu" 
                     [class.show]="isDropdownOpen()"
                     aria-labelledby="modelSelectDropdown">
-                    <li class="dropdown-header d-flex justify-content-between align-items-center px-3 py-1 mb-1">
+                    <li class="dropdown-header d-flex justify-content-between align-items-center px-3 py-1 mb-1 gap-2">
                         <span class="text-uppercase fw-bold text-muted small">Modelli disponibili ({{ models().length }})</span>
+                        @if (models().length > 1) {
+                            <button type="button"
+                                    class="btn btn-sm rounded-pill px-2 py-0 small fw-semibold compare-mode-btn"
+                                    [class.btn-primary]="isCompareMode()"
+                                    [class.btn-outline-primary]="!isCompareMode()"
+                                    (click)="toggleCompareMode($event)"
+                                    title="Attiva o disattiva la selezione multipla per confrontare più modelli in parallelo">
+                                {{ isCompareMode() ? 'Confronta (attivo)' : 'Confronta' }}
+                            </button>
+                        }
                     </li>
+
+                    @if (isCompareMode() && models().length > 1) {
+                        <li class="px-3 py-1 mb-1 d-flex justify-content-between align-items-center bg-light rounded-2 border compare-checklist-toolbar">
+                            <span class="small text-secondary fw-medium">Seleziona i modelli dalla checklist:</span>
+                            <button type="button"
+                                    class="btn btn-sm btn-link text-decoration-none p-0 small fw-semibold compare-all-btn"
+                                    (click)="selectAllModelsForComparison($event)">
+                                {{ effectiveSelectedIds().length === models().length ? 'Deseleziona tutti' : 'Seleziona tutti' }}
+                            </button>
+                        </li>
+                    }
 
                     @for (m of models(); track m._id) {
                         <li>
-                            <button class="dropdown-item d-flex align-items-center justify-content-between rounded-2 px-3 py-2 mb-1 model-dropdown-item"
-                                    [class.active-item]="curr_id() === m._id"
-                                    type="button"
-                                    (click)="selectModel(m._id)">
-                                <span class="fw-medium text-truncate me-2">{{ getModelLabel(m) }}</span>
-                                @if (curr_id() === m._id) {
-                                    <span class="badge bg-primary-subtle text-primary border border-primary-subtle ms-2">In uso</span>
+                            <div class="d-flex align-items-center gap-1 mb-1">
+                                @if (isCompareMode()) {
+                                    <div class="form-check ms-2 me-1 mb-0 d-flex align-items-center model-compare-checklist-item"
+                                         (click)="toggleModelComparison(m._id, $event)">
+                                        <input class="form-check-input m-0 model-compare-checkbox"
+                                               type="checkbox"
+                                               [checked]="isModelInComparison(m._id)"
+                                               (click)="$event.stopPropagation()"
+                                               (change)="toggleModelComparison(m._id, $event)"
+                                               [attr.aria-label]="'Seleziona ' + getModelLabel(m) + ' per il confronto'">
+                                    </div>
                                 }
-                            </button>
+                                <button class="dropdown-item d-flex align-items-center justify-content-between rounded-2 px-3 py-2 model-dropdown-item flex-grow-1"
+                                        [class.active-item]="isModelInComparison(m._id)"
+                                        type="button"
+                                        (click)="selectModel(m._id)">
+                                    <span class="fw-medium text-truncate me-2">{{ getModelLabel(m) }}</span>
+                                    <div class="d-flex align-items-center gap-1">
+                                        <span class="badge bg-light text-secondary border small">{{ getModelBadge(m) }}</span>
+                                        @if (isModelInComparison(m._id)) {
+                                            <span class="badge bg-primary-subtle text-primary border border-primary-subtle">In uso</span>
+                                        }
+                                    </div>
+                                </button>
+                                @if (m.TYPE === 'BERT' && !isCompareMode()) {
+                                    <button type="button"
+                                            class="btn btn-sm rounded-2 px-2 py-2 bert-rag-quick-btn"
+                                            [class.btn-primary]="isModelInComparison(m._id) && coupleBertWithRag()"
+                                            [class.btn-outline-secondary]="!(isModelInComparison(m._id) && coupleBertWithRag())"
+                                            (click)="selectBertWithRag(m._id, $event)"
+                                            title="Seleziona questo modello BERT accostato al sistema RAG (modalità neuro-lessicale locale)">
+                                        +RAG
+                                    </button>
+                                }
+                            </div>
+                        </li>
+                    }
+
+                    @if (curr_type_model() === 'BERT') {
+                        <li class="px-3 py-2 mt-1 rounded-2 bg-light border">
+                            <div class="form-check form-switch mb-0 d-flex align-items-center justify-content-between gap-2">
+                                <label class="form-check-label small fw-semibold text-dark" for="bertRagToggle" (click)="toggleBertRag($event)">
+                                    Accosta sistema RAG (Neuro-lessicale)
+                                </label>
+                                <input class="form-check-input m-0"
+                                       type="checkbox"
+                                       role="switch"
+                                       id="bertRagToggle"
+                                       [checked]="coupleBertWithRag()"
+                                       (change)="toggleBertRag($event)">
+                            </div>
+                            <div class="text-muted" style="font-size: 0.72rem;">
+                                Combina il modello BERT con il recupero ibrido dei passi paralleli nei corpora antichi.
+                            </div>
                         </li>
                     }
 

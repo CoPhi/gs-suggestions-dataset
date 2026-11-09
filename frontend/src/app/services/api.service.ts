@@ -25,6 +25,12 @@ export class ApiService {
     );
   }
 
+  getSupportedRagLms(): Observable<SupportedRAGModelInterface[]> {
+    return this.http.get<{ models: SupportedRAGModelInterface[] }>(`${this.apiUrl}/models/rag/supported-lms`).pipe(
+      map(response => response.models)
+    );
+  }
+
    deleteModel(model_id: string): Observable<any> {
     return this.http.delete<any>(`${this.apiUrl}/models/${model_id}`, {
       responseType: 'json'
@@ -47,12 +53,44 @@ export class ApiService {
     if (options?.rejected_candidates && options.rejected_candidates.length > 0) {
       params['rejected_candidates'] = options.rejected_candidates;
     }
+    if (options?.use_rag) {
+      params['use_rag'] = true;
+    }
 
     return this.http.get<{ predictions: SuggestionInterface[] }>(`${this.apiUrl}/predictions`, {
       params,
       responseType: 'json'
     }).pipe(
       map(response => response.predictions)
+    );
+  }
+
+  /**
+   * Esegue in parallelo la consultazione di più modelli sincronizzando le risposte su una barriera.
+   */
+  generateBatchSuggestions(
+    model_ids: string[],
+    context: string,
+    num_tokens: number,
+    num_predictions: number,
+    options?: HitlRefinementOptions
+  ): Observable<ModelPredictionResultInterface[]> {
+    const params: Record<string, any> = { model_ids, context, num_tokens, num_predictions };
+    if (options?.human_feedback && options.human_feedback.trim()) {
+      params['human_feedback'] = options.human_feedback.trim();
+    }
+    if (options?.rejected_candidates && options.rejected_candidates.length > 0) {
+      params['rejected_candidates'] = options.rejected_candidates;
+    }
+    if (options?.use_rag) {
+      params['use_rag'] = true;
+    }
+
+    return this.http.get<{ results: ModelPredictionResultInterface[] }>(`${this.apiUrl}/predictions/batch`, {
+      params,
+      responseType: 'json'
+    }).pipe(
+      map(response => response.results)
     );
   }
 
@@ -70,6 +108,7 @@ export class ApiService {
 export interface HitlRefinementOptions {
   human_feedback?: string;
   rejected_candidates?: string[];
+  use_rag?: boolean;
 }
 
 export interface FeedbackPayloadInterface {
@@ -86,7 +125,20 @@ export interface FeedbackResponseInterface {
   status: string;
 }
 
-export type RagBackendType = "auto" | "hf_api" | "local" | "openai_compatible";
+export type RagBackendType = "auto" | "hf_api" | "local" | "openai_compatible" | "neuro_lexical";
+
+/**
+ * Riconosce se un checkpoint appartiene alla famiglia di modelli Masked Language Model BERT greci
+ * (es. gs-GreBerta, gs-aristoBERTo, gs-Logion, Ancient-Greek-BERT).
+ */
+export function isBertCheckpoint(checkpoint: string | null | undefined): boolean {
+  const clean = (checkpoint || '').trim().toLowerCase();
+  if (!clean) return false;
+  if (['qwen', 'llama', 'gemma', 'deepseek', 'mistral', 'ithaca'].some(kw => clean.includes(kw))) {
+    return false;
+  }
+  return ['greberta', 'aristoberto', 'logion', 'ancient-greek-bert', 'bert'].some(kw => clean.includes(kw));
+}
 
 export type modelType = BERTModelInterface | NgramsModelInterface | IthacaModelInterface | RAGModelInterface;
 
@@ -119,6 +171,14 @@ export interface CreateRAGModelPayload {
   TYPE: "RAG";
 }
 
+export interface SupportedRAGModelInterface {
+  id: string; // Identifier Hugging Face repo o tag Ollama
+  name: string; // Etichetta human-readable
+  category: string; // Qwen, Llama, Gemma, DeepSeek, Ollama
+  recommended: boolean; // Flag per evidenziare il modello consigliato di default
+  description: string; // Descrizione e dettagli del provider
+}
+
 export interface NgramsModelInterface {
   _id: string; // ID del modello
   LM_SCORE: string;
@@ -128,10 +188,35 @@ export interface NgramsModelInterface {
   TYPE: "Ngrams";
 }
 
+export interface CorpusAttestationInterface {
+  corpus_id: string; // Collezione del corpus (es. 'tlg', 'DCLP', 'DDbDP', 'PHerc.')
+  source_id: string; // Titolo dell'opera, papiro o luogo di attestazione
+  attested_form: string; // Forma greca completa attestata nel documento
+  passage: string; // Estratto testuale del documento che attesta il suggerimento
+  highlighted_passage?: string; // Estratto testuale con la forma attestata evidenziata in grassetto (**...**)
+  doc_freq: number; // Numero di documenti nel corpus che attestano la forma
+  source_type?: string; // 'retrieved_passage' | 'corpus_index'
+}
+
 export interface SuggestionInterface {
   sentence: string;
   token_str: string; // token suggerito
   score: number; // Punteggio del suggerimento
-  philological_reasoning?: string | null; // Ragionamento Chain-of-Thought (modelli RAG)
-  retrieved_passages?: string[] | null; // Passi paralleli / loci similes da TLG & MAAT (modelli RAG)
+  tlg_attested?: boolean; // True se la parola ricostruita (boundary reconstruction) è attestata nel TLG
+  reconstructed_word?: string | null; // Parola greca ricostruita col contesto (prefisso + supplemento + suffisso)
+  philological_reasoning?: string | null; // CoT di 1° livello: ragionamento logico/filologico generale (modelli RAG)
+  candidate_reasoning?: string | null; // CoT di 2° livello: spiegazione specifica per il singolo suggerimento (modelli RAG)
+  retrieved_passages?: string[] | null; // Passi paralleli / loci similes più rilevanti usati nel prompt (modelli RAG)
+  all_retrieved_passages?: string[] | null; // Tutti i loci similes trovati dal retriever per il prompt (modelli RAG)
+  attestations?: CorpusAttestationInterface[] | null; // Attestazioni puntuali del suggerimento nel corpus (modelli RAG)
+}
+
+export interface ModelPredictionResultInterface {
+  model_id: string;
+  model_label: string;
+  model_type: string;
+  checkpoint?: string | null;
+  use_rag?: boolean;
+  predictions: SuggestionInterface[];
+  error?: string | null;
 }

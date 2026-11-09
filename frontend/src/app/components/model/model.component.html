@@ -7,7 +7,7 @@
       } @else if (isIthaca()) {
         <span class="badge-type badge-ithaca">Ithaca</span>
       } @else if (isRAG()) {
-        <span class="badge-type badge-rag">RAG</span>
+        <span class="badge-type badge-rag">{{ isNeuroLexicalRAG() ? 'BERT + RAG' : 'RAG' }}</span>
       } @else {
         <span class="badge-type badge-ngrams">N-grammi</span>
       }
@@ -50,18 +50,18 @@
       </div>
     } @else if (isRAG()) {
       <div class="mb-3">
-        <span class="field-label">Modello LLM (Open-Weights)</span>
+        <span class="field-label">{{ isNeuroLexicalRAG() ? 'Modello BERT (Neuro-lessicale + RAG)' : 'Modello LLM (Open-Weights)' }}</span>
         <div class="code-box" title="{{ ragmodel().CHECKPOINT }}">
           <code>{{ ragmodel().CHECKPOINT }}</code>
         </div>
       </div>
       <div class="meta-row">
         <span class="meta-label">Architettura</span>
-        <span class="meta-value">DSPy Hybrid RAG</span>
+        <span class="meta-value">{{ isNeuroLexicalRAG() ? 'Hybrid RAG + BERT MLM' : 'DSPy Hybrid RAG' }}</span>
       </div>
       <div class="meta-row">
         <span class="meta-label">Backend</span>
-        <span class="badge bg-light text-dark border">{{ ragmodel().BACKEND || 'auto' }}</span>
+        <span class="badge bg-light text-dark border">{{ isNeuroLexicalRAG() ? 'neuro_lexical (locale)' : (ragmodel().BACKEND || 'auto') }}</span>
       </div>
       <div class="meta-row">
         <span class="meta-label">Loci Similes</span>

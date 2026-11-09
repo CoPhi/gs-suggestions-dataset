@@ -135,4 +135,48 @@ describe('PromptBoxComponent', () => {
     expect(component.isDropdownOpen()).toBeFalse();
     document.body.removeChild(outsideElement);
   });
+
+  it('should explicitly label BERT + RAG neuro-lexical models and allow coupling BERT with RAG', () => {
+    const neuroLexicalRagModel: RAGModelInterface = {
+      _id: '67066928e4414eb1d8109bf5',
+      CHECKPOINT: 'CNR-ILC/gs-GreBerta',
+      BACKEND: 'neuro_lexical',
+      TOP_K_PASSAGES: 5,
+      TYPE: 'RAG'
+    };
+    expect(component.getModelLabel(neuroLexicalRagModel)).toBe('gs-GreBerta + RAG');
+    expect(component.getModelBadge(neuroLexicalRagModel)).toBe('BERT + RAG');
+
+    // Accostamento di un modello BERT puro al sistema RAG tramite selectBertWithRag
+    component.selectBertWithRag(mockBertModel._id);
+    fixture.detectChanges();
+    expect(component.curr_id()).toBe(mockBertModel._id);
+    expect(component.coupleBertWithRag()).toBeTrue();
+    expect(component.selectedModelLabel()).toBe('Ancient-Greek-BERT + RAG');
+  });
+
+  it('should expose the comparison checklist only after pressing the Confronta button', () => {
+    const compiled = fixture.nativeElement as HTMLElement;
+    expect(component.isCompareMode()).toBeFalse();
+    expect(compiled.querySelectorAll('.model-compare-checkbox').length).toBe(0);
+
+    const compareBtn = compiled.querySelector('.compare-mode-btn') as HTMLButtonElement;
+    expect(compareBtn).toBeTruthy();
+    expect(compareBtn.textContent?.trim()).toBe('Confronta');
+
+    compareBtn.click();
+    fixture.detectChanges();
+
+    expect(component.isCompareMode()).toBeTrue();
+    expect(compiled.querySelectorAll('.model-compare-checkbox').length).toBe(4);
+
+    component.toggleModelComparison(mockBertModel._id);
+    component.toggleModelComparison(mockRagModel._id);
+    fixture.detectChanges();
+
+    expect(component.effectiveSelectedIds()).toEqual([mockBertModel._id, mockRagModel._id]);
+    expect(component.selectedModelLabel()).toBe('Confronto (2 modelli)');
+    expect(component.isModelInComparison(mockBertModel._id)).toBeTrue();
+    expect(component.isModelInComparison(mockRagModel._id)).toBeTrue();
+  });
 });

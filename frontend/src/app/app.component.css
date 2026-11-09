@@ -1,3 +1,14 @@
 .bg-light-modern {
     background-color: #f9f9f9;
 }
+
+.horizontal-suggestions-track {
+    scroll-snap-type: x proximity;
+    -webkit-overflow-scrolling: touch;
+}
+
+.horizontal-suggestion-col {
+    flex: 0 0 520px;
+    max-width: 90vw;
+    scroll-snap-align: start;
+}

@@ -53,4 +53,23 @@ describe('SuggestComponent', () => {
       is_accepted: false
     });
   });
+
+  it('should render the "tlg" badge with reconstructed word tooltip when tlg_attested is true', () => {
+    const compiled = fixture.nativeElement as HTMLElement;
+    expect(compiled.querySelector('.tlg-attested-badge')).toBeNull();
+
+    fixture.componentRef.setInput('suggest', {
+      sentence: 'βροτολοιγὲ μιαιφόνε τειχεσιβλητα',
+      token_str: 'λητα',
+      score: 0.92,
+      tlg_attested: true,
+      reconstructed_word: 'τειχεσιβλητα'
+    });
+    fixture.detectChanges();
+
+    const tlgBadge = compiled.querySelector('.tlg-attested-badge') as HTMLElement;
+    expect(tlgBadge).toBeTruthy();
+    expect(tlgBadge.textContent?.trim()).toBe('tlg');
+    expect(tlgBadge.getAttribute('title')).toContain('τειχεσιβλητα');
+  });
 });

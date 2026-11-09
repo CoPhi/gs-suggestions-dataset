@@ -45,6 +45,56 @@
     line-height: 1.45;
 }
 
+.secondary-loci-menu {
+    background-color: #f5f3ff;
+    border: 1px dashed #c4b5fd;
+}
+
+.secondary-loci-list {
+    max-height: 280px;
+    overflow-y: auto;
+}
+
+.secondary-passage-item {
+    background-color: #fcfaff;
+}
+
+.text-purple {
+    color: #6b21a8;
+}
+
+.bg-purple-subtle {
+    background-color: #f3e8ff;
+    border: 1px solid #d8b4fe;
+}
+
+.btn-outline-purple {
+    color: #6b21a8;
+    border: 1px solid #c084fc;
+    background-color: #ffffff;
+    font-size: 0.78rem;
+}
+
+.btn-outline-purple:hover {
+    background-color: #f3e8ff;
+    color: #581c87;
+}
+
+.btn-purple-active {
+    background-color: #7e22ce;
+    color: #ffffff;
+    border: 1px solid #7e22ce;
+    font-size: 0.78rem;
+}
+
+.attestation-highlight {
+    background-color: #f3e8ff;
+    color: #581c87;
+    padding: 0.05rem 0.28rem;
+    border-radius: 0.25rem;
+    font-weight: 700;
+}
+
 .hitl-refinement-panel {
     background-color: #f8fafc;
     border: 1px solid #cbd5e1;

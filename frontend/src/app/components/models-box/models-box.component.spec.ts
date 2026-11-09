@@ -55,4 +55,24 @@ describe('ModelsBoxComponent', () => {
     expect(component.curr_id()).toBe('67066928e4414eb1d8109bfa');
     expect(component.showAddRagForm()).toBeFalse();
   });
+
+  it('should set backend to neuro_lexical when a BERT preset is selected for RAG', () => {
+    component.toggleAddRagForm();
+    fixture.detectChanges();
+
+    spyOn(apiService, 'createModel').and.returnValue(of('67066928e4414eb1d8109bfb'));
+    component.applyPreset('CNR-ILC/gs-GreBerta');
+    expect(component.ragForm.controls.backend.value).toBe('neuro_lexical');
+
+    component.submitRagModel();
+    fixture.detectChanges();
+
+    expect(apiService.createModel).toHaveBeenCalledWith({
+      CHECKPOINT: 'CNR-ILC/gs-GreBerta',
+      BACKEND: 'neuro_lexical',
+      TOP_K_PASSAGES: 5,
+      COMPILED_PROGRAM_PATH: null,
+      TYPE: 'RAG'
+    });
+  });
 });

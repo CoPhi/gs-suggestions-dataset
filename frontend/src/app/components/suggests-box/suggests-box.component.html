@@ -1,6 +1,19 @@
-<div class="card rounded-4 shadow border-0" id="resultsCard">
-    <div class="card-header rounded-top-4 bg-info text-white d-flex justify-content-between align-items-center py-3">
-        <h3 class="h5 mb-0"><i class="bi bi-lightbulb-fill me-2"></i> Suggerimenti generati</h3>
+<div class="card rounded-4 shadow border-0 h-100" id="resultsCard">
+    <div class="card-header rounded-top-4 bg-info text-white d-flex justify-content-between align-items-center py-3 flex-wrap gap-2">
+        <div class="d-flex align-items-center flex-wrap gap-2">
+            <h3 class="h5 mb-0"><i class="bi bi-lightbulb-fill me-2"></i> Suggerimenti generati</h3>
+            @if (modelLabel()) {
+                <span class="badge bg-dark bg-opacity-75 text-white rounded-pill px-3 py-1 fw-semibold model-origin-badge"
+                      title="Modello da cui provengono i suggerimenti">
+                    <i class="bi bi-cpu me-1"></i>{{ modelLabel() }}
+                </span>
+            }
+            @if (modelType()) {
+                <span class="badge bg-white text-dark border rounded-pill px-2 py-1 small fw-semibold model-type-origin-badge">
+                    {{ modelType() }}
+                </span>
+            }
+        </div>
         <div class="d-flex align-items-center gap-2">
             <span class="badge bg-light text-dark fw-semibold rounded-pill px-3 py-2">
                 <i class="bi bi-check2-circle text-success me-1"></i>
@@ -13,9 +26,10 @@
                         [class.text-dark]="showRagContext()"
                         [class.btn-outline-light]="!showRagContext()"
                         (click)="toggleRagContext()"
-                        title="Analisi filologica e passi paralleli (RAG)"
+                        title="Consulta ragionamento filologico (CoT) e passi paralleli del corpus (RAG)"
                         aria-label="Analisi filologica e passi paralleli">
                     <i class="bi bi-journal-bookmark-fill"></i>
+                    <span class="small fw-semibold">CoT</span>
                 </button>
             }
             <button type="button"
@@ -81,23 +95,80 @@
             <div class="rag-details-panel rounded-3 p-3 mb-3">
                 @if (philologicalReasoning()) {
                     <div>
-                        <span class="d-block small text-uppercase fw-semibold text-secondary mb-1">Ragionamento Filologico (Chain-of-Thought)</span>
-                        <p class="mb-0 small text-dark rag-reasoning-text">{{ philologicalReasoning() }}</p>
+                        <span class="d-block small text-uppercase fw-semibold text-secondary mb-1">
+                            <i class="bi bi-cpu me-1"></i>Ragionamento Logico-Filologico sul Contesto (CoT – 1° Livello)
+                        </span>
+                        <p class="mb-0 small text-dark rag-reasoning-text">
+                            @for (seg of philologicalReasoningSegments(); track $index) {
+                                @if (seg.bold) {
+                                    <strong class="fw-bold attestation-highlight">{{ seg.text }}</strong>
+                                } @else {
+                                    <span>{{ seg.text }}</span>
+                                }
+                            }
+                        </p>
                     </div>
                 }
 
-                @if (retrievedPassages().length > 0) {
+                @if (primaryPassages().length > 0) {
                     <div [class.mt-3]="!!philologicalReasoning()">
-                        <span class="d-block small text-uppercase fw-semibold text-secondary mb-2">
-                            Passi Paralleli Recuperati ({{ retrievedPassages().length }})
-                        </span>
+                        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
+                            <span class="d-block small text-uppercase fw-semibold text-secondary">
+                                Loci Similes Più Rilevanti ({{ primaryPassages().length }} di {{ allRetrievedPassages().length }})
+                            </span>
+                            @if (secondaryPassages().length > 0) {
+                                <button type="button"
+                                        class="btn btn-sm rounded-pill px-2 py-1 secondary-loci-toggle-btn"
+                                        [class.btn-purple-active]="showSecondaryLociMenu()"
+                                        [class.btn-outline-purple]="!showSecondaryLociMenu()"
+                                        (click)="toggleSecondaryLociMenu()"
+                                        title="Approfondisci tutti i loci similes trovati dal retriever per questo prompt">
+                                    <i class="bi bi-collection me-1"></i>
+                                    {{ showSecondaryLociMenu() ? 'Chiudi approfondimento' : 'Ulteriori approfondimenti (' + secondaryPassages().length + ' altri loci similes)' }}
+                                </button>
+                            }
+                        </div>
                         <div class="d-flex flex-column gap-2">
-                            @for (passage of retrievedPassages(); track $index) {
+                            @for (passage of primaryPassages(); track $index) {
                                 <div class="rag-passage-item rounded-2 p-2 small">
-                                    {{ passage }}
+                                    <span class="badge bg-purple-subtle text-purple me-1">#{{ $index + 1 }}</span>
+                                    @for (seg of getPassageSegments(passage); track $index) {
+                                        @if (seg.bold) {
+                                            <strong class="fw-bold attestation-highlight">{{ seg.text }}</strong>
+                                        } @else {
+                                            <span>{{ seg.text }}</span>
+                                        }
+                                    }
                                 </div>
                             }
                         </div>
+
+                        @if (showSecondaryLociMenu() && secondaryPassages().length > 0) {
+                            <div class="secondary-loci-menu rounded-3 p-3 mt-3">
+                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                    <span class="small text-uppercase fw-semibold text-purple">
+                                        <i class="bi bi-journals me-1"></i>Menù Secondario – Ulteriori Loci Similes Trovati ({{ secondaryPassages().length }})
+                                    </span>
+                                    <span class="badge bg-light text-secondary border small">
+                                        Totale corpus per il prompt: {{ allRetrievedPassages().length }}
+                                    </span>
+                                </div>
+                                <div class="d-flex flex-column gap-2 secondary-loci-list">
+                                    @for (passage of secondaryPassages(); track $index) {
+                                        <div class="rag-passage-item secondary-passage-item rounded-2 p-2 small">
+                                            <span class="badge bg-light text-secondary border me-1">#{{ primaryPassages().length + $index + 1 }}</span>
+                                            @for (seg of getPassageSegments(passage); track $index) {
+                                                @if (seg.bold) {
+                                                    <strong class="fw-bold attestation-highlight">{{ seg.text }}</strong>
+                                                } @else {
+                                                    <span>{{ seg.text }}</span>
+                                                }
+                                            }
+                                        </div>
+                                    }
+                                </div>
+                            </div>
+                        }
                     </div>
                 }
             </div>
@@ -105,7 +176,9 @@
 
         <div class="d-flex flex-column" id="suggestionsList">
             @for (suggest of suggestions(); track $index) {
-            <app-suggest [suggest]="suggest" (onFeedback)="handleSuggestionFeedback($event)" />
+            <app-suggest [suggest]="suggest"
+                         [philologicalReasoning]="philologicalReasoning()"
+                         (onFeedback)="handleSuggestionFeedback($event)" />
             }
         </div>
     </div>
