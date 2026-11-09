@@ -10,6 +10,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Badge Informativo `AI` per Ipotesi e Congetture Neurali Non Attestate**:
+  - Implementate le proprietà calcolate `isPureAiHypothesis` e `aiHypothesisTooltip` in [`frontend/src/app/components/suggest/suggest.component.ts`](./frontend/src/app/components/suggest/suggest.component.ts) per rilevare quando un candidato non presenta riscontri documentari (né nel lessico canonico TLG `tlg.wl.gz` né nei passaggi recuperati dai corpora antichi tramite RAG).
+  - Aggiunto il badge `.ai-hypothesis-badge` (`<i class="bi bi-cpu me-1"></i>AI`) nell'header della card in [`suggest.component.html`](./frontend/src/app/components/suggest/suggest.component.html), corredato da tooltip esplicativo (*"Forma ricostruita [...] non attestata nei corpora: congettura / ipotesi generata dal modello"*).
+  - Definito lo stile visivo in [`suggest.component.css`](./frontend/src/app/components/suggest/suggest.component.css) con palette ambrata (`#fff7ed`, testo `#c2410c`, bordo `#fdba74`) per rendere immediatamente trasparente al filologo lo status epistemico della predizione (*ope ingenii* puramente neurale rispetto a forme attestate).
+  - Aggiunti i test di unità in [`frontend/src/app/components/suggest/suggest.component.spec.ts`](./frontend/src/app/components/suggest/suggest.component.spec.ts) per verificare il rendering condizionale del badge.
 - **Gestione Frontend della Lacuna con Asterischi (`*...*`) e Rifiuto dei Punti Sublineari**:
   - **Supporto e Pre-Processing della Lacuna con Asterischi**:
     - Aggiornati [`frontend/src/app/components/prompt-box/prompt-box.component.ts`](./frontend/src/app/components/prompt-box/prompt-box.component.ts) e [`prompt-box.component.html`](./frontend/src/app/components/prompt-box/prompt-box.component.html) per permettere all'utente di definire la lacuna tramite asterischi (es. `*...*` o `*---*`), convertendola lato frontend nel formato canonico `[...]` prima di trasmettere il payload all'API (lasciando inalterato il backend).

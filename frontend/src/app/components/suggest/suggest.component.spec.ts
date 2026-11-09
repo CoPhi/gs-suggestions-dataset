@@ -88,4 +88,38 @@ describe('SuggestComponent', () => {
     expect(highlighted.textContent?.trim()).toBe('τειχεσιβλητα');
     expect(compiled.querySelector('p')?.textContent).toContain('Ἆρες Ἆρες βροτολοιγὲ μιαιφόνε τειχεσιβλητα');
   });
+
+  it('should render the "AI" badge when suggestion is not attested in TLG or corpus', () => {
+    fixture.componentRef.setInput('suggest', {
+      sentence: 'τὰ κατ\' αὐτὰ λείπων ὑπὲρ',
+      token_str: 'ι',
+      score: 0.88,
+      tlg_attested: false,
+      reconstructed_word: 'λείπων',
+      attestations: []
+    });
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    const aiBadge = compiled.querySelector('.ai-hypothesis-badge') as HTMLElement;
+    expect(aiBadge).toBeTruthy();
+    expect(aiBadge.textContent?.trim()).toContain('AI');
+    expect(aiBadge.getAttribute('title')).toContain('non attestata nei corpora');
+  });
+
+  it('should not render the "AI" badge when suggestion is attested in TLG or corpus', () => {
+    fixture.componentRef.setInput('suggest', {
+      sentence: 'βροτολοιγὲ μιαιφόνε τειχεσιβλητα',
+      token_str: 'λητα',
+      score: 0.92,
+      tlg_attested: true,
+      reconstructed_word: 'τειχεσιβλητα',
+      attestations: []
+    });
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    expect(compiled.querySelector('.ai-hypothesis-badge')).toBeNull();
+    expect(compiled.querySelector('.tlg-attested-badge')).toBeTruthy();
+  });
 });

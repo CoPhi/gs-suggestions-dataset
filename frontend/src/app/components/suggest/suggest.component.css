@@ -29,6 +29,15 @@
     font-size: 0.78rem;
 }
 
+.ai-hypothesis-badge {
+    background-color: #fff7ed;
+    color: #c2410c;
+    border: 1px solid #fdba74;
+    font-size: 0.78rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+}
+
 .btn-outline-purple {
     color: #6b21a8;
     border: 1px solid #c084fc;

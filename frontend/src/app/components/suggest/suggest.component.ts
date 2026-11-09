@@ -169,6 +169,17 @@ export class SuggestComponent {
       ? `Forma ricostruita "${word}" attestata nel TLG`
       : 'Forma attestata nel TLG';
   });
+  // True se il suggerimento non presenta attestazioni documentarie (né nel TLG né nel corpus),
+  // rappresentando un'ipotesi o congettura puramente neurale generata dal modello
+  isPureAiHypothesis = computed<boolean>(
+    () => !this.isTlgAttested() && this.attestations().length === 0
+  );
+  aiHypothesisTooltip = computed<string>(() => {
+    const word = this.reconstructedWord();
+    return word
+      ? `Forma ricostruita "${word}" non attestata nei corpora: congettura / ipotesi generata dal modello`
+      : 'Forma non attestata nei corpora: congettura / ipotesi generata dal modello';
+  });
   // CoT di 2° livello specifica per spiegare perché questa singola integrazione è plausibile
   candidateReasoning = computed<string | null>(() => this.suggest().candidate_reasoning || null);
   // Mantiene retrocompatibilità con la CoT di 1° livello se `candidate_reasoning` non è presente
