@@ -7,7 +7,7 @@
         rows="4"
         (focus)="isFocused = true"
         (blur)="isFocused = false"
-        placeholder="Inserisci il testo con una lacuna (es: τὰς ὀφειλομένας τῇ τοῦ Ἀνθεντίου μητρὶ [...] Σισόιτος)">
+        placeholder="Inserisci il testo con una lacuna (es: τὰς ὀφειλομένας τῇ τοῦ Ἀνθεντίου μητρὶ *...* Σισόιτος)">
     </textarea>
     
     <!-- Toolbar inside the box at the bottom -->
@@ -203,16 +203,19 @@
 <div class="px-3 py-2 d-flex justify-content-between align-items-start prompt-hints" style="min-height: 24px;">
     <div class="text-muted small">
         @if (form.get('text')?.dirty && form.get('text')?.invalid) {
+            @if (form.get('text')?.hasError('unknownCharacters')) {
+                <span class="text-danger"><i class="bi bi-exclamation-triangle me-1"></i>la stringa contiene carattere sconosciuti</span>
+            }
             @if (form.get('text')?.hasError('notvalid')) {
                 <span class="text-danger"><i class="bi bi-exclamation-triangle me-1"></i>Inserisci un testo valido</span>
             }
             @if (form.get('text')?.hasError('notMasked')) {
-                <span class="text-danger"><i class="bi bi-exclamation-triangle me-1"></i>Inserisci un testo con una lacuna: <code>[...]</code> o <code>[---]</code></span>
+                <span class="text-danger"><i class="bi bi-exclamation-triangle me-1"></i>Inserisci un testo con una lacuna: <code>*...*</code> o <code>*---*</code></span>
             }
         }@else if(form.get('text')?.dirty && form.get('text')?.valid){
             <span class="text-success"><i class="bi bi-check-circle me-1"></i>Testo valido per la generazione</span>
         } @else {
-            <span>Utilizza <code>[...]</code> o <code>[---]</code> per definire la lacuna da completare.</span>
+            <span>Utilizza <code>*...*</code> o <code>*---*</code> per definire la lacuna da completare.</span>
         }
     </div>
 </div>

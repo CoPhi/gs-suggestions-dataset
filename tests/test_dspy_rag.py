@@ -1042,6 +1042,31 @@ async def test_batch_parallel_predictions_with_barrier():
     assert batch_res[1]["predictions"][0]["token_str"] == "βλητα"
 
 
+@pytest.mark.asyncio
+async def test_sublinear_dot_validation_rejection():
+    """
+    Verifica che stringhe contenenti punti sublineari (U+0323) vengano rifiutate
+    sollevando `InvalidContextError` con messaggio 'la stringa contiene carattere sconosciuti'.
+    """
+    from backend.api.exceptions import InvalidContextError
+
+    sugg_service = SuggestionsService(
+        db_collection=MagicMock(),
+        gridfs=MagicMock(),
+        feedback_db=MagicMock(),
+    )
+    # Contesto con punto sublineare U+0323 (es. α̣)
+    bad_context = "τὰ κατ' α\u0323ὐτὰ [....] ὑπὲρ"
+    with pytest.raises(InvalidContextError, match="la stringa contiene carattere sconosciuti"):
+        await sugg_service.get_predictions(
+            model_id=str(ObjectId()),
+            context=bad_context,
+            num_tokens=1,
+            num_predictions=PredictionCount.FIVE,
+        )
+
+
+
 
 
 

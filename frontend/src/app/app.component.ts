@@ -173,7 +173,10 @@ export class AppComponent {
     }
     this.lastGenerationPayload.set(payload);
     this.isGenerating.set(true);
-    const { text, modelID, modelIDs, num_tokens, num_predictions, use_rag } = payload;
+    const { text: rawText, modelID, modelIDs, num_tokens, num_predictions, use_rag } = payload;
+    // Pre-processing a livello di coordinamento: garantisce che la lacuna con asterischi (*...*)
+    // sia sempre convertita nel formato atteso dalle API ([...])
+    const text = (rawText || '').replace(/\*(\.{1,}|\-{1,})\*/g, '[$1]');
 
     const mergedOptions: HitlRefinementOptions | undefined =
       hitlOptions || use_rag
@@ -251,8 +254,9 @@ export class AppComponent {
         this.notifications.showSuccess(`Suggerimenti pronti! Generate con successo ${count} predizioni.`);
         this.notifications.showLocalNotification();
       },
-      error: () => {
-        this.notifications.showDanger('Errore durante la generazione dei suggerimenti');
+      error: (err) => {
+        const detail = err?.error?.detail || err?.message;
+        this.notifications.showDanger(detail || 'Errore durante la generazione dei suggerimenti');
         this.isGenerating.set(false);
       },
       complete: () => {

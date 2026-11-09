@@ -233,7 +233,12 @@ export class PromptBoxComponent {
 
   isContextValid = (c: AbstractControl): ValidationErrors | null => {
     if (!c.value || c.value.trim() === '') return { notvalid: true };
-    const regex = /\[(\.{1,}|\-{1,})\]/;
+    // Rifiuta stringhe contenenti punti sublineari (U+0323 combinatorio o decomposto da NFD)
+    if (typeof c.value === 'string' && c.value.normalize('NFD').includes('\u0323')) {
+      return { unknownCharacters: true };
+    }
+    // Riconosce la lacuna delimitata da asterischi (es. *...* o *---*) oppure da parentesi quadre ([...])
+    const regex = /(\*(\.{1,}|\-{1,})\*|\[(\.{1,}|\-{1,})\])/;
     return regex.test(c.value) ? null : { notMasked: true };
   }
 
@@ -269,6 +274,10 @@ export class PromptBoxComponent {
         this.showAlert('Il campo testo è obbligatorio', 'danger');
         return;
       }
+      if (textErrors?.['unknownCharacters']) {
+        this.showAlert('la stringa contiene carattere sconosciuti', 'danger');
+        return;
+      }
       if (textErrors?.['notMasked']) {
         this.showAlert('Il testo non contiene la lacuna', 'warning');
         return;
@@ -298,6 +307,10 @@ export class PromptBoxComponent {
 
     const { text, modelID, num_tokens, num_predictions } = this.form.getRawValue();
     const ids = this.effectiveSelectedIds();
+    // Pre-processing frontend della lacuna: converte la rappresentazione con asterischi (es. *...*)
+    // nel formato canonico dell'API ([...]) senza toccare la gestione lato backend
+    const processedText = (text || '').replace(/\*(\.{1,}|\-{1,})\*/g, '[$1]');
+
     const payload: {
       text: string;
       modelID: string;
@@ -306,7 +319,7 @@ export class PromptBoxComponent {
       num_predictions: number;
       use_rag?: boolean;
     } = {
-      text,
+      text: processedText,
       modelID,
       num_tokens,
       num_predictions: Number(num_predictions)

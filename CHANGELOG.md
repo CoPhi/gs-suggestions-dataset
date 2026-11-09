@@ -10,6 +10,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Gestione Frontend della Lacuna con Asterischi (`*...*`) e Rifiuto dei Punti Sublineari**:
+  - **Supporto e Pre-Processing della Lacuna con Asterischi**:
+    - Aggiornati [`frontend/src/app/components/prompt-box/prompt-box.component.ts`](./frontend/src/app/components/prompt-box/prompt-box.component.ts) e [`prompt-box.component.html`](./frontend/src/app/components/prompt-box/prompt-box.component.html) per permettere all'utente di definire la lacuna tramite asterischi (es. `*...*` o `*---*`), convertendola lato frontend nel formato canonico `[...]` prima di trasmettere il payload all'API (lasciando inalterato il backend).
+    - Aggiornato il coordinamento in [`frontend/src/app/app.component.ts`](./frontend/src/app/app.component.ts) per garantire la trasposizione trasparente della lacuna.
+  - **Convalida Stringente e Rifiuto dei Punti Sublineari**:
+    - Implementato il controllo anti-punti sublineari (`\u0323` combinatorio o decomposto NFD) in `isContextValid` in [`prompt-box.component.ts`](./frontend/src/app/components/prompt-box/prompt-box.component.ts), bloccando l'invio e visualizzando l'errore `"la stringa contiene carattere sconosciuti"`.
+    - Estesa la validazione preventiva in [`backend/api/services/suggestions_service.py`](./backend/api/services/suggestions_service.py) (`_validate_context`), sollevando `InvalidContextError("la stringa contiene carattere sconosciuti")`.
+    - Aggiunti i test unitari in [`frontend/src/app/components/prompt-box/prompt-box.component.spec.ts`](./frontend/src/app/components/prompt-box/prompt-box.component.spec.ts) e [`tests/test_dspy_rag.py`](./tests/test_dspy_rag.py).
 - **Evidenziazione Stilistica della Parola Ricostruita nella Sentence della Suggestion Card**:
   - Esteso [`parseHighlightedSegments`](./frontend/src/app/components/suggest/suggest.component.ts) per supportare il matching insensibile a spiriti/accenti sia di singole forme lessicali sia di espressioni multi-parola.
   - Aggiunta la proprietà calcolata `sentenceSegments` in [`SuggestComponent`](./frontend/src/app/components/suggest/suggest.component.ts) e aggiornato [`suggest.component.html`](./frontend/src/app/components/suggest/suggest.component.html) per applicare lo stile `.attestation-highlight` (`<strong class="fw-bold attestation-highlight">`, con testo in grassetto, sfondo soft violetto e bordo marcato `#d8b4fe`) alla parola intera composta sostituendo la lacuna con il suggerimento proposto (`reconstructedWord`).

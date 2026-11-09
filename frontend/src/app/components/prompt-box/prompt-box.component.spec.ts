@@ -179,4 +179,50 @@ describe('PromptBoxComponent', () => {
     expect(component.isModelInComparison(mockBertModel._id)).toBeTrue();
     expect(component.isModelInComparison(mockRagModel._id)).toBeTrue();
   });
+
+  it('should accept context with asterisk lacuna (*...*) and convert to brackets on generate', () => {
+    spyOn(component.onGenerate, 'emit');
+    component.form.controls['modelID'].setValue(mockBertModel._id);
+    component.curr_id.set(mockBertModel._id);
+    component.form.controls['text'].setValue('τὰ κατ\' αὐτὰ *...* ὑπὲρ');
+    component.form.controls['num_tokens'].setValue(1);
+    component.form.controls['num_predictions'].setValue(5);
+    fixture.detectChanges();
+
+    expect(component.form.controls['text'].valid).toBeTrue();
+    expect(component.form.valid).toBeTrue();
+
+    component.generateSuggestions();
+
+    expect(component.onGenerate.emit).toHaveBeenCalledWith(jasmine.objectContaining({
+      text: 'τὰ κατ\' αὐτὰ [...] ὑπὲρ',
+      modelID: mockBertModel._id,
+      num_tokens: 1,
+      num_predictions: 5
+    }));
+  });
+
+  it('should reject text containing sublinear dots with unknownCharacters error and alert message', () => {
+    spyOn(component, 'showAlert');
+    // Stringa con punto sublineare U+0323 (es. α̣)
+    component.form.controls['modelID'].setValue(mockBertModel._id);
+    component.curr_id.set(mockBertModel._id);
+    component.form.controls['text'].setValue('τὰ κατ\' α\u0323ὐτὰ *...* ὑπὲρ');
+    fixture.detectChanges();
+
+    expect(component.form.controls['text'].hasError('unknownCharacters')).toBeTrue();
+    expect(component.form.valid).toBeFalse();
+
+    component.generateSuggestions();
+
+    expect(component.showAlert).toHaveBeenCalledWith('la stringa contiene carattere sconosciuti', 'danger');
+  });
+
+  it('should reject text without lacuna with notMasked error', () => {
+    component.form.controls['text'].setValue('τὰ κατ\' αὐτὰ ὑπὲρ');
+    fixture.detectChanges();
+
+    expect(component.form.controls['text'].hasError('notMasked')).toBeTrue();
+    expect(component.form.valid).toBeFalse();
+  });
 });

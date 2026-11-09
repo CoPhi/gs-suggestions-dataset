@@ -1,6 +1,7 @@
 import asyncio
 import pickle
 import re
+import unicodedata
 import zlib
 from typing import Any
 from concurrent.futures import ThreadPoolExecutor
@@ -109,8 +110,8 @@ class SuggestionsService:
         rejected_candidates: list[str] | None = None,
         use_rag: bool = False,
     ) -> list[dict]:
-        model = await self._fetch_model(model_id)
         self._validate_context(context)
+        model = await self._fetch_model(model_id)
         model_type = model.get("TYPE")
 
         predictions: list[dict] | None = None
@@ -304,6 +305,9 @@ class SuggestionsService:
         return dict(model)
 
     def _validate_context(self, context: str) -> None:
+        # Rifiuta contesti contenenti punti sublineari (U+0323 combinatorio o decomposto da NFD)
+        if unicodedata.normalize("NFD", context).find("\u0323") != -1:
+            raise InvalidContextError("la stringa contiene carattere sconosciuti")
         if test_case_contains_lacuna(context) is None:
             raise InvalidContextError("Context must contain a gap indicated by `[...]`")
 
