@@ -55,9 +55,40 @@ def _has_faiss() -> bool:
         return False
 
 
+_PASSAGE_HEADER_REGEX = re.compile(r"^\[Corpus:\s*([^\]|]+?)(?:\s*\|\s*([^\]]+?))?\]\s*(.*)$", re.DOTALL)
+
+
 def _strip_passage_header(passage: str) -> str:
     """Rimuove eventuale intestazione `[Corpus: ...]` dal passaggio per il confronto testuale."""
     return re.sub(r"^\[Corpus:[^\]]*\]\s*", "", passage).strip()
+
+
+def parse_passage_metadata(raw_passage: str) -> dict[str, str]:
+    """
+    Estrae i metadati bibliografici di provenienza dall'intestazione standard
+    `[Corpus: <corpus_id> | <source_id>] <testo>` dei passaggi indicizzati nel RAG.
+    """
+    if not raw_passage:
+        return {"corpus_id": "unknown", "source_id": "", "passage": "", "raw_passage": ""}
+
+    match = _PASSAGE_HEADER_REGEX.match(raw_passage.strip())
+    if match:
+        corpus_id = (match.group(1) or "unknown").strip()
+        source_id = (match.group(2) or "").strip()
+        clean_text = (match.group(3) or "").strip()
+        return {
+            "corpus_id": corpus_id,
+            "source_id": source_id,
+            "passage": clean_text,
+            "raw_passage": raw_passage.strip(),
+        }
+
+    return {
+        "corpus_id": "corpus",
+        "source_id": "",
+        "passage": raw_passage.strip(),
+        "raw_passage": raw_passage.strip(),
+    }
 
 
 def normalize_for_retrieval(text: str) -> str:
@@ -462,6 +493,150 @@ def _is_overlapping_leakage(query_norm: str, passage_norm: str, threshold: float
     return overlap >= threshold
 
 
+def highlight_attestation_in_passage(
+    passage: str,
+    attested_form: str = "",
+    target_norm: str = "",
+) -> str:
+    """
+    Evidenzia in grassetto Markdown (`**...**`) tutte le occorrenze della forma greca
+    attestata all'interno dell'estratto testuale (`passage`), confrontando i token in modo
+    insensibile a spiriti, accenti e maiuscole/minuscole ma preservando la grafia originale del chunk.
+    """
+    if not passage:
+        return ""
+
+    norm_target = target_norm or (
+        normalize_greek(attested_form, case_folding="fold", strip_diacritics_flag=True)
+        if attested_form
+        else ""
+    )
+    norm_target = re.sub(r"[\s\u200B-\u200D\uFEFF]", "", norm_target).strip()
+    if not norm_target:
+        return passage
+
+    def _replace_word(match: re.Match[str]) -> str:
+        word = match.group(0)
+        w_norm = normalize_greek(word, case_folding="fold", strip_diacritics_flag=True)
+        if w_norm == norm_target:
+            return f"**{word}**"
+        return word
+
+    # Evita di ri-avvolgere token già racchiusi tra **...**
+    if f"**{attested_form}**" in passage and attested_form:
+        return passage
+    return re.sub(r"[^\W\d_]+", _replace_word, passage)
+
+
+def resolve_candidate_attestations(
+    supplement: str,
+    word_prefix: str = "",
+    word_suffix: str = "",
+    retrieved_passages: Sequence[str] | None = None,
+    retriever: "GreekHybridRetriever | None" = None,
+    max_attestations: int = 3,
+    exclude_query: str = "",
+) -> list[dict[str, Any]]:
+    """
+    Risolve dove un supplemento suggerito (ricostruito come `word_prefix + supplement + word_suffix`)
+    è attestato nella collezione di documenti del corpus definita per il RAG:
+    1. Ispeziona prioritariamente i passi paralleli recuperati (`retrieved_passages`) per la query.
+    2. Interroga l'indice invertito `GreekLexicalBM25Index` sull'intero corpus indicizzato
+       (`retriever.corpus`) per individuare i documenti che attestano la forma lessicale.
+    """
+    if not supplement or not isinstance(supplement, str):
+        return []
+
+    reconstructed = f"{word_prefix}{supplement}{word_suffix}"
+    target_norm = normalize_greek(
+        reconstructed,
+        case_folding="fold",
+        strip_diacritics_flag=True,
+    )
+    target_norm = re.sub(r"[\s\u200B-\u200D\uFEFF]", "", target_norm).strip()
+    if not target_norm:
+        return []
+
+    query_norm = normalize_for_retrieval(exclude_query) if exclude_query else ""
+
+    # Determina la frequenza documentale globale nel corpus se l'indice BM25 è disponibile
+    postings_list: list[tuple[int, int]] = []
+    if retriever is not None and hasattr(retriever, "lexical_index"):
+        postings_list = list(retriever.lexical_index.postings.get(f"w:{target_norm}", ()))
+    global_doc_freq = len(postings_list)
+
+    attestations: list[dict[str, Any]] = []
+    seen_passages: set[str] = set()
+
+    def _find_surface_word(clean_passage: str) -> str:
+        for w in re.findall(r"[^\W\d_]+", clean_passage):
+            w_norm = normalize_greek(w, case_folding="fold", strip_diacritics_flag=True)
+            if w_norm == target_norm:
+                return w
+        return ""
+
+    # 1. Attestazioni dirette nei passi paralleli recuperati per il contesto corrente
+    for raw_p in retrieved_passages or ():
+        meta = parse_passage_metadata(raw_p)
+        clean_p = meta["passage"]
+        if not clean_p:
+            continue
+        p_norm = normalize_for_retrieval(clean_p)
+        if query_norm and _is_overlapping_leakage(query_norm, p_norm):
+            continue
+        surface_w = _find_surface_word(clean_p)
+        if surface_w and p_norm not in seen_passages:
+            seen_passages.add(p_norm)
+            attestations.append(
+                {
+                    "corpus_id": meta["corpus_id"],
+                    "source_id": meta["source_id"],
+                    "attested_form": surface_w,
+                    "passage": clean_p,
+                    "highlighted_passage": highlight_attestation_in_passage(
+                        clean_p, surface_w, target_norm
+                    ),
+                    "doc_freq": max(1, global_doc_freq),
+                    "source_type": "retrieved_passage",
+                }
+            )
+            if len(attestations) >= max_attestations:
+                return attestations
+
+    # 2. Attestazioni nell'indice invertito dell'intera collezione di documenti (corpus)
+    if retriever is not None and postings_list:
+        for doc_idx, _tf in postings_list:
+            if doc_idx < 0 or doc_idx >= len(retriever.corpus):
+                continue
+            raw_p = retriever.corpus[doc_idx]
+            meta = parse_passage_metadata(raw_p)
+            clean_p = meta["passage"]
+            p_norm = normalize_for_retrieval(clean_p)
+            if not clean_p or p_norm in seen_passages:
+                continue
+            if query_norm and _is_overlapping_leakage(query_norm, p_norm):
+                continue
+            surface_w = _find_surface_word(clean_p) or reconstructed
+            seen_passages.add(p_norm)
+            attestations.append(
+                {
+                    "corpus_id": meta["corpus_id"],
+                    "source_id": meta["source_id"],
+                    "attested_form": surface_w,
+                    "passage": clean_p,
+                    "highlighted_passage": highlight_attestation_in_passage(
+                        clean_p, surface_w, target_norm
+                    ),
+                    "doc_freq": max(1, global_doc_freq),
+                    "source_type": "corpus_index",
+                }
+            )
+            if len(attestations) >= max_attestations:
+                break
+
+    return attestations
+
+
 class GreekHybridRetriever:
     """
     Retriever Ibrido per il Greco Antico che combina:
@@ -597,9 +772,12 @@ class GreekHybridRetriever:
 
         sorted_candidates = sorted(rrf_scores.items(), key=lambda item: item[1], reverse=True)
 
-        selected_passages: list[str] = []
-        selected_indices: list[int] = []
-        selected_scores: list[float] = []
+        # Raccoglie tutti i loci similes validi emersi dal pool ibrido (BM25 + GreBerta RRF)
+        # per renderli consultabili su richiesta nel menù di approfondimento del frontend,
+        # mantenendo in `passages` i soli `top_k` più rilevanti inviati nel prompt dell'LLM.
+        all_passages: list[str] = []
+        all_indices: list[int] = []
+        all_scores: list[float] = []
 
         for doc_idx, score in sorted_candidates:
             passage = self.corpus[doc_idx]
@@ -608,16 +786,44 @@ class GreekHybridRetriever:
                 if _is_overlapping_leakage(query_norm, passage_norm):
                     continue
 
-            selected_passages.append(passage)
-            selected_indices.append(doc_idx)
-            selected_scores.append(float(score))
-            if len(selected_passages) >= top_k:
+            all_passages.append(passage)
+            all_indices.append(doc_idx)
+            all_scores.append(float(score))
+            if len(all_passages) >= candidate_pool_size:
                 break
 
         return dspy.Prediction(
-            passages=selected_passages,
-            indices=selected_indices,
-            scores=selected_scores,
+            passages=all_passages[:top_k],
+            indices=all_indices[:top_k],
+            scores=all_scores[:top_k],
+            all_passages=all_passages,
+            all_indices=all_indices,
+            all_scores=all_scores,
+        )
+
+    def find_attestations(
+        self,
+        supplement: str,
+        word_prefix: str = "",
+        word_suffix: str = "",
+        retrieved_passages: Sequence[str] | None = None,
+        max_attestations: int = 3,
+        exclude_query: str = "",
+    ) -> list[dict[str, Any]]:
+        """
+        Individua i documenti del corpus che attestano direttamente la parola o il
+        supplemento proposto, restituendo per ciascuna attestazione l'identificativo
+        del corpus (`corpus_id`), il documento/opera (`source_id`), la forma greca
+        attestata (`attested_form`), la frequenza nel corpus (`doc_freq`) e l'estratto (`passage`).
+        """
+        return resolve_candidate_attestations(
+            supplement=supplement,
+            word_prefix=word_prefix,
+            word_suffix=word_suffix,
+            retrieved_passages=retrieved_passages,
+            retriever=self,
+            max_attestations=max_attestations,
+            exclude_query=exclude_query,
         )
 
     def save(self, path: str | Path) -> None:

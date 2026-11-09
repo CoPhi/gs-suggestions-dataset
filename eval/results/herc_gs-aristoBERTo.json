@@ -1,0 +1,231 @@
+{
+  "checkpoint": "CNR-ILC/gs-aristoBERTo",
+  "base_model": "Jacobo/aristoBERTo",
+  "eval_dataset": "CNR-ILC/gs-dataset-herc",
+  "split": "test",
+  "policy": "default",
+  "n_cases_per_policy": {
+    "default": 300
+  },
+  "pre_ft_metrics": {
+    "default": {
+      "top1": 14.333333333333334,
+      "top5": 22.0,
+      "top10": 23.666666666666668,
+      "top20": 23.666666666666668,
+      "bertscore_f1_top1": 84.44702251993044,
+      "bertscore_f1_top1_mean": 84.44702251993044,
+      "bertscore_f1_top5": 88.442869138236,
+      "bertscore_f1_top5_mean": 83.3324128444548,
+      "bertscore_f1_top10": 89.17249678963363,
+      "bertscore_f1_top10_mean": 82.91936002570179,
+      "bertscore_f1_top20": 89.54938951164785,
+      "bertscore_f1_top20_mean": 82.61926841271683,
+      "cos_sim_top1_max": 71.6836269907277,
+      "cos_sim_top1_mean": 71.6836269907277,
+      "cos_sim_top5_max": 80.40384927181282,
+      "cos_sim_top5_mean": 69.6897872171117,
+      "cos_sim_top10_max": 81.84350677812942,
+      "cos_sim_top10_mean": 69.21702185375426,
+      "cos_sim_top20_max": 82.51963603978206,
+      "cos_sim_top20_mean": 68.75683929426181,
+      "cluster_inclusion_rate": 34.333333333333336,
+      "mean_inclusion_margin": -11276227460.524044,
+      "mean_gold_centroid_cosine_sim": 51.8634628256162
+    }
+  },
+  "post_ft_metrics": {
+    "default": {
+      "top1": 15.0,
+      "top5": 24.0,
+      "top10": 25.0,
+      "top20": 25.0,
+      "bertscore_f1_top1": 85.25794003859605,
+      "bertscore_f1_top1_mean": 85.25794003859605,
+      "bertscore_f1_top5": 89.54245799248761,
+      "bertscore_f1_top5_mean": 83.93155334412855,
+      "bertscore_f1_top10": 89.91415665881468,
+      "bertscore_f1_top10_mean": 83.384752956266,
+      "bertscore_f1_top20": 90.32138689319686,
+      "bertscore_f1_top20_mean": 83.03339705109552,
+      "cos_sim_top1_max": 70.47470101330539,
+      "cos_sim_top1_mean": 70.47470101330539,
+      "cos_sim_top5_max": 80.26779502040088,
+      "cos_sim_top5_mean": 68.25301549345156,
+      "cos_sim_top10_max": 81.2700334014279,
+      "cos_sim_top10_mean": 67.3564876385505,
+      "cos_sim_top20_max": 81.88284542595986,
+      "cos_sim_top20_mean": 66.8333987456458,
+      "cluster_inclusion_rate": 34.0,
+      "mean_inclusion_margin": -10532423352.123493,
+      "mean_gold_centroid_cosine_sim": 52.18589441974958
+    }
+  },
+  "comparison": [
+    {
+      "model": "gs-aristoBERTo",
+      "checkpoint": "CNR-ILC/gs-aristoBERTo",
+      "base_model": "Jacobo/aristoBERTo",
+      "policy": "default",
+      "metric": "Exact Match @1 (%)",
+      "metric_key": "top1",
+      "pre_ft": 14.333333333333334,
+      "post_ft": 15.0,
+      "delta": 0.6666666666666661
+    },
+    {
+      "model": "gs-aristoBERTo",
+      "checkpoint": "CNR-ILC/gs-aristoBERTo",
+      "base_model": "Jacobo/aristoBERTo",
+      "policy": "default",
+      "metric": "Exact Match @5 (%)",
+      "metric_key": "top5",
+      "pre_ft": 22.0,
+      "post_ft": 24.0,
+      "delta": 2.0
+    },
+    {
+      "model": "gs-aristoBERTo",
+      "checkpoint": "CNR-ILC/gs-aristoBERTo",
+      "base_model": "Jacobo/aristoBERTo",
+      "policy": "default",
+      "metric": "Exact Match @10 (%)",
+      "metric_key": "top10",
+      "pre_ft": 23.666666666666668,
+      "post_ft": 25.0,
+      "delta": 1.3333333333333321
+    },
+    {
+      "model": "gs-aristoBERTo",
+      "checkpoint": "CNR-ILC/gs-aristoBERTo",
+      "base_model": "Jacobo/aristoBERTo",
+      "policy": "default",
+      "metric": "Exact Match @20 (%)",
+      "metric_key": "top20",
+      "pre_ft": 23.666666666666668,
+      "post_ft": 25.0,
+      "delta": 1.3333333333333321
+    },
+    {
+      "model": "gs-aristoBERTo",
+      "checkpoint": "CNR-ILC/gs-aristoBERTo",
+      "base_model": "Jacobo/aristoBERTo",
+      "policy": "default",
+      "metric": "BERTScore F1 @1 (%)",
+      "metric_key": "bertscore_f1_top1",
+      "pre_ft": 84.44702251993044,
+      "post_ft": 85.25794003859605,
+      "delta": 0.8109175186656046
+    },
+    {
+      "model": "gs-aristoBERTo",
+      "checkpoint": "CNR-ILC/gs-aristoBERTo",
+      "base_model": "Jacobo/aristoBERTo",
+      "policy": "default",
+      "metric": "BERTScore F1 @5 (%)",
+      "metric_key": "bertscore_f1_top5",
+      "pre_ft": 88.442869138236,
+      "post_ft": 89.54245799248761,
+      "delta": 1.099588854251607
+    },
+    {
+      "model": "gs-aristoBERTo",
+      "checkpoint": "CNR-ILC/gs-aristoBERTo",
+      "base_model": "Jacobo/aristoBERTo",
+      "policy": "default",
+      "metric": "BERTScore F1 @10 (%)",
+      "metric_key": "bertscore_f1_top10",
+      "pre_ft": 89.17249678963363,
+      "post_ft": 89.91415665881468,
+      "delta": 0.7416598691810492
+    },
+    {
+      "model": "gs-aristoBERTo",
+      "checkpoint": "CNR-ILC/gs-aristoBERTo",
+      "base_model": "Jacobo/aristoBERTo",
+      "policy": "default",
+      "metric": "BERTScore F1 @20 (%)",
+      "metric_key": "bertscore_f1_top20",
+      "pre_ft": 89.54938951164785,
+      "post_ft": 90.32138689319686,
+      "delta": 0.7719973815490135
+    },
+    {
+      "model": "gs-aristoBERTo",
+      "checkpoint": "CNR-ILC/gs-aristoBERTo",
+      "base_model": "Jacobo/aristoBERTo",
+      "policy": "default",
+      "metric": "CosSim Max @1 (%)",
+      "metric_key": "cos_sim_top1_max",
+      "pre_ft": 71.6836269907277,
+      "post_ft": 70.47470101330539,
+      "delta": -1.208925977422311
+    },
+    {
+      "model": "gs-aristoBERTo",
+      "checkpoint": "CNR-ILC/gs-aristoBERTo",
+      "base_model": "Jacobo/aristoBERTo",
+      "policy": "default",
+      "metric": "CosSim Max @5 (%)",
+      "metric_key": "cos_sim_top5_max",
+      "pre_ft": 80.40384927181282,
+      "post_ft": 80.26779502040088,
+      "delta": -0.1360542514119345
+    },
+    {
+      "model": "gs-aristoBERTo",
+      "checkpoint": "CNR-ILC/gs-aristoBERTo",
+      "base_model": "Jacobo/aristoBERTo",
+      "policy": "default",
+      "metric": "CosSim Max @10 (%)",
+      "metric_key": "cos_sim_top10_max",
+      "pre_ft": 81.84350677812942,
+      "post_ft": 81.2700334014279,
+      "delta": -0.5734733767015285
+    },
+    {
+      "model": "gs-aristoBERTo",
+      "checkpoint": "CNR-ILC/gs-aristoBERTo",
+      "base_model": "Jacobo/aristoBERTo",
+      "policy": "default",
+      "metric": "CosSim Max @20 (%)",
+      "metric_key": "cos_sim_top20_max",
+      "pre_ft": 82.51963603978206,
+      "post_ft": 81.88284542595986,
+      "delta": -0.6367906138221997
+    },
+    {
+      "model": "gs-aristoBERTo",
+      "checkpoint": "CNR-ILC/gs-aristoBERTo",
+      "base_model": "Jacobo/aristoBERTo",
+      "policy": "default",
+      "metric": "Cluster Inclusion Rate (%)",
+      "metric_key": "cluster_inclusion_rate",
+      "pre_ft": 34.333333333333336,
+      "post_ft": 34.0,
+      "delta": -0.3333333333333357
+    },
+    {
+      "model": "gs-aristoBERTo",
+      "checkpoint": "CNR-ILC/gs-aristoBERTo",
+      "base_model": "Jacobo/aristoBERTo",
+      "policy": "default",
+      "metric": "Mean Inclusion Margin",
+      "metric_key": "mean_inclusion_margin",
+      "pre_ft": -11276227460.524044,
+      "post_ft": -10532423352.123493,
+      "delta": 743804108.4005508
+    },
+    {
+      "model": "gs-aristoBERTo",
+      "checkpoint": "CNR-ILC/gs-aristoBERTo",
+      "base_model": "Jacobo/aristoBERTo",
+      "policy": "default",
+      "metric": "Gold Centroid CosSim (%)",
+      "metric_key": "mean_gold_centroid_cosine_sim",
+      "pre_ft": 51.8634628256162,
+      "post_ft": 52.18589441974958,
+      "delta": 0.3224315941333771
+    }
+  ]
+}

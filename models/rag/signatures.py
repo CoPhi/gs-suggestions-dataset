@@ -13,8 +13,42 @@ import dspy
 from pydantic import BaseModel, Field
 
 
+class CorpusAttestation(BaseModel):
+    """Riferimento puntuale al documento del corpus in cui è attestato un supplemento."""
+
+    corpus_id: str = Field(
+        default="unknown",
+        description="Identificativo della collezione/corpus (es. 'tlg', 'DCLP', 'DDbDP', 'PHerc.')",
+    )
+    source_id: str = Field(
+        default="",
+        description="Titolo dell'opera, papiro o luogo di attestazione nel corpus",
+    )
+    attested_form: str = Field(
+        default="",
+        description="Parola o forma greca completa attestata nel documento",
+    )
+    passage: str = Field(
+        default="",
+        description="Estratto testuale del documento in cui compare l'attestazione",
+    )
+    highlighted_passage: str = Field(
+        default="",
+        description="Estratto testuale del documento con la forma attestata messa in evidenza in grassetto (**...**)",
+    )
+    doc_freq: int = Field(
+        default=1,
+        ge=1,
+        description="Numero totale di documenti nel corpus che attestano la forma",
+    )
+    source_type: str = Field(
+        default="retrieved_passage",
+        description="Origine dell'attestazione ('retrieved_passage' dai loci similes o 'corpus_index' dall'indice del corpus)",
+    )
+
+
 class GreekCandidate(BaseModel):
-    """Singolo supplemento candidato proposto dall'LLM per colmare la lacuna `[...]`."""
+    """Singolo supplemento candidato proposto dall'LLM o dal retriever per colmare la lacuna `[...]`."""
 
     supplement: str = Field(
         description=(
@@ -28,6 +62,17 @@ class GreekCandidate(BaseModel):
         le=1.0,
         description="Grado di confidenza filologica, grammaticale e contestuale tra 0.0 e 1.0.",
     )
+    rationale: str = Field(
+        default="",
+        description=(
+            "CoT di secondo livello (1 frase breve, max 15-20 parole): spiega perché questo "
+            "specifico supplemento è plausibile per morfologia, sintassi, semantica o attestazione nei passi paralleli."
+        ),
+    )
+    attestations: list[CorpusAttestation] = Field(
+        default_factory=list,
+        description="Lista opzionale dei documenti del corpus che attestano direttamente il supplemento.",
+    )
 
 
 class GreekInfillingSignature(dspy.Signature):
@@ -35,7 +80,12 @@ class GreekInfillingSignature(dspy.Signature):
     Il tuo compito è proporre supplementi in greco antico per colmare la lacuna indicata da `[...]`
     nel frammento fornito, sfruttando i passi paralleli (loci similes) recuperati dai corpora antichi
     e rispettando rigorosamente i vincoli di lunghezza in caratteri e la morfologia della parola.
-    Restituisci esclusivamente i caratteri greci che sostituiscono `[...]`."""
+    Articola il ragionamento su due livelli:
+    1) `philological_reasoning` (CoT di 1° livello): analisi logica e filologica di come interpreti il contesto
+       e le informazioni estratte dai documenti rilevanti del retriever per inquadrare la lacuna;
+    2) `rationale` in ciascun `GreekCandidate` (CoT di 2° livello): spiegazione puntuale e concisa del perché
+       quella singola integrazione è plausibile per colmare la lacuna.
+    Restituisci in `supplement` esclusivamente i caratteri greci che sostituiscono `[...]`."""
 
     context_with_gap: str = dspy.InputField(
         desc="Frammento di testo in greco antico contenente la lacuna target indicata da `[...]`."
@@ -56,12 +106,15 @@ class GreekInfillingSignature(dspy.Signature):
 
     philological_reasoning: str = dspy.OutputField(
         desc=(
-            "Analisi sintetica in massimo 2-3 frasi brevi del contesto e dei passi paralleli "
-            "per giustificare l'integrazione e verificare il numero di lettere (non dilungarti)."
+            "CoT di 1° livello (2-3 frasi): ragionamento logico e filologico su come vengono interpretate "
+            "le informazioni dei documenti rilevanti restituiti dal retriever e la sintassi del passo per colmare la lacuna."
         )
     )
     candidates: list[GreekCandidate] = dspy.OutputField(
-        desc="Lista ordinata di K supplementi candidati in greco antico che rispettano la lunghezza della lacuna."
+        desc=(
+            "Lista ordinata di K supplementi candidati in greco antico che rispettano la lunghezza della lacuna, "
+            "ciascuno corredato dal proprio `rationale` (CoT di 2° livello)."
+        )
     )
 
 

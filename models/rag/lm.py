@@ -48,7 +48,7 @@ class TransformersLocalEngine:
         torch_dtype: str = "auto",
         load_in_4bit: bool = False,
         default_temperature: float = 0.2,
-        default_max_tokens: int = 1024,
+        default_max_tokens: int = 1536,
     ) -> None:
         self.model_id = model_id
         self.device = device or ("cuda" if torch.cuda.is_available() else "cpu")
@@ -264,7 +264,7 @@ class HuggingFaceLocalLM(dspy.LM):
         torch_dtype: str = "auto",
         load_in_4bit: bool = False,
         temperature: float = 0.2,
-        max_tokens: int = 512,
+        max_tokens: int = 1536,
         cache: bool = True,
     ) -> None:
         sync_engine = TransformersLocalEngine(
@@ -470,7 +470,7 @@ def get_fallback_dspy_lms(
     checkpoint: str,
     backend: str = "auto",
     temperature: float = 0.2,
-    max_tokens: int = 1024,
+    max_tokens: int = 1536,
 ) -> list[dspy.BaseLM]:
     """
     Restituisce una coda ordinata di istanze `dspy.BaseLM` di fallback da tentare
@@ -510,7 +510,7 @@ def build_dspy_lm(
     api_base: str | None = None,
     api_key: str | None = None,
     temperature: float = 0.2,
-    max_tokens: int = 1024,
+    max_tokens: int = 1536,
     load_in_4bit: bool = False,
     device: str | None = None,
     cache: bool = True,

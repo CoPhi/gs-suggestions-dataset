@@ -23,9 +23,15 @@ from backend.core.preprocess import (
     process_editorial_marks,
     strip_diacritics,
 )
-from models.rag.retriever import GreekHybridRetriever, _strip_passage_header
+from models.rag.retriever import (
+    GreekHybridRetriever,
+    _strip_passage_header,
+    highlight_attestation_in_passage,
+    parse_passage_metadata,
+)
 from models.rag.signatures import (
     ConstraintRefinementSignature,
+    CorpusAttestation,
     GreekCandidate,
     GreekInfillingSignature,
     format_gap_constraints,
@@ -208,8 +214,20 @@ def coerce_dspy_candidates(raw_candidates: Any) -> list[GreekCandidate]:
                 )
                 conf = float(item.get("confidence", item.get("score", default_conf)))
                 conf = min(1.0, max(0.0, conf))
+                rationale = str(
+                    item.get("rationale")
+                    or item.get("explanation")
+                    or item.get("reasoning")
+                    or ""
+                ).strip()
                 if supp:
-                    coerced.append(GreekCandidate(supplement=supp, confidence=conf))
+                    coerced.append(
+                        GreekCandidate(
+                            supplement=supp,
+                            confidence=conf,
+                            rationale=rationale,
+                        )
+                    )
             elif isinstance(item, str):
                 coerced.append(GreekCandidate(supplement=item, confidence=default_conf))
     return coerced
@@ -273,7 +291,8 @@ def extract_parallel_attestations(
     seen_supps: set[str] = set()
 
     for p_idx, raw_passage in enumerate(retrieved_passages):
-        clean_p = _strip_passage_header(raw_passage)
+        p_meta = parse_passage_metadata(raw_passage)
+        clean_p = p_meta["passage"]
         words = [
             w for w in re.findall(r"[^\W\d_]+", clean_p)
             if not re.search(r"[a-zA-Z0-9]", w)
@@ -284,6 +303,7 @@ def extract_parallel_attestations(
         ]
 
         for w_idx, norm_w in enumerate(norm_words):
+            surface_w = words[w_idx]
             # Caso 1: Lacuna intra-parola con prefisso e/o suffisso
             if base_prefix or base_suffix:
                 if base_prefix and not norm_w.startswith(base_prefix):
@@ -304,7 +324,33 @@ def extract_parallel_attestations(
                     if right_neighbor and w_idx + 1 < len(norm_words) and norm_words[w_idx + 1] == right_neighbor:
                         neighbor_bonus += 0.15
                     conf = min(0.95, max(0.35, 0.75 - p_idx * 0.05 + neighbor_bonus))
-                    extracted.append(GreekCandidate(supplement=supp, confidence=conf))
+                    loc_label = (
+                        f"{p_meta['corpus_id']} | {p_meta['source_id']}"
+                        if p_meta.get("source_id")
+                        else p_meta.get("corpus_id", "corpus")
+                    )
+                    att_item = CorpusAttestation(
+                        corpus_id=p_meta["corpus_id"],
+                        source_id=p_meta["source_id"],
+                        attested_form=surface_w,
+                        passage=clean_p,
+                        highlighted_passage=highlight_attestation_in_passage(
+                            clean_p, surface_w, norm_w
+                        ),
+                        doc_freq=1,
+                        source_type="retrieved_passage",
+                    )
+                    extracted.append(
+                        GreekCandidate(
+                            supplement=supp,
+                            confidence=conf,
+                            rationale=(
+                                f"Integra la forma **{surface_w}** attestata direttamente nel passo parallelo "
+                                f"[{loc_label}] e rispetta il vincolo di {len(supp)} lettere."
+                            ),
+                            attestations=[att_item],
+                        )
+                    )
 
             # Caso 2: Lacuna inter-parola (parola intera affiancata da left_neighbor o right_neighbor)
             else:
@@ -317,7 +363,33 @@ def extract_parallel_attestations(
                 if (left_match or right_match) and norm_w not in seen_supps:
                     seen_supps.add(norm_w)
                     conf = 0.85 if (left_match and right_match) else max(0.30, 0.65 - p_idx * 0.05)
-                    extracted.append(GreekCandidate(supplement=norm_w, confidence=conf))
+                    loc_label = (
+                        f"{p_meta['corpus_id']} | {p_meta['source_id']}"
+                        if p_meta.get("source_id")
+                        else p_meta.get("corpus_id", "corpus")
+                    )
+                    att_item = CorpusAttestation(
+                        corpus_id=p_meta["corpus_id"],
+                        source_id=p_meta["source_id"],
+                        attested_form=surface_w,
+                        passage=clean_p,
+                        highlighted_passage=highlight_attestation_in_passage(
+                            clean_p, surface_w, norm_w
+                        ),
+                        doc_freq=1,
+                        source_type="retrieved_passage",
+                    )
+                    extracted.append(
+                        GreekCandidate(
+                            supplement=norm_w,
+                            confidence=conf,
+                            rationale=(
+                                f"Parola **{surface_w}** attestata in iunctura contestuale nel passo parallelo "
+                                f"[{loc_label}] e conforme alla lacuna di {len(norm_w)} lettere."
+                            ),
+                            attestations=[att_item],
+                        )
+                    )
 
     return extracted
 
@@ -388,6 +460,7 @@ class GreekRAGInfiller(dspy.Module):
 
         # 2. Retrieval Ibrido dei passi paralleli (loci similes) da TLG e MAAT
         retrieved_passages: list[str] = []
+        all_retrieved_passages: list[str] = []
         if self.retriever is not None:
             ret_pred = self.retriever(
                 query=clean_context,
@@ -397,6 +470,9 @@ class GreekRAGInfiller(dspy.Module):
                 exclude_query_overlap=exclude_query_overlap,
             )
             retrieved_passages = list(getattr(ret_pred, "passages", []) or [])
+            all_retrieved_passages = list(
+                getattr(ret_pred, "all_passages", None) or retrieved_passages
+            )
 
         # 3. Generazione Chain-of-Thought tramite GreekInfillingSignature
         gen_pred = self.generate_infill(
@@ -431,7 +507,12 @@ class GreekRAGInfiller(dspy.Module):
             if norm_san in rejected_norm_set:
                 continue
             cand_len = len(strip_diacritics(sanitized))
-            cleaned_cand = GreekCandidate(supplement=sanitized, confidence=cand.confidence)
+            cleaned_cand = GreekCandidate(
+                supplement=sanitized,
+                confidence=cand.confidence,
+                rationale=cand.rationale,
+                attestations=list(cand.attestations or []),
+            )
             if req_min <= cand_len <= req_max:
                 valid_candidates.append(cleaned_cand)
             else:
@@ -467,7 +548,12 @@ class GreekRAGInfiller(dspy.Module):
                     if norm_san in rejected_norm_set:
                         continue
                     cand_len = len(strip_diacritics(sanitized))
-                    cleaned_cand = GreekCandidate(supplement=sanitized, confidence=cand.confidence)
+                    cleaned_cand = GreekCandidate(
+                        supplement=sanitized,
+                        confidence=cand.confidence,
+                        rationale=cand.rationale,
+                        attestations=list(cand.attestations or []),
+                    )
                     if req_min <= cand_len <= req_max:
                         valid_candidates.append(cleaned_cand)
                     else:
@@ -475,25 +561,70 @@ class GreekRAGInfiller(dspy.Module):
             except Exception:
                 pass
 
-        # 5. Integrazione con attestazioni dirette dai passi paralleli recuperati (escludendo i candidati scartati)
+        # 5. Integrazione con attestazioni dirette dai passi paralleli recuperati e dall'indice BM25 del corpus
         corpus_attestations = extract_parallel_attestations(
             context_with_gap=clean_context,
-            retrieved_passages=retrieved_passages,
+            retrieved_passages=all_retrieved_passages or retrieved_passages,
             min_chars=req_min,
             max_chars=req_max,
             word_prefix=w_prefix,
             word_suffix=w_suffix,
         )
+        if (
+            self.retriever is not None
+            and self.top_k_passages > 0
+            and hasattr(self.retriever, "lexical_index")
+            and (w_prefix or w_suffix)
+        ):
+            try:
+                idx_matches = self.retriever.lexical_index.match_affix_words(
+                    word_prefix=w_prefix,
+                    word_suffix=w_suffix,
+                    min_gap_chars=req_min,
+                    max_gap_chars=req_max,
+                    top_n=max(num_candidates, 10),
+                )
+                for _full_w, idx_supp, doc_freq in idx_matches:
+                    idx_conf = min(0.92, 0.72 + 0.03 * min(doc_freq, 6))
+                    corpus_attestations.append(
+                        GreekCandidate(
+                            supplement=idx_supp,
+                            confidence=idx_conf,
+                            rationale=(
+                                f"Ricostruisce la forma lessicale **{_full_w}** attestata in {doc_freq} "
+                                f"{'documento' if doc_freq == 1 else 'documenti'} del corpus."
+                            ),
+                        )
+                    )
+            except Exception:
+                pass
+
+        existing_by_norm: dict[str, GreekCandidate] = {
+            normalize_greek(c.supplement, case_folding="fold", strip_diacritics_flag=True): c
+            for c in valid_candidates
+        }
         for att in corpus_attestations:
             norm_att = normalize_greek(att.supplement, case_folding="fold", strip_diacritics_flag=True)
-            if norm_att not in rejected_norm_set:
+            if not norm_att or norm_att in rejected_norm_set:
+                continue
+            if norm_att in existing_by_norm:
+                # Bonus sinergico quando un candidato proposto dall'LLM è anche attestato nel corpus
+                existing = existing_by_norm[norm_att]
+                existing.confidence = min(0.99, max(existing.confidence, att.confidence) + 0.05)
+                if att.attestations and not existing.attestations:
+                    existing.attestations = list(att.attestations)
+                if att.rationale and not existing.rationale:
+                    existing.rationale = att.rationale
+            else:
                 valid_candidates.append(att)
+                existing_by_norm[norm_att] = att
 
         return dspy.Prediction(
             philological_reasoning=reasoning,
             candidates=valid_candidates,
             fallback_candidates=fallback_candidates,
             retrieved_passages=retrieved_passages,
+            all_retrieved_passages=all_retrieved_passages,
             gap_constraints=gap_constraints_str,
             min_chars=req_min,
             max_chars=req_max,

@@ -1,0 +1,16 @@
+model,checkpoint,base_model,policy,metric,metric_key,pre_ft,post_ft,delta
+gs-aristoBERTo,CNR-ILC/gs-aristoBERTo,Jacobo/aristoBERTo,default,Exact Match @1 (%),top1,14.333333333333334,15.0,0.6666666666666661
+gs-aristoBERTo,CNR-ILC/gs-aristoBERTo,Jacobo/aristoBERTo,default,Exact Match @5 (%),top5,22.0,24.0,2.0
+gs-aristoBERTo,CNR-ILC/gs-aristoBERTo,Jacobo/aristoBERTo,default,Exact Match @10 (%),top10,23.666666666666668,25.0,1.3333333333333321
+gs-aristoBERTo,CNR-ILC/gs-aristoBERTo,Jacobo/aristoBERTo,default,Exact Match @20 (%),top20,23.666666666666668,25.0,1.3333333333333321
+gs-aristoBERTo,CNR-ILC/gs-aristoBERTo,Jacobo/aristoBERTo,default,BERTScore F1 @1 (%),bertscore_f1_top1,84.44702251993044,85.25794003859605,0.8109175186656046
+gs-aristoBERTo,CNR-ILC/gs-aristoBERTo,Jacobo/aristoBERTo,default,BERTScore F1 @5 (%),bertscore_f1_top5,88.442869138236,89.54245799248761,1.099588854251607
+gs-aristoBERTo,CNR-ILC/gs-aristoBERTo,Jacobo/aristoBERTo,default,BERTScore F1 @10 (%),bertscore_f1_top10,89.17249678963363,89.91415665881468,0.7416598691810492
+gs-aristoBERTo,CNR-ILC/gs-aristoBERTo,Jacobo/aristoBERTo,default,BERTScore F1 @20 (%),bertscore_f1_top20,89.54938951164785,90.32138689319686,0.7719973815490135
+gs-aristoBERTo,CNR-ILC/gs-aristoBERTo,Jacobo/aristoBERTo,default,CosSim Max @1 (%),cos_sim_top1_max,71.6836269907277,70.47470101330539,-1.208925977422311
+gs-aristoBERTo,CNR-ILC/gs-aristoBERTo,Jacobo/aristoBERTo,default,CosSim Max @5 (%),cos_sim_top5_max,80.40384927181282,80.26779502040088,-0.1360542514119345
+gs-aristoBERTo,CNR-ILC/gs-aristoBERTo,Jacobo/aristoBERTo,default,CosSim Max @10 (%),cos_sim_top10_max,81.84350677812942,81.2700334014279,-0.5734733767015285
+gs-aristoBERTo,CNR-ILC/gs-aristoBERTo,Jacobo/aristoBERTo,default,CosSim Max @20 (%),cos_sim_top20_max,82.51963603978206,81.88284542595986,-0.6367906138221997
+gs-aristoBERTo,CNR-ILC/gs-aristoBERTo,Jacobo/aristoBERTo,default,Cluster Inclusion Rate (%),cluster_inclusion_rate,34.333333333333336,34.0,-0.3333333333333357
+gs-aristoBERTo,CNR-ILC/gs-aristoBERTo,Jacobo/aristoBERTo,default,Mean Inclusion Margin,mean_inclusion_margin,-11276227460.524044,-10532423352.123493,743804108.4005508
+gs-aristoBERTo,CNR-ILC/gs-aristoBERTo,Jacobo/aristoBERTo,default,Gold Centroid CosSim (%),mean_gold_centroid_cosine_sim,51.8634628256162,52.18589441974958,0.3224315941333771
