@@ -29,6 +29,8 @@ from dspy.clients.engines.base import validate_request
 from dspy.lm15 import Message, Response, TextPart, Usage, response_to_events
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
+from models.rag.llm_logging import install_llm_call_logging
+
 load_dotenv()
 
 
@@ -531,6 +533,10 @@ def build_dspy_lm(
         device: Device esplicito ('cuda', 'cpu') per il caricamento locale.
         cache: Abilita la cache delle risposte di DSPy.
     """
+    # Registra il callback di osservabilità per le chiamate remote (HF Router,
+    # endpoint OpenAI-compatible) prima di creare/riutilizzare l'istanza LM.
+    install_llm_call_logging()
+
     is_explicit_ollama = checkpoint.startswith(("ollama/", "ollama_chat/"))
     clean_ckpt = checkpoint
     for prefix in ("huggingface/", "openai/", "ollama_chat/", "ollama/"):

@@ -4,6 +4,7 @@
 *.pyd
 __pycac
 *.log
+logs/
 
 # File e directory generati da pip e Poetry
 poetry.lock

@@ -17,6 +17,11 @@ from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from models.rag.inference import fill_mask_rag
+    from models.rag.llm_logging import (
+        HuggingFaceCallLogger,
+        configure_llm_logging,
+        install_llm_call_logging,
+    )
     from models.rag.lm import (
         HuggingFaceLocalLM,
         TransformersLocalEngine,
@@ -54,17 +59,20 @@ __all__ = [
     "GreekInfillingSignature",
     "GreekLexicalBM25Index",
     "GreekRAGInfiller",
+    "HuggingFaceCallLogger",
     "HuggingFaceLocalLM",
     "TransformersLocalEngine",
     "build_dspy_lm",
     "build_rag_corpus_from_data",
     "compile_greek_rag_infiller",
+    "configure_llm_logging",
     "dev_cases_to_dspy_examples",
     "extract_lacuna_metadata",
     "fill_mask_rag",
     "format_gap_constraints",
     "get_or_build_default_retriever",
     "greek_infilling_dspy_metric",
+    "install_llm_call_logging",
     "sanitize_greek_supplement",
 ]
 
@@ -78,17 +86,20 @@ _LAZY_IMPORTS: dict[str, str] = {
     "GreekInfillingSignature": "models.rag.signatures",
     "GreekLexicalBM25Index": "models.rag.retriever",
     "GreekRAGInfiller": "models.rag.modules",
+    "HuggingFaceCallLogger": "models.rag.llm_logging",
     "HuggingFaceLocalLM": "models.rag.lm",
     "TransformersLocalEngine": "models.rag.lm",
     "build_dspy_lm": "models.rag.lm",
     "build_rag_corpus_from_data": "models.rag.retriever",
     "compile_greek_rag_infiller": "models.rag.optimizer",
+    "configure_llm_logging": "models.rag.llm_logging",
     "dev_cases_to_dspy_examples": "models.rag.optimizer",
     "extract_lacuna_metadata": "models.rag.modules",
     "fill_mask_rag": "models.rag.inference",
     "format_gap_constraints": "models.rag.signatures",
     "get_or_build_default_retriever": "models.rag.retriever",
     "greek_infilling_dspy_metric": "models.rag.optimizer",
+    "install_llm_call_logging": "models.rag.llm_logging",
     "sanitize_greek_supplement": "models.rag.modules",
 }
 

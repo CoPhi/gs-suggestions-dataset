@@ -35,6 +35,10 @@ from models.bert.inference.vocab import (
     get_normalized_vocab,
     normalize_for_tlg_lookup,
 )
+from models.rag.llm_logging import (
+    log_llm_fallback_event,
+    log_llm_skipped_event,
+)
 from models.rag.lm import (
     build_dspy_lm,
     get_fallback_dspy_lms,
@@ -491,12 +495,13 @@ def fill_mask_rag(
                 and lm_model_name.startswith("huggingface/")
                 and is_hf_api_unavailable()
             ):
-                raise RuntimeError(
-                    "HF_TOKEN non dispone dei permessi per Hugging Face Inference Providers"
-                )
+                skip_reason = "HF_TOKEN non dispone dei permessi per Hugging Face Inference Providers (circuit-breaker attivo)"
+                log_llm_skipped_event(lm_model_name, skip_reason)
+                raise RuntimeError(skip_reason)
             if should_fallback and lm_model_name.startswith(("ollama/", "ollama_chat/")):
                 ram_ok, ram_reason = is_ollama_model_within_ram_budget(lm_model_name)
                 if not ram_ok:
+                    log_llm_skipped_event(lm_model_name, ram_reason)
                     raise RuntimeError(ram_reason)
 
             with dspy.context(lm=active_lm):
@@ -512,6 +517,8 @@ def fill_mask_rag(
             pred = None
             for fb_lm in get_fallback_dspy_lms(checkpoint=checkpoint, backend=backend):
                 try:
+                    fb_model_name = str(getattr(fb_lm, "model", "") or "ollama")
+                    log_llm_fallback_event(checkpoint, fb_model_name, str(primary_exc))
                     with dspy.context(lm=fb_lm):
                         pred = infiller(**infill_kwargs)
                     break
@@ -527,6 +534,11 @@ def fill_mask_rag(
                     reason_label = f"{checkpoint} [{primary_exc}]"
                 else:
                     reason_label = f"{checkpoint} [runtime LLM non disponibile]"
+                log_llm_fallback_event(
+                    checkpoint,
+                    f"neuro_lexical ({embedder_checkpoint})",
+                    reason_label,
+                )
                 pred = _build_neuro_lexical_rag_prediction(
                     context_with_gap=meta["context_with_gap"],
                     min_chars=min_chars,

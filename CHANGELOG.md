@@ -10,6 +10,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Logging Osservabile dello Stato delle Chiamate ai Provider LLM Remoti (`gs.llm`)**:
+  - Introdotto il modulo [`models/rag/llm_logging.py`](./models/rag/llm_logging.py) con il logger dedicato `gs.llm` e il callback LiteLLM `HuggingFaceCallLogger` per intercettare e tracciare in tempo reale l'avvio (`HF/LLM request start`), il completamento con successo (`HF/LLM request success`, con HTTP status, latenza, consumo di token `input/output/total`, costo stimato e header diagnostici del provider/rate-limit) e gli errori HTTP (`HF/LLM request failure`, es. `401`, `403`, `429`, `503`) delle chiamate verso Hugging Face Serverless Inference Providers / Router e server OpenAI-compatibili.
+  - Configurazione flessibile tramite variabili d'ambiente: `RAG_LLM_LOG_DEST` (`stdout` di default per lo standard output di `gs-api`, `file` per scrivere su file rotante dedicato, `both` per entrambi, `stderr`, `off`), `RAG_LLM_LOG_FILE` (default `logs/llm_calls.log` con `RotatingFileHandler` da 5 MB), `RAG_LLM_LOG_LEVEL` (`INFO` di default), `RAG_LLM_LOG_HEADERS` (`safe`, `all`, `none`, con redazione automatica di `Authorization`, token e cookie) e `RAG_LLM_LOG_PROMPTS` (`true`/`false`).
+  - Integrata la registrazione automatica del callback in `build_dspy_lm` ([`models/rag/lm.py`](./models/rag/lm.py)) e il tracciamento degli eventi di circuit-breaker (`HF/LLM request skipped`) e di fallback (`HF/LLM fallback activated` verso Ollama o verso il motore neuro-lessicale locale) in `fill_mask_rag` ([`models/rag/inference.py`](./models/rag/inference.py)).
+  - Esposte le variabili `RAG_LLM_LOG_*` in [`docker-compose.yaml`](./docker-compose.yaml) e aggiunta la suite di test unitari [`tests/test_llm_logging.py`](./tests/test_llm_logging.py).
 - **Distinzione UI tra Lacuna Target (`*...*`) e Lacuna Contestuale (`[...]`)**:
   - Introdotta la utility [`frontend/src/app/utils/lacuna.ts`](./frontend/src/app/utils/lacuna.ts) per distinguere la lacuna che il filologo vuole integrare (`*...*` / `*---*`) dalle lacune già presenti nel contesto (`[...]` / `[---]`).
   - Le lacune contestuali vengono convertite in puntini sciolti prima dell'invio alle API, così i modelli le trattano come contesto non vincolante (UNK) e non le scambiano per il target.
