@@ -1089,6 +1089,40 @@ async def test_sublinear_dot_validation_rejection():
         )
 
 
+@pytest.mark.asyncio
+async def test_editor_markers_validation_rejection():
+    """
+    Verifica che contesti contenenti caratteri di aggiunta (<>) o rimozione ({})
+    degli editori vengano rifiutati sollevando `InvalidContextError`.
+    """
+    from backend.api.exceptions import InvalidContextError
+
+    sugg_service = SuggestionsService(
+        db_collection=MagicMock(),
+        gridfs=MagicMock(),
+        feedback_db=MagicMock(),
+    )
+    # Contesto con aggiunta dell'editore (<>)
+    bad_addition = "τὰ <κατ'> αὐτὰ [....] ὑπὲρ"
+    with pytest.raises(InvalidContextError, match="la stringa contiene carattere sconosciuti"):
+        await sugg_service.get_predictions(
+            model_id=str(ObjectId()),
+            context=bad_addition,
+            num_tokens=1,
+            num_predictions=PredictionCount.FIVE,
+        )
+
+    # Contesto con rimozione dell'editore ({})
+    bad_deletion = "τὰ {κατ'} αὐτὰ [....] ὑπὲρ"
+    with pytest.raises(InvalidContextError, match="la stringa contiene carattere sconosciuti"):
+        await sugg_service.get_predictions(
+            model_id=str(ObjectId()),
+            context=bad_deletion,
+            num_tokens=1,
+            num_predictions=PredictionCount.FIVE,
+        )
+
+
 
 
 

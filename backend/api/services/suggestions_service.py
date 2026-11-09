@@ -372,6 +372,9 @@ class SuggestionsService:
         # Rifiuta contesti contenenti punti sublineari (U+0323 combinatorio o decomposto da NFD)
         if unicodedata.normalize("NFD", context).find("\u0323") != -1:
             raise InvalidContextError("la stringa contiene carattere sconosciuti")
+        # Rifiuta caratteri che indicano aggiunte (<>) o rimozioni ({}) degli editori
+        if re.search(r"[<>{}]", context):
+            raise InvalidContextError("la stringa contiene carattere sconosciuti")
         if test_case_contains_lacuna(context) is None:
             raise InvalidContextError("Context must contain a gap indicated by `[...]`")
 

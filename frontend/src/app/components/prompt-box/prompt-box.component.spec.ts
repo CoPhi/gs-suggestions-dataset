@@ -218,6 +218,156 @@ describe('PromptBoxComponent', () => {
     expect(component.showAlert).toHaveBeenCalledWith('la stringa contiene carattere sconosciuti', 'danger');
   });
 
+  it('should reject text containing editor additions (<>) with unknownCharacters error', () => {
+    spyOn(component, 'showAlert');
+    component.form.controls['modelID'].setValue(mockBertModel._id);
+    component.curr_id.set(mockBertModel._id);
+    component.form.controls['text'].setValue('τὰ <κατ\'> αὐτὰ *...* ὑπὲρ');
+    fixture.detectChanges();
+
+    expect(component.form.controls['text'].hasError('unknownCharacters')).toBeTrue();
+    expect(component.form.valid).toBeFalse();
+
+    component.generateSuggestions();
+
+    expect(component.showAlert).toHaveBeenCalledWith('la stringa contiene carattere sconosciuti', 'danger');
+  });
+
+  it('should reject text containing editor removals ({}) with unknownCharacters error', () => {
+    spyOn(component, 'showAlert');
+    component.form.controls['modelID'].setValue(mockBertModel._id);
+    component.curr_id.set(mockBertModel._id);
+    component.form.controls['text'].setValue('τὰ {κατ\'} αὐτὰ *...* ὑπὲρ');
+    fixture.detectChanges();
+
+    expect(component.form.controls['text'].hasError('unknownCharacters')).toBeTrue();
+    expect(component.form.valid).toBeFalse();
+
+    component.generateSuggestions();
+
+    expect(component.showAlert).toHaveBeenCalledWith('la stringa contiene carattere sconosciuti', 'danger');
+  });
+
+  it('should reject text containing square brackets ([]) with unknownCharacters error', () => {
+    component.form.controls['text'].setValue('τὰ [κατ\'] αὐτὰ *...* ὑπὲρ');
+    fixture.detectChanges();
+
+    expect(component.form.controls['text'].hasError('unknownCharacters')).toBeTrue();
+    expect(component.form.valid).toBeFalse();
+  });
+
+  it('should reject text containing latin characters with unknownCharacters error', () => {
+    component.form.controls['text'].setValue('τὰ κατ\' text *...* ὑπὲρ');
+    fixture.detectChanges();
+
+    expect(component.form.controls['text'].hasError('unknownCharacters')).toBeTrue();
+    expect(component.form.valid).toBeFalse();
+  });
+
+  it('should reject text containing digits or arbitrary symbols with unknownCharacters error', () => {
+    component.form.controls['text'].setValue('τὰ 123 # *...* ὑπὲρ');
+    fixture.detectChanges();
+
+    expect(component.form.controls['text'].hasError('unknownCharacters')).toBeTrue();
+    expect(component.form.valid).toBeFalse();
+  });
+
+  it('should accept context with hyphen lacuna (*---*) and polytonic punctuation', () => {
+    spyOn(component.onGenerate, 'emit');
+    component.form.controls['modelID'].setValue(mockBertModel._id);
+    component.curr_id.set(mockBertModel._id);
+    component.form.controls['text'].setValue('«τὰ, κατ\'· αὐτὰ;» *---* ὑπὲρ.');
+    component.form.controls['num_tokens'].setValue(1);
+    component.form.controls['num_predictions'].setValue(5);
+    fixture.detectChanges();
+
+    expect(component.form.controls['text'].valid).toBeTrue();
+    expect(component.form.valid).toBeTrue();
+
+    component.generateSuggestions();
+
+    expect(component.onGenerate.emit).toHaveBeenCalledWith(jasmine.objectContaining({
+      text: '«τὰ, κατ\'· αὐτὰ;» [---] ὑπὲρ.',
+      modelID: mockBertModel._id
+    }));
+  });
+
+  it('should extract prefix characters from inside the lacuna and move them outside', () => {
+    spyOn(component.onGenerate, 'emit');
+    component.form.controls['modelID'].setValue(mockBertModel._id);
+    component.curr_id.set(mockBertModel._id);
+    component.form.controls['text'].setValue('τὰ κατ\' *α...* ὑπὲρ');
+    component.form.controls['num_tokens'].setValue(1);
+    component.form.controls['num_predictions'].setValue(5);
+    fixture.detectChanges();
+
+    expect(component.form.controls['text'].valid).toBeTrue();
+
+    component.generateSuggestions();
+
+    // Verifica che 'α' sia stato spostato prima della lacuna sia nel form sia nel payload
+    expect(component.form.controls['text'].value).toBe('τὰ κατ\' α*...* ὑπὲρ');
+    expect(component.onGenerate.emit).toHaveBeenCalledWith(jasmine.objectContaining({
+      text: 'τὰ κατ\' α[...] ὑπὲρ'
+    }));
+  });
+
+  it('should extract suffix characters from inside the lacuna and move them outside', () => {
+    spyOn(component.onGenerate, 'emit');
+    component.form.controls['modelID'].setValue(mockBertModel._id);
+    component.curr_id.set(mockBertModel._id);
+    component.form.controls['text'].setValue('τὰ κατ\' *...β* ὑπὲρ');
+    component.form.controls['num_tokens'].setValue(1);
+    component.form.controls['num_predictions'].setValue(5);
+    fixture.detectChanges();
+
+    expect(component.form.controls['text'].valid).toBeTrue();
+
+    component.generateSuggestions();
+
+    expect(component.form.controls['text'].value).toBe('τὰ κατ\' *...*β ὑπὲρ');
+    expect(component.onGenerate.emit).toHaveBeenCalledWith(jasmine.objectContaining({
+      text: 'τὰ κατ\' [...]β ὑπὲρ'
+    }));
+  });
+
+  it('should extract both prefix and suffix characters from inside the lacuna (*κα...τος*)', () => {
+    spyOn(component.onGenerate, 'emit');
+    component.form.controls['modelID'].setValue(mockBertModel._id);
+    component.curr_id.set(mockBertModel._id);
+    component.form.controls['text'].setValue('τὰ *κα...τος* ὑπὲρ');
+    component.form.controls['num_tokens'].setValue(1);
+    component.form.controls['num_predictions'].setValue(5);
+    fixture.detectChanges();
+
+    expect(component.form.controls['text'].valid).toBeTrue();
+
+    component.generateSuggestions();
+
+    expect(component.form.controls['text'].value).toBe('τὰ κα*...*τος ὑπὲρ');
+    expect(component.onGenerate.emit).toHaveBeenCalledWith(jasmine.objectContaining({
+      text: 'τὰ κα[...]τος ὑπὲρ'
+    }));
+  });
+
+  it('should move boundary characters outside on textarea blur', () => {
+    component.form.controls['text'].setValue('τὰ κατ\' *α---* ὑπὲρ');
+    component.isFocused = true;
+
+    component.handleBlur();
+
+    expect(component.isFocused).toBeFalse();
+    expect(component.form.controls['text'].value).toBe('τὰ κατ\' α*---* ὑπὲρ');
+  });
+
+  it('should reject lacuna with letters trapped in the middle of dots (*..α..*) with notMasked error', () => {
+    component.form.controls['text'].setValue('τὰ κατ\' *..α..* ὑπὲρ');
+    fixture.detectChanges();
+
+    expect(component.form.controls['text'].hasError('notMasked')).toBeTrue();
+    expect(component.form.valid).toBeFalse();
+  });
+
   it('should reject text without lacuna with notMasked error', () => {
     component.form.controls['text'].setValue('τὰ κατ\' αὐτὰ ὑπὲρ');
     fixture.detectChanges();

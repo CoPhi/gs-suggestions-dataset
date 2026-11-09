@@ -6,7 +6,7 @@
         formControlName="text" 
         rows="4"
         (focus)="isFocused = true"
-        (blur)="isFocused = false"
+        (blur)="handleBlur()"
         placeholder="Inserisci il testo con una lacuna (es: τὰς ὀφειλομένας τῇ τοῦ Ἀνθεντίου μητρὶ *...* Σισόιτος)">
     </textarea>
     
@@ -215,7 +215,7 @@
         }@else if(form.get('text')?.dirty && form.get('text')?.valid){
             <span class="text-success"><i class="bi bi-check-circle me-1"></i>Testo valido per la generazione</span>
         } @else {
-            <span>Utilizza <code>*...*</code> o <code>*---*</code> per definire la lacuna da completare.</span>
+            <span>Utilizza <code>*...*</code> o <code>*---*</code> per definire la lacuna da completare. Sono ammessi esclusivamente caratteri del greco antico.</span>
         }
     </div>
 </div>

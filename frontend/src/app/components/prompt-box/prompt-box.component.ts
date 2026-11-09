@@ -231,15 +231,53 @@ export class PromptBoxComponent {
     });
   }
 
+  // Espressione regolare per validare vincolativamente che il testo contenga SOLO:
+  // - caratteri appartenenti all'alfabeto greco antico (\p{Script=Greek}, inclusi blocchi politonici ed estesi)
+  // - diacritici combinatori greci compatibili (\u0300, \u0301, \u0304, \u0306, \u0308, \u0313, \u0314, \u0342-\u0345)
+  // - spazi e ritorni a capo (\s)
+  // - punteggiatura ed elisioni standard del greco antico (., ,, ;, :, ·, ', ’, ‘, ʼ, ᾽, ᾿, ´, `, «, », ", “, ”, -, ‐, ‑, –, —)
+  // - caratteri ammessi per rappresentare la lacuna (asterischi * e relativi punti/trattini interni)
+  // Esclude categoricamente caratteri latini, cifre numeriche, simboli arbitrari e notazioni editoriali Leiden+ come <>, {}, []
+  private readonly allowedGreekRegex = /^[\p{Script=Greek}\s*.\u002D\u2010\u2011\u2013\u2014,;:·\x27’‘ʼ᾽᾿´`«»"“”\u0300\u0301\u0304\u0306\u0308\u0313\u0314\u0342\u0343\u0344\u0345]+$/u;
+
+  /**
+   * Estrae e sposta all'esterno della lacuna eventuali caratteri alfabetici o diacritici
+   * collocati ai bordi esterni all'interno degli asterischi (es. *α...* -> α*...*, *...β* -> *...*β, *κα...τος* -> κα*...*τος).
+   * Riduce l'ampiezza della lacuna e fornisce ulteriore contesto testuale ai modelli.
+   */
+  extractBoundaryCharactersFromLacuna(rawText: string): string {
+    if (!rawText) return '';
+    const boundaryLacunaRegex = /\*\s*([\p{Script=Greek}\u0300-\u036F\x27’‘ʼ᾽᾿´`]*?)\s*(\.{1,}|-{1,})\s*([\p{Script=Greek}\u0300-\u036F\x27’‘ʼ᾽᾿´`]*?)\s*\*/gu;
+    return rawText.replace(boundaryLacunaRegex, '$1*$2*$3');
+  }
+
+  handleBlur() {
+    this.isFocused = false;
+    const current = this.form.controls['text'].value;
+    if (typeof current === 'string' && current.trim()) {
+      const normalized = this.extractBoundaryCharactersFromLacuna(current);
+      if (normalized !== current) {
+        this.form.controls['text'].setValue(normalized);
+      }
+    }
+  }
+
   isContextValid = (c: AbstractControl): ValidationErrors | null => {
-    if (!c.value || c.value.trim() === '') return { notvalid: true };
-    // Rifiuta stringhe contenenti punti sublineari (U+0323 combinatorio o decomposto da NFD)
-    if (typeof c.value === 'string' && c.value.normalize('NFD').includes('\u0323')) {
+    if (!c.value || typeof c.value !== 'string' || c.value.trim() === '') return { notvalid: true };
+    // Rifiuta esplicitamente punti sublineari (U+0323 combinatorio o decomposto da NFD)
+    if (c.value.normalize('NFD').includes('\u0323')) {
       return { unknownCharacters: true };
     }
-    // Riconosce la lacuna delimitata da asterischi (es. *...* o *---*) oppure da parentesi quadre ([...])
-    const regex = /(\*(\.{1,}|\-{1,})\*|\[(\.{1,}|\-{1,})\])/;
-    return regex.test(c.value) ? null : { notMasked: true };
+    // Controllo positivo vincolante (allowlist): verifica che la stringa contenga unicamente caratteri del greco antico,
+    // punteggiatura standard e i simboli ammessi per la lacuna (asterischi * e punti/trattini),
+    // respingendo aggiunte degli editori (<>), rimozioni ({}), parentesi quadre ([]) o caratteri non greci
+    if (!this.allowedGreekRegex.test(c.value.normalize('NFC'))) {
+      return { unknownCharacters: true };
+    }
+    // Riconosce la lacuna delimitata da asterischi (es. *...* o *---*),
+    // ammettendo anche caratteri alfabetici o diacritici greci posti ai bordi esterni della lacuna
+    const lacunaRegex = /\*\s*([\p{Script=Greek}\u0300-\u036F\x27’‘ʼ᾽᾿´`]*?)\s*(\.{1,}|-{1,})\s*([\p{Script=Greek}\u0300-\u036F\x27’‘ʼ᾽᾿´`]*?)\s*\*/u;
+    return lacunaRegex.test(c.value) ? null : { notMasked: true };
   }
 
   focusTextarea(event?: MouseEvent) {
@@ -305,11 +343,17 @@ export class PromptBoxComponent {
       return;
     }
 
-    const { text, modelID, num_tokens, num_predictions } = this.form.getRawValue();
+    const rawValue = this.form.getRawValue();
+    const rawText = rawValue.text || '';
+    const normalizedText = this.extractBoundaryCharactersFromLacuna(rawText);
+    if (normalizedText !== rawText) {
+      this.form.controls['text'].setValue(normalizedText);
+    }
+    const { modelID, num_tokens, num_predictions } = rawValue;
     const ids = this.effectiveSelectedIds();
-    // Pre-processing frontend della lacuna: converte la rappresentazione con asterischi (es. *...*)
-    // nel formato canonico dell'API ([...]) senza toccare la gestione lato backend
-    const processedText = (text || '').replace(/\*(\.{1,}|\-{1,})\*/g, '[$1]');
+    // Pre-processing frontend della lacuna: sposta fuori i caratteri alfabetici ai bordi della lacuna
+    // e converte la rappresentazione con asterischi (es. *...*) nel formato canonico dell'API ([...])
+    const processedText = normalizedText.replace(/\*(\.{1,}|-{1,})\*/g, '[$1]');
 
     const payload: {
       text: string;
