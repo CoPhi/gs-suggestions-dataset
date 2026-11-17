@@ -23,6 +23,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Aggiornati placeholder e messaggi guida in [`prompt-box.component.html`](./frontend/src/app/components/prompt-box/prompt-box.component.html).
 
 ### Changed
+- **Uniformazione della Notazione delle Lacune nella UI (Solo Puntini `...`)**:
+  - Rimossa la notazione a trattini (`*---*` / `[---]`) per le lacune in [`frontend/src/app/utils/lacuna.ts`](./frontend/src/app/utils/lacuna.ts) (`TARGET_LACUNA_REGEX`, `CONTEXT_LACUNA_REGEX`) e in [`PromptBoxComponent`](./frontend/src/app/components/prompt-box/prompt-box.component.ts) (`extractBoundaryCharactersFromLacuna`), ammettendo esclusivamente i puntini (`*...*` per la lacuna target e `[...]` per le lacune contestuali).
+  - Aggiornati i messaggi di validazione e guida in [`prompt-box.component.html`](./frontend/src/app/components/prompt-box/prompt-box.component.html) e le suite di test [`lacuna.spec.ts`](./frontend/src/app/utils/lacuna.spec.ts) e [`prompt-box.component.spec.ts`](./frontend/src/app/components/prompt-box/prompt-box.component.spec.ts).
 - La documentazione in-linea della prompt box chiarisce che `[...]` indica una lacuna contestuale non vincolante e non un errore.
 - Aggiornato [`AGENTS.md`](./AGENTS.md) con la regola dei commit sistematici e atomici per ogni implementazione completata.
 

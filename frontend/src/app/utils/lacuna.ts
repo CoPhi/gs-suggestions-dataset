@@ -2,8 +2,8 @@
  * Utility di pre-processing delle lacune per il frontend.
  *
  * Convenzione UI:
- * - `*...*` / `*---*` = lacuna target, quella che il filologo vuole integrare.
- * - `[...]` / `[---]` = lacuna contestuale, già presente nel testo e non vincolante
+ * - `*...*` = lacuna target, quella che il filologo vuole integrare.
+ * - `[...]` = lacuna contestuale, già presente nel testo e non vincolante
  *   per la generazione (non deve essere confusa con il target).
  *
  * Il backend continua a ricevere il formato canonico con una sola lacuna target
@@ -11,14 +11,14 @@
  * puntini sciolti, che i modelli trattano già come contesto non vincolante (UNK).
  */
 
-// Lacuna target digitata dall'utente: asterischi con punti/trattini interni.
+// Lacuna target digitata dall'utente: asterischi con soli punti interni (es. `*...*`).
 // Sono ammessi caratteri greci ai bordi (es. `*κα...τος*`), che vengono poi
 // spostati all'esterno da `extractBoundaryCharactersFromLacuna`.
 export const TARGET_LACUNA_REGEX =
-  /\*\s*([\p{Script=Greek}\u0300-\u036F\x27’‘ʼ᾽᾿´`]*?)\s*(\.{1,}|-{1,})\s*([\p{Script=Greek}\u0300-\u036F\x27’‘ʼ᾽᾿´`]*?)\s*\*/u;
+  /\*\s*([\p{Script=Greek}\u0300-\u036F\x27’‘ʼ᾽᾿´`]*?)\s*(\.{1,})\s*([\p{Script=Greek}\u0300-\u036F\x27’‘ʼ᾽᾿´`]*?)\s*\*/u;
 
-// Lacuna contestuale in parentesi quadre: solo punti, trattini, spazi o ellissi.
-export const CONTEXT_LACUNA_REGEX = /\[[.\-\s…×]+\]/gu;
+// Lacuna contestuale in parentesi quadre: solo punti, spazi o ellissi (es. `[...]`).
+export const CONTEXT_LACUNA_REGEX = /\[[.\s…×]+\]/gu;
 
 // Forma target globale: consente di preservare eventuali caratteri di bordo greci
 // (es. `*κα...τος*` -> `κα[...]τος`) qualora la utility venga usata senza la
@@ -26,7 +26,7 @@ export const CONTEXT_LACUNA_REGEX = /\[[.\-\s…×]+\]/gu;
 const TARGET_LACUNA_GLOBAL_REGEX = new RegExp(TARGET_LACUNA_REGEX.source, 'gu');
 
 /**
- * Converte le lacune contestuali `[...]` / `[---]` in puntini sciolti,
+ * Converte le lacune contestuali `[...]` in puntini sciolti,
  * preservando il numero di caratteri interni alla lacuna.
  */
 export function convertContextLacunaeToDots(text: string): string {
@@ -34,7 +34,7 @@ export function convertContextLacunaeToDots(text: string): string {
 }
 
 /**
- * Converte la lacuna target `*...*` / `*---*` nel formato canonico `[...]` / `[---]`
+ * Converte la lacuna target `*...*` nel formato canonico `[...]`
  * atteso dalle API.
  */
 export function convertTargetLacunaeToBrackets(text: string): string {

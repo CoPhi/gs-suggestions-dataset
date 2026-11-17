@@ -7,11 +7,19 @@ import {
 
 describe('lacuna utils', () => {
   it('should convert contextual square-bracket lacunae to loose dots', () => {
-    expect(convertContextLacunaeToDots('τὰ [...] αὐτὰ [---] ὑπὲρ')).toBe('τὰ ... αὐτὰ ... ὑπὲρ');
+    expect(convertContextLacunaeToDots('τὰ [...] αὐτὰ [....] ὑπὲρ')).toBe('τὰ ... αὐτὰ .... ὑπὲρ');
+  });
+
+  it('should not treat hyphen square-bracket lacunae as contextual lacunae', () => {
+    expect(convertContextLacunaeToDots('τὰ [---] αὐτὰ')).toBe('τὰ [---] αὐτὰ');
   });
 
   it('should convert the asterisk target lacuna to brackets', () => {
-    expect(convertTargetLacunaeToBrackets('τὰ *...* αὐτὰ *---* ὑπὲρ')).toBe('τὰ [...] αὐτὰ [---] ὑπὲρ');
+    expect(convertTargetLacunaeToBrackets('τὰ *...* αὐτὰ *....* ὑπὲρ')).toBe('τὰ [...] αὐτὰ [....] ὑπὲρ');
+  });
+
+  it('should not convert hyphen target lacunae (*---*) to brackets', () => {
+    expect(convertTargetLacunaeToBrackets('τὰ *---* αὐτὰ')).toBe('τὰ *---* αὐτὰ');
   });
 
   it('should neutralize context brackets before converting the target', () => {

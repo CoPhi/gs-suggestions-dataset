@@ -241,7 +241,7 @@ export class PromptBoxComponent {
   // - diacritici combinatori greci compatibili (\u0300, \u0301, \u0304, \u0306, \u0308, \u0313, \u0314, \u0342-\u0345)
   // - spazi e ritorni a capo (\s)
   // - punteggiatura ed elisioni standard del greco antico (., ,, ;, :, ·, ', ’, ‘, ʼ, ᾽, ᾿, ´, `, «, », ", “, ”, -, ‐, ‑, –, —)
-  // - caratteri ammessi per rappresentare la lacuna target (asterischi * e relativi punti/trattini interni)
+  // - caratteri ammessi per rappresentare la lacuna target (asterischi * e relativi punti interni)
   // Le parentesi quadre non sono incluse nell'allowlist: le lacune contestuali valide
   // vengono rimosse prima della validazione tramite `stripContextLacunae`.
   // Esclude categoricamente caratteri latini, cifre numeriche, simboli arbitrari e notazioni editoriali Leiden+ come <>, {}, []
@@ -254,7 +254,8 @@ export class PromptBoxComponent {
    */
   extractBoundaryCharactersFromLacuna(rawText: string): string {
     if (!rawText) return '';
-    const boundaryLacunaRegex = /\*\s*([\p{Script=Greek}\u0300-\u036F\x27’‘ʼ᾽᾿´`]*?)\s*(\.{1,}|-{1,})\s*([\p{Script=Greek}\u0300-\u036F\x27’‘ʼ᾽᾿´`]*?)\s*\*/gu;
+    // Riutilizza TARGET_LACUNA_REGEX con flag globale per evitare duplicazioni nella definizione del pattern della lacuna.
+    const boundaryLacunaRegex = new RegExp(TARGET_LACUNA_REGEX.source, 'gu');
     return rawText.replace(boundaryLacunaRegex, '$1*$2*$3');
   }
 
@@ -276,13 +277,13 @@ export class PromptBoxComponent {
       return { unknownCharacters: true };
     }
     // Controllo positivo vincolante (allowlist): verifica che la stringa contenga unicamente caratteri del greco antico,
-    // punteggiatura standard e i simboli ammessi per la lacuna target (asterischi * e punti/trattini).
-    // Le lacune contestuali `[...]` / `[---]` sono ammesse e vengono ignorate in questa fase.
+    // punteggiatura standard e i simboli ammessi per la lacuna target (asterischi * e punti).
+    // Le lacune contestuali `[...]` sono ammesse e vengono ignorate in questa fase.
     const textWithoutContextLacunae = stripContextLacunae(c.value.normalize('NFC'));
     if (!this.allowedGreekRegex.test(textWithoutContextLacunae)) {
       return { unknownCharacters: true };
     }
-    // Riconosce la lacuna target delimitata da asterischi (es. *...* o *---*),
+    // Riconosce la lacuna target delimitata da asterischi (es. *...*),
     // ammettendo anche caratteri alfabetici o diacritici greci posti ai bordi esterni della lacuna.
     // Le sole lacune contestuali in parentesi quadre non sono sufficienti: serve un target.
     return TARGET_LACUNA_REGEX.test(c.value) ? null : { notMasked: true };

@@ -270,23 +270,12 @@ describe('PromptBoxComponent', () => {
     }));
   });
 
-  it('should accept contextual hyphen lacuna and keep the asterisk target distinct', () => {
-    spyOn(component.onGenerate, 'emit');
-    component.form.controls['modelID'].setValue(mockBertModel._id);
-    component.curr_id.set(mockBertModel._id);
-    component.form.controls['text'].setValue('τὰ [---] αὐτὰ *---* ὑπὲρ');
-    component.form.controls['num_tokens'].setValue(1);
-    component.form.controls['num_predictions'].setValue(5);
+  it('should reject contextual hyphen lacuna ([---]) with unknownCharacters error', () => {
+    component.form.controls['text'].setValue('τὰ [---] αὐτὰ *...* ὑπὲρ');
     fixture.detectChanges();
 
-    expect(component.form.controls['text'].valid).toBeTrue();
-
-    component.generateSuggestions();
-
-    expect(component.onGenerate.emit).toHaveBeenCalledWith(jasmine.objectContaining({
-      text: 'τὰ ... αὐτὰ [---] ὑπὲρ',
-      modelID: mockBertModel._id
-    }));
+    expect(component.form.controls['text'].hasError('unknownCharacters')).toBeTrue();
+    expect(component.form.valid).toBeFalse();
   });
 
   it('should reject text with only contextual square-bracket lacuna and no target', () => {
@@ -321,24 +310,12 @@ describe('PromptBoxComponent', () => {
     expect(component.form.valid).toBeFalse();
   });
 
-  it('should accept context with hyphen lacuna (*---*) and polytonic punctuation', () => {
-    spyOn(component.onGenerate, 'emit');
-    component.form.controls['modelID'].setValue(mockBertModel._id);
-    component.curr_id.set(mockBertModel._id);
+  it('should reject hyphen target lacuna (*---*) with notMasked error', () => {
     component.form.controls['text'].setValue('«τὰ, κατ\'· αὐτὰ;» *---* ὑπὲρ.');
-    component.form.controls['num_tokens'].setValue(1);
-    component.form.controls['num_predictions'].setValue(5);
     fixture.detectChanges();
 
-    expect(component.form.controls['text'].valid).toBeTrue();
-    expect(component.form.valid).toBeTrue();
-
-    component.generateSuggestions();
-
-    expect(component.onGenerate.emit).toHaveBeenCalledWith(jasmine.objectContaining({
-      text: '«τὰ, κατ\'· αὐτὰ;» [---] ὑπὲρ.',
-      modelID: mockBertModel._id
-    }));
+    expect(component.form.controls['text'].hasError('notMasked')).toBeTrue();
+    expect(component.form.valid).toBeFalse();
   });
 
   it('should extract prefix characters from inside the lacuna and move them outside', () => {
@@ -400,13 +377,13 @@ describe('PromptBoxComponent', () => {
   });
 
   it('should move boundary characters outside on textarea blur', () => {
-    component.form.controls['text'].setValue('τὰ κατ\' *α---* ὑπὲρ');
+    component.form.controls['text'].setValue('τὰ κατ\' *α...* ὑπὲρ');
     component.isFocused = true;
 
     component.handleBlur();
 
     expect(component.isFocused).toBeFalse();
-    expect(component.form.controls['text'].value).toBe('τὰ κατ\' α*---* ὑπὲρ');
+    expect(component.form.controls['text'].value).toBe('τὰ κατ\' α*...* ὑπὲρ');
   });
 
   it('should reject lacuna with letters trapped in the middle of dots (*..α..*) with notMasked error', () => {
