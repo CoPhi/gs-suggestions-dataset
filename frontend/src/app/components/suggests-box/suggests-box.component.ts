@@ -43,8 +43,16 @@ export class SuggestsBoxComponent {
   onlyAttested = signal<boolean>(true);
   humanFeedback = signal<string>('');
   rejectedCandidates = signal<string[]>([]);
+  // Mappa dei feedback già registrati sui suggerimenti correnti per mantenerne il blocco anche al cambio filtro
+  submittedFeedback = signal<Record<string, 'accepted' | 'rejected'>>({});
 
   constructor() {
+    // Azzera lo stato dei feedback registrati quando viene caricato un nuovo set di suggerimenti
+    effect(() => {
+      this.suggestions();
+      this.submittedFeedback.set({});
+    });
+
     // Riallinea i segnali locali con i vincoli della sessione corrente quando il componente
     // viene ricreato al termine di una chiamata di raffinamento
     effect(() => {
@@ -174,6 +182,11 @@ export class SuggestsBoxComponent {
    * 3. Propaga l'evento arricchito al componente padre per la persistenza su MongoDB (Fase 1 e RLHF).
    */
   handleSuggestionFeedback(event: SuggestionFeedbackEvent) {
+    this.submittedFeedback.update(prev => ({
+      ...prev,
+      [event.token_str]: event.is_accepted ? 'accepted' : 'rejected'
+    }));
+
     if (!event.is_accepted) {
       this.rejectedCandidates.update(list =>
         list.includes(event.token_str) ? list : [...list, event.token_str]

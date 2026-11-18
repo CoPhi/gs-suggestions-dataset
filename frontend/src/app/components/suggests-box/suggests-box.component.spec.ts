@@ -376,4 +376,47 @@ describe('SuggestsBoxComponent', () => {
     expect(component.onlyAttested()).toBeTrue();
     expect(compiled.querySelectorAll('app-suggest').length).toBe(1);
   });
+
+  it('should keep feedback buttons locked on reviewed suggestion across filter toggles', () => {
+    fixture.componentRef.setInput('suggestions', [
+      {
+        token_str: 'κακον',
+        sentence: 'κακον',
+        score: 0.45,
+        tlg_attested: false
+      },
+      {
+        token_str: 'λῆτα',
+        sentence: 'τειχεσιβλῆτα',
+        score: 0.95,
+        tlg_attested: true
+      }
+    ]);
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    const toggleBtn = compiled.querySelector('.attested-filter-toggle-btn') as HTMLButtonElement;
+    // Mostra anche il suggerimento non attestato (indice 0 nella lista completa)
+    toggleBtn.click();
+    fixture.detectChanges();
+
+    const cards = compiled.querySelectorAll('app-suggest');
+    expect(cards.length).toBe(2);
+    const acceptBtnFirst = cards[0].querySelector('.feedback-accept-btn') as HTMLButtonElement;
+    acceptBtnFirst.click();
+    fixture.detectChanges();
+
+    expect(component.submittedFeedback()['κακον']).toBe('accepted');
+    expect(cards[0].querySelector('.feedback-accept-btn')).toBeNull();
+
+    // Attiva e disattiva il filtro: la card recensita resta bloccata
+    toggleBtn.click();
+    fixture.detectChanges();
+    toggleBtn.click();
+    fixture.detectChanges();
+
+    const cardsAfter = compiled.querySelectorAll('app-suggest');
+    expect(cardsAfter[0].querySelector('.feedback-accept-btn')).toBeNull();
+    expect(cardsAfter[0].querySelector('.feedback-status-badge')).toBeTruthy();
+  });
 });

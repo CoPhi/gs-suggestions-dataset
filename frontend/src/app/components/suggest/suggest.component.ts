@@ -1,4 +1,4 @@
-import { Component, computed, input, output, signal } from '@angular/core';
+import { Component, computed, DestroyRef, effect, inject, input, output, signal } from '@angular/core';
 import { AlternativeCandidateInterface, CorpusAttestationInterface, SuggestionInterface } from '../../services/api.service';
 import { Clipboard } from '@angular/cdk/clipboard';
 
@@ -162,6 +162,8 @@ export class SuggestComponent {
   suggest = input.required<SuggestionInterface>();
   // Ragionamento CoT di 1° livello condiviso a livello di risposta RAG (usato come fallback)
   philologicalReasoning = input<string | null>(null);
+  // Stato feedback persistito dal contenitore padre per evitare ri-invii al cambio filtro/render
+  initialFeedbackStatus = input<'accepted' | 'rejected' | null>(null);
   // Emette al contenitore padre la scelta del filologo (validazione o scarto del supplemento)
   onFeedback = output<SuggestionFeedbackEvent>();
 
@@ -221,10 +223,30 @@ export class SuggestComponent {
 
   // Stato locale della card per evidenziare visivamente se il supplemento è stato validato o scartato
   feedbackStatus = signal<'accepted' | 'rejected' | null>(null);
+  // Messaggio temporaneo di ringraziamento mostrato al posto dei bottoni dopo l'invio del feedback
+  showThankYou = signal<boolean>(false);
   // Pannello CoT e attestazioni del corpus chiuso di default e consultabile su richiesta dall'utente finale
   showCotDetails = signal<boolean>(false);
 
-  constructor(private clipboard: Clipboard) { }
+  private destroyRef = inject(DestroyRef);
+  private thankYouTimer: ReturnType<typeof setTimeout> | null = null;
+
+  constructor(private clipboard: Clipboard) {
+    effect(() => {
+      const persisted = this.initialFeedbackStatus();
+      this.feedbackStatus.set(persisted);
+      if (persisted === null) {
+        this.showThankYou.set(false);
+      }
+    });
+
+    this.destroyRef.onDestroy(() => {
+      if (this.thankYouTimer !== null) {
+        clearTimeout(this.thankYouTimer);
+        this.thankYouTimer = null;
+      }
+    });
+  }
 
   toggleCotDetails() {
     this.showCotDetails.update(v => !v);
@@ -252,7 +274,20 @@ export class SuggestComponent {
   }
 
   markFeedback(isAccepted: boolean) {
+    // Impedisce invii multipli o contraddittori sullo stesso suggerimento già recensito
+    if (this.feedbackStatus() !== null) {
+      return;
+    }
     this.feedbackStatus.set(isAccepted ? 'accepted' : 'rejected');
+    this.showThankYou.set(true);
+    if (this.thankYouTimer !== null) {
+      clearTimeout(this.thankYouTimer);
+    }
+    this.thankYouTimer = setTimeout(() => {
+      this.showThankYou.set(false);
+      this.thankYouTimer = null;
+    }, 3000);
+
     this.onFeedback.emit({
       token_str: this.token(),
       sentence: this.sentence(),

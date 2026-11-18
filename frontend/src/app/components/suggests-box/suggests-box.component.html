@@ -199,6 +199,7 @@
                 @for (suggest of visibleSuggestions(); track $index) {
                 <app-suggest [suggest]="suggest"
                              [philologicalReasoning]="philologicalReasoning()"
+                             [initialFeedbackStatus]="submittedFeedback()[suggest.token_str] ?? null"
                              (onFeedback)="handleSuggestionFeedback($event)" />
                 }
             </div>

@@ -1,4 +1,4 @@
-import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { ComponentFixture, fakeAsync, TestBed, tick } from '@angular/core/testing';
 
 import { SuggestComponent } from './suggest.component';
 
@@ -26,8 +26,8 @@ describe('SuggestComponent', () => {
     expect(component).toBeTruthy();
   });
 
-  it('should emit onFeedback and update feedbackStatus when accept or reject buttons are clicked', () => {
-    spyOn(component.onFeedback, 'emit');
+  it('should emit onFeedback once, hide feedback buttons, and auto-hide thank-you message on accept', fakeAsync(() => {
+    const emitSpy = spyOn(component.onFeedback, 'emit');
     const compiled = fixture.nativeElement as HTMLElement;
 
     const acceptBtn = compiled.querySelector('.feedback-accept-btn') as HTMLButtonElement;
@@ -37,8 +37,10 @@ describe('SuggestComponent', () => {
 
     acceptBtn.click();
     fixture.detectChanges();
+
     expect(component.feedbackStatus()).toBe('accepted');
-    expect(component.onFeedback.emit).toHaveBeenCalledWith(jasmine.objectContaining({
+    expect(emitSpy).toHaveBeenCalledTimes(1);
+    expect(emitSpy).toHaveBeenCalledWith(jasmine.objectContaining({
       token_str: 'test',
       sentence: 'foo [test] bar',
       is_accepted: true,
@@ -47,10 +49,37 @@ describe('SuggestComponent', () => {
       tlg_attested: false
     }));
 
+    // I pulsanti scompaiono subito e al loro posto appare il ringraziamento minimale
+    expect(compiled.querySelector('.feedback-accept-btn')).toBeNull();
+    expect(compiled.querySelector('.feedback-reject-btn')).toBeNull();
+    expect(compiled.querySelector('.feedback-thankyou-msg')?.textContent).toContain('Grazie, feedback registrato');
+    expect(compiled.querySelector('.feedback-status-badge')).toBeTruthy();
+
+    // Eventuali chiamate successive non inviano ulteriori feedback
+    component.markFeedback(false);
+    expect(component.feedbackStatus()).toBe('accepted');
+    expect(emitSpy).toHaveBeenCalledTimes(1);
+
+    // Dopo 3 secondi la scritta temporanea scompare lasciando solo il badge di stato
+    tick(3000);
+    fixture.detectChanges();
+    expect(compiled.querySelector('.feedback-thankyou-msg')).toBeNull();
+    expect(compiled.querySelector('.feedback-status-badge')).toBeTruthy();
+  }));
+
+  it('should emit onFeedback once and hide feedback buttons on reject', fakeAsync(() => {
+    const emitSpy = spyOn(component.onFeedback, 'emit');
+    const compiled = fixture.nativeElement as HTMLElement;
+
+    const rejectBtn = compiled.querySelector('.feedback-reject-btn') as HTMLButtonElement;
+    expect(rejectBtn).toBeTruthy();
+
     rejectBtn.click();
     fixture.detectChanges();
+
     expect(component.feedbackStatus()).toBe('rejected');
-    expect(component.onFeedback.emit).toHaveBeenCalledWith(jasmine.objectContaining({
+    expect(emitSpy).toHaveBeenCalledTimes(1);
+    expect(emitSpy).toHaveBeenCalledWith(jasmine.objectContaining({
       token_str: 'test',
       sentence: 'foo [test] bar',
       is_accepted: false,
@@ -58,7 +87,14 @@ describe('SuggestComponent', () => {
       reconstructed_word: 'test',
       tlg_attested: false
     }));
-  });
+    expect(compiled.querySelector('.feedback-accept-btn')).toBeNull();
+    expect(compiled.querySelector('.feedback-reject-btn')).toBeNull();
+    expect(compiled.querySelector('.feedback-thankyou-msg')).toBeTruthy();
+
+    tick(3000);
+    fixture.detectChanges();
+    expect(compiled.querySelector('.feedback-thankyou-msg')).toBeNull();
+  }));
 
   it('should render the "tlg" badge with reconstructed word tooltip when tlg_attested is true', () => {
     const compiled = fixture.nativeElement as HTMLElement;

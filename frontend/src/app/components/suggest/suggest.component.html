@@ -47,24 +47,26 @@
                         <i class="bi bi-journal-text me-1"></i>CoT{{ attestations().length > 0 ? ' & Corpus (' + attestations().length + ')' : '' }}
                     </button>
                 }
-                <button type="button"
-                        class="btn btn-sm feedback-accept-btn"
-                        [class.btn-success]="feedbackStatus() === 'accepted'"
-                        [class.btn-outline-success]="feedbackStatus() !== 'accepted'"
-                        (click)="markFeedback(true)"
-                        title="Valida supplemento"
-                        aria-label="Valida supplemento">
-                    <i class="bi bi-hand-thumbs-up"></i>
-                </button>
-                <button type="button"
-                        class="btn btn-sm feedback-reject-btn"
-                        [class.btn-danger]="feedbackStatus() === 'rejected'"
-                        [class.btn-outline-danger]="feedbackStatus() !== 'rejected'"
-                        (click)="markFeedback(false)"
-                        title="Scarta supplemento"
-                        aria-label="Scarta supplemento">
-                    <i class="bi bi-hand-thumbs-down"></i>
-                </button>
+                @if (feedbackStatus() === null) {
+                    <button type="button"
+                            class="btn btn-sm btn-outline-success feedback-accept-btn"
+                            (click)="markFeedback(true)"
+                            title="Valida supplemento"
+                            aria-label="Valida supplemento">
+                        <i class="bi bi-hand-thumbs-up"></i>
+                    </button>
+                    <button type="button"
+                            class="btn btn-sm btn-outline-danger feedback-reject-btn"
+                            (click)="markFeedback(false)"
+                            title="Scarta supplemento"
+                            aria-label="Scarta supplemento">
+                        <i class="bi bi-hand-thumbs-down"></i>
+                    </button>
+                } @else if (showThankYou()) {
+                    <span class="small text-muted px-2 feedback-thankyou-msg" role="status">
+                        <i class="bi bi-check2 text-success me-1"></i>Grazie, feedback registrato
+                    </span>
+                }
                 <button type="button"
                         class="btn btn-sm btn-outline-secondary copy-btn"
                         (click)="copyToClipboard()"
