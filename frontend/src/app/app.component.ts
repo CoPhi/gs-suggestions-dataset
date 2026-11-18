@@ -7,7 +7,7 @@ import { NotificationService } from './services/notification.service';
 import { PromptBoxComponent } from './components/prompt-box/prompt-box.component';
 import { normalizeLacunaeForApi } from './utils/lacuna';
 
-import { catchError, forkJoin, map, Observable, of, Subscription } from 'rxjs';
+import { catchError, map, Observable, of, Subscription } from 'rxjs';
 
 export interface ModelSuggestionBoxItem {
   modelId: string;
@@ -17,6 +17,7 @@ export interface ModelSuggestionBoxItem {
   use_rag?: boolean | null;
   suggestions: SuggestionInterface[];
   error?: string | null;
+  pending?: boolean;
 }
 
 @Component({
@@ -100,7 +101,35 @@ export class AppComponent {
   });
 
   isGenerating = signal<boolean>(false);
+  // Sblocca la vista di confronto prima del completamento dell'intera barriera multi-modello
+  earlyConsultationUnlocked = signal<boolean>(false);
   private currentRequestSubscription: Subscription | null = null;
+  // Traccia le sottoscrizioni per ciascun modello in parallelo per consentire lo scarto selettivo dei modelli lenti
+  private pendingModelSubscriptions = new Map<string, Subscription>();
+
+  // Modelli del confronto corrente che hanno già restituito almeno un candidato valido
+  readyComparisonBoxesWithCandidates = computed<ModelSuggestionBoxItem[]>(() =>
+    (this.modelSuggestionBoxes() || []).filter(b => !b.pending && b.suggestions.length > 0)
+  );
+
+  hasPendingComparisonBoxes = computed<boolean>(() =>
+    (this.modelSuggestionBoxes() || []).some(b => !!b.pending)
+  );
+
+  // Mostra il banner "Consulta" finché almeno un modello ha candidati pronti e almeno un altro è in attesa sulla barriera
+  showEarlyConsultBanner = computed<boolean>(() =>
+    this.isGenerating() &&
+    (this.modelSuggestionBoxes()?.length || 0) > 1 &&
+    !this.earlyConsultationUnlocked() &&
+    this.hasPendingComparisonBoxes() &&
+    this.readyComparisonBoxesWithCandidates().length > 0
+  );
+
+  showMultiModelComparison = computed<boolean>(() =>
+    this.modelSuggestionBoxes() !== null &&
+    this.modelSuggestionBoxes()!.length > 1 &&
+    (!this.isGenerating() || this.earlyConsultationUnlocked())
+  );
 
   resolveModelCheckpoint(modelId: string): string | null {
     const m = this.models().find(item => item._id === modelId);
@@ -146,11 +175,25 @@ export class AppComponent {
     this.notifications.showAlert(message, type);
   }
 
-  closeSuggestions() {
+  openEarlyConsultation() {
+    this.earlyConsultationUnlocked.set(true);
+  }
+
+  private cancelAllRequests() {
     if (this.currentRequestSubscription) {
       this.currentRequestSubscription.unsubscribe();
       this.currentRequestSubscription = null;
     }
+    for (const sub of this.pendingModelSubscriptions.values()) {
+      sub.unsubscribe();
+    }
+    this.pendingModelSubscriptions.clear();
+  }
+
+  closeSuggestions() {
+    this.cancelAllRequests();
+    this.isGenerating.set(false);
+    this.earlyConsultationUnlocked.set(false);
     this.suggestions.set(null);
     this.modelSuggestionBoxes.set(null);
     this.sessionHumanFeedback.set('');
@@ -158,6 +201,13 @@ export class AppComponent {
   }
 
   closeModelBox(modelId: string) {
+    // Interrompe l'eventuale richiesta ancora in corso per la colonna ignorata dall'utente
+    const pendingSub = this.pendingModelSubscriptions.get(modelId);
+    if (pendingSub) {
+      pendingSub.unsubscribe();
+      this.pendingModelSubscriptions.delete(modelId);
+    }
+
     const current = this.modelSuggestionBoxes();
     if (!current) {
       this.closeSuggestions();
@@ -168,7 +218,14 @@ export class AppComponent {
       this.closeSuggestions();
     } else {
       this.modelSuggestionBoxes.set(remaining);
-      this.suggestions.set(remaining[0].suggestions);
+      // Se rimangono solo colonne già completate, chiude lo stato di attesa globale della barriera
+      if (!remaining.some(b => !!b.pending)) {
+        this.isGenerating.set(false);
+        this.suggestions.set(remaining[0].suggestions);
+      } else {
+        const firstReady = remaining.find(b => !b.pending);
+        this.suggestions.set(firstReady ? firstReady.suggestions : remaining[0].suggestions);
+      }
     }
   }
 
@@ -183,10 +240,8 @@ export class AppComponent {
     },
     hitlOptions?: HitlRefinementOptions
   ) {
-    if (this.currentRequestSubscription) {
-      this.currentRequestSubscription.unsubscribe();
-      this.currentRequestSubscription = null;
-    }
+    this.cancelAllRequests();
+    this.earlyConsultationUnlocked.set(false);
     // Se è una nuova richiesta dal PromptBox (senza hitlOptions), azzera i vincoli di sessione precedenti
     if (!hitlOptions) {
       this.sessionHumanFeedback.set('');
@@ -210,14 +265,29 @@ export class AppComponent {
       ? Array.from(new Set(modelIDs))
       : [modelID];
 
-    // Caso multi-modello: lancia le richieste in parallelo e attende sulla barriera (forkJoin)
-    // che tutti i modelli consultati abbiano risposto prima di esporre le suggestion box orizzontali.
+    // Caso multi-modello: inizializza le colonne nell'ordine richiesto in stato pending e
+    // aggiorna progressivamente ciascuna colonna man mano che il relativo modello termina,
+    // consentendo la consultazione anticipata nell'attesa che la barriera si risolva.
     if (targetIds.length > 1) {
-      const parallelRequests: Observable<ModelSuggestionBoxItem>[] = targetIds.map(id => {
+      const initialBoxes: ModelSuggestionBoxItem[] = targetIds.map(id => ({
+        modelId: id,
+        modelLabel: this.resolveModelLabel(id, use_rag),
+        modelType: this.resolveModelTypeBadge(id, use_rag),
+        checkpoint: this.resolveModelCheckpoint(id),
+        use_rag: use_rag,
+        suggestions: [],
+        error: null,
+        pending: true
+      }));
+      this.modelSuggestionBoxes.set(initialBoxes);
+      this.suggestions.set(null);
+
+      for (const id of targetIds) {
         const req$ = mergedOptions
           ? this.api.generateSuggestion(id, text, num_tokens, num_predictions, mergedOptions)
           : this.api.generateSuggestion(id, text, num_tokens, num_predictions);
-        return req$.pipe(
+
+        const sub = req$.pipe(
           map((preds): ModelSuggestionBoxItem => ({
             modelId: id,
             modelLabel: this.resolveModelLabel(id, use_rag),
@@ -225,7 +295,8 @@ export class AppComponent {
             checkpoint: this.resolveModelCheckpoint(id),
             use_rag: use_rag,
             suggestions: preds || [],
-            error: null
+            error: null,
+            pending: false
           })),
           catchError((err): Observable<ModelSuggestionBoxItem> => of({
             modelId: id,
@@ -234,32 +305,52 @@ export class AppComponent {
             checkpoint: this.resolveModelCheckpoint(id),
             use_rag: use_rag,
             suggestions: [],
-            error: err?.message || 'Errore durante la consultazione del modello'
+            error: err?.message || 'Errore durante la consultazione del modello',
+            pending: false
           }))
-        );
-      });
+        ).subscribe({
+          next: (resolvedItem) => {
+            this.pendingModelSubscriptions.delete(id);
+            this.modelSuggestionBoxes.update(prev =>
+              prev ? prev.map(b => (b.modelId === id ? resolvedItem : b)) : prev
+            );
+            const currentBoxes = this.modelSuggestionBoxes();
+            if (!currentBoxes) {
+              return;
+            }
+            const firstReady = currentBoxes.find(b => !b.pending);
+            if (firstReady) {
+              this.suggestions.set(firstReady.suggestions || []);
+            }
+            // Barriera risolta: tutti i modelli attivi nel confronto hanno risposto
+            if (!currentBoxes.some(b => !!b.pending)) {
+              this.isGenerating.set(false);
+              this.suggestions.set(currentBoxes[0]?.suggestions || []);
+              const totalPreds = currentBoxes.reduce((acc, b) => acc + (b.suggestions?.length || 0), 0);
+              this.notifications.showSuccess(
+                `Confronto pronto! Ricevute ${totalPreds} predizioni complessive da ${currentBoxes.length} modelli.`
+              );
+              this.notifications.showLocalNotification();
+            }
+          },
+          error: () => {
+            this.pendingModelSubscriptions.delete(id);
+          },
+          complete: () => {
+            this.pendingModelSubscriptions.delete(id);
+          }
+        });
 
-      this.currentRequestSubscription = forkJoin(parallelRequests).subscribe({
-        next: (boxes) => {
-          this.modelSuggestionBoxes.set(boxes);
-          this.suggestions.set(boxes[0]?.suggestions || []);
-          this.isGenerating.set(false);
-          const totalPreds = boxes.reduce((acc, b) => acc + (b.suggestions?.length || 0), 0);
-          this.notifications.showSuccess(
-            `Confronto pronto! Ricevute ${totalPreds} predizioni complessive da ${boxes.length} modelli.`
-          );
-          this.notifications.showLocalNotification();
-        },
-        error: () => {
-          this.notifications.showDanger('Errore durante la generazione parallela dei suggerimenti');
-          this.isGenerating.set(false);
-        },
-        complete: () => {
-          this.isGenerating.set(false);
+        // Evita di registrare sottoscrizioni già concluse in caso di Observable sincroni
+        if (!sub.closed) {
+          this.pendingModelSubscriptions.set(id, sub);
         }
-      });
+      }
       return;
     }
+
+    this.modelSuggestionBoxes.set(null);
+    this.suggestions.set(null);
 
     const request$ = mergedOptions
       ? this.api.generateSuggestion(modelID, text, num_tokens, num_predictions, mergedOptions)

@@ -12,3 +12,34 @@
     max-width: 90vw;
     scroll-snap-align: start;
 }
+
+.early-consult-section {
+    border-color: #dbeafe !important;
+    background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+    animation: fadeInConsult 0.2s ease-out;
+}
+
+.early-consult-btn {
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.early-consult-btn:hover {
+    transform: translateY(-1px);
+}
+
+.model-pending-placeholder-card {
+    border: 1px dashed #cbd5e1 !important;
+    background-color: #fbfcfe;
+    min-height: 280px;
+}
+
+@keyframes fadeInConsult {
+    from {
+        opacity: 0;
+        transform: translateY(6px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
