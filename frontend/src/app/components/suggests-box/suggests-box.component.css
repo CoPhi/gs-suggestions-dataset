@@ -106,3 +106,13 @@
     font-size: 0.92rem;
 }
 
+.unattested-empty-state {
+    background-color: #fffbeb;
+    border: 1px solid #fde68a;
+}
+
+.unattested-footer-notice {
+    background-color: #fff7ed;
+    border: 1px dashed #fed7aa;
+}
+

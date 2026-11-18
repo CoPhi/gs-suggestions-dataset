@@ -249,4 +249,131 @@ describe('SuggestsBoxComponent', () => {
       ]
     }));
   });
+
+  it('should enable onlyAttested mode by default and filter out unattested AI conjectures', () => {
+    expect(component.onlyAttested()).toBeTrue();
+
+    fixture.componentRef.setInput('suggestions', [
+      {
+        token_str: 'λῆτα',
+        sentence: 'Ἆρες Ἆρες βροτολοιγὲ μιαιφόνε τειχεσιβλῆτα',
+        score: 0.95,
+        tlg_attested: true
+      },
+      {
+        token_str: 'βλητα',
+        sentence: 'Ἆρες Ἆρες βροτολοιγὲ μιαιφόνε τειχεσιβλητα',
+        score: 0.85,
+        tlg_attested: false,
+        attestations: [
+          {
+            corpus_id: 'DCLP',
+            source_id: 'P. Bagnall. 13',
+            attested_form: 'τειχεσιβλῆτα',
+            passage: 'Ἆρες Ἆρες βροτολοιγὲ μιαιφόνε τειχεσιβλῆτα',
+            doc_freq: 1,
+            source_type: 'retrieved_passage'
+          }
+        ]
+      },
+      {
+        token_str: 'κακον',
+        sentence: 'Ἆρες Ἆρες βροτολοιγὲ μιαιφόνε κακον',
+        score: 0.65,
+        tlg_attested: false,
+        attestations: []
+      }
+    ]);
+    fixture.detectChanges();
+
+    expect(component.visibleSuggestions().length).toBe(2);
+    expect(component.hiddenUnattestedCount()).toBe(1);
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    expect(compiled.querySelectorAll('app-suggest').length).toBe(2);
+    expect(compiled.querySelector('.predictions-count-badge')?.textContent).toContain('2/3 attestate');
+    expect(compiled.querySelector('.hidden-ai-count-badge')?.textContent?.trim()).toBe('-1');
+
+    const footerNotice = compiled.querySelector('.unattested-footer-notice') as HTMLElement;
+    expect(footerNotice).toBeTruthy();
+    expect(footerNotice.textContent).toContain('1 congettura AI non attestata nascosta');
+
+    // Il click sul bottone nel footer mostra tutte le predizioni comprese le congetture AI
+    const showFooterBtn = compiled.querySelector('.show-unattested-footer-btn') as HTMLButtonElement;
+    showFooterBtn.click();
+    fixture.detectChanges();
+
+    expect(component.onlyAttested()).toBeFalse();
+    expect(compiled.querySelectorAll('app-suggest').length).toBe(3);
+    expect(compiled.querySelector('.unattested-footer-notice')).toBeNull();
+  });
+
+  it('should show dedicated empty-state when all suggestions are unattested and allow revealing AI conjectures', () => {
+    fixture.componentRef.setInput('suggestions', [
+      {
+        token_str: 'αβγ',
+        sentence: 'τεστ αβγ',
+        score: 0.71,
+        tlg_attested: false,
+        attestations: []
+      },
+      {
+        token_str: 'δεζ',
+        sentence: 'τεστ δεζ',
+        score: 0.52,
+        tlg_attested: false
+      }
+    ]);
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    expect(compiled.querySelectorAll('app-suggest').length).toBe(0);
+
+    const emptyState = compiled.querySelector('.unattested-empty-state') as HTMLElement;
+    expect(emptyState).toBeTruthy();
+    expect(emptyState.textContent).toContain('Nessun suggerimento attestato nel TLG o nei corpora del retriever');
+
+    const showAllBtn = compiled.querySelector('.show-all-ai-btn') as HTMLButtonElement;
+    expect(showAllBtn).toBeTruthy();
+    showAllBtn.click();
+    fixture.detectChanges();
+
+    expect(component.onlyAttested()).toBeFalse();
+    expect(compiled.querySelector('.unattested-empty-state')).toBeNull();
+    expect(compiled.querySelectorAll('app-suggest').length).toBe(2);
+  });
+
+  it('should toggle onlyAttested filter via the header button', () => {
+    fixture.componentRef.setInput('suggestions', [
+      {
+        token_str: 'λῆτα',
+        sentence: 'τειχεσιβλῆτα',
+        score: 0.95,
+        tlg_attested: true
+      },
+      {
+        token_str: 'κακον',
+        sentence: 'κακον',
+        score: 0.45,
+        tlg_attested: false
+      }
+    ]);
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    const toggleBtn = compiled.querySelector('.attested-filter-toggle-btn') as HTMLButtonElement;
+    expect(toggleBtn).toBeTruthy();
+    expect(component.onlyAttested()).toBeTrue();
+    expect(compiled.querySelectorAll('app-suggest').length).toBe(1);
+
+    toggleBtn.click();
+    fixture.detectChanges();
+    expect(component.onlyAttested()).toBeFalse();
+    expect(compiled.querySelectorAll('app-suggest').length).toBe(2);
+
+    toggleBtn.click();
+    fixture.detectChanges();
+    expect(component.onlyAttested()).toBeTrue();
+    expect(compiled.querySelectorAll('app-suggest').length).toBe(1);
+  });
 });

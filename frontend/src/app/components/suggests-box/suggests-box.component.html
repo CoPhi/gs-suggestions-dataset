@@ -14,11 +14,31 @@
                 </span>
             }
         </div>
-        <div class="d-flex align-items-center gap-2">
-            <span class="badge bg-light text-dark fw-semibold rounded-pill px-3 py-2">
+        <div class="d-flex align-items-center flex-wrap gap-2">
+            <span class="badge bg-light text-dark fw-semibold rounded-pill px-3 py-2 predictions-count-badge">
                 <i class="bi bi-check2-circle text-success me-1"></i>
-                {{ suggestions().length }} {{ suggestions().length === 1 ? 'predizione pronta' : 'predizioni pronte' }}
+                @if (onlyAttested() && hiddenUnattestedCount() > 0) {
+                    {{ visibleSuggestions().length }}/{{ suggestions().length }} {{ visibleSuggestions().length === 1 ? 'attestata' : 'attestate' }}
+                } @else {
+                    {{ suggestions().length }} {{ suggestions().length === 1 ? 'predizione pronta' : 'predizioni pronte' }}
+                }
             </span>
+            <button type="button"
+                    class="btn btn-sm rounded-pill d-flex align-items-center gap-1 px-2 py-1 attested-filter-toggle-btn"
+                    [class.btn-light]="onlyAttested()"
+                    [class.text-dark]="onlyAttested()"
+                    [class.btn-outline-light]="!onlyAttested()"
+                    (click)="toggleOnlyAttested()"
+                    [attr.title]="onlyAttested() ? 'Modalità Solo Attestati attiva (TLG o Corpus Retriever). Clicca per mostrare anche le congetture AI non attestate' : 'Mostra tutti i suggerimenti attivo. Clicca per visualizzare solo i suggerimenti attestati nel TLG o nel corpus'"
+                    aria-label="Filtra solo suggerimenti attestati nel TLG o nel corpus">
+                <i class="bi" [class.bi-shield-check]="onlyAttested()" [class.bi-shield]="!onlyAttested()"></i>
+                <span class="small fw-semibold">Solo attestati</span>
+                @if (onlyAttested() && hiddenUnattestedCount() > 0) {
+                    <span class="badge bg-warning text-dark rounded-pill ms-1 hidden-ai-count-badge" style="font-size: 0.65rem;">
+                        -{{ hiddenUnattestedCount() }}
+                    </span>
+                }
+            </button>
             @if (hasRagDetails()) {
                 <button type="button"
                         class="btn btn-sm rounded-pill d-flex align-items-center gap-1 px-2 py-1 rag-toggle-btn"
@@ -174,12 +194,40 @@
             </div>
         }
 
-        <div class="d-flex flex-column" id="suggestionsList">
-            @for (suggest of suggestions(); track $index) {
-            <app-suggest [suggest]="suggest"
-                         [philologicalReasoning]="philologicalReasoning()"
-                         (onFeedback)="handleSuggestionFeedback($event)" />
+        @if (visibleSuggestions().length > 0) {
+            <div class="d-flex flex-column" id="suggestionsList">
+                @for (suggest of visibleSuggestions(); track $index) {
+                <app-suggest [suggest]="suggest"
+                             [philologicalReasoning]="philologicalReasoning()"
+                             (onFeedback)="handleSuggestionFeedback($event)" />
+                }
+            </div>
+            @if (onlyAttested() && hiddenUnattestedCount() > 0) {
+                <div class="unattested-footer-notice rounded-3 p-2 px-3 mt-2 d-flex justify-content-between align-items-center flex-wrap gap-2 small">
+                    <span class="text-secondary">
+                        <i class="bi bi-cpu me-1 text-warning"></i>
+                        {{ hiddenUnattestedCount() }} {{ hiddenUnattestedCount() === 1 ? 'congettura AI non attestata nascosta' : 'congetture AI non attestate nascoste' }} (modalità <strong>Solo attestati</strong>).
+                    </span>
+                    <button type="button"
+                            class="btn btn-sm btn-outline-secondary rounded-pill px-3 show-unattested-footer-btn"
+                            (click)="showAllSuggestions()">
+                        Mostra tutte ({{ suggestions().length }})
+                    </button>
+                </div>
             }
-        </div>
+        } @else if (onlyAttested() && suggestions().length > 0) {
+            <div class="unattested-empty-state rounded-4 p-4 text-center">
+                <i class="bi bi-shield-exclamation fs-2 text-warning mb-2 d-block"></i>
+                <h6 class="fw-bold text-dark mb-1">Nessun suggerimento attestato nel TLG o nei corpora del retriever</h6>
+                <p class="small text-muted mb-3">
+                    Tutte le {{ suggestions().length }} {{ suggestions().length === 1 ? 'predizione generata è una congettura AI non attestata' : 'predizioni generate sono congetture AI non attestate' }}.
+                </p>
+                <button type="button"
+                        class="btn btn-sm btn-outline-warning text-dark fw-semibold rounded-pill px-3 show-all-ai-btn"
+                        (click)="showAllSuggestions()">
+                    <i class="bi bi-eye me-1"></i>Mostra comunque {{ suggestions().length === 1 ? 'la congettura AI' : 'le ' + suggestions().length + ' congetture AI' }}
+                </button>
+            </div>
+        }
     </div>
 </div>

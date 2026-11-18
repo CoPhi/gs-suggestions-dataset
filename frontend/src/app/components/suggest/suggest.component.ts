@@ -44,6 +44,18 @@ export function normalizeGreekForMatch(value: string): string {
 }
 
 /**
+ * Restituisce true se il suggerimento è attestato lessicamente nel TLG (`tlg_attested`)
+ * oppure presenta almeno un'attestazione documentaria nei passi dei corpora restituiti dal retriever (`attestations`).
+ */
+export function isSuggestionAttested(suggest: SuggestionInterface | null | undefined): boolean {
+  if (!suggest) {
+    return false;
+  }
+  const hasAttestations = Array.isArray(suggest.attestations) && suggest.attestations.length > 0;
+  return Boolean(suggest.tlg_attested) || hasAttestations;
+}
+
+/**
  * Suddivide un testo (sentence, CoT o estratto del corpus) in segmenti normali ed evidenziati (`bold: true`),
  * riconoscendo sia i marcatori Markdown `**...**` restituiti dal backend sia il match diretto
  * (insensibile ai diacritici e al case folding) con le forme greche o le parole composte (`fallbackForms`).
@@ -186,7 +198,7 @@ export class SuggestComponent {
   // True se il suggerimento non presenta attestazioni documentarie (né nel TLG né nel corpus),
   // rappresentando un'ipotesi o congettura puramente neurale generata dal modello
   isPureAiHypothesis = computed<boolean>(
-    () => !this.isTlgAttested() && this.attestations().length === 0
+    () => !isSuggestionAttested(this.suggest())
   );
   aiHypothesisTooltip = computed<string>(() => {
     const word = this.reconstructedWord();

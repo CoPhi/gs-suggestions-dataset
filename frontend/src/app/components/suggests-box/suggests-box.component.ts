@@ -3,6 +3,7 @@ import { ReactiveFormsModule, FormsModule } from '@angular/forms';
 import { ApiService, HitlRefinementOptions, SuggestionInterface } from '../../services/api.service';
 import {
   HighlightSegment,
+  isSuggestionAttested,
   parseHighlightedSegments,
   SuggestComponent,
   SuggestionFeedbackEvent
@@ -37,6 +38,9 @@ export class SuggestsBoxComponent {
   showRagContext = signal<boolean>(false);
   showSecondaryLociMenu = signal<boolean>(false);
   showHitlMenu = signal<boolean>(false);
+  // Modalità abilitata di default che rende visualizzabili solamente i suggerimenti
+  // attestati lessicamente nel TLG o nei corpora della collezione di documenti del retriever
+  onlyAttested = signal<boolean>(true);
   humanFeedback = signal<string>('');
   rejectedCandidates = signal<string[]>([]);
 
@@ -113,6 +117,21 @@ export class SuggestsBoxComponent {
     return all.slice(primaryCount);
   });
 
+  // Suggerimenti provvisti di riscontro lessicale nel TLG o documentario nei corpora del retriever
+  attestedSuggestions = computed<SuggestionInterface[]>(() =>
+    this.suggestions().filter(s => isSuggestionAttested(s))
+  );
+
+  // Suggerimenti effettivamente esposti nella lista in base allo stato della modalità "Solo attestati"
+  visibleSuggestions = computed<SuggestionInterface[]>(() =>
+    this.onlyAttested() ? this.attestedSuggestions() : this.suggestions()
+  );
+
+  // Numero di congetture puramente neurali (non attestate) nascoste quando il filtro è attivo
+  hiddenUnattestedCount = computed<number>(() =>
+    this.onlyAttested() ? Math.max(0, this.suggestions().length - this.attestedSuggestions().length) : 0
+  );
+
   hasRagDetails = computed(() => {
     return !!this.philologicalReasoning() || this.allRetrievedPassages().length > 0;
   });
@@ -120,6 +139,14 @@ export class SuggestsBoxComponent {
   canRefine = computed(() => {
     return this.humanFeedback().trim().length > 0 || this.rejectedCandidates().length > 0;
   });
+
+  toggleOnlyAttested() {
+    this.onlyAttested.update(v => !v);
+  }
+
+  showAllSuggestions() {
+    this.onlyAttested.set(false);
+  }
 
   toggleRagContext() {
     this.showRagContext.update(v => !v);
