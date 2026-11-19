@@ -44,7 +44,7 @@ export class SuggestsBoxComponent {
   humanFeedback = signal<string>('');
   rejectedCandidates = signal<string[]>([]);
   // Mappa dei feedback già registrati sui suggerimenti correnti per mantenerne il blocco anche al cambio filtro
-  submittedFeedback = signal<Record<string, 'accepted' | 'rejected'>>({});
+  submittedFeedback = signal<Partial<Record<string, 'accepted' | 'rejected'>>>({});
 
   constructor() {
     // Azzera lo stato dei feedback registrati quando viene caricato un nuovo set di suggerimenti
