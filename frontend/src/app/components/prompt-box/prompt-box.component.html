@@ -102,13 +102,13 @@
                     </button>
                 </div>
 
-                <!-- Menù a tendina con lista modelli -->
+                <!-- Menù a tendina con i modelli filologici in evidenza -->
                 <ul class="dropdown-menu dropdown-menu-end shadow-lg border-0 rounded-3 p-2 model-dropdown-menu" 
                     [class.show]="isDropdownOpen()"
                     aria-labelledby="modelSelectDropdown">
                     <li class="dropdown-header d-flex justify-content-between align-items-center px-3 py-1 mb-1 gap-2">
-                        <span class="text-uppercase fw-bold text-muted small">Modelli disponibili ({{ models().length }})</span>
-                        @if (models().length > 1) {
+                        <span class="text-uppercase fw-bold text-muted small">Modelli consigliati ({{ dropdownModels().length }})</span>
+                        @if (dropdownModels().length > 1) {
                             <button type="button"
                                     class="btn btn-sm rounded-pill px-2 py-0 small fw-semibold compare-mode-btn"
                                     [class.btn-primary]="isCompareMode()"
@@ -120,18 +120,18 @@
                         }
                     </li>
 
-                    @if (isCompareMode() && models().length > 1) {
+                    @if (isCompareMode() && dropdownModels().length > 1) {
                         <li class="px-3 py-1 mb-1 d-flex justify-content-between align-items-center bg-light rounded-2 border compare-checklist-toolbar">
                             <span class="small text-secondary fw-medium">Seleziona i modelli dalla checklist:</span>
                             <button type="button"
                                     class="btn btn-sm btn-link text-decoration-none p-0 small fw-semibold compare-all-btn"
                                     (click)="selectAllModelsForComparison($event)">
-                                {{ effectiveSelectedIds().length === models().length ? 'Deseleziona tutti' : 'Seleziona tutti' }}
+                                {{ effectiveSelectedIds().length === dropdownModels().length ? 'Deseleziona tutti' : 'Seleziona tutti' }}
                             </button>
                         </li>
                     }
 
-                    @for (m of models(); track m._id) {
+                    @for (m of dropdownModels(); track m._id) {
                         <li>
                             <div class="d-flex align-items-center gap-1 mb-1">
                                 @if (isCompareMode()) {
@@ -142,56 +142,33 @@
                                                [checked]="isModelInComparison(m._id)"
                                                (click)="$event.stopPropagation()"
                                                (change)="toggleModelComparison(m._id, $event)"
-                                               [attr.aria-label]="'Seleziona ' + getModelLabel(m) + ' per il confronto'">
+                                               [attr.aria-label]="'Seleziona ' + getDropdownModelLabel(m) + ' per il confronto'">
                                     </div>
                                 }
                                 <button class="dropdown-item d-flex align-items-center justify-content-between rounded-2 px-3 py-2 model-dropdown-item flex-grow-1"
                                         [class.active-item]="isModelInComparison(m._id)"
                                         type="button"
                                         (click)="selectModel(m._id)">
-                                    <span class="fw-medium text-truncate me-2">{{ getModelLabel(m) }}</span>
+                                    <span class="fw-medium text-truncate me-2">{{ getDropdownModelLabel(m) }}</span>
                                     <div class="d-flex align-items-center gap-1">
-                                        <span class="badge bg-light text-secondary border small">{{ getModelBadge(m) }}</span>
+                                        <span class="badge bg-light text-secondary border small">{{ getDropdownModelBadge(m) }}</span>
                                         @if (isModelInComparison(m._id)) {
                                             <span class="badge bg-primary-subtle text-primary border border-primary-subtle">In uso</span>
                                         }
                                     </div>
                                 </button>
-                                @if (m.TYPE === 'BERT' && !isCompareMode()) {
-                                    <button type="button"
-                                            class="btn btn-sm rounded-2 px-2 py-2 bert-rag-quick-btn"
-                                            [class.btn-primary]="isModelInComparison(m._id) && coupleBertWithRag()"
-                                            [class.btn-outline-secondary]="!(isModelInComparison(m._id) && coupleBertWithRag())"
-                                            (click)="selectBertWithRag(m._id, $event)"
-                                            title="Seleziona questo modello BERT accostato al sistema RAG (modalità neuro-lessicale locale)">
-                                        +RAG
-                                    </button>
-                                }
                             </div>
                         </li>
                     }
 
-                    @if (curr_type_model() === 'BERT') {
-                        <li class="px-3 py-2 mt-1 rounded-2 bg-light border">
-                            <div class="form-check form-switch mb-0 d-flex align-items-center justify-content-between gap-2">
-                                <label class="form-check-label small fw-semibold text-dark" for="bertRagToggle" (click)="toggleBertRag($event)">
-                                    Accosta sistema RAG (Neuro-lessicale)
-                                </label>
-                                <input class="form-check-input m-0"
-                                       type="checkbox"
-                                       role="switch"
-                                       id="bertRagToggle"
-                                       [checked]="coupleBertWithRag()"
-                                       (change)="toggleBertRag($event)">
-                            </div>
-                            <div class="text-muted" style="font-size: 0.72rem;">
-                                Combina il modello BERT con il recupero ibrido dei passi paralleli nei corpora antichi.
-                            </div>
+                    @if (dropdownModels().length === 0) {
+                        <li class="px-3 py-2 text-muted small fst-italic">
+                            @if (models().length === 0) {
+                                Nessun modello registrato
+                            } @else {
+                                Nessun modello in evidenza disponibile (apri i dettagli per vedere tutti i {{ models().length }} modelli)
+                            }
                         </li>
-                    }
-
-                    @if (models().length === 0) {
-                        <li class="px-3 py-2 text-muted small fst-italic">Nessun modello registrato</li>
                     }
 
                     @if (curr_id() !== null) {
@@ -294,7 +271,7 @@
                     <div class="d-flex align-items-center gap-2">
                         <i class="bi bi-journal-code fs-4 text-primary"></i>
                         <div>
-                            <h5 class="modal-title fw-bold mb-0" id="promptManualModalLabel">Manuale di Prompt Engineering Filologico</h5>
+                            <h5 class="modal-title fw-bold mb-0" id="promptManualModalLabel">Manuale d'uso</h5>
                             <small class="text-white-50">Regole sintattiche e convenzioni per preparare il testo greco lacunoso</small>
                         </div>
                     </div>

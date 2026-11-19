@@ -82,6 +82,51 @@ export class PromptBoxComponent {
     return m.TYPE === 'RAG' && (m.BACKEND === 'neuro_lexical' || isBertCheckpoint(m.CHECKPOINT));
   }
 
+  private isGrebertaCheckpoint(checkpoint: string | null | undefined): boolean {
+    return (checkpoint || '').trim().toLowerCase().includes('greberta');
+  }
+
+  // Riconosce il modello GreBerta puro usato come fallback quando non esiste una entry TYPE==='RAG'
+  isFallbackGrebertaRag(m: modelType): boolean {
+    return m.TYPE === 'BERT' && this.isGrebertaCheckpoint(m.CHECKPOINT);
+  }
+
+  // Espone nella dropdown rapida solo i modelli filologici attuali:
+  // LLM con RAG (Qwen e Llama), GreBerta + RAG (con eventuale fallback su BERT GreBerta) e Ithaca.
+  dropdownModels = computed<modelType[]>(() => {
+    const allModels = this.models();
+    const hasGrebertaRag = allModels.some(
+      m => m.TYPE === 'RAG' && this.isGrebertaCheckpoint(m.CHECKPOINT)
+    );
+    return allModels.filter((m) => {
+      if (m.TYPE === 'Ithaca') {
+        return true;
+      }
+      if (m.TYPE === 'RAG') {
+        const ckpt = (m.CHECKPOINT || '').toLowerCase();
+        return ckpt.includes('qwen') || ckpt.includes('llama') || this.isGrebertaCheckpoint(m.CHECKPOINT);
+      }
+      if (m.TYPE === 'BERT') {
+        return !hasGrebertaRag && this.isGrebertaCheckpoint(m.CHECKPOINT);
+      }
+      return false;
+    });
+  });
+
+  getDropdownModelLabel(m: modelType): string {
+    if (this.isFallbackGrebertaRag(m)) {
+      return `${this.getModelLabel(m)} + RAG`;
+    }
+    return this.getModelLabel(m);
+  }
+
+  getDropdownModelBadge(m: modelType): string {
+    if (this.isFallbackGrebertaRag(m)) {
+      return 'BERT + RAG';
+    }
+    return this.getModelBadge(m);
+  }
+
   // Etichetta del modello selezionato: esplicita '+ RAG' o il conteggio dei modelli in confronto parallelo
   selectedModelLabel = computed(() => {
     const ids = this.effectiveSelectedIds();
@@ -174,6 +219,12 @@ export class PromptBoxComponent {
     }
     this.selectedModelIds.set(current);
     this.curr_id.set(current.length > 0 ? current[0] : null);
+    if (current.some(cid => {
+      const found = this.models().find(m => m._id === cid);
+      return found ? this.isFallbackGrebertaRag(found) : false;
+    })) {
+      this.coupleBertWithRag.set(true);
+    }
   }
 
   selectAllModelsForComparison(event?: Event) {
@@ -181,13 +232,17 @@ export class PromptBoxComponent {
       event.stopPropagation();
     }
     this.isCompareMode.set(true);
-    const allIds = this.models().map(m => m._id);
-    if (this.effectiveSelectedIds().length === allIds.length) {
+    const allIds = this.dropdownModels().map(m => m._id);
+    if (this.effectiveSelectedIds().length === allIds.length && allIds.length > 0) {
       this.selectedModelIds.set([]);
       this.curr_id.set(null);
+      this.coupleBertWithRag.set(false);
     } else {
       this.selectedModelIds.set(allIds);
       this.curr_id.set(allIds[0] || null);
+      if (this.dropdownModels().some(m => this.isFallbackGrebertaRag(m))) {
+        this.coupleBertWithRag.set(true);
+      }
     }
   }
 
@@ -229,7 +284,9 @@ export class PromptBoxComponent {
       return;
     }
     const chosen = this.models().find(m => m._id === id);
-    if (chosen && chosen.TYPE !== 'BERT') {
+    if (chosen && this.isFallbackGrebertaRag(chosen)) {
+      this.coupleBertWithRag.set(true);
+    } else if (chosen && chosen.TYPE !== 'BERT') {
       this.coupleBertWithRag.set(false);
     }
     this.curr_id.set(id);

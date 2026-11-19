@@ -35,6 +35,28 @@ describe('PromptBoxComponent', () => {
     TYPE: 'RAG'
   };
 
+  const mockLlamaRagModel: RAGModelInterface = {
+    _id: '67066928e4414eb1d8109bf5',
+    CHECKPOINT: 'meta-llama/Llama-3.3-70B-Instruct',
+    BACKEND: 'auto',
+    TOP_K_PASSAGES: 5,
+    TYPE: 'RAG'
+  };
+
+  const mockGrebertaRagModel: RAGModelInterface = {
+    _id: '67066928e4414eb1d8109bf6',
+    CHECKPOINT: 'CNR-ILC/gs-GreBerta',
+    BACKEND: 'neuro_lexical',
+    TOP_K_PASSAGES: 5,
+    TYPE: 'RAG'
+  };
+
+  const mockGrebertaBertModel: BERTModelInterface = {
+    _id: '67066928e4414eb1d8109bf7',
+    CHECKPOINT: 'CNR-ILC/gs-GreBerta',
+    TYPE: 'BERT'
+  };
+
   beforeEach(async () => {
     await TestBed.configureTestingModule({
       imports: [PromptBoxComponent]
@@ -108,11 +130,65 @@ describe('PromptBoxComponent', () => {
     expect(trigger?.querySelectorAll('i').length).toBe(0);
 
     const dropdownItems = compiled.querySelectorAll('.model-dropdown-item');
-    expect(dropdownItems.length).toBe(4);
+    // Nel catalogo iniziale (Ithaca, Ancient-Greek-BERT, N-grammi, Qwen RAG) la dropdown rapida
+    // mostra solo i modelli filologici in evidenza: Ithaca e Qwen RAG (2 voci).
+    expect(dropdownItems.length).toBe(2);
     dropdownItems.forEach((item) => {
       // Model items should not contain model icons
       expect(item.querySelectorAll('i').length).toBe(0);
     });
+  });
+
+  it('should filter dropdownModels to highlight only Qwen/Llama RAG, GreBerta+RAG, and Ithaca', () => {
+    const otherRagModel: RAGModelInterface = {
+      _id: '67066928e4414eb1d8109bf8',
+      CHECKPOINT: 'google/gemma-3-27b-it',
+      BACKEND: 'auto',
+      TOP_K_PASSAGES: 5,
+      TYPE: 'RAG'
+    };
+    fixture.componentRef.setInput('models', [
+      mockIthacaModel,
+      mockBertModel,
+      mockNgramsModel,
+      mockRagModel,
+      mockLlamaRagModel,
+      mockGrebertaRagModel,
+      otherRagModel
+    ]);
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    const labels = Array.from(compiled.querySelectorAll('.model-dropdown-item')).map(el => el.textContent || '');
+    expect(labels.length).toBe(4);
+    expect(labels[0]).toContain('gs-ithaca-tlg');
+    expect(labels[1]).toContain('Qwen2.5-7B-Instruct');
+    expect(labels[2]).toContain('Llama-3.3-70B-Instruct');
+    expect(labels[3]).toContain('gs-GreBerta + RAG');
+    expect(labels.some(l => l.includes('Ancient-Greek-BERT') || l.includes('N-grammi') || l.includes('gemma'))).toBeFalse();
+  });
+
+  it('should fall back to GreBerta BERT entry labeled as GreBerta + RAG and enable coupleBertWithRag on selection', () => {
+    fixture.componentRef.setInput('models', [
+      mockIthacaModel,
+      mockBertModel,
+      mockGrebertaBertModel,
+      mockNgramsModel
+    ]);
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    const items = compiled.querySelectorAll('.model-dropdown-item');
+    expect(items.length).toBe(2);
+    expect(items[1].textContent).toContain('gs-GreBerta + RAG');
+    expect(items[1].textContent).toContain('BERT + RAG');
+
+    (items[1] as HTMLButtonElement).click();
+    fixture.detectChanges();
+
+    expect(component.curr_id()).toBe(mockGrebertaBertModel._id);
+    expect(component.coupleBertWithRag()).toBeTrue();
+    expect(component.selectedModelLabel()).toBe('gs-GreBerta + RAG');
   });
 
   it('should close dropdown on escape and on outside click', () => {
@@ -168,15 +244,15 @@ describe('PromptBoxComponent', () => {
     fixture.detectChanges();
 
     expect(component.isCompareMode()).toBeTrue();
-    expect(compiled.querySelectorAll('.model-compare-checkbox').length).toBe(4);
+    expect(compiled.querySelectorAll('.model-compare-checkbox').length).toBe(2);
 
-    component.toggleModelComparison(mockBertModel._id);
+    component.toggleModelComparison(mockIthacaModel._id);
     component.toggleModelComparison(mockRagModel._id);
     fixture.detectChanges();
 
-    expect(component.effectiveSelectedIds()).toEqual([mockBertModel._id, mockRagModel._id]);
+    expect(component.effectiveSelectedIds()).toEqual([mockIthacaModel._id, mockRagModel._id]);
     expect(component.selectedModelLabel()).toBe('Confronto (2 modelli)');
-    expect(component.isModelInComparison(mockBertModel._id)).toBeTrue();
+    expect(component.isModelInComparison(mockIthacaModel._id)).toBeTrue();
     expect(component.isModelInComparison(mockRagModel._id)).toBeTrue();
   });
 

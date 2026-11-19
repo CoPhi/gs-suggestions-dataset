@@ -14,6 +14,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Aggiunti i test unitari dedicati in [`prompt-box.component.spec.ts`](./frontend/src/app/components/prompt-box/prompt-box.component.spec.ts).
 
 ### Changed
+- **Dropdown Rapida Modelli Filologici in Evidenza (`PromptBoxComponent`, `ModelService`)**:
+  - Filtrata la tendina rapida dei modelli in [`PromptBoxComponent`](./frontend/src/app/components/prompt-box/prompt-box.component.ts) ([`prompt-box.component.html`](./frontend/src/app/components/prompt-box/prompt-box.component.html)) tramite `dropdownModels` per mostrare esclusivamente i modelli più attuali e pertinenti al lavoro filologico: LLM RAG (`Qwen` e `Llama`), `gs-GreBerta + RAG` (con fallback automatico sul checkpoint `CNR-ILC/gs-GreBerta` attivando `coupleBertWithRag`) e `Ithaca` (`CNR-ILC/gs-ithaca-tlg`), mantenendo l'intero catalogo accessibile dalla modale `#modelsModal`.
+  - Estesi [`backend/config/settings.py`](./backend/config/settings.py) e [`ModelService.init_models`](./backend/api/services/model_service.py) per includere `ITHACA_CHECKPOINTS` (`CNR-ILC/gs-ithaca-tlg`) e `meta-llama/Llama-3.3-70B-Instruct` nell'inizializzazione idempotente di default di `gs-api`.
+  - Aggiornati ed estesi i test unitari in [`prompt-box.component.spec.ts`](./frontend/src/app/components/prompt-box/prompt-box.component.spec.ts) e [`tests/test_model_service_checkpoints.py`](./tests/test_model_service_checkpoints.py).
 - **Ristrutturazione Conversazionale Multi-Turno della UI Filologica (`frontend`)**:
   - Ridisegnati [`app.component.ts`](./frontend/src/app/app.component.ts), [`app.component.html`](./frontend/src/app/app.component.html) e [`app.component.css`](./frontend/src/app/app.component.css) passando dal form statico con colonne larghe a un workspace dialogico a 4 stati:
     - **Schermata Iniziale** centrata verticalmente (`.initial-screen-layout`) con istanza unica di `<app-prompt-box>` che preserva modello e parametri selezionati nella transizione verso la conversazione.
