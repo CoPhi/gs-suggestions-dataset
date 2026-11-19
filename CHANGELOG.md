@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Optimized
+- **Alleggerimento Memoria dell'Ecosistema Docker (`gs-api`, `frontend`, `mongodb`) a Parità di Prestazioni e Accuratezza (FP32 Lossless)**:
+  - **Rimozione di `cltk` e `optax` dal runtime `gs-api` (`backend/core/`, `pyproject.toml`)**:
+    - Sostituiti `cltk.alphabet.grc.grc.normalize_grc` e `cltk.sentence.grc.GreekRegexSentenceTokenizer` con implementazioni pure-Python equivalenti in [`backend/core/__init__.py`](./backend/core/__init__.py), aggiornando [`backend/core/preprocess.py`](./backend/core/preprocess.py), [`models/ngrams/metrics/__init__.py`](./models/ngrams/metrics/__init__.py) e [`models/bert/finetuning/__init__.py`](./models/bert/finetuning/__init__.py), eliminando ~237 MB di RSS all'avvio e la dipendenza di build da `git`.
+    - Spostati `cltk` e `optax` in `[dependency-groups] train` di [`pyproject.toml`](./pyproject.toml) (riallineato `uv.lock`).
+  - **Cache BERT Unificata, Lock Anti-Race, `malloc_trim` e Eviction TTL (`backend/core/model_cache.py`, `models/rag/`, `backend/api/`)**:
+    - Introdotto [`backend/core/model_cache.py`](./backend/core/model_cache.py) (`SharedBertCache` + `trim_memory`) per condividere un unico modello MLM/encoder in RAM tra predizioni BERT dirette ([`SuggestionsService`](./backend/api/services/suggestions_service.py)), fallback neuro-lessicale ([`models/rag/inference.py`](./models/rag/inference.py)) ed embedder semantico (`GreekBertEmbedder.base_model` in [`models/rag/retriever.py`](./models/rag/retriever.py)), con `GS_MAX_BERT_MODELS=1` e carico serializzato per-checkpoint.
+    - Aggiunto in [`backend/api/main.py`](./backend/api/main.py) il task di sweep periodico (`GS_CACHE_SWEEP_INTERVAL_SECONDS=60`, `GS_MODEL_IDLE_TTL_SECONDS=600`) e il cap dei thread CPU PyTorch (`OMP_NUM_THREADS=4`).
+  - **Indice BM25 CSR NumPy e Lessico TLG `mmap` (`models/rag/retriever.py`, `models/bert/inference/vocab.py`)**:
+    - Convertito `GreekLexicalBM25Index` da `dict` di tuple Python a formato CSR NumPy compatto (`v2`, ~213 MB → ~30.6 MB RSS) con viste di compatibilità read-only `_CSRPostingsView`/`_CSRIdfView` e migrazione automatica da indici `v1`.
+    - Introdotto `CompactGreekVocab` in [`models/bert/inference/vocab.py`](./models/bert/inference/vocab.py) basato su tabella binaria di offset `uint32` e `mmap` read-only (~122 MB → +4.6 MB RSS a freddo / +0.2 MB a caldo).
+  - **Ottimizzazione Ithaca JAX (`models/ithaca/inference/predict.py`)**:
+    - Aggiunti `_ITHACA_LOCK` con cache dei percorsi risolti per evitare download/load concorrenti multipli, `evict_expired_ithaca` con `jax.clear_caches()` + `malloc_trim(0)` e micro-batching fisso (`GS_ITHACA_MICRO_BATCH=4`) in `decode_gap_hcb_beam_search` per compilare un solo grafo XLA `(4, max_len)`.
+  - **Storage Compatto SQLite per N-grammi (`models/ngrams/storage.py`, `ModelService`, `SuggestionsService`, `scripts/export_ngram_checkpoints.py`)**:
+    - Sostituiti a runtime i pickle NLTK (~3.87 GB + ~2.87 GB in RAM al primo utilizzo) con il database SQLite read-only condiviso [`ngram_n3.sqlite`](./models/ngrams/checkpoints/) (`CompactNgramLM` / `CompactNgramVocab` in [`models/ngrams/storage.py`](./models/ngrams/storage.py), ~3.2 MB delta RSS, latenza 3–8 ms, parità esatta vs `MLE` e `Lidstone`), mantenendo il fallback legacy a GridFS per corpus custom, cap LRU su `_ngram_cache` e `@lru_cache(maxsize=65536)` in [`models/ngrams/metrics/utils.py`](./models/ngrams/metrics/utils.py).
+  - **Frontend Statico Multi-Stage su Nginx (`frontend/Dockerfile`, `frontend/nginx.conf`, `frontend/.dockerignore`)**:
+    - Sostituito `ng serve` dev server (~675 MiB RAM, immagine 1.13 GB) con build di produzione Angular 22 servita da `nginx:1.27-alpine` (~2.3–3.0 MiB RAM, immagine 75.6 MB, -93%).
+  - **Tuning Container e Risultati Misurati (`Dockerfile`, `.dockerignore`, `.gitignore`, `docker-compose.yaml`)**:
+    - Impostati `MALLOC_ARENA_MAX=2`, cap thread OpenMP/BLAS/XLA (`--xla_cpu_multi_thread_eigen=true intra_op_parallelism_threads=4`), `--wiredTigerCacheSizeGB 0.25` per `mongodb`, esclusi `*.pkl.zlib` dal build context Docker (`gs-api` 3.77 GB → 3.40 GB) e `*.sqlite` da git.
+    - Consumi totali stack (`docker stats --no-stream`): **~3.25 GiB** (con picco > 9 GiB su N-grammi) → **~523 MiB** allo startup, **~688 MiB** dopo N-grammi+BERT+RAG, **~1.08 GiB** con tutti e 4 i paradigmi (incluso Ithaca) simultaneamente attivi, e rientro `gs-api` da `1,689 MB` a `808 MB` `VmRSS` (`943 MB` → `553 MB` `RssAnon`) dopo TTL eviction.
+    - Aggiunta la suite di test e parità in [`tests/test_memory_optimizations.py`](./tests/test_memory_optimizations.py).
+
 ### Changed
 - **Allineamento Container e Documentazione Frontend ad Angular 22 (`frontend/Dockerfile`, `frontend/README.md`)**:
   - Aggiornato [`frontend/Dockerfile`](./frontend/Dockerfile) a `node:24-alpine`, installazione deterministica con `npm ci` e avvio tramite CLI locale (`npx ng serve`) rimuovendo `@angular/cli` globale non pinnata.

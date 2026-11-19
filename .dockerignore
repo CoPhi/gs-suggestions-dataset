@@ -20,6 +20,7 @@ models/bert/evaluation
 models/bert/finetuning/gs
 models/ithaca/dataset
 models/ithaca/evaluation
+models/ngrams/checkpoints/*.pkl.zlib
 
 # Cache di Python
 __pycache__

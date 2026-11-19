@@ -39,3 +39,4 @@ packages/ithaca_engine/
 checkpoints/
 models/rag/index/
 models/rag/checkpoints/
+models/ngrams/checkpoints/*.sqlite

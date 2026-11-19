@@ -21,6 +21,12 @@ services:
       - RAG_LLM_LOG_PROMPTS=${RAG_LLM_LOG_PROMPTS:-false}
       - RAG_CONVERSATION_LOG_ENABLED=${RAG_CONVERSATION_LOG_ENABLED:-false}
       - RAG_CONVERSATION_LOG_FILE=${RAG_CONVERSATION_LOG_FILE:-logs/dspy_conversations.jsonl}
+      - MALLOC_ARENA_MAX=${MALLOC_ARENA_MAX:-2}
+      - OMP_NUM_THREADS=${OMP_NUM_THREADS:-4}
+      - GS_MAX_BERT_MODELS=${GS_MAX_BERT_MODELS:-1}
+      - GS_MODEL_IDLE_TTL_SECONDS=${GS_MODEL_IDLE_TTL_SECONDS:-600}
+      - GS_CACHE_SWEEP_INTERVAL_SECONDS=${GS_CACHE_SWEEP_INTERVAL_SECONDS:-60}
+      - GS_ITHACA_MICRO_BATCH=${GS_ITHACA_MICRO_BATCH:-4}
     volumes:
       - ./logs:/app/logs
     depends_on:
@@ -37,6 +43,7 @@ services:
   mongodb:
     image: mongo:4.4
     container_name: mongodb
+    command: ["mongod", "--wiredTigerCacheSizeGB", "0.25"]
     ports:
       - "27017:27017"
     volumes:

@@ -4,15 +4,20 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
 WORKDIR /app
 
-# Default dependencies and git (asked by CLTK)
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends git && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
-
+# Contenimento arene glibc, pool thread CPU/XLA e cache modelli neurale/TTL a runtime
 ENV UV_HTTP_TIMEOUT=600 \
     UV_COMPILE_BYTECODE=1 \
-    UV_LINK_MODE=copy
+    UV_LINK_MODE=copy \
+    MALLOC_ARENA_MAX=2 \
+    OMP_NUM_THREADS=4 \
+    OPENBLAS_NUM_THREADS=4 \
+    MKL_NUM_THREADS=4 \
+    NUMEXPR_NUM_THREADS=4 \
+    TOKENIZERS_PARALLELISM=false \
+    XLA_FLAGS="--xla_cpu_multi_thread_eigen=true intra_op_parallelism_threads=4" \
+    GS_MAX_BERT_MODELS=1 \
+    GS_MODEL_IDLE_TTL_SECONDS=600 \
+    GS_ITHACA_MICRO_BATCH=4
 
 COPY pyproject.toml uv.lock ./
 COPY packages/ ./packages/
