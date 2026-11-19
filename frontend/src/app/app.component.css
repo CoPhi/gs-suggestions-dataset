@@ -43,6 +43,11 @@
     padding-bottom: 0.35rem;
 }
 
+/* Eleva il contesto di impilamento della dock quando ospita la modale del manuale */
+.bottom-prompt-dock:has(.prompt-manual-modal) {
+    z-index: 1060;
+}
+
 .turn-lacuna-text {
     font-size: 1.12rem;
     line-height: 1.55;

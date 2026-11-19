@@ -461,4 +461,48 @@ describe('PromptBoxComponent', () => {
     component.setPromptText('τὰ κατ\' αὐτὰ *...* ὑπὲρ');
     expect(component.form.controls['text'].value).toBe('τὰ κατ\' αὐτὰ *...* ὑπὲρ');
   });
+
+  it('should render "per ulteriori approfondimenti" link and toggle the prompt engineering manual modal', () => {
+    const compiled = fixture.nativeElement as HTMLElement;
+    const toggleLink = compiled.querySelector('.prompt-manual-toggle-link') as HTMLButtonElement;
+    expect(toggleLink).toBeTruthy();
+    expect(toggleLink.textContent?.trim()).toBe('per ulteriori approfondimenti');
+    expect(compiled.querySelector('#promptManualModal')).toBeNull();
+
+    // Apertura al click sul link
+    toggleLink.click();
+    fixture.detectChanges();
+
+    const modal = compiled.querySelector('#promptManualModal') as HTMLElement;
+    expect(modal).toBeTruthy();
+    expect(component.isManualModalOpen()).toBeTrue();
+    expect(modal.textContent).toContain('Manuale di Prompt Engineering Filologico');
+    expect(modal.textContent).toContain('*...*');
+    expect(modal.textContent).toContain('[...]');
+    expect(modal.textContent).toContain('U+0323');
+    expect(modal.textContent).toContain('Leiden+');
+
+    // Chiusura tramite Escape
+    component.onEscape();
+    fixture.detectChanges();
+    expect(component.isManualModalOpen()).toBeFalse();
+    expect(compiled.querySelector('#promptManualModal')).toBeNull();
+
+    // Riapertura tramite link e chiusura tramite pulsante footer e backdrop
+    toggleLink.click();
+    fixture.detectChanges();
+    expect(compiled.querySelector('#promptManualModal')).toBeTruthy();
+
+    const closeFooterBtn = compiled.querySelector('.close-manual-btn') as HTMLButtonElement;
+    closeFooterBtn.click();
+    fixture.detectChanges();
+    expect(compiled.querySelector('#promptManualModal')).toBeNull();
+
+    toggleLink.click();
+    fixture.detectChanges();
+    const reopenedModal = compiled.querySelector('#promptManualModal') as HTMLElement;
+    reopenedModal.click();
+    fixture.detectChanges();
+    expect(compiled.querySelector('#promptManualModal')).toBeNull();
+  });
 });

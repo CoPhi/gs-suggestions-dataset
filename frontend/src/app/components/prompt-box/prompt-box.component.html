@@ -251,20 +251,182 @@
             <span class="text-primary">
                 <i class="bi bi-sliders2 me-1"></i>Modalità raffinamento attiva: aggiungi indicazioni filologiche o invia con i soli supplementi esclusi.
             </span>
-        } @else if (form.get('text')?.dirty && form.get('text')?.invalid) {
-            @if (form.get('text')?.hasError('unknownCharacters')) {
-                <span class="text-danger"><i class="bi bi-exclamation-triangle me-1"></i>la stringa contiene carattere sconosciuti</span>
-            }
-            @if (form.get('text')?.hasError('notvalid')) {
-                <span class="text-danger"><i class="bi bi-exclamation-triangle me-1"></i>Inserisci un testo valido</span>
-            }
-            @if (form.get('text')?.hasError('notMasked')) {
-                <span class="text-danger"><i class="bi bi-exclamation-triangle me-1"></i>Inserisci una lacuna target: <code>*...*</code> (le quadre <code>[...]</code> indicano lacune contestuali)</span>
-            }
-        }@else if(form.get('text')?.dirty && form.get('text')?.valid){
-            <span class="text-success"><i class="bi bi-check-circle me-1"></i>Testo valido per la generazione</span>
         } @else {
-            <span>Utilizza <code>*...*</code> per definire la lacuna target da completare; le lacune contestuali vanno indicate con <code>[...]</code>. Sono ammessi esclusivamente caratteri del greco antico.</span>
+            @if (form.get('text')?.dirty && form.get('text')?.invalid) {
+                @if (form.get('text')?.hasError('unknownCharacters')) {
+                    <span class="text-danger"><i class="bi bi-exclamation-triangle me-1"></i>la stringa contiene carattere sconosciuti</span>
+                }
+                @if (form.get('text')?.hasError('notvalid')) {
+                    <span class="text-danger"><i class="bi bi-exclamation-triangle me-1"></i>Inserisci un testo valido</span>
+                }
+                @if (form.get('text')?.hasError('notMasked')) {
+                    <span class="text-danger"><i class="bi bi-exclamation-triangle me-1"></i>Inserisci una lacuna target: <code>*...*</code> (le quadre <code>[...]</code> indicano lacune contestuali)</span>
+                }
+            } @else if (form.get('text')?.dirty && form.get('text')?.valid) {
+                <span class="text-success"><i class="bi bi-check-circle me-1"></i>Testo valido per la generazione</span>
+            } @else {
+                <span>Utilizza <code>*...*</code> per definire la lacuna target da completare; le lacune contestuali vanno indicate con <code>[...]</code>. Sono ammessi esclusivamente caratteri del greco antico.</span>
+            }
+            <button type="button"
+                    class="btn btn-link btn-sm p-0 ms-1 align-baseline prompt-manual-toggle-link"
+                    (click)="toggleManualModal($event)"
+                    [attr.aria-expanded]="isManualModalOpen()"
+                    aria-controls="promptManualModal">
+                per ulteriori approfondimenti
+            </button>
         }
     </div>
 </div>
+
+<!-- Modale Manuale di Prompt Engineering Filologico -->
+@if (isManualModalOpen()) {
+    <div class="prompt-manual-backdrop"></div>
+    <div class="modal fade show d-block prompt-manual-modal"
+         id="promptManualModal"
+         tabindex="-1"
+         role="dialog"
+         aria-modal="true"
+         aria-labelledby="promptManualModalLabel"
+         (click)="onManualBackdropClick($event)">
+        <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+            <div class="modal-content rounded-4 border-0 shadow-lg overflow-hidden">
+                <div class="modal-header bg-dark text-white px-4 py-3 border-0">
+                    <div class="d-flex align-items-center gap-2">
+                        <i class="bi bi-journal-code fs-4 text-primary"></i>
+                        <div>
+                            <h5 class="modal-title fw-bold mb-0" id="promptManualModalLabel">Manuale di Prompt Engineering Filologico</h5>
+                            <small class="text-white-50">Regole sintattiche e convenzioni per preparare il testo greco lacunoso</small>
+                        </div>
+                    </div>
+                    <button type="button"
+                            class="btn-close btn-close-white close-manual-icon-btn"
+                            (click)="closeManualModal($event)"
+                            aria-label="Chiudi manuale"></button>
+                </div>
+
+                <div class="modal-body p-4 bg-light d-flex flex-column gap-3">
+                    <!-- Sezione 1: Sintassi delle lacune -->
+                    <section class="bg-white rounded-3 border p-3">
+                        <h6 class="fw-bold text-dark mb-2">
+                            <i class="bi bi-asterisk text-primary me-2"></i>1. Sintassi delle Lacune: Target vs. Contesto
+                        </h6>
+                        <ul class="small text-secondary mb-0 ps-3 d-flex flex-column gap-2">
+                            <li>
+                                <strong class="text-dark">Lacuna Target (<code>*...*</code>) — Obbligatoria:</strong>
+                                indica l'unica lacuna che i modelli devono integrare nel turno corrente. Inserisci esclusivamente punti <code>.</code> tra i due asterischi (es. <code>*....*</code> per stimare 4 lettere mancanti). Non usare trattini (<code>*---*</code>) né lettere isolate al centro dei punti (<code>*..α..*</code>).
+                            </li>
+                            <li>
+                                <strong class="text-dark">Ricostruzione ai Bordi (<em>Boundary Extraction</em>):</strong>
+                                per parole parzialmente mutile puoi scrivere prefissi e suffissi adiacenti alla lacuna come <code>κα*...*τος</code> oppure <code>*κα...τος*</code>. Al termine dell'editing o all'invio, il sistema sposta automaticamente le lettere greche all'esterno degli asterischi (<code>κα*...*τος</code>) così da sfruttare l'intero contesto lessicale e verificare l'attestazione della parola intera nel TLG.
+                            </li>
+                            <li>
+                                <strong class="text-dark">Lacune Contestuali (<code>[...]</code>) — Opzionali:</strong>
+                                usa le parentesi quadre con soli punti (<code>[...]</code>, <code>[....]</code>, <code>[…]</code>) per segnalare eventuali altre lacune già presenti nel passo che <em>non</em> devono essere integrate adesso. Prima dell'inferenza vengono convertite automaticamente in puntini sciolti (contesto neutro non vincolante). Un testo con sole quadre e senza <code>*...*</code> non è valido.
+                            </li>
+                        </ul>
+                    </section>
+
+                    <!-- Sezione 2: Allowlist greco antico -->
+                    <section class="bg-white rounded-3 border p-3">
+                        <h6 class="fw-bold text-dark mb-2">
+                            <i class="bi bi-alphabet-uppercase text-success me-2"></i>2. Caratteri Ammessi (Allowlist del Greco Antico)
+                        </h6>
+                        <p class="small text-secondary mb-2">
+                            La validazione accetta esclusivamente testo greco pulito in codifica Unicode standard:
+                        </p>
+                        <ul class="small text-secondary mb-0 ps-3 d-flex flex-column gap-1">
+                            <li>
+                                <strong class="text-dark">Alfabeto greco antico e politonico:</strong> lettere greche (monotoniche e politoniche) e relativi diacritici combinatori (spiriti dolce/aspro, accenti acuto/grave/circonflesso, dieresi, iota sottoscritto, macron, breve).
+                            </li>
+                            <li>
+                                <strong class="text-dark">Spazi e punteggiatura greca standard:</strong> spazi, a capo, <code>.</code> <code>,</code> <code>;</code> <code>:</code> <code>·</code> (ano teleia), apostrofi/elisioni (<code>'</code> <code>’</code> <code>ʼ</code> <code>᾽</code>), virgolette (<code>« »</code> <code>“ ”</code>) e trattini tipografici (<code>-</code> <code>–</code> <code>—</code>).
+                            </li>
+                        </ul>
+                    </section>
+
+                    <!-- Sezione 3: Segni editoriali Leiden+ non ammessi -->
+                    <section class="bg-white rounded-3 border p-3">
+                        <h6 class="fw-bold text-dark mb-2">
+                            <i class="bi bi-shield-exclamation text-danger me-2"></i>3. Segni Editoriali (Leiden+) Non Ammessi e Adattamento
+                        </h6>
+                        <p class="small text-secondary mb-2">
+                            Per evitare che marcatori critici distorcano i tokenizer neurali o il recupero dei <em>loci similes</em>, l'apparato editoriale va normalizzato prima dell'invio:
+                        </p>
+                        <div class="table-responsive">
+                            <table class="table table-sm table-bordered align-middle small mb-0 bg-white">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Segno vietato</th>
+                                        <th>Significato editoriale</th>
+                                        <th>Come adattarlo nel prompt</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="text-secondary">
+                                    <tr>
+                                        <td><code>α̣</code> (punto sublineare U+0323)</td>
+                                        <td>Lettera incerta / traccia</td>
+                                        <td>Scrivi la lettera piana (<code>α</code>) se probabile, oppure inglobala come <code>.</code> dentro <code>*...*</code> se dubbia.</td>
+                                    </tr>
+                                    <tr>
+                                        <td><code>[καί]</code></td>
+                                        <td>Supplemento già integrato</td>
+                                        <td>Rimuovi le parentesi quadre (<code>καί</code>): <code>[...]</code> è riservato alle sole lacune aperte.</td>
+                                    </tr>
+                                    <tr>
+                                        <td><code>&lt;...&gt;</code></td>
+                                        <td>Aggiunta / correzione dell'editore</td>
+                                        <td>Rimuovi <code>&lt; &gt;</code> e lascia direttamente la lezione accolta nel testo.</td>
+                                    </tr>
+                                    <tr>
+                                        <td><code>&#123;...&#125;</code></td>
+                                        <td>Espunzione / cancellazione</td>
+                                        <td>Elimina dal prompt l'intero segmento espunto <code>&#123;...&#125;</code>.</td>
+                                    </tr>
+                                    <tr>
+                                        <td><code>(...)</code></td>
+                                        <td>Scioglimento di abbreviazione</td>
+                                        <td>Scrivi la parola sciolta per esteso senza parentesi tonde.</td>
+                                    </tr>
+                                    <tr>
+                                        <td><code>0-9</code>, <code>a-z</code>, <code>[---]</code>, <code>*---*</code></td>
+                                        <td>Numeri di riga, note latine, lacune a trattini</td>
+                                        <td>Rimuovi cifre e note latine; converti i trattini delle lacune in punti (<code>*...*</code> o <code>[...]</code>).</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </section>
+
+                    <!-- Sezione 4: Esempi e Raffinamento HITL -->
+                    <section class="bg-white rounded-3 border p-3">
+                        <h6 class="fw-bold text-dark mb-2">
+                            <i class="bi bi-check2-square text-primary me-2"></i>4. Esempi Pratici e Raffinamento Guidato (HITL)
+                        </h6>
+                        <div class="d-flex flex-column gap-2 small">
+                            <div class="p-2 rounded-2 bg-danger-subtle border border-danger-subtle text-dark">
+                                <span class="badge bg-danger me-2">Non valido</span>
+                                <code>5 [τὰς] ὀφει̣λομένας &lt;τῇ&gt; &#123;καὶ&#125; τοῦ Ἀνθεντίου μητρὶ [---] *...* Σισόιτος</code>
+                            </div>
+                            <div class="p-2 rounded-2 bg-success-subtle border border-success-subtle text-dark">
+                                <span class="badge bg-success me-2">Valido</span>
+                                <code>τὰς ὀφειλομένας τῇ τοῦ Ἀνθεντίου μητρὶ [...] *....* Σισόιτος</code>
+                            </div>
+                            <div class="p-2 rounded-2 bg-primary-subtle border border-primary-subtle text-dark mt-1">
+                                <i class="bi bi-sliders2 text-primary me-1"></i>
+                                <strong>Raffinamento in linguaggio naturale (HITL):</strong> dopo la prima generazione puoi cliccare <strong>Raffina</strong> sul turno per indicare in italiano/inglese vincoli morfologici, dialettali o semantici (es. <em>"preferisci dativo plurale ionico"</em>) ed escludere candidati tramite <i class="bi bi-hand-thumbs-down"></i>: in modalità raffinamento i vincoli sul greco antico vengono temporaneamente sospesi.
+                            </div>
+                        </div>
+                    </section>
+                </div>
+
+                <div class="modal-footer bg-white border-top px-4 py-2">
+                    <button type="button"
+                            class="btn btn-secondary rounded-pill px-4 close-manual-btn"
+                            (click)="closeManualModal($event)">
+                        Chiudi manuale
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}

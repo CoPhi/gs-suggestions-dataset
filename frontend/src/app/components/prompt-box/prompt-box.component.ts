@@ -52,6 +52,8 @@ export class PromptBoxComponent {
   onRefineSubmit = output<PromptRefineSubmitEvent>();
 
   isDropdownOpen = signal<boolean>(false);
+  // Stato di apertura della modale con il manuale di prompt engineering filologico
+  isManualModalOpen = signal<boolean>(false);
   // Attiva/disattiva la modalità di confronto multi-modello con esposizione della checklist nel menù a tendina
   isCompareMode = signal<boolean>(false);
   // Permette di accostare esplicitamente un modello BERT al sistema RAG (modalità neuro-lessicale a priori)
@@ -200,6 +202,27 @@ export class PromptBoxComponent {
     this.isDropdownOpen.set(false);
   }
 
+  toggleManualModal(event?: Event) {
+    if (event) {
+      event.stopPropagation();
+    }
+    this.isManualModalOpen.update(open => !open);
+  }
+
+  closeManualModal(event?: Event) {
+    if (event) {
+      event.stopPropagation();
+    }
+    this.isManualModalOpen.set(false);
+  }
+
+  onManualBackdropClick(event: MouseEvent) {
+    const target = event.target as HTMLElement | null;
+    if (target?.classList.contains('prompt-manual-modal')) {
+      this.closeManualModal();
+    }
+  }
+
   selectModel(id: string) {
     if (this.isCompareMode()) {
       this.toggleModelComparison(id);
@@ -259,6 +282,9 @@ export class PromptBoxComponent {
   onEscape() {
     if (this.isDropdownOpen()) {
       this.closeDropdown();
+    }
+    if (this.isManualModalOpen()) {
+      this.closeManualModal();
     }
   }
 

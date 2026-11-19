@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Manuale Interattivo di Prompt Engineering Filologico nella UI (`PromptBoxComponent`)**:
+  - Aggiunto il link `per ulteriori approfondimenti` (`.prompt-manual-toggle-link`) nella fascia guida sotto la barra di input di [`prompt-box.component.html`](./frontend/src/app/components/prompt-box/prompt-box.component.html) per aprire/chiudere la modale dedicata `#promptManualModal` ([`prompt-box.component.ts`](./frontend/src/app/components/prompt-box/prompt-box.component.ts), [`prompt-box.component.css`](./frontend/src/app/components/prompt-box/prompt-box.component.css), [`app.component.css`](./frontend/src/app/app.component.css)).
+  - Documentate nella modale tutte le regole sintattiche e i vincoli di validazione: distinzione tra lacuna target (`*...*`) e contestuale (`[...]`), *boundary extraction* sui bordi della lacuna, allowlist Unicode del greco antico, tabella di adattamento dei segni editoriali Leiden+ non ammessi (punti sublineari `U+0323`, `[καί]`, `<>`, `{}`, `()`, cifre/trattini), esempi pratici e comportamento in modalità raffinamento HITL.
+  - Aggiunti i test unitari dedicati in [`prompt-box.component.spec.ts`](./frontend/src/app/components/prompt-box/prompt-box.component.spec.ts).
+
 ### Changed
 - **Ristrutturazione Conversazionale Multi-Turno della UI Filologica (`frontend`)**:
   - Ridisegnati [`app.component.ts`](./frontend/src/app/app.component.ts), [`app.component.html`](./frontend/src/app/app.component.html) e [`app.component.css`](./frontend/src/app/app.component.css) passando dal form statico con colonne larghe a un workspace dialogico a 4 stati:
