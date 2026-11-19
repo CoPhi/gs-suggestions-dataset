@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Intestazione Sticky del Testo Lacunoso per Singolo Turno (`AppComponent`)**:
+  - Aggiunta la fascia `.turn-sticky-header` in [`app.component.html`](./frontend/src/app/app.component.html) ([`app.component.ts`](./frontend/src/app/app.component.ts), [`app.component.css`](./frontend/src/app/app.component.css)) con attivazione condizionale (`hasTurnGeneratedSuggestions`) solo sui turni espansi con suggerimenti generati (disattiva in `loading...`, empty state e turni compressi).
+  - Ancorata la fascia sotto `.conversation-header` (`top: 49px`) con sfondo sfocato, bordo inferiore sottile e `max-height: 110px; overflow-y: auto` su `.turn-lacuna-text` per passi greci lunghi, mantenendo visibili `.turn-collapse-btn`, vincoli HITL e azioni `Riutilizza`/`×`.
+  - Aggiunto il test unitario in [`app.component.spec.ts`](./frontend/src/app/app.component.spec.ts).
 - **Pulsante Collapse/Expand per Singolo Turno della Chat (`AppComponent`)**:
   - Aggiunto il pulsante `.turn-collapse-btn` sul lato sinistro di ciascun turno in [`app.component.html`](./frontend/src/app/app.component.html) ([`app.component.ts`](./frontend/src/app/app.component.ts), [`app.component.css`](./frontend/src/app/app.component.css)) con proprietà `isCollapsed`, metodo `toggleTurnCollapse` e riepilogo compatto cliccabile `.turn-collapsed-summary` (`getTurnCollapsedSummary`) per comprimere/espandere singoli turni della cronologia.
   - Aggiunto il relativo test unitario in [`app.component.spec.ts`](./frontend/src/app/app.component.spec.ts).

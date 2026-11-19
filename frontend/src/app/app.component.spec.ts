@@ -447,4 +447,70 @@ describe('AppComponent', () => {
     expect(app.conversationTurns()[0].isCollapsed).toBeFalse();
     expect(compiled.querySelector('app-suggests-box')).not.toBeNull();
   });
+
+  it('should enable sticky lacuna header only when turn has generated suggestions and is expanded', () => {
+    const fixture = TestBed.createComponent(AppComponent);
+    const app = fixture.componentInstance;
+    const api = TestBed.inject(ApiService);
+
+    app.models.set([
+      { _id: '67066928e4414eb1d8109bf1', CHECKPOINT: 'CNR-ILC/gs-GreBerta', BACKEND: 'neuro_lexical', TOP_K_PASSAGES: 5, TYPE: 'RAG' }
+    ]);
+
+    const pending$ = new Subject<SuggestionInterface[]>();
+    const empty$ = new Subject<SuggestionInterface[]>();
+    let callIdx = 0;
+    spyOn(api, 'generateSuggestion').and.callFake(() => {
+      callIdx += 1;
+      return callIdx === 1 ? pending$.asObservable() : empty$.asObservable();
+    });
+
+    app.generateSuggestions({
+      text: 'τειχεσι*....*',
+      modelID: '67066928e4414eb1d8109bf1',
+      num_tokens: 1,
+      num_predictions: 5
+    });
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    const stickyHeader = compiled.querySelector('.turn-sticky-header') as HTMLElement;
+    expect(stickyHeader).toBeTruthy();
+    // 1. Durante loading... lo sticky non è attivo
+    expect(stickyHeader.classList.contains('is-sticky')).toBeFalse();
+    expect(stickyHeader.querySelector('.turn-collapse-btn')).toBeTruthy();
+    expect(stickyHeader.querySelector('.turn-lacuna-text')).toBeTruthy();
+    expect(stickyHeader.querySelector('.reuse-turn-text-btn')).toBeTruthy();
+    expect(stickyHeader.querySelector('.close-turn-btn')).toBeTruthy();
+
+    // 2. Al completamento con suggerimenti pronti si attiva .is-sticky
+    pending$.next([{ sentence: 'τειχεσιβλῆτα', token_str: 'βλῆτα', score: 0.94, tlg_attested: true }]);
+    pending$.complete();
+    fixture.detectChanges();
+    expect(stickyHeader.classList.contains('is-sticky')).toBeTrue();
+
+    // 3. Quando il turno è compresso, .is-sticky viene disattivato; al ripristino ritorna attivo
+    (stickyHeader.querySelector('.turn-collapse-btn') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    expect(stickyHeader.classList.contains('is-sticky')).toBeFalse();
+
+    (stickyHeader.querySelector('.turn-collapse-btn') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    expect(stickyHeader.classList.contains('is-sticky')).toBeTrue();
+
+    // 4. Turno con 0 suggerimenti (empty state): .is-sticky rimane disattivo
+    app.generateSuggestions({
+      text: 'ἄλλο *...* κείμενον',
+      modelID: '67066928e4414eb1d8109bf1',
+      num_tokens: 1,
+      num_predictions: 5
+    });
+    empty$.next([]);
+    empty$.complete();
+    fixture.detectChanges();
+
+    const headers = compiled.querySelectorAll('.turn-sticky-header');
+    expect(headers.length).toBe(2);
+    expect(headers[1].classList.contains('is-sticky')).toBeFalse();
+  });
 });

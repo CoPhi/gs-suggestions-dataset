@@ -37,11 +37,11 @@
 
     @if (conversationTurns().length > 0) {
         <!-- Header compatto conversazionale -->
-        <header class="conversation-header w-100 border-bottom py-2 px-3">
-            <div class="conversation-container d-flex justify-content-between align-items-center gap-2 mx-auto">
-                <h1 class="h5 mb-0 fw-bold text-dark">Generatore di Suggerimenti</h1>
+        <header class="conversation-header w-100 border-bottom px-3">
+            <div class="conversation-container d-flex justify-content-between align-items-center flex-nowrap gap-2 mx-auto">
+                <h1 class="h5 mb-0 fw-bold text-dark text-truncate">Generatore di Suggerimenti</h1>
                 <button type="button"
-                        class="btn btn-sm btn-outline-secondary rounded-pill px-3 new-conversation-btn"
+                        class="btn btn-sm btn-outline-secondary rounded-pill px-3 flex-shrink-0 new-conversation-btn"
                         (click)="closeSuggestions()">
                     <i class="bi bi-plus-lg me-1"></i>Nuova conversazione
                 </button>
@@ -55,7 +55,9 @@
                     <section class="conversation-turn"
                              [attr.data-turn-id]="turn.turnId"
                              [class.is-collapsed]="!!turn.isCollapsed">
-                        <div class="d-flex align-items-start gap-2">
+                        <!-- Intestazione del turno: sticky sotto la top bar quando i suggerimenti sono pronti ed espansi -->
+                        <div class="turn-sticky-header d-flex align-items-start gap-2 py-2"
+                             [class.is-sticky]="hasTurnGeneratedSuggestions(turn)">
                             <!-- Pulsante collapse/expand agganciato sul lato sinistro del turno -->
                             <button type="button"
                                     class="btn btn-sm btn-outline-secondary rounded-circle d-flex align-items-center justify-content-center p-0 flex-shrink-0 turn-collapse-btn"
@@ -66,65 +68,63 @@
                                 <i class="bi" [class.bi-chevron-right]="turn.isCollapsed" [class.bi-chevron-down]="!turn.isCollapsed"></i>
                             </button>
 
-                            <div class="flex-grow-1 min-w-0">
-                                <!-- Intestazione del turno: testo lacunoso ed eventuali vincoli HITL applicati -->
-                                <div class="d-flex justify-content-between align-items-start gap-2 turn-header"
-                                     [class.mb-3]="!turn.isCollapsed"
-                                     [class.mb-2]="!!turn.isCollapsed">
-                                    <div class="flex-grow-1 min-w-0">
-                                        <div class="turn-lacuna-text fw-medium text-dark">
-                                            @for (seg of getTurnTextSegments(turn.normalizedText); track $index) {
-                                                @if (seg.isLacuna) {
-                                                    <span class="gap-highlight">{{ seg.text }}</span>
-                                                } @else {
-                                                    <span>{{ seg.text }}</span>
-                                                }
+                            <div class="d-flex justify-content-between align-items-start gap-2 flex-grow-1 min-w-0 turn-header">
+                                <div class="flex-grow-1 min-w-0">
+                                    <div class="turn-lacuna-text fw-medium text-dark">
+                                        @for (seg of getTurnTextSegments(turn.normalizedText); track $index) {
+                                            @if (seg.isLacuna) {
+                                                <span class="gap-highlight">{{ seg.text }}</span>
+                                            } @else {
+                                                <span>{{ seg.text }}</span>
                                             }
-                                        </div>
-                                        @if (turn.isRefinement) {
-                                            <div class="d-flex align-items-center flex-wrap gap-2 mt-2 turn-refinement-constraints">
-                                                <span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill px-2 py-1">
-                                                    <i class="bi bi-arrow-return-right me-1"></i>Raffinamento
-                                                </span>
-                                                @if (turn.appliedHumanFeedback) {
-                                                    <span class="small text-secondary fst-italic turn-applied-feedback">
-                                                        "{{ turn.appliedHumanFeedback }}"
-                                                    </span>
-                                                }
-                                                @for (rej of turn.appliedRejectedCandidates; track rej) {
-                                                    <span class="badge bg-danger-subtle text-danger border border-danger-subtle rounded-pill px-2 py-1">
-                                                        Escluso: {{ rej }}
-                                                    </span>
-                                                }
-                                            </div>
                                         }
                                     </div>
-                                    <div class="d-flex align-items-center gap-1 flex-shrink-0">
-                                        <button type="button"
-                                                class="btn btn-sm btn-outline-secondary rounded-pill px-2 py-1 reuse-turn-text-btn"
-                                                (click)="reuseTurnText(turn)"
-                                                title="Riutilizza o modifica questo testo lacunoso nella barra in basso">
-                                            <i class="bi bi-pencil-square me-1"></i><span class="d-none d-sm-inline">Riutilizza</span>
-                                        </button>
-                                        <button type="button"
-                                                class="btn btn-sm btn-outline-secondary rounded-circle d-flex align-items-center justify-content-center p-0 close-turn-btn"
-                                                (click)="closeTurn(turn.turnId)"
-                                                title="Rimuovi questo turno"
-                                                aria-label="Rimuovi turno">
-                                            <i class="bi bi-x-lg"></i>
-                                        </button>
-                                    </div>
+                                    @if (turn.isRefinement) {
+                                        <div class="d-flex align-items-center flex-wrap gap-2 mt-2 turn-refinement-constraints">
+                                            <span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill px-2 py-1">
+                                                <i class="bi bi-arrow-return-right me-1"></i>Raffinamento
+                                            </span>
+                                            @if (turn.appliedHumanFeedback) {
+                                                <span class="small text-secondary fst-italic turn-applied-feedback">
+                                                    "{{ turn.appliedHumanFeedback }}"
+                                                </span>
+                                            }
+                                            @for (rej of turn.appliedRejectedCandidates; track rej) {
+                                                <span class="badge bg-danger-subtle text-danger border border-danger-subtle rounded-pill px-2 py-1">
+                                                    Escluso: {{ rej }}
+                                                </span>
+                                            }
+                                        </div>
+                                    }
                                 </div>
-
-                                @if (turn.isCollapsed) {
+                                <div class="d-flex align-items-center gap-1 flex-shrink-0">
                                     <button type="button"
-                                            class="btn btn-sm btn-light border rounded-pill px-3 py-1 text-secondary small turn-collapsed-summary"
-                                            (click)="toggleTurnCollapse(turn.turnId)"
-                                            title="Clicca per espandere il turno">
-                                        <i class="bi bi-arrows-expand me-1"></i>
-                                        <span>{{ getTurnCollapsedSummary(turn) }}</span>
+                                            class="btn btn-sm btn-outline-secondary rounded-pill px-2 py-1 reuse-turn-text-btn"
+                                            (click)="reuseTurnText(turn)"
+                                            title="Riutilizza o modifica questo testo lacunoso nella barra in basso">
+                                        <i class="bi bi-pencil-square me-1"></i><span class="d-none d-sm-inline">Riutilizza</span>
                                     </button>
-                                } @else {
+                                    <button type="button"
+                                            class="btn btn-sm btn-outline-secondary rounded-circle d-flex align-items-center justify-content-center p-0 close-turn-btn"
+                                            (click)="closeTurn(turn.turnId)"
+                                            title="Rimuovi questo turno"
+                                            aria-label="Rimuovi turno">
+                                        <i class="bi bi-x-lg"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="turn-body-content mt-2">
+                            @if (turn.isCollapsed) {
+                                <button type="button"
+                                        class="btn btn-sm btn-light border rounded-pill px-3 py-1 text-secondary small turn-collapsed-summary"
+                                        (click)="toggleTurnCollapse(turn.turnId)"
+                                        title="Clicca per espandere il turno">
+                                    <i class="bi bi-arrows-expand me-1"></i>
+                                    <span>{{ getTurnCollapsedSummary(turn) }}</span>
+                                </button>
+                            } @else {
                                     <!-- Stato 1: Schermata Attesa (nessun modello ha ancora risposto) -->
                                     @if (isTurnWaitingInitialResponse(turn)) {
                                         <div class="turn-loading-state py-4 d-flex flex-column gap-2" role="status">
@@ -261,7 +261,6 @@
                                         </div>
                                     }
                                 }
-                            </div>
                         </div>
 
                         <hr class="turn-divider mt-3 mb-0" />

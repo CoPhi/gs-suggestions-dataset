@@ -165,6 +165,15 @@ export class AppComponent {
     return turn.modelBoxes.length > 0 && turn.modelBoxes.every(b => !!b.pending);
   }
 
+  // Attiva l'intestazione sticky solo quando il turno è espanso e ha almeno un modello
+  // completato con suggerimenti pronti (esclude fase di attesa loading... e turni vuoti).
+  hasTurnGeneratedSuggestions(turn: ConversationTurn): boolean {
+    if (turn.isCollapsed || this.isTurnWaitingInitialResponse(turn)) {
+      return false;
+    }
+    return turn.modelBoxes.some(b => !b.pending && b.suggestions.length > 0);
+  }
+
   getActiveTurnBox(turn: ConversationTurn): ModelSuggestionBoxItem | null {
     if (turn.modelBoxes.length === 0) return null;
     return turn.modelBoxes.find(b => b.modelId === turn.activeModelId) || turn.modelBoxes[0];

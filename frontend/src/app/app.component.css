@@ -4,6 +4,7 @@
 
 .app-shell {
     width: 100%;
+    --conversation-header-height: 49px;
 }
 
 .initial-screen-layout {
@@ -30,6 +31,9 @@
     position: sticky;
     top: 0;
     z-index: 1020;
+    height: var(--conversation-header-height);
+    display: flex;
+    align-items: center;
     background-color: rgba(249, 249, 249, 0.94);
     backdrop-filter: blur(6px);
 }
@@ -52,6 +56,29 @@
     font-size: 1.12rem;
     line-height: 1.55;
     word-break: break-word;
+}
+
+.turn-sticky-header {
+    transition: box-shadow 0.15s ease, border-color 0.15s ease;
+}
+
+.turn-sticky-header.is-sticky {
+    position: sticky;
+    top: var(--conversation-header-height, 49px);
+    z-index: 1010;
+    background-color: rgba(249, 249, 249, 0.96);
+    backdrop-filter: blur(6px);
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.turn-sticky-header.is-sticky .turn-lacuna-text {
+    max-height: 110px;
+    overflow-y: auto;
+    scrollbar-width: thin;
+}
+
+.turn-body-content {
+    padding-left: calc(28px + 0.5rem);
 }
 
 .close-turn-btn {
