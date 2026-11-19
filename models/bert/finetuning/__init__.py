@@ -1,5 +1,5 @@
 import threading
-from cltk.sentence.grc import GreekRegexSentenceTokenizer
+from backend.core import GreekRegexSentenceTokenizer
 import os
 from dotenv import load_dotenv
 

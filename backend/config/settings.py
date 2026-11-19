@@ -41,6 +41,12 @@ TEST_SIZES = [0.05, 0.1, 0.2]
 DIMENSIONS = [2, 3]
 BATCH_SIZES = [32, 64]
 
+# Parametri di gestione memoria, cache condivisa e runtime leggero per gs-api
+GS_MAX_BERT_MODELS = int(os.getenv("GS_MAX_BERT_MODELS", "1"))
+GS_MODEL_IDLE_TTL_SECONDS = int(os.getenv("GS_MODEL_IDLE_TTL_SECONDS", "600"))
+GS_CACHE_SWEEP_INTERVAL_SECONDS = int(os.getenv("GS_CACHE_SWEEP_INTERVAL_SECONDS", "60"))
+GS_ITHACA_MICRO_BATCH = int(os.getenv("GS_ITHACA_MICRO_BATCH", "4"))
+
 # Percorsi checkpoint pre-addestrati N-gram
 NGRAM_CHECKPOINTS_DIR = Path("models/ngrams/checkpoints")
 
@@ -151,4 +157,13 @@ def get_ngram_checkpoint_path(
         gamma_val = gamma if gamma is not None else GAMMA
         filename = f"ngram_{lm.lower()}_n{n}_gamma{gamma_val}.pkl.zlib"
     return base / filename
+
+
+def get_compact_ngram_checkpoint_path(
+    n: int = N,
+    base_dir: Path | None = None,
+) -> Path:
+    """Restituisce il percorso del checkpoint SQLite compatto condiviso per i modelli N-gram."""
+    base = base_dir or NGRAM_CHECKPOINTS_DIR
+    return base / f"ngram_n{n}.sqlite"
 

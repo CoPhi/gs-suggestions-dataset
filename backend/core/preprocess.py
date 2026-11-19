@@ -1,7 +1,6 @@
 import re
 import unicodedata
 from typing import Optional
-from cltk.alphabet.grc.grc import normalize_grc
 from backend.core import (
     _CASE_FOLDING,
     _DIACRITIC_TABLE,
@@ -22,6 +21,7 @@ from backend.core import (
     OBELISK_REGEX,
     COMBINED_DACTYL_PATTERNS,
     LATIN_REFERENCE_REGEX,
+    normalize_grc,
 )
 
 
