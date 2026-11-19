@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- **Aggiornamento Graduale Frontend ad Angular 21 (`frontend`)**:
+  - Aggiornati i pacchetti core/CLI (`@angular/core`, `@angular/common`, `@angular/compiler`, `@angular/compiler-cli`, `@angular/forms`, `@angular/platform-browser`, `@angular/platform-browser-dynamic`, `@angular/router`, `@angular/service-worker` a `^21.2.26`, `@angular/cli` e `@angular-devkit/build-angular` a `^21.2.30`, `@angular/cdk` a `^21.2.14`) in [`frontend/package.json`](./frontend/package.json) e [`frontend/package-lock.json`](./frontend/package-lock.json), mantenendo `provideZoneChangeDetection` in [`app.config.ts`](./frontend/src/app/app.config.ts) e il runner Karma/Jasmine.
 - **Aggiornamento Graduale Frontend ad Angular 20 (`frontend`)**:
   - Aggiornati i pacchetti core/CLI (`@angular/core`, `@angular/common`, `@angular/compiler`, `@angular/compiler-cli`, `@angular/forms`, `@angular/platform-browser`, `@angular/platform-browser-dynamic`, `@angular/router`, `@angular/service-worker` a `^20.3.35`, `@angular/cli` e `@angular-devkit/build-angular` a `^20.3.43`, `@angular/cdk` a `^20.2.14`) e `typescript` a `~5.9.3` in [`frontend/package.json`](./frontend/package.json) e [`frontend/package-lock.json`](./frontend/package-lock.json).
   - Aggiornata la configurazione schematics in [`angular.json`](./frontend/angular.json) tramite la migrazione automatica di Angular CLI 20 preservando il runner Karma/Jasmine e `zone.js`.
