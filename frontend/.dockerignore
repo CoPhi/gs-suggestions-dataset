@@ -1,6 +1,7 @@
 node_modules
-.angular
 dist
+.angular
 .git
 .vscode
 *.log
+coverage
