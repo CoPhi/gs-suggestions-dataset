@@ -40,6 +40,7 @@ export interface ConversationTurn {
   modelBoxes: ModelSuggestionBoxItem[];
   activeModelId: string;
   userSelectedTab?: boolean;
+  isCollapsed?: boolean;
   turnRejectedCandidates: string[];
   turnHumanFeedback: string;
 }
@@ -167,6 +168,25 @@ export class AppComponent {
   getActiveTurnBox(turn: ConversationTurn): ModelSuggestionBoxItem | null {
     if (turn.modelBoxes.length === 0) return null;
     return turn.modelBoxes.find(b => b.modelId === turn.activeModelId) || turn.modelBoxes[0];
+  }
+
+  toggleTurnCollapse(turnId: string) {
+    this.conversationTurns.update(turns =>
+      turns.map(t => (t.turnId === turnId ? { ...t, isCollapsed: !t.isCollapsed } : t))
+    );
+  }
+
+  getTurnCollapsedSummary(turn: ConversationTurn): string {
+    if (this.isTurnWaitingInitialResponse(turn)) {
+      return 'Generazione in corso...';
+    }
+    if (turn.modelBoxes.length === 1) {
+      const box = turn.modelBoxes[0];
+      const count = box.suggestions.length;
+      return `${box.modelLabel} · ${count} ${count === 1 ? 'predizione' : 'predizioni'}`;
+    }
+    const readyCount = turn.modelBoxes.filter(b => !b.pending).length;
+    return `Confronto (${readyCount}/${turn.modelBoxes.length} modelli)`;
   }
 
   private createUniqueId(prefix: string): string {
@@ -492,6 +512,7 @@ export class AppComponent {
       modelBoxes: initialBoxes,
       activeModelId: targetIds[0],
       userSelectedTab: false,
+      isCollapsed: false,
       turnRejectedCandidates: [],
       turnHumanFeedback: ''
     };

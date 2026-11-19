@@ -59,6 +59,22 @@
     height: 28px;
 }
 
+.turn-collapse-btn {
+    width: 28px;
+    height: 28px;
+    margin-top: 0.2rem;
+    border-color: #cbd5e1;
+    color: #64748b;
+    background-color: #ffffff;
+    transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.turn-collapse-btn:hover {
+    background-color: #eff6ff;
+    border-color: #93c5fd;
+    color: #0d6efd;
+}
+
 .turn-divider {
     border-color: #cbd5e1;
     opacity: 0.85;

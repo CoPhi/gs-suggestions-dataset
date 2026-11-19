@@ -401,4 +401,50 @@ describe('AppComponent', () => {
     expect(app.promptBox()?.isCompareMode()).toBeTrue();
     expect(app.promptBox()?.selectedModelLabel()).toBe('Confronto (2 modelli)');
   });
+
+  it('should collapse and expand a conversation turn via the attached turn-collapse-btn', () => {
+    const fixture = TestBed.createComponent(AppComponent);
+    const app = fixture.componentInstance;
+    const api = TestBed.inject(ApiService);
+
+    app.models.set([
+      { _id: '67066928e4414eb1d8109bf1', CHECKPOINT: 'CNR-ILC/gs-GreBerta', BACKEND: 'neuro_lexical', TOP_K_PASSAGES: 5, TYPE: 'RAG' }
+    ]);
+    spyOn(api, 'generateSuggestion').and.returnValue(
+      of([{ sentence: 'τειχεσιβλῆτα', token_str: 'βλῆτα', score: 0.94, tlg_attested: true }])
+    );
+
+    app.generateSuggestions({
+      text: 'τειχεσι*....*',
+      modelID: '67066928e4414eb1d8109bf1',
+      num_tokens: 1,
+      num_predictions: 5
+    });
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    const collapseBtn = compiled.querySelector('.turn-collapse-btn') as HTMLButtonElement;
+    expect(collapseBtn).toBeTruthy();
+    expect(collapseBtn.getAttribute('aria-expanded')).toBe('true');
+    expect(compiled.querySelector('app-suggests-box')).not.toBeNull();
+    expect(compiled.querySelector('.turn-collapsed-summary')).toBeNull();
+
+    // Comprime il turno
+    collapseBtn.click();
+    fixture.detectChanges();
+
+    expect(app.conversationTurns()[0].isCollapsed).toBeTrue();
+    expect(collapseBtn.getAttribute('aria-expanded')).toBe('false');
+    expect(compiled.querySelector('app-suggests-box')).toBeNull();
+    const summaryBtn = compiled.querySelector('.turn-collapsed-summary') as HTMLButtonElement;
+    expect(summaryBtn).toBeTruthy();
+    expect(summaryBtn.textContent).toContain('gs-GreBerta + RAG');
+    expect(summaryBtn.textContent).toContain('1 predizione');
+
+    // Riespande il turno
+    summaryBtn.click();
+    fixture.detectChanges();
+    expect(app.conversationTurns()[0].isCollapsed).toBeFalse();
+    expect(compiled.querySelector('app-suggests-box')).not.toBeNull();
+  });
 });

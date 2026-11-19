@@ -8,6 +8,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Pulsante Collapse/Expand per Singolo Turno della Chat (`AppComponent`)**:
+  - Aggiunto il pulsante `.turn-collapse-btn` sul lato sinistro di ciascun turno in [`app.component.html`](./frontend/src/app/app.component.html) ([`app.component.ts`](./frontend/src/app/app.component.ts), [`app.component.css`](./frontend/src/app/app.component.css)) con proprietà `isCollapsed`, metodo `toggleTurnCollapse` e riepilogo compatto cliccabile `.turn-collapsed-summary` (`getTurnCollapsedSummary`) per comprimere/espandere singoli turni della cronologia.
+  - Aggiunto il relativo test unitario in [`app.component.spec.ts`](./frontend/src/app/app.component.spec.ts).
 - **Pulsante `Confronta` nella Modale Dettagli Modelli (`ModelsBoxComponent`, `ModelComponent`)**:
   - Aggiunto il toggle `Confronta` (`.models-compare-mode-btn`) e la relativa barra di confronto (`.models-compare-toolbar` con `Seleziona tutti`/`Deseleziona tutti` e `Applica confronto`) in [`models-box.component.html`](./frontend/src/app/components/models-box/models-box.component.html) e [`models-box.component.ts`](./frontend/src/app/components/models-box/models-box.component.ts).
   - Esteso [`ModelComponent`](./frontend/src/app/components/model/model.component.ts) ([`model.component.html`](./frontend/src/app/components/model/model.component.html)) per consentire l'aggiunta/rimozione delle singole card dal confronto (`.compare-card-toggle-btn`) senza chiudere la modale.
