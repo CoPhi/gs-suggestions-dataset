@@ -1,5 +1,4 @@
-import { inject, Injectable, signal } from '@angular/core';
-import { SwPush } from '@angular/service-worker';
+import { Injectable, signal } from '@angular/core';
 
 export interface AppAlert {
   id: string;

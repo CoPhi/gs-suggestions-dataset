@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+- **Pulizia Dipendenze e Configurazione Preparatoria Frontend (`frontend`)**:
+  - Rimosse le dipendenze inutilizzate `@ng-bootstrap/ng-bootstrap`, `@angular/localize` e `@popperjs/core` da [`frontend/package.json`](./frontend/package.json) e [`frontend/package-lock.json`](./frontend/package-lock.json) per sbloccare l'aggiornamento verso Angular 22, insieme ai relativi riferimenti in [`main.ts`](./frontend/src/main.ts), [`angular.json`](./frontend/angular.json), [`tsconfig.app.json`](./frontend/tsconfig.app.json) e [`tsconfig.spec.json`](./frontend/tsconfig.spec.json).
+  - Spostato `@angular/platform-browser-dynamic` in `devDependencies` di [`frontend/package.json`](./frontend/package.json) (richiesto solo dal builder Karma v19 per `@angular/platform-browser-dynamic/testing`, non dal runtime standalone).
+  - Rimossi gli import inutilizzati in [`notification.service.ts`](./frontend/src/app/services/notification.service.ts) e [`api.service.ts`](./frontend/src/app/services/api.service.ts).
+
+### Fixed
+- **Registrazione Duplicata Service Worker (`app.config.ts`)**:
+  - Rimossa la seconda chiamata duplicata a `provideServiceWorker('ngsw-worker.js', ...)` in [`app.config.ts`](./frontend/src/app/app.config.ts).
+
 ## [0.9.0] - 2026-11-19
 
 ### Added
