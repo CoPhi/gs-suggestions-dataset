@@ -16,6 +16,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Aggiornato il frontend Angular ([`frontend/src/app/app.component.ts`](./frontend/src/app/app.component.ts), [`frontend/src/app/services/api.service.ts`](./frontend/src/app/services/api.service.ts)) per generare un `session_id` univoco per ogni nuova ricerca dalla `PromptBox` e mantenerlo su confronti multi-modello, raffinamenti HITL e `POST /feedback`.
   - Esposte le variabili `RAG_CONVERSATION_LOG_ENABLED` / `RAG_CONVERSATION_LOG_FILE` e il volume persistente `./logs:/app/logs` in [`docker-compose.yaml`](./docker-compose.yaml), con suite di test dedicate in [`tests/test_conversation_logging.py`](./tests/test_conversation_logging.py), [`tests/test_dspy_rag.py`](./tests/test_dspy_rag.py), [`api.service.spec.ts`](./frontend/src/app/services/api.service.spec.ts) e [`app.component.spec.ts`](./frontend/src/app/app.component.spec.ts).
 
+### Fixed
+- **Vincoli di Decodifica e Postprocessing dei Suggerimenti Ithaca (`models/ithaca/inference/predict.py`, `gs-api`)**:
+  - Rimossa l'euristica `is_input_upper` da `fill_mask_ithaca` ([`models/ithaca/inference/predict.py`](./models/ithaca/inference/predict.py)) e forzato il casing minuscolo su `sentence`, `token_str` e `reconstructed_word` in `SuggestionsService._predict_ithaca` ([`backend/api/services/suggestions_service.py`](./backend/api/services/suggestions_service.py)), allineando Ithaca a BERT, RAG e N-grammi.
+  - Vincolato `decode_gap_hcb_beam_search` alle sole 24 lettere greche standard (`STANDARD_GREEK_LOWER_CHARS`) e a spazi strettamente interni ben formati (vietati ai bordi della lacuna, per `gap_len <= 2` e come spazi consecutivi), escludendo cifre (`0`), punteggiatura (`.`), caratteri epigrafici arcaici (`ϙ`, `ϛ`) e token di controllo.
+  - Aggiunto `postprocess_ithaca_candidates` con normalizzazione ortografica contestuale di `'σ'`/`'ς'` rispetto al carattere successivo, fusione probabilistica dei duplicati via `np.logaddexp` prima della softmax e margine automatico di beam (`max(20, K + 4)`) in `fill_mask_ithaca`.
+  - Aggiornati ed estesi i test unitari in [`tests/test_ithaca_hcb.py`](./tests/test_ithaca_hcb.py) e [`tests/test_multiple_lacunae.py`](./tests/test_multiple_lacunae.py).
+
 ## [0.8.1] - 2026-11-18
 
 ### Added

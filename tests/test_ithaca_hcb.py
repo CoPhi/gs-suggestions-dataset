@@ -718,3 +718,52 @@ def test_nsga2_ithaca_helpers():
     assert _format_objectives_tuple(40.0, 80.0, 75.0, 65.0, 50.0, "em_cer") == (40.0, 65.0)
     assert _format_objectives_tuple(40.0, 80.0, 75.0, 65.0, 50.0, "em_cer_mrr") == (40.0, 65.0, 50.0)
 
+
+@pytest.mark.asyncio
+async def test_suggestions_service_predict_ithaca_lowercases_output(monkeypatch):
+    """Verifica che SuggestionsService._predict_ithaca normalizzi sempre in minuscolo sentence, token_str e reconstructed_word."""
+    from unittest.mock import AsyncMock, MagicMock
+    from bson import ObjectId
+
+    from backend.api.models import ModelType, PredictionCount
+    from backend.api.services.suggestions_service import SuggestionsService
+    import models.ithaca.inference.predict as pred_module
+
+    mock_collection = MagicMock()
+    ithaca_id = ObjectId()
+    mock_collection.find_one = AsyncMock(
+        return_value={
+            "_id": ithaca_id,
+            "CHECKPOINT": "CNR-ILC/gs-ithaca-tlg",
+            "TYPE": ModelType.ITHACA,
+        }
+    )
+
+    sugg_service = SuggestionsService(
+        db_collection=mock_collection,
+        gridfs=MagicMock(),
+        feedback_db=MagicMock(),
+    )
+
+    monkeypatch.setattr(
+        pred_module,
+        "fill_mask_ithaca",
+        lambda **kwargs: [("ΑΓΑΘΟΣ", 0.90), ("ΚαΛοΝ", 0.10)],
+    )
+
+    preds = await sugg_service.get_predictions(
+        model_id=str(ithaca_id),
+        context="Ἔδοξεν τῇ βουλῇ [......]",
+        num_tokens=1,
+        num_predictions=PredictionCount.FIVE,
+    )
+
+    assert len(preds) == 2
+    assert preds[0]["token_str"] == "αγαθος"
+    assert preds[0]["sentence"] == "ἔδοξεν τῇ βουλῇ αγαθος"
+    assert preds[0]["reconstructed_word"] == "αγαθος"
+    assert preds[1]["token_str"] == "καλον"
+    assert preds[1]["sentence"] == "ἔδοξεν τῇ βουλῇ καλον"
+    assert preds[1]["reconstructed_word"] == "καλον"
+
+

@@ -509,8 +509,9 @@ class SuggestionsService:
 
         return [
             {
-                "sentence": re.sub(BERT_LACUNA_PATTERN, entry["token_str"], context, count=1),
-                "token_str": entry["token_str"],
+                # Allinea il casing a BERT e RAG restituendo frase, supplemento e parola ricostruita in minuscolo
+                "sentence": re.sub(BERT_LACUNA_PATTERN, entry["token_str"], context, count=1).lower(),
+                "token_str": str(entry["token_str"]).lower(),
                 "score": float(entry["score"]),
                 "tlg_attested": bool(entry["tlg_attested"]),
                 "reconstructed_word": str(entry["reconstructed_word"]).lower(),
