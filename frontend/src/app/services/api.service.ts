@@ -45,7 +45,7 @@ export class ApiService {
     options?: HitlRefinementOptions
   ): Observable<SuggestionInterface[]> {
     // Costruisce i query params mantenendo invariata la firma base e aggiungendo
-    // opzionalmente i vincoli Human-in-the-loop (Fase 2) solo quando valorizzati.
+    // opzionalmente i vincoli Human-in-the-loop (Fase 2) e il session_id solo quando valorizzati.
     const params: Record<string, any> = { model_id, context, num_tokens, num_predictions };
     if (options?.human_feedback && options.human_feedback.trim()) {
       params['human_feedback'] = options.human_feedback.trim();
@@ -55,6 +55,9 @@ export class ApiService {
     }
     if (options?.use_rag) {
       params['use_rag'] = true;
+    }
+    if (options?.session_id && options.session_id.trim()) {
+      params['session_id'] = options.session_id.trim();
     }
 
     return this.http.get<{ predictions: SuggestionInterface[] }>(`${this.apiUrl}/predictions`, {
@@ -85,6 +88,9 @@ export class ApiService {
     if (options?.use_rag) {
       params['use_rag'] = true;
     }
+    if (options?.session_id && options.session_id.trim()) {
+      params['session_id'] = options.session_id.trim();
+    }
 
     return this.http.get<{ results: ModelPredictionResultInterface[] }>(`${this.apiUrl}/predictions/batch`, {
       params,
@@ -109,6 +115,7 @@ export interface HitlRefinementOptions {
   human_feedback?: string;
   rejected_candidates?: string[];
   use_rag?: boolean;
+  session_id?: string;
 }
 
 export interface AlternativeCandidateInterface {

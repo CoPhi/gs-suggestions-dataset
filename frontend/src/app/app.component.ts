@@ -51,6 +51,9 @@ export class AppComponent {
   } | null>(null);
   sessionHumanFeedback = signal<string>('');
   sessionRejectedCandidates = signal<string[]>([]);
+  // Identificativo di sessione univoco per la lacuna corrente: correla confronto multi-modello,
+  // raffinamenti HITL, log DSPy/LLM lato backend e feedback persistiti su MongoDB.
+  currentSessionId = signal<string | null>(null);
 
   constructor() {
     this.api.getModels().subscribe({
@@ -190,6 +193,14 @@ export class AppComponent {
     this.pendingModelSubscriptions.clear();
   }
 
+  private createSessionId(): string {
+    const cryptoApi = (globalThis as { crypto?: { randomUUID?: () => string } }).crypto;
+    if (cryptoApi?.randomUUID) {
+      return cryptoApi.randomUUID();
+    }
+    return `sess-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+  }
+
   closeSuggestions() {
     this.cancelAllRequests();
     this.isGenerating.set(false);
@@ -198,6 +209,7 @@ export class AppComponent {
     this.modelSuggestionBoxes.set(null);
     this.sessionHumanFeedback.set('');
     this.sessionRejectedCandidates.set([]);
+    this.currentSessionId.set(null);
   }
 
   closeModelBox(modelId: string) {
@@ -242,10 +254,17 @@ export class AppComponent {
   ) {
     this.cancelAllRequests();
     this.earlyConsultationUnlocked.set(false);
-    // Se è una nuova richiesta dal PromptBox (senza hitlOptions), azzera i vincoli di sessione precedenti
+    // Se è una nuova richiesta dal PromptBox (senza hitlOptions), azzera i vincoli precedenti
+    // e genera un nuovo session_id; nei raffinamenti HITL mantiene il session_id attivo.
+    let sessionId = this.currentSessionId();
     if (!hitlOptions) {
       this.sessionHumanFeedback.set('');
       this.sessionRejectedCandidates.set([]);
+      sessionId = this.createSessionId();
+      this.currentSessionId.set(sessionId);
+    } else if (!sessionId) {
+      sessionId = this.createSessionId();
+      this.currentSessionId.set(sessionId);
     }
     this.lastGenerationPayload.set(payload);
     this.isGenerating.set(true);
@@ -256,10 +275,11 @@ export class AppComponent {
     // sui payload già normalizzati dal PromptBox.
     const text = normalizeLacunaeForApi(rawText || '');
 
-    const mergedOptions: HitlRefinementOptions | undefined =
-      hitlOptions || use_rag
-        ? { ...hitlOptions, ...(use_rag ? { use_rag: true } : {}) }
-        : undefined;
+    const mergedOptions: HitlRefinementOptions = {
+      ...(hitlOptions || {}),
+      ...(use_rag ? { use_rag: true } : {}),
+      session_id: sessionId,
+    };
 
     const targetIds = modelIDs && modelIDs.length > 1
       ? Array.from(new Set(modelIDs))
@@ -445,7 +465,8 @@ export class AppComponent {
       use_rag: useRag,
       top_k: event.top_k || lastReq?.num_predictions || null,
       // Supporto per RLHF (coppie di preferenza per DPO / Reward Modeling)
-      alternative_candidates: event.alternative_candidates
+      alternative_candidates: event.alternative_candidates,
+      session_id: this.currentSessionId()
     }).subscribe({
       next: () => {
         const label = event.is_accepted ? 'validato' : 'scartato';

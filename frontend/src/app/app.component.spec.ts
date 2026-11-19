@@ -279,4 +279,70 @@ describe('AppComponent', () => {
     expect(compiled.querySelector('.model-pending-placeholder-card')).toBeNull();
     expect(compiled.querySelectorAll('.horizontal-suggestion-col').length).toBe(2);
   });
+
+  it('should generate a shared per-lacuna session_id across multi-model calls, HITL refinements, and feedback', () => {
+    const fixture = TestBed.createComponent(AppComponent);
+    const app = fixture.componentInstance;
+    const api = TestBed.inject(ApiService);
+
+    app.models.set([
+      { _id: 'm1', CHECKPOINT: 'Qwen/Qwen2.5-72B-Instruct', BACKEND: 'auto', TOP_K_PASSAGES: 5, TYPE: 'RAG' },
+      { _id: 'm2', CHECKPOINT: 'meta-llama/Llama-3.3-70B-Instruct', BACKEND: 'auto', TOP_K_PASSAGES: 5, TYPE: 'RAG' }
+    ]);
+
+    const genSpy = spyOn(api, 'generateSuggestion').and.returnValue(
+      of([{ sentence: 'τειχεσιβλητα', token_str: 'λητα', score: 0.9, tlg_attested: true }])
+    );
+    const fbSpy = spyOn(api, 'submitFeedback').and.returnValue(of({ id: 'fb-1', status: 'saved' }));
+
+    // 1. Nuova ricerca multi-modello: stesso session_id per tutte le colonne
+    app.generateSuggestions({
+      text: 'τειχεσι*....*',
+      modelID: 'm1',
+      modelIDs: ['m1', 'm2'],
+      num_tokens: 1,
+      num_predictions: 5
+    });
+
+    const firstSessionId = app.currentSessionId();
+    expect(firstSessionId).toBeTruthy();
+    expect(genSpy.calls.count()).toBe(2);
+    expect(genSpy.calls.argsFor(0)[4]?.session_id).toBe(firstSessionId!);
+    expect(genSpy.calls.argsFor(1)[4]?.session_id).toBe(firstSessionId!);
+
+    // 2. Feedback: propaga lo stesso session_id su MongoDB
+    app.recordFeedback(
+      {
+        token_str: 'λητα',
+        sentence: 'τειχεσιβλητα',
+        is_accepted: true,
+        score: 0.9,
+        rank: 1
+      },
+      'm1'
+    );
+    expect(fbSpy).toHaveBeenCalled();
+    expect(fbSpy.calls.mostRecent().args[0].session_id).toBe(firstSessionId!);
+
+    // 3. Raffinamento HITL: conserva lo stesso session_id della lacuna
+    app.refineSuggestions({ human_feedback: 'Solo forme omeriche', rejected_candidates: ['πλητα'] });
+    expect(app.currentSessionId()).toBe(firstSessionId!);
+    expect(genSpy.calls.mostRecent().args[4]?.session_id).toBe(firstSessionId!);
+
+    // 4. Nuova ricerca indipendente: genera un nuovo session_id
+    app.generateSuggestions({
+      text: 'ἄλλο *...* κείμενον',
+      modelID: 'm1',
+      num_tokens: 1,
+      num_predictions: 5
+    });
+    const secondSessionId = app.currentSessionId();
+    expect(secondSessionId).toBeTruthy();
+    expect(secondSessionId).not.toBe(firstSessionId!);
+    expect(genSpy.calls.mostRecent().args[4]?.session_id).toBe(secondSessionId!);
+
+    // 5. Chiusura: resetta currentSessionId
+    app.closeSuggestions();
+    expect(app.currentSessionId()).toBeNull();
+  });
 });
