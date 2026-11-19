@@ -19,6 +19,7 @@ from backend.config.settings import (
     BERT_CHECKPOINTS,
     DATA_PATH,
     GAMMA,
+    ITHACA_CHECKPOINTS,
     LM_TYPES,
     N,
     RAG_CHECKPOINTS,
@@ -80,6 +81,15 @@ class ModelService:
         for checkpoint in BERT_CHECKPOINTS:
             try:
                 ids.append(await self._create_bert_model_from_checkpoint(checkpoint))
+            except ModelAlreadyExistsError:
+                pass  # modello già presente, si prosegue
+        for checkpoint in ITHACA_CHECKPOINTS:
+            try:
+                ids.append(
+                    await self._create_ithaca_model(
+                        IthacaModel(CHECKPOINT=checkpoint, TYPE="Ithaca")
+                    )
+                )
             except ModelAlreadyExistsError:
                 pass  # modello già presente, si prosegue
         for checkpoint in RAG_CHECKPOINTS:

@@ -99,3 +99,48 @@ async def test_model_service_raises_when_no_checkpoint_and_no_data(tmp_path):
             await service._train_and_persist_ngram(model_dict)
 
         assert "Pretrained checkpoint for N-gram model" in str(exc_info.value)
+
+
+@pytest.mark.asyncio
+async def test_init_models_registers_ithaca_and_featured_rag_checkpoints():
+    mock_collection = MagicMock()
+    mock_collection.find_one = AsyncMock(return_value=None)
+    inserted_counter = 0
+
+    async def _fake_insert(doc):
+        nonlocal inserted_counter
+        inserted_counter += 1
+        return MagicMock(inserted_id=f"id-{inserted_counter}")
+
+    mock_collection.insert_one = AsyncMock(side_effect=_fake_insert)
+    mock_fs = MagicMock()
+
+    service = ModelService(db_collection=mock_collection, gridfs=mock_fs)
+
+    with patch.object(
+        service, "_create_ngram_model_from_params", new=AsyncMock(return_value="ngram-id")
+    ), patch.object(
+        service, "_create_bert_model_from_checkpoint", new=AsyncMock(return_value="bert-id")
+    ):
+        ids = await service.init_models()
+
+    inserted_docs = [call.args[0] for call in mock_collection.insert_one.call_args_list]
+    assert any(
+        d.get("TYPE") == "Ithaca" and d.get("CHECKPOINT") == "CNR-ILC/gs-ithaca-tlg"
+        for d in inserted_docs
+    )
+    assert any(
+        d.get("TYPE") == "RAG" and d.get("CHECKPOINT") == "Qwen/Qwen2.5-72B-Instruct"
+        for d in inserted_docs
+    )
+    assert any(
+        d.get("TYPE") == "RAG" and d.get("CHECKPOINT") == "meta-llama/Llama-3.3-70B-Instruct"
+        for d in inserted_docs
+    )
+    assert any(
+        d.get("TYPE") == "RAG"
+        and d.get("CHECKPOINT") == "CNR-ILC/gs-GreBerta"
+        and d.get("BACKEND") == "neuro_lexical"
+        for d in inserted_docs
+    )
+    assert len(ids) > 0

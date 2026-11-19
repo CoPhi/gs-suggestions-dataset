@@ -30,6 +30,7 @@ BETA = 1 #edit distance
 DELTA = 1 #length penalty
 
 BERT_CHECKPOINTS = ["CNR-ILC/gs-aristoBERTo", "CNR-ILC/gs-GreBerta", "CNR-ILC/gs-Logion"]
+ITHACA_CHECKPOINTS = ["CNR-ILC/gs-ithaca-tlg"]
 
 # Spazio di ricerca degli iperparametri
 LM_TYPES = ["LIDSTONE", "MLE"]
@@ -51,7 +52,7 @@ RAG_DEFAULT_BERT = os.getenv("RAG_DEFAULT_BERT", "CNR-ILC/gs-GreBerta")
 RAG_DEFAULT_BACKEND = os.getenv("RAG_DEFAULT_BACKEND", "auto")
 RAG_DEFAULT_EMBEDDER = os.getenv("RAG_DEFAULT_EMBEDDER", "CNR-ILC/gs-GreBerta")
 RAG_TOP_K_PASSAGES = int(os.getenv("RAG_TOP_K_PASSAGES", "5"))
-RAG_CHECKPOINTS = [RAG_DEFAULT_LM, RAG_DEFAULT_BERT]
+RAG_CHECKPOINTS = [RAG_DEFAULT_LM, "meta-llama/Llama-3.3-70B-Instruct", RAG_DEFAULT_BERT]
 
 # Catalogo di modelli LLM e BERT neuro-lessicali supportati per il sistema DSPy RAG
 RAG_SUPPORTED_LMS: list[dict[str, Any]] = [
