@@ -16,6 +16,13 @@ from importlib import import_module
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
+    from models.rag.conversation_logging import (
+        ConversationTraceRecorder,
+        DSPyConversationCallback,
+        format_conversation_record,
+        is_conversation_logging_enabled,
+        load_conversation_records,
+    )
     from models.rag.inference import fill_mask_rag
     from models.rag.llm_logging import (
         HuggingFaceCallLogger,
@@ -53,6 +60,8 @@ if TYPE_CHECKING:
 
 __all__ = [
     "ConstraintRefinementSignature",
+    "ConversationTraceRecorder",
+    "DSPyConversationCallback",
     "GreekBertEmbedder",
     "GreekCandidate",
     "GreekHybridRetriever",
@@ -69,10 +78,13 @@ __all__ = [
     "dev_cases_to_dspy_examples",
     "extract_lacuna_metadata",
     "fill_mask_rag",
+    "format_conversation_record",
     "format_gap_constraints",
     "get_or_build_default_retriever",
     "greek_infilling_dspy_metric",
     "install_llm_call_logging",
+    "is_conversation_logging_enabled",
+    "load_conversation_records",
     "sanitize_greek_supplement",
 ]
 
@@ -80,6 +92,8 @@ __all__ = [
 # avviene solo al primo accesso, evitando import eager di optimizer/evaluation.
 _LAZY_IMPORTS: dict[str, str] = {
     "ConstraintRefinementSignature": "models.rag.signatures",
+    "ConversationTraceRecorder": "models.rag.conversation_logging",
+    "DSPyConversationCallback": "models.rag.conversation_logging",
     "GreekBertEmbedder": "models.rag.retriever",
     "GreekCandidate": "models.rag.signatures",
     "GreekHybridRetriever": "models.rag.retriever",
@@ -96,10 +110,13 @@ _LAZY_IMPORTS: dict[str, str] = {
     "dev_cases_to_dspy_examples": "models.rag.optimizer",
     "extract_lacuna_metadata": "models.rag.modules",
     "fill_mask_rag": "models.rag.inference",
+    "format_conversation_record": "models.rag.conversation_logging",
     "format_gap_constraints": "models.rag.signatures",
     "get_or_build_default_retriever": "models.rag.retriever",
     "greek_infilling_dspy_metric": "models.rag.optimizer",
     "install_llm_call_logging": "models.rag.llm_logging",
+    "is_conversation_logging_enabled": "models.rag.conversation_logging",
+    "load_conversation_records": "models.rag.conversation_logging",
     "sanitize_greek_supplement": "models.rag.modules",
 }
 

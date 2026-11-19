@@ -35,6 +35,10 @@ from models.bert.inference.vocab import (
     get_normalized_vocab,
     normalize_for_tlg_lookup,
 )
+from models.rag.conversation_logging import (
+    ConversationTraceRecorder,
+    is_conversation_logging_enabled,
+)
 from models.rag.llm_logging import (
     log_llm_fallback_event,
     log_llm_skipped_event,
@@ -385,6 +389,8 @@ def fill_mask_rag(
     allow_local_fallback: bool | None = None,
     human_feedback: str = "",
     rejected_candidates: list[str] | None = None,
+    session_id: str | None = None,
+    model_id: str | None = None,
 ) -> list[tuple[str, float]] | tuple[list[tuple[str, float]], dict[str, Any]]:
     """
     Esegue il text-infilling su un testo greco contenente una lacuna `[...]` o `[---]`
@@ -442,6 +448,11 @@ def fill_mask_rag(
     is_explicit_neuro_lexical = (lm is None) and (
         backend == "neuro_lexical" or is_bert_checkpoint(checkpoint)
     )
+    trace_recorder: ConversationTraceRecorder | None = None
+    effective_backend = backend
+    effective_model = str(getattr(lm, "model", None) or checkpoint)
+    trace_status = "ok"
+
     if is_explicit_neuro_lexical:
         target_mlm_ckpt = (
             checkpoint if is_bert_checkpoint(checkpoint) else embedder_checkpoint
@@ -468,6 +479,33 @@ def fill_mask_rag(
         active_lm = lm or dspy.settings.lm
         if active_lm is None:
             active_lm = build_dspy_lm(checkpoint=checkpoint, backend=backend)
+
+        effective_model = str(getattr(active_lm, "model", None) or checkpoint)
+        if is_conversation_logging_enabled():
+            # Il recorder viene istanziato solo per le esecuzioni DSPy con LLM
+            # (escludendo i run neuro_lexical a priori) quando il flag opt-in è attivo.
+            trace_recorder = ConversationTraceRecorder(
+                session_id=session_id,
+                model_id=model_id,
+                checkpoint=checkpoint,
+                requested_backend=backend,
+                input_payload={
+                    "raw_text": text,
+                    "context_with_gap": meta["context_with_gap"],
+                    "min_chars": min_chars,
+                    "max_chars": max_chars,
+                    "word_prefix": word_prefix,
+                    "word_suffix": word_suffix,
+                    "K": K,
+                    "top_k_passages": top_k_passages,
+                    "compiled_program_path": str(compiled_program_path) if compiled_program_path else None,
+                    "enable_refinement": enable_refinement,
+                    "use_vocab_filter": use_vocab_filter,
+                    "exclude_query_overlap": exclude_query_overlap,
+                    "human_feedback": human_feedback or "",
+                    "rejected_candidates": list(rejected_candidates or []),
+                },
+            )
 
         infiller = _load_or_create_infiller(
             retriever=active_retriever,
@@ -497,20 +535,36 @@ def fill_mask_rag(
             ):
                 skip_reason = "HF_TOKEN non dispone dei permessi per Hugging Face Inference Providers (circuit-breaker attivo)"
                 log_llm_skipped_event(lm_model_name, skip_reason)
+                if trace_recorder is not None:
+                    trace_recorder.record_fallback(lm_model_name, "fallback_check", skip_reason, kind="skipped")
                 raise RuntimeError(skip_reason)
             if should_fallback and lm_model_name.startswith(("ollama/", "ollama_chat/")):
                 ram_ok, ram_reason = is_ollama_model_within_ram_budget(lm_model_name)
                 if not ram_ok:
                     log_llm_skipped_event(lm_model_name, ram_reason)
+                    if trace_recorder is not None:
+                        trace_recorder.record_fallback(lm_model_name, "fallback_check", ram_reason, kind="skipped")
                     raise RuntimeError(ram_reason)
 
-            with dspy.context(lm=active_lm):
+            ctx_mgr = (
+                trace_recorder.make_dspy_context(active_lm, attempt="primary")
+                if trace_recorder is not None
+                else dspy.context(lm=active_lm)
+            )
+            with ctx_mgr:
                 pred = infiller(**infill_kwargs)
         except Exception as primary_exc:
             if is_hf_permission_or_auth_error(primary_exc):
                 mark_hf_api_unavailable()
 
             if not should_fallback:
+                if trace_recorder is not None:
+                    trace_recorder.finalize_and_write(
+                        effective_backend=effective_backend,
+                        effective_model=effective_model,
+                        status="error",
+                        error=f"{type(primary_exc).__name__}: {primary_exc}",
+                    )
                 raise
 
             # 1. Tenta eventuali runtime LLM alternativi disponibili in locale (es. Ollama compatibile con la RAM)
@@ -519,10 +573,33 @@ def fill_mask_rag(
                 try:
                     fb_model_name = str(getattr(fb_lm, "model", "") or "ollama")
                     log_llm_fallback_event(checkpoint, fb_model_name, str(primary_exc))
-                    with dspy.context(lm=fb_lm):
+                    if trace_recorder is not None:
+                        trace_recorder.record_fallback(
+                            checkpoint,
+                            fb_model_name,
+                            str(primary_exc),
+                            kind="fallback_ollama",
+                        )
+                        fb_ctx = trace_recorder.make_dspy_context(
+                            fb_lm,
+                            attempt=f"fallback_ollama:{fb_model_name}",
+                        )
+                    else:
+                        fb_ctx = dspy.context(lm=fb_lm)
+                    with fb_ctx:
                         pred = infiller(**infill_kwargs)
+                    effective_model = fb_model_name
+                    effective_backend = "ollama"
+                    trace_status = "fallback_ollama"
                     break
-                except Exception:
+                except Exception as fb_exc:
+                    if trace_recorder is not None:
+                        trace_recorder.record_fallback(
+                            str(getattr(fb_lm, "model", "") or "ollama"),
+                            "next_fallback",
+                            f"{type(fb_exc).__name__}: {fb_exc}",
+                            kind="fallback_error",
+                        )
                     continue
 
             # 2. Se nessun LLM generativo esterno è raggiungibile/autorizzato, degrada al motore
@@ -539,6 +616,16 @@ def fill_mask_rag(
                     f"neuro_lexical ({embedder_checkpoint})",
                     reason_label,
                 )
+                if trace_recorder is not None:
+                    trace_recorder.record_fallback(
+                        checkpoint,
+                        f"neuro_lexical ({embedder_checkpoint})",
+                        reason_label,
+                        kind="fallback_neuro_lexical",
+                    )
+                effective_model = embedder_checkpoint
+                effective_backend = "neuro_lexical"
+                trace_status = "fallback_neuro_lexical"
                 pred = _build_neuro_lexical_rag_prediction(
                     context_with_gap=meta["context_with_gap"],
                     min_chars=min_chars,
@@ -628,13 +715,13 @@ def fill_mask_rag(
             for (item, _), p in zip(unique_candidates, unnorm)
         ]
 
-    if return_details:
-        retrieved_passages_list = list(getattr(pred, "retrieved_passages", []) or [])
-        all_retrieved_passages_list = list(
-            getattr(pred, "all_retrieved_passages", None) or retrieved_passages_list
-        )
-        raw_reasoning = str(getattr(pred, "philological_reasoning", "") or "").strip()
+    retrieved_passages_list = list(getattr(pred, "retrieved_passages", []) or [])
+    all_retrieved_passages_list = list(
+        getattr(pred, "all_retrieved_passages", None) or retrieved_passages_list
+    )
+    raw_reasoning = str(getattr(pred, "philological_reasoning", "") or "").strip()
 
+    if return_details:
         # Risolve per ciascun suggerimento restituito:
         # 1) le attestazioni puntuali nella collezione di documenti (corpus) con la forma in grassetto (**...**);
         # 2) l'attestazione lessicale nell'intero TLG (boundary reconstruction + lookup su tlg.wl.gz
@@ -740,6 +827,16 @@ def fill_mask_rag(
                         else citation_note
                     )
 
+        if trace_recorder is not None:
+            trace_recorder.set_retrieval(retrieved_passages_list, all_retrieved_passages_list)
+            trace_recorder.finalize_and_write(
+                effective_backend=effective_backend,
+                effective_model=effective_model,
+                status=trace_status,
+                candidates=unique_candidates,
+                philological_reasoning=raw_reasoning,
+            )
+
         details = {
             "philological_reasoning": raw_reasoning,
             "retrieved_passages": retrieved_passages_list,
@@ -754,6 +851,16 @@ def fill_mask_rag(
             "word_suffix": word_suffix,
         }
         return unique_candidates, details
+
+    if trace_recorder is not None:
+        trace_recorder.set_retrieval(retrieved_passages_list, all_retrieved_passages_list)
+        trace_recorder.finalize_and_write(
+            effective_backend=effective_backend,
+            effective_model=effective_model,
+            status=trace_status,
+            candidates=unique_candidates,
+            philological_reasoning=raw_reasoning,
+        )
 
     return unique_candidates
 
@@ -799,6 +906,12 @@ def main() -> None:
         default=None,
         help="Percorso opzionale al modulo DSPy compilato (.json)",
     )
+    parser.add_argument(
+        "--session-id",
+        type=str,
+        default=None,
+        help="Identificativo di sessione opzionale per correlare la traccia nei log JSONL",
+    )
     args = parser.parse_args()
 
     preds, details = fill_mask_rag(
@@ -809,6 +922,7 @@ def main() -> None:
         compiled_program_path=args.compiled_path,
         K=args.k,
         return_details=True,
+        session_id=args.session_id,
     )
 
     print("\n=== Vincoli Papirologici Estratti ===")
