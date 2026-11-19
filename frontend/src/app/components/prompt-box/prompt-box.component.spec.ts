@@ -552,7 +552,7 @@ describe('PromptBoxComponent', () => {
     const modal = compiled.querySelector('#promptManualModal') as HTMLElement;
     expect(modal).toBeTruthy();
     expect(component.isManualModalOpen()).toBeTrue();
-    expect(modal.textContent).toContain('Manuale di Prompt Engineering Filologico');
+    expect(modal.textContent).toContain("Manuale d'uso");
     expect(modal.textContent).toContain('*...*');
     expect(modal.textContent).toContain('[...]');
     expect(modal.textContent).toContain('U+0323');
