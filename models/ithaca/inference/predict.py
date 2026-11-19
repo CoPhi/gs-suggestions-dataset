@@ -5,9 +5,11 @@ Fornisce la funzione `fill_mask_ithaca`:
 1. Traduce la convenzione di lacuna Leiden [...] nella sequenza di trattini attesa da Ithaca.
 2. Normalizza il testo in minuscolo senza diacritici (conforme all'alfabeto di BigBird/Ithaca).
 3. Aggiunge il prefisso Start-of-Sequence ('<') e calcola gli embedding di parola allineati via regex.
-4. Esegue la decodifica iterativa condizionata usando HCB Beam Search (Hammersley-Clifford-Besag
-   Infilling di `packages/hcb_infilling`) con strategia non-sequenziale Best-to-Worst.
-5. Restituisce una lista di suggerimenti ordinati per score probabilistico decrescente.
+4. Esegue la decodifica iterativa condizionata usando HCB Beam Search vincolato alle sole
+   lettere greche standard e agli spazi interni ben formati.
+5. Applica il postprocessing difensivo (minuscolo costante, normalizzazione contestuale di
+   'σ'/'ς' e aggregazione probabilistica dei duplicati via `logaddexp`) e restituisce
+   una lista di suggerimenti ordinati per score decrescente.
 """
 
 from __future__ import annotations
@@ -34,6 +36,10 @@ from backend.core.preprocess import normalize_greek
 
 # Cache per i modelli caricati: {checkpoint_path: (model, params, alphabet, config, jitted_forward)}
 _LOADED_MODELS: dict[str, Any] = {}
+
+# 24 lettere greche standard minuscole (+ sigma finale 'ς'): esclude cifre ('0'),
+# punteggiatura ('.'), token di controllo e caratteri epigrafici arcaici ('ϙ', 'ϛ').
+STANDARD_GREEK_LOWER_CHARS: frozenset[str] = frozenset("αβγδεζηθικλμνξοπρςστυφχψω")
 
 
 def _resolve_checkpoint_path(checkpoint: str) -> str:
@@ -126,6 +132,119 @@ def get_or_load_ithaca(checkpoint: str) -> tuple:
     return _LOADED_MODELS[resolved]
 
 
+def _normalize_contextual_sigma(candidate: str, next_char_after_gap: str = "") -> str:
+    """Normalizza ogni sigma ('σ' mediano, 'ς' finale) in base al carattere successivo."""
+    if "σ" not in candidate and "ς" not in candidate:
+        return candidate
+    out: list[str] = []
+    n = len(candidate)
+    next_external = next_char_after_gap[:1]
+    for i, ch in enumerate(candidate):
+        if ch in ("σ", "ς"):
+            next_ch = candidate[i + 1] if i + 1 < n else next_external
+            out.append("σ" if next_ch in STANDARD_GREEK_LOWER_CHARS else "ς")
+        else:
+            out.append(ch)
+    return "".join(out)
+
+
+def _is_valid_ithaca_candidate(candidate: str) -> bool:
+    """Verifica che il candidato contenga solo lettere greche standard e spazi interni ben formati."""
+    if not candidate:
+        return False
+    if candidate[0] == " " or candidate[-1] == " " or "  " in candidate:
+        return False
+    has_letter = False
+    for ch in candidate:
+        if ch in STANDARD_GREEK_LOWER_CHARS:
+            has_letter = True
+        elif ch != " ":
+            return False
+    return has_letter
+
+
+def postprocess_ithaca_candidates(
+    raw_candidates: list[tuple[str, float]],
+    next_char_after_gap: str = "",
+    K: int = 20,
+) -> list[tuple[str, float]]:
+    """
+    Postprocessing difensivo dei candidati grezzi di Ithaca:
+    - forza il minuscolo senza diacritici
+    - normalizza ortograficamente 'σ'/'ς' rispetto al contesto
+    - scarta cifre, punteggiatura, caratteri epigrafici arcaici e spazi malformati
+    - fonde i duplicati equivalenti sommando le probabilità (logaddexp) prima della softmax.
+    """
+    next_after_norm = (
+        normalize_greek(
+            next_char_after_gap[:1],
+            case_folding="lower",
+            strip_diacritics_flag=True,
+        )
+        if next_char_after_gap
+        else ""
+    )
+
+    merged_scores: dict[str, float] = {}
+    for cand_str, log_score in raw_candidates:
+        if not isinstance(cand_str, str) or not cand_str:
+            continue
+        score_val = float(log_score)
+        if not np.isfinite(score_val):
+            continue
+
+        cand_norm = normalize_greek(
+            cand_str, case_folding="lower", strip_diacritics_flag=True
+        )
+        cand_clean = _normalize_contextual_sigma(
+            cand_norm, next_char_after_gap=next_after_norm
+        )
+        if not _is_valid_ithaca_candidate(cand_clean):
+            continue
+
+        if cand_clean in merged_scores:
+            # Somma la massa probabilistica di rami equivalenti dopo normalizzazione σ/ς
+            merged_scores[cand_clean] = float(
+                np.logaddexp(merged_scores[cand_clean], score_val)
+            )
+        else:
+            merged_scores[cand_clean] = score_val
+
+    if not merged_scores:
+        return []
+
+    sorted_results = sorted(merged_scores.items(), key=lambda x: x[1], reverse=True)
+    top_results = sorted_results[:K]
+    max_log_p = top_results[0][1]
+    raw_weights = [float(np.exp(s - max_log_p)) for _, s in top_results]
+    sum_w = sum(raw_weights) + 1e-12
+
+    return [(s, float(w / sum_w)) for (s, _), w in zip(top_results, raw_weights)]
+
+
+def _position_max_log_prob(
+    pos: int,
+    log_probs: np.ndarray,
+    current_candidates: np.ndarray,
+    letter_only_indices: np.ndarray,
+    space_token_id: int | None,
+    first_mask_pos: int,
+    last_mask_pos: int,
+) -> float:
+    """Restituisce la massima log-probabilità valida per una posizione mascherata."""
+    best_val = float(np.max(log_probs[:, pos, letter_only_indices]))
+    if space_token_id is not None and first_mask_pos < pos < last_mask_pos:
+        valid_space_rows = (
+            (current_candidates[:, pos - 1] != space_token_id)
+            & (current_candidates[:, pos + 1] != space_token_id)
+        )
+        if np.any(valid_space_rows):
+            best_space = float(np.max(log_probs[valid_space_rows, pos, space_token_id]))
+            if best_space > best_val:
+                best_val = best_space
+    return best_val
+
+
 def decode_gap_hcb_beam_search(
     forward_fn: Any,
     params: Any,
@@ -137,19 +256,28 @@ def decode_gap_hcb_beam_search(
     beam_width: int = 20,
     strategy: str = "hcb_best_to_worst",
     temperature: float = 1.0,
+    next_char_after_gap: str | None = None,
 ) -> list[tuple[str, float]]:
     """
     Esegue la decodifica probabilistica per il restauro della lacuna usando HCB
     (Hammersley-Clifford-Besag Infilling con correzione del pivot, mutuato da packages/hcb_infilling)
-    e ricerca iterativa Best-to-Worst.
+    e ricerca iterativa Best-to-Worst vincolata alle sole lettere greche standard
+    e agli spazi strettamente interni ben formati.
 
     Ad ogni timestep:
     1. Esegue il forward pass sui candidati attuali per condizionare le predizioni.
     2. Seleziona la posizione a maggiore certezza del modello (Best-to-Worst).
     3. Aggiorna i log-punteggi sottraendo il pivot HCB del token maschera.
-    4. Pota e mantiene i migliori beam_width rami per il timestep successivo.
+    4. Pota e mantiene i migliori beam_width rami validi per il timestep successivo.
     """
     import jax.numpy as jnp
+
+    ordered_mask_indices = sorted(mask_indices)
+    if not ordered_mask_indices:
+        return []
+
+    first_mask_pos = ordered_mask_indices[0]
+    last_mask_pos = ordered_mask_indices[-1]
 
     idx2char = alphabet.idx2char
     char2idx = getattr(alphabet, "char2idx", None) or {
@@ -159,25 +287,42 @@ def decode_gap_hcb_beam_search(
     # ID del token maschera ('-') impiegato come pivot nella correzione HCB
     mask_token_id = char2idx.get(alphabet.missing, 4)
 
-    # Indici dei caratteri alfabetici greci validi (escludiamo token di controllo/punteggiatura tecnica)
+    space_char = str(getattr(alphabet, "space", " "))
+    space_token_id = char2idx.get(space_char)
+
+    # Vincola il beam alle 24 lettere greche standard (escludendo '0', '.', 'ϙ', 'ϛ' e controlli)
+    letter_only_indices = np.array(
+        [
+            i
+            for i, c in enumerate(idx2char)
+            if str(c) in STANDARD_GREEK_LOWER_CHARS
+        ],
+        dtype=np.int32,
+    )
+    if len(letter_only_indices) == 0:
+        return []
+
     valid_char_indices = np.array(
         [
             i
             for i, c in enumerate(idx2char)
-            if str(c) not in ("#", "^", "<", ">", "[", "]", "-")
+            if str(c) in STANDARD_GREEK_LOWER_CHARS or str(c) == space_char
         ],
         dtype=np.int32,
     )
 
-    if len(mask_indices) == 0:
-        return []
+    space_col_idx: int | None = None
+    if space_token_id is not None:
+        space_matches = np.flatnonzero(valid_char_indices == space_token_id)
+        if len(space_matches) > 0:
+            space_col_idx = int(space_matches[0])
 
     # Popolazione iniziale dei candidati: forma (1, max_len)
     candidates = np.array(char_ids_initial, copy=True)
     candidate_log_likelihoods = np.zeros(1, dtype=np.float32)
-    remaining_mask_indices = list(mask_indices)
+    remaining_mask_indices = list(ordered_mask_indices)
 
-    for _ in range(len(mask_indices)):
+    for _ in range(len(ordered_mask_indices)):
         current_b = len(candidates)
         word_batch = np.repeat(word_ids_initial, repeats=current_b, axis=0)
 
@@ -191,40 +336,68 @@ def decode_gap_hcb_beam_search(
 
         # 2. Scelta della posizione da ripristinare (Best-to-Worst vs Left-to-Right):
         if "best_to_worst" in strategy and len(remaining_mask_indices) > 1:
-            # Seleziona la posizione con massima certezza (massima log-prob tra i caratteri validi)
             best_pos = max(
                 remaining_mask_indices,
-                key=lambda pos: float(np.max(log_probs[:, pos, valid_char_indices])),
+                key=lambda pos: _position_max_log_prob(
+                    pos=pos,
+                    log_probs=log_probs,
+                    current_candidates=candidates,
+                    letter_only_indices=letter_only_indices,
+                    space_token_id=space_token_id,
+                    first_mask_pos=first_mask_pos,
+                    last_mask_pos=last_mask_pos,
+                ),
             )
         else:
             best_pos = remaining_mask_indices[0]
 
         remaining_mask_indices.remove(best_pos)
 
+        # Lo spazio è ammesso solo in posizioni strettamente interne alla lacuna (mai sui bordi)
+        allow_space_at_pos = (
+            space_token_id is not None
+            and space_col_idx is not None
+            and first_mask_pos < best_pos < last_mask_pos
+        )
+        step_valid_indices = valid_char_indices if allow_space_at_pos else letter_only_indices
+
         # 3. Log-probabilità per la posizione scelta: [current_b, vocab_size]
         pos_log_probs = log_probs[:, best_pos, :]
-        valid_log_probs = pos_log_probs[:, valid_char_indices]  # [current_b, num_valid]
+        valid_log_probs = pos_log_probs[:, step_valid_indices]
 
         # 4. Aggiornamento punteggio HCB (Besag pseudo-likelihood update)
         if "hcb" in strategy:
             # Sottrarre il pivot della maschera previene la sovra-stima di correlazione circolare dell'MLM
-            pivot_vals = pos_log_probs[:, mask_token_id]  # [current_b]
+            pivot_vals = pos_log_probs[:, mask_token_id]
             score_deltas = valid_log_probs - pivot_vals[:, None]
         else:
             # Aggiornamento pseudo-likelihood convenzionale
             score_deltas = valid_log_probs
 
         # Punteggio cumulato per ciascuna biforcazione di candidato x carattere valido
-        branch_scores = candidate_log_likelihoods[:, None] + score_deltas  # [current_b, num_valid]
+        branch_scores = candidate_log_likelihoods[:, None] + score_deltas
 
-        # 5. Potatura: selezione dei migliori beam_width rami globali
+        if allow_space_at_pos:
+            # Impedisce spazi consecutivi dentro la lacuna mascherando i rami con spazio adiacente
+            invalid_space_branches = (
+                (candidates[:, best_pos - 1] == space_token_id)
+                | (candidates[:, best_pos + 1] == space_token_id)
+            )
+            branch_scores[invalid_space_branches, space_col_idx] = -np.inf
+
+        # 5. Potatura sui soli rami finiti per evitare di espandere rami vietati
         flat_scores = branch_scores.ravel()
-        num_branches = len(flat_scores)
-        top_k_indices = np.argsort(flat_scores)[::-1][: min(beam_width, num_branches)]
+        finite_indices = np.flatnonzero(np.isfinite(flat_scores))
+        if len(finite_indices) == 0:
+            return []
 
-        cand_indices = top_k_indices // len(valid_char_indices)
-        char_sub_indices = top_k_indices % len(valid_char_indices)
-        selected_char_ids = valid_char_indices[char_sub_indices]
+        ordered_finite = finite_indices[np.argsort(flat_scores[finite_indices])[::-1]]
+        top_k_indices = ordered_finite[: min(beam_width, len(ordered_finite))]
+
+        num_step_valid = len(step_valid_indices)
+        cand_indices = top_k_indices // num_step_valid
+        char_sub_indices = top_k_indices % num_step_valid
+        selected_char_ids = step_valid_indices[char_sub_indices]
 
         # Creazione della nuova popolazione di candidati con la posizione riempita
         next_candidates = candidates[cand_indices].copy()
@@ -234,25 +407,32 @@ def decode_gap_hcb_beam_search(
         candidates = next_candidates
         candidate_log_likelihoods = next_scores
 
-    # 6. Estrazione e normalizzazione softmax dei candidati completi
-    results: list[tuple[str, float]] = []
-    seen = set()
+    if next_char_after_gap is None:
+        after_pos = last_mask_pos + 1
+        if after_pos < char_ids_initial.shape[1]:
+            next_id = int(char_ids_initial[0, after_pos])
+            resolved_next_char = (
+                str(idx2char[next_id]) if 0 <= next_id < len(idx2char) else ""
+            )
+        else:
+            resolved_next_char = ""
+    else:
+        resolved_next_char = next_char_after_gap
 
-    for i in range(len(candidates)):
-        cand_str = "".join(str(idx2char[candidates[i, pos]]) for pos in mask_indices)
-        if cand_str not in seen:
-            seen.add(cand_str)
-            results.append((cand_str, float(candidate_log_likelihoods[i])))
+    # 6. Estrazione dei candidati grezzi e postprocessing finale (sigma contestuale + merge + softmax)
+    raw_results = [
+        (
+            "".join(str(idx2char[candidates[i, pos]]) for pos in ordered_mask_indices),
+            float(candidate_log_likelihoods[i]),
+        )
+        for i in range(len(candidates))
+    ]
 
-    if not results:
-        return []
-
-    top_results = results[:K]
-    max_log_p = top_results[0][1]
-    raw_weights = [np.exp(s - max_log_p) for _, s in top_results]
-    sum_w = sum(raw_weights) + 1e-12
-
-    return [(s, float(w / sum_w)) for (s, _), w in zip(top_results, raw_weights)]
+    return postprocess_ithaca_candidates(
+        raw_results,
+        next_char_after_gap=resolved_next_char,
+        K=K,
+    )
 
 
 def clear_ithaca_cache() -> None:
@@ -270,7 +450,7 @@ def fill_mask_ithaca(
     text: str,
     checkpoint: str = "checkpoints/ithaca/checkpoint_tlg.pkl",
     K: int = 20,
-    beam_size: int = 20,
+    beam_size: int | None = None,
     strategy: Literal[
         "hcb_best_to_worst",
         "hcb_left_to_right",
@@ -286,8 +466,8 @@ def fill_mask_ithaca(
     """
     Funzione di interfaccia principale compatibile con l'API di GreekSchools:
     Accetta un contesto con lacuna (in formato Leiden [...] o [---]),
-    esegue il restauro condizionato tramite HCB beam search e restituisce la lista
-    ordinata di (suggerimento, score).
+    esegue il restauro condizionato tramite HCB beam search vincolato e restituisce
+    la lista ordinata di (suggerimento, score) sempre in minuscolo.
     """
     # 1. Rileva e calcola la lunghezza della lacuna (supporta sia Leiden [...] che [---] o trattini puri)
     match = re.search(r"\[(\.+|\-+)\]", text)
@@ -296,8 +476,9 @@ def fill_mask_ithaca(
     if not match:
         raise ValueError("Il testo non contiene alcuna lacuna valida nel formato [...] o [---]")
 
-    is_input_upper = any(c.isupper() for c in text)
     gap_len = len(match.group(1))
+    # Aggiunge un piccolo margine sul beam quando non specificato per compensare fusioni σ/ς
+    effective_beam_size = max(20, K + 4) if beam_size is None else beam_size
 
     # Caricamento modello e vocabolario (con supporto a override in-memory per trial Optuna)
     if (
@@ -379,7 +560,7 @@ def fill_mask_ithaca(
         return []
 
     # 5. Esecuzione HCB Beam Search
-    suggestions = decode_gap_hcb_beam_search(
+    return decode_gap_hcb_beam_search(
         forward_fn=forward_fn,
         params=params,
         char_ids_initial=char_ids,
@@ -387,15 +568,10 @@ def fill_mask_ithaca(
         mask_indices=mask_indices,
         alphabet=alphabet,
         K=K,
-        beam_width=beam_size,
+        beam_width=effective_beam_size,
         strategy=strategy,
         temperature=temperature,
     )
-
-    # 6. Preserva il casing coerente con la richiesta: se l'input era maiuscolo, restituisce maiuscolo
-    if is_input_upper:
-        return [(cand.upper(), score) for cand, score in suggestions]
-    return suggestions
 
 
 def get_ithaca_contextual_embeddings(

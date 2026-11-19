@@ -170,7 +170,7 @@ def test_decode_gap_hcb_beam_search_synthetic():
 
 
 def test_fill_mask_ithaca_interface(monkeypatch):
-    """Verifica che fill_mask_ithaca parsi sia Leiden che trattini e mantenga il casing desiderato."""
+    """Verifica che fill_mask_ithaca parsi sia Leiden che trattini e restituisca sempre minuscolo."""
     from models.ithaca.inference.predict import fill_mask_ithaca
     import models.ithaca.inference.predict as pred_module
 
@@ -191,22 +191,288 @@ def test_fill_mask_ithaca_interface(monkeypatch):
 
     monkeypatch.setattr(pred_module, "get_or_load_ithaca", mock_get_or_load)
 
-    # 1. Test input maiuscolo con convenzione Leiden [...]
+    # 1. Test input tutto maiuscolo con convenzione Leiden [...]: output sempre minuscolo
     upper_input = "ΕΔΟΞΕΝ [..] ΔΗΜΩΙ"
     res_upper = fill_mask_ithaca(upper_input, checkpoint="dummy", K=2)
     assert len(res_upper) > 0
-    # Poiché l'input era maiuscolo, il suggerimento deve essere maiuscolo
-    assert res_upper[0][0] == "ΑΑ"
+    assert res_upper[0][0] == "αα"
 
-    # 2. Test input minuscolo con trattini
+    # 2. Test input con maiuscola iniziale / casing misto: output sempre minuscolo
+    mixed_input = "Ἔδοξεν τῇ βουλῇ [..] δήμῳ"
+    res_mixed = fill_mask_ithaca(mixed_input, checkpoint="dummy", K=2)
+    assert len(res_mixed) > 0
+    assert res_mixed[0][0] == "αα"
+
+    # 3. Test input minuscolo con trattini
     lower_input = "εδοξεν [..] δημωι"
     res_lower = fill_mask_ithaca(lower_input, checkpoint="dummy", K=2)
     assert len(res_lower) > 0
     assert res_lower[0][0] == "αα"
 
-    # 3. Test eccezione su input senza lacuna
+    # 4. Test eccezione su input senza lacuna
     with pytest.raises(ValueError):
         fill_mask_ithaca("εδοξεν χωρις κενου δημωι", checkpoint="dummy")
+
+
+def test_decode_gap_excludes_digits_punctuation_and_archaic_chars():
+    """Verifica l'esclusione di '0', '.', 'ϙ', 'ϛ' e token di controllo in entrambe le strategie HCB."""
+    from models.ithaca.inference.predict import STANDARD_GREEK_LOWER_CHARS
+
+    alphabet = DummyAlphabet()
+    max_len = 16
+    char_ids = np.full((1, max_len), alphabet.char2idx[alphabet.pad], dtype=np.int32)
+    word_ids = np.full((1, max_len), alphabet.word2idx[alphabet.unk], dtype=np.int32)
+    char_ids[0, 0] = alphabet.char2idx[alphabet.sos]
+    char_ids[0, 1] = alphabet.char2idx["ε"]
+    char_ids[0, 2] = alphabet.char2idx[alphabet.missing]
+    char_ids[0, 3] = alphabet.char2idx[alphabet.missing]
+    char_ids[0, 4] = alphabet.char2idx["α"]
+
+    def mock_forward(params, text_char, text_word):
+        batch_size = text_char.shape[0]
+        vocab_size = len(alphabet.idx2char)
+        log_probs = np.full((batch_size, max_len, vocab_size), -10.0, dtype=np.float32)
+        for forbidden in ("0", ".", "ϙ", "ϛ", "#", "^", "-", " "):
+            log_probs[:, :, alphabet.char2idx[forbidden]] = 10.0
+        log_probs[:, :, alphabet.char2idx["α"]] = 1.0
+        log_probs[:, :, alphabet.char2idx["β"]] = 0.5
+        return log_probs
+
+    for strategy in ("hcb_best_to_worst", "hcb_left_to_right"):
+        suggestions = decode_gap_hcb_beam_search(
+            forward_fn=mock_forward,
+            params=None,
+            char_ids_initial=char_ids,
+            word_ids_initial=word_ids,
+            mask_indices=[2, 3],
+            alphabet=alphabet,
+            K=5,
+            beam_width=10,
+            strategy=strategy,
+        )
+        assert len(suggestions) > 0
+        assert suggestions[0][0] == "αα"
+        assert pytest.approx(sum(s for _, s in suggestions), 1e-4) == 1.0
+        for cand, _ in suggestions:
+            assert all(ch in STANDARD_GREEK_LOWER_CHARS for ch in cand)
+
+
+def test_decode_gap_well_formed_internal_spaces_only():
+    """Verifica che gli spazi siano vietati ai bordi/lacune <= 2 e ammessi solo internamente senza doppi."""
+    alphabet = DummyAlphabet()
+    max_len = 20
+
+    def _run_for_gap(gap_len: int):
+        char_ids = np.full((1, max_len), alphabet.char2idx[alphabet.pad], dtype=np.int32)
+        word_ids = np.full((1, max_len), alphabet.word2idx[alphabet.unk], dtype=np.int32)
+        char_ids[0, 0] = alphabet.char2idx[alphabet.sos]
+        char_ids[0, 1] = alphabet.char2idx["ε"]
+        mask_indices = list(range(2, 2 + gap_len))
+        for pos in mask_indices:
+            char_ids[0, pos] = alphabet.char2idx[alphabet.missing]
+        char_ids[0, 2 + gap_len] = alphabet.char2idx["α"]
+
+        def mock_forward(params, text_char, text_word):
+            batch_size = text_char.shape[0]
+            vocab_size = len(alphabet.idx2char)
+            log_probs = np.full((batch_size, max_len, vocab_size), -10.0, dtype=np.float32)
+            log_probs[:, :, alphabet.char2idx[" "]] = 10.0
+            log_probs[:, :, alphabet.char2idx["α"]] = 1.0
+            log_probs[:, :, alphabet.char2idx["β"]] = 0.5
+            return log_probs
+
+        return decode_gap_hcb_beam_search(
+            forward_fn=mock_forward,
+            params=None,
+            char_ids_initial=char_ids,
+            word_ids_initial=word_ids,
+            mask_indices=mask_indices,
+            alphabet=alphabet,
+            K=10,
+            beam_width=16,
+            strategy="hcb_best_to_worst",
+        )
+
+    # Lacune di 1 o 2 caratteri: nessuno spazio ammesso
+    for short_len in (1, 2):
+        short_suggs = _run_for_gap(short_len)
+        assert len(short_suggs) > 0
+        for cand, _ in short_suggs:
+            assert len(cand) == short_len
+            assert " " not in cand
+
+    # Lacuna di 4 caratteri: ammessi solo spazi singoli strettamente interni
+    long_suggs = _run_for_gap(4)
+    assert len(long_suggs) > 0
+    assert pytest.approx(sum(s for _, s in long_suggs), 1e-4) == 1.0
+    for cand, _ in long_suggs:
+        assert len(cand) == 4
+        assert not cand.startswith(" ")
+        assert not cand.endswith(" ")
+        assert "  " not in cand
+    assert any(" " in cand for cand, _ in long_suggs)
+
+
+def test_decode_gap_contextual_sigma_normalization_and_logaddexp_merge():
+    """Verifica la normalizzazione contestuale di 'σ'/'ς' e la fusione logaddexp dei duplicati."""
+    alphabet = DummyAlphabet()
+    max_len = 16
+
+    # 1. Fine parola (seguito da spazio): 'τοσ' + 'τος' devono fondersi in 'τος' superando 'τον'
+    char_ids_end = np.full((1, max_len), alphabet.char2idx[alphabet.pad], dtype=np.int32)
+    word_ids = np.full((1, max_len), alphabet.word2idx[alphabet.unk], dtype=np.int32)
+    char_ids_end[0, 0] = alphabet.char2idx[alphabet.sos]
+    char_ids_end[0, 1] = alphabet.char2idx[" "]
+    char_ids_end[0, 2] = alphabet.char2idx[alphabet.missing]
+    char_ids_end[0, 3] = alphabet.char2idx[alphabet.missing]
+    char_ids_end[0, 4] = alphabet.char2idx[alphabet.missing]
+    char_ids_end[0, 5] = alphabet.char2idx[" "]
+
+    def mock_forward_sigma(params, text_char, text_word):
+        batch_size = text_char.shape[0]
+        vocab_size = len(alphabet.idx2char)
+        log_probs = np.full((batch_size, max_len, vocab_size), -20.0, dtype=np.float32)
+        log_probs[:, :, alphabet.char2idx[alphabet.missing]] = -3.0
+        log_probs[:, 2, alphabet.char2idx["τ"]] = 5.0
+        log_probs[:, 3, alphabet.char2idx["ο"]] = 5.0
+        log_probs[:, 4, alphabet.char2idx["ν"]] = 0.0
+        log_probs[:, 4, alphabet.char2idx["σ"]] = -0.3
+        log_probs[:, 4, alphabet.char2idx["ς"]] = -0.3
+        return log_probs
+
+    suggs_end = decode_gap_hcb_beam_search(
+        forward_fn=mock_forward_sigma,
+        params=None,
+        char_ids_initial=char_ids_end,
+        word_ids_initial=word_ids,
+        mask_indices=[2, 3, 4],
+        alphabet=alphabet,
+        K=5,
+        beam_width=10,
+        strategy="hcb_left_to_right",
+    )
+    cands_end = dict(suggs_end)
+    assert "τοσ" not in cands_end
+    assert "τος" in cands_end
+    assert "τον" in cands_end
+    # La somma probabilistica logaddexp(-0.3, -0.3) supera 'τον' (0.0)
+    assert suggs_end[0][0] == "τος"
+    expected_tos_prob = float(
+        np.exp(np.logaddexp(-0.3, -0.3))
+        / (np.exp(np.logaddexp(-0.3, -0.3)) + np.exp(0.0))
+    )
+    assert pytest.approx(cands_end["τος"], 1e-4) == expected_tos_prob
+
+    # 2. Prima di una lettera greca nel suffisso ('α'): il sigma resta mediano ('σ')
+    char_ids_mid = char_ids_end.copy()
+    char_ids_mid[0, 5] = alphabet.char2idx["α"]
+    suggs_mid = decode_gap_hcb_beam_search(
+        forward_fn=mock_forward_sigma,
+        params=None,
+        char_ids_initial=char_ids_mid,
+        word_ids_initial=word_ids,
+        mask_indices=[2, 3, 4],
+        alphabet=alphabet,
+        K=5,
+        beam_width=10,
+        strategy="hcb_left_to_right",
+    )
+    cands_mid = dict(suggs_mid)
+    assert "τος" not in cands_mid
+    assert "τοσ" in cands_mid
+    assert suggs_mid[0][0] == "τοσ"
+
+    # 3. Spazio interno alla lacuna: 'τοσ κα' deve diventare 'τος κα'
+    char_ids_multi = np.full((1, max_len), alphabet.char2idx[alphabet.pad], dtype=np.int32)
+    char_ids_multi[0, 0] = alphabet.char2idx[alphabet.sos]
+    for pos in range(2, 8):
+        char_ids_multi[0, pos] = alphabet.char2idx[alphabet.missing]
+
+    def mock_forward_multi(params, text_char, text_word):
+        batch_size = text_char.shape[0]
+        vocab_size = len(alphabet.idx2char)
+        log_probs = np.full((batch_size, max_len, vocab_size), -20.0, dtype=np.float32)
+        log_probs[:, :, alphabet.char2idx[alphabet.missing]] = -3.0
+        for pos, ch in zip(range(2, 8), ["τ", "ο", "σ", " ", "κ", "α"]):
+            log_probs[:, pos, alphabet.char2idx[ch]] = 5.0
+        return log_probs
+
+    suggs_multi = decode_gap_hcb_beam_search(
+        forward_fn=mock_forward_multi,
+        params=None,
+        char_ids_initial=char_ids_multi,
+        word_ids_initial=word_ids,
+        mask_indices=list(range(2, 8)),
+        alphabet=alphabet,
+        K=3,
+        beam_width=5,
+        strategy="hcb_left_to_right",
+    )
+    assert suggs_multi[0][0] == "τος κα"
+
+
+def test_postprocess_ithaca_candidates_defensive_filter():
+    """Verifica filtraggio difensivo, minuscolo, normalizzazione sigma e merge in postprocess_ithaca_candidates."""
+    from models.ithaca.inference.predict import postprocess_ithaca_candidates
+
+    raw = [
+        ("ΑΓΑΘΟΣ", -1.0),
+        ("α0β", -0.1),
+        ("α.β", -0.1),
+        ("αϙβ", -0.1),
+        ("αϛβ", -0.1),
+        (" και", -0.1),
+        ("και ", -0.1),
+        ("α  β", -0.1),
+        ("   ", -0.1),
+        ("τοσ", -2.0),
+        ("τος", -2.0),
+        ("τοσ και", -3.0),
+    ]
+
+    res = postprocess_ithaca_candidates(raw, next_char_after_gap=" ", K=3)
+    assert [c for c, _ in res] == ["αγαθος", "τος", "τος και"]
+    assert pytest.approx(sum(p for _, p in res), 1e-6) == 1.0
+
+    # Verifica che il merge di 'τοσ' + 'τος' usi logaddexp(-2.0, -2.0) = -2.0 + ln(2)
+    merged_log = float(np.logaddexp(-2.0, -2.0))
+    exp_scores = np.array([np.exp(-1.0 - (-1.0)), np.exp(merged_log - (-1.0)), np.exp(-3.0 - (-1.0))])
+    expected_probs = exp_scores / exp_scores.sum()
+    for (_, actual_p), exp_p in zip(res, expected_probs):
+        assert pytest.approx(actual_p, 1e-5) == float(exp_p)
+
+    # Se il carattere dopo la lacuna è una lettera greca maiuscola/minuscola, sigma finale diventa 'σ'
+    res_before_letter = postprocess_ithaca_candidates([("τος", -1.0)], next_char_after_gap="Α", K=5)
+    assert len(res_before_letter) == 1
+    assert res_before_letter[0][0] == "τοσ"
+    assert pytest.approx(res_before_letter[0][1], 1e-6) == 1.0
+
+
+def test_fill_mask_ithaca_default_beam_headroom(monkeypatch):
+    """Verifica il margine automatico del beam (max(20, K + 4)) e il rispetto di beam_size esplicito."""
+    from models.ithaca.inference.predict import fill_mask_ithaca
+    import models.ithaca.inference.predict as pred_module
+
+    alphabet = DummyAlphabet()
+    captured_beam_widths: list[int] = []
+
+    monkeypatch.setattr(
+        pred_module,
+        "get_or_load_ithaca",
+        lambda ckpt: (None, None, alphabet, {"max_len": 64}, lambda *a, **kw: None),
+    )
+
+    def spy_decode(**kwargs):
+        captured_beam_widths.append(kwargs["beam_width"])
+        return [("αα", 1.0)]
+
+    monkeypatch.setattr(pred_module, "decode_gap_hcb_beam_search", spy_decode)
+
+    fill_mask_ithaca("εδοξεν [..] δημωι", checkpoint="dummy", K=20)
+    fill_mask_ithaca("εδοξεν [..] δημωι", checkpoint="dummy", K=5)
+    fill_mask_ithaca("εδοξεν [..] δημωι", checkpoint="dummy", K=20, beam_size=12)
+
+    assert captured_beam_widths == [24, 20, 12]
 
 
 def test_ithaca_compare_metrics_and_export(tmp_path):

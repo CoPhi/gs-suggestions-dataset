@@ -89,10 +89,10 @@ def test_ithaca_multiple_lacunae_handling(monkeypatch):
     suggestions = fill_mask_ithaca(text_multiple, checkpoint="dummy", K=2)
 
     assert len(suggestions) > 0
-    # Deve suggerire 2 caratteri per la prima lacuna ('ΑΑ'), non 6 caratteri concatenando la seconda
+    # Deve suggerire 2 caratteri in minuscolo per la prima lacuna ('αα'), non 6 caratteri concatenando la seconda
     cand_str, score = suggestions[0]
     assert len(cand_str) == 2
-    assert cand_str == "ΑΑ"
+    assert cand_str == "αα"
 
     # Testo con lacuna target e token <UNK> / puntini liberi
     text_with_unk = "ΕΔΟΞΕΝ [..] ΤΗΙ <UNK> ΒΟΥΛΗΙ .... ΔΗΜΩΙ"
