@@ -1,15 +1,49 @@
-<!-- Toolbar superiore per registrare nuovi modelli RAG (BERT Neuro-lessicale o LLM Open-Weights) -->
+<!-- Toolbar superiore per registrare nuovi modelli RAG o attivare il confronto multi-modello -->
 <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
     <div class="text-muted small">
         Esplora i modelli attivi o registra un nuovo modello <strong>DSPy RAG</strong> (accostando un modello <strong>BERT neuro-lessicale</strong> o un <strong>LLM open-weights</strong>).
     </div>
-    <button class="btn btn-sm btn-outline-primary d-flex align-items-center gap-1 add-rag-toggle-btn"
-            type="button"
-            (click)="toggleAddRagForm()">
-        <i class="bi" [class.bi-plus-circle]="!showAddRagForm()" [class.bi-dash-circle]="showAddRagForm()"></i>
-        <span>{{ showAddRagForm() ? 'Chiudi form RAG' : 'Nuovo modello RAG' }}</span>
-    </button>
+    <div class="d-flex align-items-center gap-2">
+        @if (models().length > 1) {
+            <button class="btn btn-sm d-flex align-items-center gap-1 models-compare-mode-btn"
+                    [class.btn-primary]="isCompareMode()"
+                    [class.btn-outline-primary]="!isCompareMode()"
+                    type="button"
+                    (click)="toggleCompareMode()"
+                    title="Attiva o disattiva la selezione multipla per confrontare più modelli in parallelo">
+                <i class="bi bi-layout-three-columns"></i>
+                <span>{{ isCompareMode() ? 'Confronta (attivo)' : 'Confronta' }}</span>
+            </button>
+        }
+        <button class="btn btn-sm btn-outline-primary d-flex align-items-center gap-1 add-rag-toggle-btn"
+                type="button"
+                (click)="toggleAddRagForm()">
+            <i class="bi" [class.bi-plus-circle]="!showAddRagForm()" [class.bi-dash-circle]="showAddRagForm()"></i>
+            <span>{{ showAddRagForm() ? 'Chiudi form RAG' : 'Nuovo modello RAG' }}</span>
+        </button>
+    </div>
 </div>
+
+@if (isCompareMode() && models().length > 1) {
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 bg-white rounded-3 border px-3 py-2 mb-3 shadow-sm models-compare-toolbar">
+        <div class="d-flex align-items-center flex-wrap gap-2">
+            <span class="small fw-semibold text-primary">
+                <i class="bi bi-check2-square me-1"></i>Modalità confronto attiva ({{ effectiveSelectedIds().length }}/{{ models().length }} selezionati)
+            </span>
+            <button type="button"
+                    class="btn btn-sm btn-link text-decoration-none p-0 small fw-semibold models-compare-all-btn"
+                    (click)="selectAllModelsForComparison()">
+                {{ effectiveSelectedIds().length === models().length ? 'Deseleziona tutti' : 'Seleziona tutti' }}
+            </button>
+        </div>
+        <button type="button"
+                class="btn btn-sm btn-primary rounded-pill px-3 fw-semibold apply-models-compare-btn"
+                data-bs-dismiss="modal"
+                [disabled]="effectiveSelectedIds().length === 0">
+            <i class="bi bi-check-lg me-1"></i>Applica confronto ({{ effectiveSelectedIds().length }})
+        </button>
+    </div>
+}
 
 @if (showAddRagForm()) {
     <div class="card border-0 shadow-sm rounded-4 mb-4 rag-create-card" [formGroup]="ragForm">
@@ -115,7 +149,13 @@
 @if (models().length > 0) {
     <div class="models-grid" id="modelsContainer">
         @for (model of models(); track model._id) {
-            <app-model [(curr_id)]="curr_id" [model]="model" [(models)]="models" />
+            <app-model [(curr_id)]="curr_id"
+                       [model]="model"
+                       [(models)]="models"
+                       [isCompareMode]="isCompareMode()"
+                       [isSelectedForCompare]="isModelInComparison(model._id)"
+                       (onToggleCompare)="toggleModelComparison($event)"
+                       (onSelectSingle)="onSingleModelSelected($event)" />
         }
     </div>
 } @else {

@@ -54,18 +54,20 @@ export class PromptBoxComponent {
   isDropdownOpen = signal<boolean>(false);
   // Stato di apertura della modale con il manuale di prompt engineering filologico
   isManualModalOpen = signal<boolean>(false);
-  // Attiva/disattiva la modalità di confronto multi-modello con esposizione della checklist nel menù a tendina
-  isCompareMode = signal<boolean>(false);
+  // Attiva/disattiva la modalità di confronto multi-modello (condivisibile con la modale dei modelli)
+  isCompareMode = model<boolean>(false);
   // Permette di accostare esplicitamente un modello BERT al sistema RAG (modalità neuro-lessicale a priori)
   coupleBertWithRag = signal<boolean>(false);
   // Lista opzionale di modelli selezionati per l'inferenza parallela e il confronto orizzontale
-  selectedModelIds = signal<string[]>([]);
+  selectedModelIds = model<string[]>([]);
 
   // Restituisce l'elenco ordinato degli ID effettivamente consultati (1 o più modelli)
   effectiveSelectedIds = computed<string[]>(() => {
-    const multi = this.selectedModelIds().filter(id => this.models().some(m => m._id === id));
-    if (multi.length > 0) {
-      return multi;
+    if (this.isCompareMode()) {
+      const multi = this.selectedModelIds().filter(id => this.models().some(m => m._id === id));
+      if (multi.length > 0) {
+        return multi;
+      }
     }
     const single = this.curr_id();
     return single ? [single] : [];

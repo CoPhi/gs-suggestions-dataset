@@ -1,4 +1,4 @@
-import { Component, inject, model, OnInit, signal } from '@angular/core';
+import { Component, computed, inject, model, OnInit, signal } from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ApiService, CreateRAGModelPayload, isBertCheckpoint, modelType, RagBackendType, RAGModelInterface, SupportedRAGModelInterface } from '../../services/api.service';
 import { NotificationService } from '../../services/notification.service';
@@ -16,9 +16,23 @@ export class ModelsBoxComponent implements OnInit {
 
   models = model.required<modelType[]>();
   curr_id = model.required<string | null>();
+  // Segnali condivisi con PromptBoxComponent per sincronizzare la modalità confronto anche dalla modale
+  isCompareMode = model<boolean>(false);
+  selectedModelIds = model<string[]>([]);
 
   showAddRagForm = signal<boolean>(false);
   isCreating = signal<boolean>(false);
+
+  effectiveSelectedIds = computed<string[]>(() => {
+    if (this.isCompareMode()) {
+      const multi = this.selectedModelIds().filter(id => this.models().some(m => m._id === id));
+      if (multi.length > 0) {
+        return multi;
+      }
+    }
+    const single = this.curr_id();
+    return single ? [single] : [];
+  });
 
   // Catalogo dei preset verificati (BERT Neuro-lessicale + RAG, Hugging Face Router e Ollama locale)
   readonly defaultRagPresets: SupportedRAGModelInterface[] = [
@@ -136,6 +150,51 @@ export class ModelsBoxComponent implements OnInit {
     this.showAddRagForm.update(open => !open);
   }
 
+  toggleCompareMode() {
+    const nextState = !this.isCompareMode();
+    this.isCompareMode.set(nextState);
+    if (!nextState) {
+      const primary = this.curr_id();
+      this.selectedModelIds.set(primary ? [primary] : []);
+    } else if (this.selectedModelIds().length === 0 && this.curr_id()) {
+      this.selectedModelIds.set([this.curr_id()!]);
+    }
+  }
+
+  isModelInComparison(id: string): boolean {
+    return this.effectiveSelectedIds().includes(id);
+  }
+
+  toggleModelComparison(id: string) {
+    this.isCompareMode.set(true);
+    const current = [...this.effectiveSelectedIds()];
+    const idx = current.indexOf(id);
+    if (idx >= 0) {
+      current.splice(idx, 1);
+    } else {
+      current.push(id);
+    }
+    this.selectedModelIds.set(current);
+    this.curr_id.set(current.length > 0 ? current[0] : null);
+  }
+
+  selectAllModelsForComparison() {
+    this.isCompareMode.set(true);
+    const allIds = this.models().map(m => m._id);
+    if (this.effectiveSelectedIds().length === allIds.length && allIds.length > 0) {
+      this.selectedModelIds.set([]);
+      this.curr_id.set(null);
+    } else {
+      this.selectedModelIds.set(allIds);
+      this.curr_id.set(allIds[0] || null);
+    }
+  }
+
+  onSingleModelSelected(id: string) {
+    this.isCompareMode.set(false);
+    this.selectedModelIds.set([id]);
+  }
+
   applyPreset(checkpoint: string) {
     this.ragForm.controls.checkpoint.setValue(checkpoint);
     if (isBertCheckpoint(checkpoint)) {
@@ -183,6 +242,9 @@ export class ModelsBoxComponent implements OnInit {
         };
         this.models.set([...this.models(), createdModel]);
         this.curr_id.set(createdId);
+        if (!this.isCompareMode()) {
+          this.selectedModelIds.set([createdId]);
+        }
         this.isCreating.set(false);
         this.showAddRagForm.set(false);
         this.notifications.showSuccess(`Modello RAG (${payload.CHECKPOINT}) registrato e selezionato con successo!`);

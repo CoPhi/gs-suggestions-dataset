@@ -92,4 +92,25 @@ describe('ModelComponent', () => {
     expect(textContent).toContain('DSPy Hybrid RAG');
     expect(textContent).toContain('top-k = 5');
   });
+
+  it('should render compare toggle button and emit onToggleCompare when isCompareMode is enabled', () => {
+    const toggleSpy = spyOn(component.onToggleCompare, 'emit');
+    fixture.componentRef.setInput('isCompareMode', true);
+    fixture.componentRef.setInput('isSelectedForCompare', false);
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    const toggleBtn = compiled.querySelector('.compare-card-toggle-btn') as HTMLButtonElement;
+    expect(toggleBtn).toBeTruthy();
+    expect(toggleBtn.textContent).toContain('Confronta');
+    expect(compiled.querySelector('.select-btn')).toBeNull();
+
+    toggleBtn.click();
+    expect(toggleSpy).toHaveBeenCalledWith(mockIthacaModel._id);
+
+    fixture.componentRef.setInput('isSelectedForCompare', true);
+    fixture.detectChanges();
+    expect(compiled.querySelector('.compare-selected-badge')).toBeTruthy();
+    expect(toggleBtn.textContent).toContain('Nel confronto');
+  });
 });

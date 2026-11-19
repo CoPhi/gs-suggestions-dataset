@@ -65,6 +65,9 @@ export class AppComponent {
   // Lista di suggestion box dell'ultimo turno (mantenuta sincronizzata con la cronologia)
   modelSuggestionBoxes = signal<ModelSuggestionBoxItem[] | null>(null);
   curr_id = signal<string | null>(null);
+  // Stato confronto condiviso tra PromptBox e modale ModelsBox
+  isCompareMode = signal<boolean>(false);
+  selectedModelIds = signal<string[]>([]);
 
   // Cronologia multi-turno della conversazione filologica tra utente e modelli
   conversationTurns = signal<ConversationTurn[]>([]);

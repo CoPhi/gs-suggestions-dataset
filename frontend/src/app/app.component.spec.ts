@@ -373,4 +373,32 @@ describe('AppComponent', () => {
     app.closeSuggestions();
     expect(app.currentSessionId()).toBeNull();
   });
+
+  it('should synchronize Confronta mode and selected models between #modelsModal and PromptBox', () => {
+    const fixture = TestBed.createComponent(AppComponent);
+    const app = fixture.componentInstance;
+
+    app.models.set([
+      { _id: '67066928e4414eb1d8109bf1', CHECKPOINT: 'CNR-ILC/gs-ithaca-tlg', TYPE: 'Ithaca' },
+      { _id: '67066928e4414eb1d8109bf2', CHECKPOINT: 'pranaydeeps/Ancient-Greek-BERT', TYPE: 'BERT' }
+    ]);
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    const modalCompareBtn = compiled.querySelector('.models-compare-mode-btn') as HTMLButtonElement;
+    expect(modalCompareBtn).toBeTruthy();
+
+    modalCompareBtn.click();
+    fixture.detectChanges();
+
+    const cardToggleBtns = compiled.querySelectorAll('.compare-card-toggle-btn');
+    (cardToggleBtns[0] as HTMLButtonElement).click();
+    (cardToggleBtns[1] as HTMLButtonElement).click();
+    fixture.detectChanges();
+
+    expect(app.isCompareMode()).toBeTrue();
+    expect(app.selectedModelIds()).toEqual(['67066928e4414eb1d8109bf1', '67066928e4414eb1d8109bf2']);
+    expect(app.promptBox()?.isCompareMode()).toBeTrue();
+    expect(app.promptBox()?.selectedModelLabel()).toBe('Confronto (2 modelli)');
+  });
 });

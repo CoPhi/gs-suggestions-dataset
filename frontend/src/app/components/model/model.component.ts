@@ -1,4 +1,4 @@
-import { Component, computed, effect, inject, input, model } from '@angular/core';
+import { Component, computed, inject, input, model, output } from '@angular/core';
 import { ApiService, BERTModelInterface, isBertCheckpoint, IthacaModelInterface, modelType, NgramsModelInterface, RAGModelInterface } from '../../services/api.service';
 import { NotificationService } from '../../services/notification.service';
 
@@ -16,6 +16,11 @@ export class ModelComponent {
   curr_id = model.required<string | null>(); // ID del modello corrente usato nella richiesta
   model = input.required<modelType>(); // Modello da visualizzare
   models = model.required<modelType[]>(); // Lista dei modelli disponibili
+  isCompareMode = input<boolean>(false);
+  isSelectedForCompare = input<boolean>(false);
+
+  onToggleCompare = output<string>();
+  onSelectSingle = output<string>();
 
   id = computed(() => this.model()._id); // ID del modello mostrato
   isBERT = computed(() => this.model().TYPE === 'BERT'); // Verifica se il modello è di tipo BERT
@@ -59,6 +64,11 @@ export class ModelComponent {
   // Imposta il modello corrente nell'input dell'app principale per la produzione dei suggerimenti
   set_currentID() {
     this.curr_id.set(this.id());
+    this.onSelectSingle.emit(this.id());
+  }
+
+  toggleCompareSelection() {
+    this.onToggleCompare.emit(this.id());
   }
 
 }

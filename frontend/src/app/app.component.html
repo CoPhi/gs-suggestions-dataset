@@ -255,6 +255,8 @@
             <app-prompt-box
                 [models]="models()"
                 [(curr_id)]="curr_id"
+                [(isCompareMode)]="isCompareMode"
+                [(selectedModelIds)]="selectedModelIds"
                 [isGenerating]="isGenerating()"
                 [isRefinementMode]="activeRefinementTurn() !== null"
                 [refinementContextText]="activeRefinementTurn()?.normalizedText ?? null"
@@ -285,7 +287,11 @@
                         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Chiudi"></button>
                     </div>
                     <div class="modal-body p-4 bg-light">
-                        <app-models-box [(models)]="models" [(curr_id)]="curr_id" />
+                        <app-models-box
+                            [(models)]="models"
+                            [(curr_id)]="curr_id"
+                            [(isCompareMode)]="isCompareMode"
+                            [(selectedModelIds)]="selectedModelIds" />
                     </div>
                 </div>
             </div>
