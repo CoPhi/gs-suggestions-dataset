@@ -18,6 +18,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Documentate nella modale tutte le regole sintattiche e i vincoli di validazione: distinzione tra lacuna target (`*...*`) e contestuale (`[...]`), *boundary extraction* sui bordi della lacuna, allowlist Unicode del greco antico, tabella di adattamento dei segni editoriali Leiden+ non ammessi (punti sublineari `U+0323`, `[καί]`, `<>`, `{}`, `()`, cifre/trattini), esempi pratici e comportamento in modalità raffinamento HITL.
   - Aggiunti i test unitari dedicati in [`prompt-box.component.spec.ts`](./frontend/src/app/components/prompt-box/prompt-box.component.spec.ts).
 
+### Fixed
+- **Ripristino Messaggio Guida e Link Manuale dopo Cancellazione Testo Invalido (`PromptBoxComponent`)**:
+  - Aggiornata la condizione sugli errori inline in [`prompt-box.component.html`](./frontend/src/app/components/prompt-box/prompt-box.component.html) introducendo `hasNonEmptyPromptText()` in [`prompt-box.component.ts`](./frontend/src/app/components/prompt-box/prompt-box.component.ts): quando l'utente cancella manualmente un testo invalido lasciando il campo vuoto (dove `dirty` rimane `true`), sparisce l'errore rosso e ricompaiono il suggerimento iniziale e il link `per ulteriori approfondimenti`.
+  - Aggiunto test di regressione in [`prompt-box.component.spec.ts`](./frontend/src/app/components/prompt-box/prompt-box.component.spec.ts).
+
 ### Changed
 - **Dropdown Rapida Modelli Filologici in Evidenza (`PromptBoxComponent`, `ModelService`)**:
   - Filtrata la tendina rapida dei modelli in [`PromptBoxComponent`](./frontend/src/app/components/prompt-box/prompt-box.component.ts) ([`prompt-box.component.html`](./frontend/src/app/components/prompt-box/prompt-box.component.html)) tramite `dropdownModels` per mostrare esclusivamente i modelli più attuali e pertinenti al lavoro filologico: LLM RAG (`Qwen` e `Llama`), `gs-GreBerta + RAG` (con fallback automatico sul checkpoint `CNR-ILC/gs-GreBerta` attivando `coupleBertWithRag`) e `Ithaca` (`CNR-ILC/gs-ithaca-tlg`), mantenendo l'intero catalogo accessibile dalla modale `#modelsModal`.

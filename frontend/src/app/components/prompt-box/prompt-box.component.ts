@@ -454,6 +454,13 @@ export class PromptBoxComponent {
     return this.form.valid;
   }
 
+  // Evita di mostrare errori inline quando il testo viene cancellato manualmente dall'utente
+  // (in Angular Reactive Forms `dirty` resta true anche quando il campo torna vuoto).
+  hasNonEmptyPromptText(): boolean {
+    const val = this.form.controls['text'].value;
+    return typeof val === 'string' && val.trim().length > 0;
+  }
+
   focusTextarea(event?: MouseEvent) {
     if (event) {
       const target = event.target as HTMLElement | null;

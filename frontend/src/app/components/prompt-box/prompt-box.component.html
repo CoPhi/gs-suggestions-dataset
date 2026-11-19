@@ -229,7 +229,7 @@
                 <i class="bi bi-sliders2 me-1"></i>Modalità raffinamento attiva: aggiungi indicazioni filologiche o invia con i soli supplementi esclusi.
             </span>
         } @else {
-            @if (form.get('text')?.dirty && form.get('text')?.invalid) {
+            @if (form.get('text')?.dirty && hasNonEmptyPromptText() && form.get('text')?.invalid) {
                 @if (form.get('text')?.hasError('unknownCharacters')) {
                     <span class="text-danger"><i class="bi bi-exclamation-triangle me-1"></i>la stringa contiene carattere sconosciuti</span>
                 }

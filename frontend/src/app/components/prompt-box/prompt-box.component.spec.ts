@@ -581,4 +581,25 @@ describe('PromptBoxComponent', () => {
     fixture.detectChanges();
     expect(compiled.querySelector('#promptManualModal')).toBeNull();
   });
+
+  it('should restore default hint and manual link when invalid dirty text is manually cleared', () => {
+    const compiled = fixture.nativeElement as HTMLElement;
+    const textCtrl = component.form.controls['text'];
+
+    // Simula digitazione di testo invalido (dirty = true)
+    textCtrl.setValue('testo latino');
+    textCtrl.markAsDirty();
+    fixture.detectChanges();
+
+    expect(compiled.querySelector('.text-danger')).toBeTruthy();
+    expect(compiled.querySelector('.prompt-manual-toggle-link')).toBeNull();
+
+    // L'utente cancella manualmente il testo nella textarea (dirty resta true, valore vuoto)
+    textCtrl.setValue('');
+    fixture.detectChanges();
+
+    expect(textCtrl.dirty).toBeTrue();
+    expect(compiled.querySelector('.text-danger')).toBeNull();
+    expect(compiled.querySelector('.prompt-manual-toggle-link')).toBeTruthy();
+  });
 });
