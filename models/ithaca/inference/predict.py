@@ -18,6 +18,8 @@ import os
 import pickle
 import re
 import sys
+import threading
+import time
 from functools import lru_cache
 from pathlib import Path
 from typing import Any, Literal
@@ -32,10 +34,15 @@ if os.path.isdir(ithaca_engine_path) and ithaca_engine_path not in sys.path:
 
 import numpy as np
 
+from backend.config.settings import GS_ITHACA_MICRO_BATCH
+from backend.core.model_cache import trim_memory
 from backend.core.preprocess import normalize_greek
 
 # Cache per i modelli caricati: {checkpoint_path: (model, params, alphabet, config, jitted_forward)}
 _LOADED_MODELS: dict[str, Any] = {}
+_RESOLVED_CHECKPOINT_PATHS: dict[str, str] = {}
+_ITHACA_LAST_USED: dict[str, float] = {}
+_ITHACA_LOCK = threading.Lock()
 
 # 24 lettere greche standard minuscole (+ sigma finale 'ς'): esclude cifre ('0'),
 # punteggiatura ('.'), token di controllo e caratteri epigrafici arcaici ('ϙ', 'ϛ').
@@ -84,52 +91,66 @@ def _resolve_checkpoint_path(checkpoint: str) -> str:
 
 
 def get_or_load_ithaca(checkpoint: str) -> tuple:
-    """Carica e compila il modello Ithaca con memorizzazione nella cache."""
-    resolved = _resolve_checkpoint_path(checkpoint)
+    """Carica e compila il modello Ithaca con cache thread-safe per evitare download/load duplicati."""
+    now = time.monotonic()
+    with _ITHACA_LOCK:
+        cached_resolved = _RESOLVED_CHECKPOINT_PATHS.get(checkpoint)
+        if cached_resolved and cached_resolved in _LOADED_MODELS:
+            _ITHACA_LAST_USED[cached_resolved] = now
+            return _LOADED_MODELS[cached_resolved]
+        if checkpoint in _LOADED_MODELS:
+            _ITHACA_LAST_USED[checkpoint] = now
+            return _LOADED_MODELS[checkpoint]
 
-    if resolved in _LOADED_MODELS:
-        return _LOADED_MODELS[resolved]
+        resolved = _resolve_checkpoint_path(checkpoint)
+        if os.path.exists(resolved):
+            _RESOLVED_CHECKPOINT_PATHS[checkpoint] = resolved
+        if resolved in _LOADED_MODELS:
+            _ITHACA_LAST_USED[resolved] = time.monotonic()
+            return _LOADED_MODELS[resolved]
 
-    import jax
-    import jax.numpy as jnp
-    from models.ithaca.finetuning.checkpoint import load_ithaca_checkpoint
+        import jax
+        import jax.numpy as jnp
+        from models.ithaca.finetuning.checkpoint import load_ithaca_checkpoint
 
-    ckpt_data = load_ithaca_checkpoint(resolved)
-    params = ckpt_data["params"]
-    alphabet = ckpt_data["alphabet"]
-    config = ckpt_data["config"]
+        ckpt_data = load_ithaca_checkpoint(resolved)
+        params = ckpt_data["params"]
+        alphabet = ckpt_data["alphabet"]
+        config = ckpt_data["config"]
 
-    try:
-        from ithaca.models.model import Model
-    except ImportError:
-        sys.path.insert(0, "packages/ithaca_engine")
-        from ithaca.models.model import Model
+        try:
+            from ithaca.models.model import Model
+        except ImportError:
+            sys.path.insert(0, "packages/ithaca_engine")
+            from ithaca.models.model import Model
 
-    model = Model(**config)
+        model = Model(**config)
 
-    @jax.jit
-    def forward_fn(p, text_char, text_word):
-        variables = p if (isinstance(p, dict) and "params" in p) else {"params": p}
-        outputs = model.apply(
-            variables,
-            text_char=text_char,
-            text_word=text_word,
-            is_training=False,
-        )
-        if isinstance(outputs, (tuple, list)):
-            if len(outputs) > 0 and isinstance(outputs[0], (tuple, list)):
-                logits_char = outputs[0][2]
+        @jax.jit
+        def forward_fn(p, text_char, text_word):
+            variables = p if (isinstance(p, dict) and "params" in p) else {"params": p}
+            outputs = model.apply(
+                variables,
+                text_char=text_char,
+                text_word=text_word,
+                is_training=False,
+            )
+            if isinstance(outputs, (tuple, list)):
+                if len(outputs) > 0 and isinstance(outputs[0], (tuple, list)):
+                    logits_char = outputs[0][2]
+                else:
+                    logits_char = outputs[2]
+            elif isinstance(outputs, dict):
+                logits_char = outputs.get("char") or outputs.get("logits_mask") or outputs.get("mask")
             else:
-                logits_char = outputs[2]
-        elif isinstance(outputs, dict):
-            logits_char = outputs.get("char") or outputs.get("logits_mask") or outputs.get("mask")
-        else:
-            logits_char = outputs
+                logits_char = outputs
 
-        return jax.nn.log_softmax(logits_char, axis=-1)
+            return jax.nn.log_softmax(logits_char, axis=-1)
 
-    _LOADED_MODELS[resolved] = (model, params, alphabet, config, forward_fn)
-    return _LOADED_MODELS[resolved]
+        loaded = (model, params, alphabet, config, forward_fn)
+        _LOADED_MODELS[resolved] = loaded
+        _ITHACA_LAST_USED[resolved] = time.monotonic()
+        return loaded
 
 
 def _normalize_contextual_sigma(candidate: str, next_char_after_gap: str = "") -> str:
@@ -257,6 +278,7 @@ def decode_gap_hcb_beam_search(
     strategy: str = "hcb_best_to_worst",
     temperature: float = 1.0,
     next_char_after_gap: str | None = None,
+    forward_batch_size: int | None = None,
 ) -> list[tuple[str, float]]:
     """
     Esegue la decodifica probabilistica per il restauro della lacuna usando HCB
@@ -322,15 +344,40 @@ def decode_gap_hcb_beam_search(
     candidate_log_likelihoods = np.zeros(1, dtype=np.float32)
     remaining_mask_indices = list(ordered_mask_indices)
 
+    mb = int(forward_batch_size) if (forward_batch_size is not None and forward_batch_size > 0) else None
+    word_batch_mb = (
+        jnp.array(np.repeat(word_ids_initial, repeats=mb, axis=0))
+        if mb is not None
+        else None
+    )
+
     for _ in range(len(ordered_mask_indices)):
         current_b = len(candidates)
-        word_batch = np.repeat(word_ids_initial, repeats=current_b, axis=0)
 
         # 1. Forward pass JAX condizionato sui caratteri parzialmente ripristinati:
         # Forma: [current_b, max_len, vocab_size] (log-probabilità)
-        log_probs = np.array(
-            forward_fn(params, jnp.array(candidates), jnp.array(word_batch))
-        )
+        if mb is not None and word_batch_mb is not None:
+            # Micro-batch fisso `(mb, max_len)` per riutilizzare un singolo grafo compilato XLA
+            chunk_logs: list[np.ndarray] = []
+            for start_idx in range(0, current_b, mb):
+                chunk_chars = candidates[start_idx : start_idx + mb]
+                actual_len = len(chunk_chars)
+                if actual_len < mb:
+                    pad_reps = mb - actual_len
+                    chunk_chars = np.concatenate(
+                        [chunk_chars, np.repeat(chunk_chars[-1:], repeats=pad_reps, axis=0)],
+                        axis=0,
+                    )
+                chunk_out = np.asarray(
+                    forward_fn(params, jnp.array(chunk_chars), word_batch_mb)
+                )
+                chunk_logs.append(chunk_out[:actual_len])
+            log_probs = np.concatenate(chunk_logs, axis=0)
+        else:
+            word_batch = np.repeat(word_ids_initial, repeats=current_b, axis=0)
+            log_probs = np.array(
+                forward_fn(params, jnp.array(candidates), jnp.array(word_batch))
+            )
         if temperature > 0 and temperature != 1.0:
             log_probs = log_probs / temperature
 
@@ -436,14 +483,54 @@ def decode_gap_hcb_beam_search(
 
 
 def clear_ithaca_cache() -> None:
-    """Svuota la cache dei modelli Ithaca caricati e libera le compilazioni JIT di JAX."""
-    _LOADED_MODELS.clear()
-    try:
-        import jax
+    """Svuota la cache dei modelli Ithaca caricati, libera le compilazioni JIT di JAX e restituisce RAM al kernel."""
+    with _ITHACA_LOCK:
+        _LOADED_MODELS.clear()
+        _RESOLVED_CHECKPOINT_PATHS.clear()
+        _ITHACA_LAST_USED.clear()
+    trim_memory(clear_jax=True)
 
-        jax.clear_caches()
-    except Exception:
-        pass
+
+def evict_expired_ithaca(ttl_seconds: float) -> bool:
+    """Scarica i modelli Ithaca inutilizzati da più di `ttl_seconds` secondi e svuota la cache XLA."""
+    if ttl_seconds <= 0:
+        return False
+
+    now = time.monotonic()
+    removed = False
+    with _ITHACA_LOCK:
+        expired_models = [
+            key
+            for key in list(_LOADED_MODELS.keys())
+            if not key.startswith("__torso_fn__::")
+            and (now - _ITHACA_LAST_USED.get(key, now)) > ttl_seconds
+        ]
+        if expired_models:
+            removed = True
+            expired_aliases = {
+                alias
+                for alias, res in list(_RESOLVED_CHECKPOINT_PATHS.items())
+                if res in expired_models
+            }
+            for key in expired_models:
+                _LOADED_MODELS.pop(key, None)
+                _ITHACA_LAST_USED.pop(key, None)
+            for alias in expired_aliases:
+                _RESOLVED_CHECKPOINT_PATHS.pop(alias, None)
+            # Rimuove eventuali torso_fn associati o rimasti orfani
+            active_models = [
+                k for k in _LOADED_MODELS.keys() if not k.startswith("__torso_fn__::")
+            ]
+            for key in list(_LOADED_MODELS.keys()):
+                if key.startswith("__torso_fn__::"):
+                    if not active_models or any(
+                        m in key for m in (*expired_models, *expired_aliases)
+                    ):
+                        _LOADED_MODELS.pop(key, None)
+
+    if removed:
+        trim_memory(clear_jax=True)
+    return removed
 
 
 def fill_mask_ithaca(
@@ -560,7 +647,7 @@ def fill_mask_ithaca(
         return []
 
     # 5. Esecuzione HCB Beam Search
-    return decode_gap_hcb_beam_search(
+    result = decode_gap_hcb_beam_search(
         forward_fn=forward_fn,
         params=params,
         char_ids_initial=char_ids,
@@ -571,7 +658,13 @@ def fill_mask_ithaca(
         beam_width=effective_beam_size,
         strategy=strategy,
         temperature=temperature,
+        forward_batch_size=GS_ITHACA_MICRO_BATCH if forward_fn_override is None else None,
     )
+    with _ITHACA_LOCK:
+        resolved_key = _RESOLVED_CHECKPOINT_PATHS.get(checkpoint)
+        if resolved_key and resolved_key in _LOADED_MODELS:
+            _ITHACA_LAST_USED[resolved_key] = time.monotonic()
+    return result
 
 
 def get_ithaca_contextual_embeddings(
