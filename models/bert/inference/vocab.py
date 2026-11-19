@@ -1,12 +1,20 @@
 from __future__ import annotations
 
 import gzip
+import hashlib
+import mmap
 import os
 import re
+import struct
+import tempfile
+from collections.abc import Iterator, Set as AbstractSet
 from pathlib import Path
 from typing import Any, Optional, Sequence, Set
 
+import numpy as np
+
 from backend.core import UNK_TOKEN
+from backend.core.model_cache import trim_memory
 from backend.core.preprocess import (
     normalize_greek,
     process_editorial_marks,
@@ -23,8 +31,150 @@ _AFFIX_LACUNA_REGEX = re.compile(r"([^\W\d_]*)\[(\.+|\-+)\]([^\W\d_]*)")
 _TARGET_LACUNA_REGEX = re.compile(r"\[(\.+|\-+)\]")
 _PRE_NORMALIZED_GREEK_REGEX = re.compile(r"^[α-ωσ]+$")
 
+_VOCAB_MAGIC = b"GSVOCAB1"
+_VOCAB_HEADER_STRUCT = struct.Struct("<8sQ")
+
 _vocab_cache: Optional[Set[str]] = None
 _vocab_cache_by_path: dict[str, Set[str]] = {}
+
+
+class CompactGreekVocab(AbstractSet[str]):
+    """
+    Set read-only compatto per il lessico TLG basato su array ordinato di offset (`uint32`)
+    e buffer UTF-8 contiguo (con backing file `mmap` per lessici >= 10k parole).
+    Riduce l'impronta in RAM da ~122 MB (`set[str]` da 1.1M stringhe) a < 2 MB di RSS.
+    """
+
+    def __init__(
+        self,
+        words_utf8: list[bytes],
+        cache_file: Path | None = None,
+    ) -> None:
+        self._num_words = len(words_utf8)
+        self._header_bytes = _VOCAB_HEADER_STRUCT.size
+        self._offsets_bytes = (self._num_words + 1) * 4
+        self._data_offset = self._header_bytes + self._offsets_bytes
+        self._file_obj: Any = None
+        self._mmap_obj: mmap.mmap | None = None
+        self._raw_buf: bytes | mmap.mmap = b""
+        self._offsets: np.ndarray = np.zeros(self._num_words + 1, dtype="<u4")
+
+        if cache_file is not None:
+            self._write_binary_file(cache_file, words_utf8)
+            self._open_mmap(cache_file)
+        else:
+            payload = b"".join(words_utf8)
+            offsets = np.empty(self._num_words + 1, dtype="<u4")
+            cursor = 0
+            offsets[0] = 0
+            for idx, w in enumerate(words_utf8):
+                cursor += len(w)
+                offsets[idx + 1] = cursor
+            header = _VOCAB_HEADER_STRUCT.pack(_VOCAB_MAGIC, self._num_words)
+            self._raw_buf = header + offsets.tobytes() + payload
+            self._offsets = offsets
+
+    @classmethod
+    def from_mmap_file(cls, cache_file: Path) -> "CompactGreekVocab":
+        """Apre istantaneamente un file binario pre-compilato tramite mmap read-only."""
+        instance = cls.__new__(cls)
+        instance._file_obj = None
+        instance._mmap_obj = None
+        instance._open_mmap(cache_file)
+        return instance
+
+    @staticmethod
+    def _write_binary_file(cache_file: Path, words_utf8: list[bytes]) -> None:
+        num_words = len(words_utf8)
+        offsets = np.empty(num_words + 1, dtype="<u4")
+        cursor = 0
+        offsets[0] = 0
+        for idx, w in enumerate(words_utf8):
+            cursor += len(w)
+            offsets[idx + 1] = cursor
+
+        tmp_file = cache_file.with_name(f"{cache_file.name}.{os.getpid()}.tmp")
+        with open(tmp_file, "wb") as out_f:
+            out_f.write(_VOCAB_HEADER_STRUCT.pack(_VOCAB_MAGIC, num_words))
+            out_f.write(offsets.tobytes())
+            for w in words_utf8:
+                out_f.write(w)
+        os.replace(tmp_file, cache_file)
+
+    def _open_mmap(self, cache_file: Path) -> None:
+        self._file_obj = open(cache_file, "rb")
+        mm = mmap.mmap(self._file_obj.fileno(), 0, access=mmap.ACCESS_READ)
+        magic, num_words = _VOCAB_HEADER_STRUCT.unpack_from(mm, 0)
+        if magic != _VOCAB_MAGIC:
+            mm.close()
+            self._file_obj.close()
+            raise ValueError(f"Formato file lessico non valido: {cache_file}")
+        self._mmap_obj = mm
+        self._raw_buf = mm
+        self._num_words = int(num_words)
+        self._header_bytes = _VOCAB_HEADER_STRUCT.size
+        self._offsets_bytes = (self._num_words + 1) * 4
+        self._data_offset = self._header_bytes + self._offsets_bytes
+        self._offsets = np.frombuffer(
+            mm,
+            dtype="<u4",
+            count=self._num_words + 1,
+            offset=self._header_bytes,
+        )
+
+    def close(self) -> None:
+        self._offsets = np.zeros(1, dtype="<u4")
+        self._raw_buf = b""
+        if self._mmap_obj is not None:
+            try:
+                self._mmap_obj.close()
+            except Exception:
+                pass
+            self._mmap_obj = None
+        if self._file_obj is not None:
+            try:
+                self._file_obj.close()
+            except Exception:
+                pass
+            self._file_obj = None
+
+    def __contains__(self, item: object) -> bool:
+        if not isinstance(item, str) or self._num_words == 0:
+            return False
+        target = item.encode("utf-8")
+        lo = 0
+        hi = self._num_words - 1
+        data_offset = self._data_offset
+        offsets = self._offsets
+        buf = self._raw_buf
+
+        while lo <= hi:
+            mid = (lo + hi) >> 1
+            start = data_offset + int(offsets[mid])
+            end = data_offset + int(offsets[mid + 1])
+            mid_val = buf[start:end]
+            if mid_val == target:
+                return True
+            if mid_val < target:
+                lo = mid + 1
+            else:
+                hi = mid - 1
+        return False
+
+    def __len__(self) -> int:
+        return self._num_words
+
+    def __bool__(self) -> bool:
+        return self._num_words > 0
+
+    def __iter__(self) -> Iterator[str]:
+        data_offset = self._data_offset
+        offsets = self._offsets
+        buf = self._raw_buf
+        for idx in range(self._num_words):
+            start = data_offset + int(offsets[idx])
+            end = data_offset + int(offsets[idx + 1])
+            yield bytes(buf[start:end]).decode("utf-8")
 
 
 def _strict_sanitize(text: str) -> str:
@@ -73,7 +223,7 @@ def _resolve_vocab_path(filepath: Optional[str] = None) -> Optional[Path]:
 def get_normalized_vocab(filepath: Optional[str] = None) -> Set[str]:
     """
     Carica e restituisce il vocabolario greco normalizzato del TLG (`backend/core/resources/tlg.wl.gz`),
-    usando una cache in-memory.
+    usando una cache in-memory basata su `CompactGreekVocab` (mmap read-only per lessici estesi).
 
     L'artefatto pre-normalizzato viene caricato direttamente in O(N) senza dover rieseguire
     la normalizzazione CLTK riga per riga a runtime.
@@ -89,7 +239,22 @@ def get_normalized_vocab(filepath: Optional[str] = None) -> Set[str]:
         _vocab_cache = _vocab_cache_by_path[cache_key]
         return _vocab_cache
 
-    loaded_vocab: Set[str] = set()
+    # Controlla se esiste già un indice binario mmap compatibile nella directory temporanea
+    mmap_cache_path: Path | None = None
+    try:
+        st = resolved_path.stat()
+        sig = f"{cache_key}:{st.st_size}:{st.st_mtime_ns}".encode("utf-8")
+        digest = hashlib.sha256(sig).hexdigest()[:16]
+        mmap_cache_path = Path(tempfile.gettempdir()) / f"gs_tlg_vocab_{digest}.bin"
+        if mmap_cache_path.exists():
+            compact_vocab = CompactGreekVocab.from_mmap_file(mmap_cache_path)
+            _vocab_cache_by_path[cache_key] = compact_vocab
+            _vocab_cache = compact_vocab
+            return compact_vocab
+    except Exception:
+        mmap_cache_path = None
+
+    loaded_bytes: set[bytes] = set()
     open_fn = (
         (lambda p: gzip.open(p, "rt", encoding="utf-8"))
         if str(resolved_path).endswith(".gz")
@@ -114,11 +279,28 @@ def get_normalized_vocab(filepath: Optional[str] = None) -> Set[str]:
             if len(norm) == 1 and norm not in VALID_SINGLE_CHAR_WORDS:
                 continue
 
-            loaded_vocab.add(norm)
+            loaded_bytes.add(norm.encode("utf-8"))
 
-    _vocab_cache_by_path[cache_key] = loaded_vocab
-    _vocab_cache = loaded_vocab
-    return loaded_vocab
+    sorted_words = sorted(loaded_bytes)
+    del loaded_bytes
+
+    use_mmap_file = mmap_cache_path is not None and len(sorted_words) >= 10_000
+    if use_mmap_file and mmap_cache_path is not None:
+        try:
+            compact_vocab = CompactGreekVocab(sorted_words, cache_file=mmap_cache_path)
+        except Exception:
+            compact_vocab = CompactGreekVocab(sorted_words, cache_file=None)
+    else:
+        compact_vocab = CompactGreekVocab(sorted_words, cache_file=None)
+
+    del sorted_words
+    # Restituisce subito al kernel le arene glibc usate dal set temporaneo in fase di costruzione
+    if len(compact_vocab) >= 10_000:
+        trim_memory(clear_jax=False)
+
+    _vocab_cache_by_path[cache_key] = compact_vocab
+    _vocab_cache = compact_vocab
+    return compact_vocab
 
 
 def extract_lacuna_affixes(text_with_gap: str) -> tuple[str, str]:

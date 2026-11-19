@@ -14,21 +14,23 @@ Combina:
 from __future__ import annotations
 
 import argparse
+import gc
 import json
 import math
 import os
 import pickle
 import random
 import re
+import threading
 import zlib
 from collections import Counter, defaultdict
+from collections.abc import Iterator, Mapping
 from pathlib import Path
 from typing import Any, Callable, Sequence
 
 import dspy
 import numpy as np
 import torch
-from transformers import AutoModel, AutoTokenizer
 
 from backend.config.settings import (
     DATA_PATH,
@@ -37,6 +39,7 @@ from backend.config.settings import (
     RAG_TOP_K_PASSAGES,
 )
 from backend.core.cleaner import load_abs
+from backend.core.model_cache import shared_bert_cache
 from backend.core.preprocess import (
     normalize_greek,
     process_editorial_marks,
@@ -135,10 +138,61 @@ def extract_lexical_features(text: str, char_ngram_range: tuple[int, int] = (3, 
     return features
 
 
+_LATIN_OR_DIGIT_REGEX = re.compile(r"[a-zA-Z0-9]")
+
+
+class _CSRPostingsView(Mapping[str, list[tuple[int, int]]]):
+    """Vista read-only su `postings` CSR senza materializzare in RAM le tuple Python."""
+
+    def __init__(self, index: "GreekLexicalBM25Index") -> None:
+        self._index = index
+
+    def __getitem__(self, term: str) -> list[tuple[int, int]]:
+        tid = self._index.term_to_id.get(term)
+        if tid is None:
+            raise KeyError(term)
+        return self._index._postings_for_id(tid)
+
+    def get(self, term: str, default: Any = None) -> Any:
+        tid = self._index.term_to_id.get(term)
+        if tid is None:
+            return default
+        return self._index._postings_for_id(tid)
+
+    def __contains__(self, term: object) -> bool:
+        return term in self._index.term_to_id
+
+    def __iter__(self) -> Iterator[str]:
+        return iter(self._index.term_to_id)
+
+    def __len__(self) -> int:
+        return len(self._index.term_to_id)
+
+
+class _CSRIdfView(Mapping[str, float]):
+    """Vista read-only su `idf` CSR per compatibilità con chiamanti legacy."""
+
+    def __init__(self, index: "GreekLexicalBM25Index") -> None:
+        self._index = index
+
+    def __getitem__(self, term: str) -> float:
+        tid = self._index.term_to_id.get(term)
+        if tid is None:
+            raise KeyError(term)
+        return float(self._index.idf_array[tid])
+
+    def __iter__(self) -> Iterator[str]:
+        return iter(self._index.term_to_id)
+
+    def __len__(self) -> int:
+        return len(self._index.term_to_id)
+
+
 class GreekLexicalBM25Index:
     """
     Indice invertito BM25 Okapi su word token e character n-grammi per il greco antico.
-    Leggero, deterministico e serializzabile su disco senza dipendenze C esterne.
+    Archivia le posting list in formato CSR NumPy compatto (`indptr`, `posting_docs`, `posting_tfs`)
+    riducendo drasticamente l'overhead di memoria dei dict di tuple Python.
     """
 
     def __init__(
@@ -154,14 +208,113 @@ class GreekLexicalBM25Index:
         self.num_docs = len(corpus)
         self.doc_lens: np.ndarray = np.zeros(self.num_docs, dtype=np.float32)
         self.avgdl: float = 1.0
-        self.idf: dict[str, float] = {}
-        self.postings: dict[str, list[tuple[int, int]]] = defaultdict(list)
+
+        # Strutture CSR compatte al posto di dict[str, list[tuple[int, int]]]
+        self.term_to_id: dict[str, int] = {}
+        self.idf_array: np.ndarray = np.zeros(0, dtype=np.float32)
+        self.indptr: np.ndarray = np.zeros(1, dtype=np.uint32)
+        self.posting_docs: np.ndarray = np.zeros(0, dtype=np.uint32)
+        self.posting_tfs: np.ndarray = np.zeros(0, dtype=np.uint16)
+        self._word_terms: tuple[str, ...] = ()
+        self._word_dfs: np.ndarray = np.zeros(0, dtype=np.uint32)
 
         if self.num_docs > 0:
             self._build(corpus)
 
+    @property
+    def postings(self) -> Mapping[str, list[tuple[int, int]]]:
+        """Espone un mapping read-only compatibile con `.postings.get(...)` senza allocare milioni di tuple."""
+        return _CSRPostingsView(self)
+
+    @property
+    def idf(self) -> Mapping[str, float]:
+        """Espone un mapping read-only compatibile con `.idf.get(...)`."""
+        return _CSRIdfView(self)
+
+    def _postings_for_id(self, tid: int) -> list[tuple[int, int]]:
+        start = int(self.indptr[tid])
+        end = int(self.indptr[tid + 1])
+        docs = self.posting_docs[start:end].tolist()
+        tfs = self.posting_tfs[start:end].tolist()
+        return list(zip(docs, tfs))
+
+    def get_postings(self, term: str) -> list[tuple[int, int]]:
+        """Restituisce la posting list `(doc_idx, tf)` per il termine richiesto."""
+        tid = self.term_to_id.get(term)
+        if tid is None:
+            return []
+        return self._postings_for_id(tid)
+
+    def get_doc_freq(self, term: str) -> int:
+        """Restituisce il numero di documenti in cui compare il termine."""
+        tid = self.term_to_id.get(term)
+        if tid is None:
+            return 0
+        return int(self.indptr[tid + 1] - self.indptr[tid])
+
+    def _refresh_word_index(self) -> None:
+        """Pre-estrae solo i word token (`w:`) e la relativa document frequency per `match_affix_words`."""
+        word_list: list[str] = []
+        df_list: list[int] = []
+        for term, tid in self.term_to_id.items():
+            if term.startswith("w:"):
+                word_list.append(term[2:])
+                df_list.append(int(self.indptr[tid + 1] - self.indptr[tid]))
+        self._word_terms = tuple(word_list)
+        self._word_dfs = np.asarray(df_list, dtype=np.uint32)
+
+    def _init_from_postings_map(
+        self,
+        idf_map: Mapping[str, float],
+        postings_map: Mapping[str, Sequence[tuple[int, int]]],
+    ) -> None:
+        """Compila gli array CSR NumPy a partire da un dizionario di posting list."""
+        terms = list(postings_map.keys())
+        num_terms = len(terms)
+        self.term_to_id = {term: idx for idx, term in enumerate(terms)}
+        self.idf_array = np.array(
+            [float(idf_map.get(term, 0.0)) for term in terms],
+            dtype=np.float32,
+        )
+
+        indptr = np.zeros(num_terms + 1, dtype=np.uint32)
+        total_postings = 0
+        max_doc = 0
+        max_tf = 0
+        for idx, term in enumerate(terms):
+            plist = postings_map[term]
+            indptr[idx] = total_postings
+            total_postings += len(plist)
+            for doc_idx, tf in plist:
+                if doc_idx > max_doc:
+                    max_doc = doc_idx
+                if tf > max_tf:
+                    max_tf = tf
+        indptr[num_terms] = total_postings
+        self.indptr = indptr
+
+        doc_dtype = np.uint16 if max(self.num_docs, max_doc + 1) <= 65535 else np.uint32
+        tf_dtype = np.uint16 if max_tf <= 65535 else np.uint32
+        posting_docs = np.empty(total_postings, dtype=doc_dtype)
+        posting_tfs = np.empty(total_postings, dtype=tf_dtype)
+
+        cursor = 0
+        for term in terms:
+            plist = postings_map[term]
+            if not plist:
+                continue
+            length = len(plist)
+            posting_docs[cursor : cursor + length] = [d for d, _ in plist]
+            posting_tfs[cursor : cursor + length] = [tf for _, tf in plist]
+            cursor += length
+
+        self.posting_docs = posting_docs
+        self.posting_tfs = posting_tfs
+        self._refresh_word_index()
+
     def _build(self, corpus: Sequence[str]) -> None:
         df: Counter[str] = Counter()
+        tmp_postings: dict[str, list[tuple[int, int]]] = defaultdict(list)
         total_len = 0
 
         for doc_idx, passage in enumerate(corpus):
@@ -173,14 +326,15 @@ class GreekLexicalBM25Index:
             tf_counts = Counter(feats)
             for term, freq in tf_counts.items():
                 df[term] += 1
-                self.postings[term].append((doc_idx, freq))
+                tmp_postings[term].append((doc_idx, freq))
 
         self.avgdl = max(1.0, total_len / max(1, self.num_docs))
-        for term, doc_freq in df.items():
-            self.idf[term] = math.log(
-                1.0 + (self.num_docs - doc_freq + 0.5) / (doc_freq + 0.5)
-            )
-        self.postings = dict(self.postings)
+        idf_map = {
+            term: math.log(1.0 + (self.num_docs - doc_freq + 0.5) / (doc_freq + 0.5))
+            for term, doc_freq in df.items()
+        }
+        self._init_from_postings_map(idf_map=idf_map, postings_map=tmp_postings)
+        del tmp_postings, idf_map, df
 
     def search(self, query: str, top_k: int = 20) -> list[tuple[int, float]]:
         """Restituisce le coppie `(doc_idx, bm25_score)` ordinate per punteggio decrescente."""
@@ -193,19 +347,31 @@ class GreekLexicalBM25Index:
 
         scores = np.zeros(self.num_docs, dtype=np.float32)
         query_terms = Counter(query_feats)
+        k1 = self.k1
+        b = self.b
+        k1_plus_1 = k1 + 1.0
+        c_base = k1 * (1.0 - b)
+        c_dl = (k1 * b) / self.avgdl
 
         for term, q_weight in query_terms.items():
-            idf_val = self.idf.get(term)
-            if idf_val is None:
+            tid = self.term_to_id.get(term)
+            if tid is None:
                 continue
+            start = int(self.indptr[tid])
+            end = int(self.indptr[tid + 1])
+            if start >= end:
+                continue
+
             # Diamo peso pieno ai token lessicali interi e peso ridotto agli n-grammi di caratteri
             term_multiplier = 1.0 if term.startswith("w:") else 0.35
-            weight = idf_val * term_multiplier * min(q_weight, 3)
+            weight = float(self.idf_array[tid]) * term_multiplier * min(q_weight, 3)
 
-            for doc_idx, tf in self.postings.get(term, ()):
-                dl = self.doc_lens[doc_idx]
-                denom = tf + self.k1 * (1.0 - self.b + self.b * (dl / self.avgdl))
-                scores[doc_idx] += weight * ((tf * (self.k1 + 1.0)) / max(denom, 1e-9))
+            docs = self.posting_docs[start:end]
+            tfs = self.posting_tfs[start:end].astype(np.float32)
+            dl = self.doc_lens[docs]
+            denom = np.maximum(tfs + c_base + c_dl * dl, 1e-9)
+            deltas = (weight * (tfs * k1_plus_1) / denom).astype(np.float32)
+            np.add.at(scores, docs, deltas)
 
         non_zero = np.flatnonzero(scores > 0)
         if len(non_zero) == 0:
@@ -252,56 +418,73 @@ class GreekLexicalBM25Index:
         matches: list[tuple[str, str, int]] = []
         prefix_len = len(base_prefix)
         suffix_len = len(base_suffix)
+        min_word_len = prefix_len + suffix_len + min_gap_chars
+        max_word_len = prefix_len + suffix_len + max_gap_chars
 
-        for term, plist in self.postings.items():
-            if not term.startswith("w:"):
-                continue
-            word = term[2:]
-            if len(word) < prefix_len + suffix_len + min_gap_chars:
-                continue
-            if len(word) > prefix_len + suffix_len + max_gap_chars:
+        for idx, word in enumerate(self._word_terms):
+            word_len = len(word)
+            if word_len < min_word_len or word_len > max_word_len:
                 continue
             if base_prefix and not word.startswith(base_prefix):
                 continue
             if base_suffix and not word.endswith(base_suffix):
                 continue
             # Esclude eventuali refusi con caratteri latini (es. 'o' latina invece di omicron)
-            if re.search(r"[a-zA-Z0-9]", word):
+            if _LATIN_OR_DIGIT_REGEX.search(word):
                 continue
 
-            end_idx = len(word) - suffix_len if suffix_len > 0 else len(word)
+            end_idx = word_len - suffix_len if suffix_len > 0 else word_len
             supp = word[prefix_len:end_idx]
             if min_gap_chars <= len(supp) <= max_gap_chars:
-                matches.append((word, supp, len(plist)))
+                matches.append((word, supp, int(self._word_dfs[idx])))
 
         matches.sort(key=lambda item: item[2], reverse=True)
         return matches[:top_n]
 
     def to_bytes(self) -> bytes:
         state = {
+            "format_version": 2,
             "k1": self.k1,
             "b": self.b,
             "char_ngram_range": self.char_ngram_range,
             "num_docs": self.num_docs,
             "doc_lens": self.doc_lens,
             "avgdl": self.avgdl,
-            "idf": self.idf,
-            "postings": self.postings,
+            "terms": list(self.term_to_id.keys()),
+            "idf_array": self.idf_array,
+            "indptr": self.indptr,
+            "posting_docs": self.posting_docs,
+            "posting_tfs": self.posting_tfs,
         }
-        return zlib.compress(pickle.dumps(state))
+        return zlib.compress(pickle.dumps(state, protocol=pickle.HIGHEST_PROTOCOL))
 
     @classmethod
     def from_bytes(cls, raw: bytes) -> "GreekLexicalBM25Index":
         state = pickle.loads(zlib.decompress(raw))
         instance = cls.__new__(cls)
-        instance.k1 = state["k1"]
-        instance.b = state["b"]
+        instance.k1 = float(state["k1"])
+        instance.b = float(state["b"])
         instance.char_ngram_range = tuple(state["char_ngram_range"])
-        instance.num_docs = state["num_docs"]
-        instance.doc_lens = state["doc_lens"]
-        instance.avgdl = state["avgdl"]
-        instance.idf = state["idf"]
-        instance.postings = state["postings"]
+        instance.num_docs = int(state["num_docs"])
+        instance.doc_lens = np.asarray(state["doc_lens"], dtype=np.float32)
+        instance.avgdl = float(state["avgdl"])
+
+        if state.get("format_version") == 2:
+            terms = state["terms"]
+            instance.term_to_id = {term: idx for idx, term in enumerate(terms)}
+            instance.idf_array = np.asarray(state["idf_array"], dtype=np.float32)
+            instance.indptr = np.asarray(state["indptr"], dtype=np.uint32)
+            instance.posting_docs = np.asarray(state["posting_docs"])
+            instance.posting_tfs = np.asarray(state["posting_tfs"])
+            instance._refresh_word_index()
+        else:
+            # Migrazione trasparente da payload legacy v1 (`postings` dict di tuple) a CSR NumPy
+            instance._init_from_postings_map(
+                idf_map=state["idf"],
+                postings_map=state["postings"],
+            )
+            del state
+            gc.collect()
         return instance
 
 
@@ -309,7 +492,8 @@ class GreekBertEmbedder:
     """
     Funzione di embedding basata sui modelli BERT greci del progetto (es. `CNR-ILC/gs-GreBerta`,
     `bowphs/GreBerta`, `pranaydeeps/Ancient-Greek-BERT`) compatibile con `dspy.Embedder`.
-    Esegue mean-pooling sugli stati nascosti dell'ultimo layer pesati con `attention_mask`.
+    Esegue mean-pooling sugli stati nascosti dell'ultimo layer pesati con `attention_mask`,
+    condividendo il backbone in cache con il servizio di predizione MLM per evitare copie duplicate.
     """
 
     def __init__(
@@ -323,22 +507,20 @@ class GreekBertEmbedder:
         self.fallback_checkpoint = fallback_checkpoint
         self.device = device or ("cuda" if torch.cuda.is_available() else "cpu")
         self.max_length = max_length
+        # Mantenuti solo per compatibilità con eventuali test che iniettano mock manuali
         self._model: Any = None
         self._tokenizer: Any = None
 
-    def _ensure_loaded(self) -> None:
+    def _ensure_loaded(self) -> tuple[Any, Any]:
         if self._model is not None and self._tokenizer is not None:
-            return
-        hf_token = os.getenv("HF_TOKEN")
-        try:
-            self._tokenizer = AutoTokenizer.from_pretrained(self.checkpoint, token=hf_token)
-            self._model = AutoModel.from_pretrained(self.checkpoint, token=hf_token)
-        except Exception:
-            self._tokenizer = AutoTokenizer.from_pretrained(self.fallback_checkpoint, token=hf_token)
-            self._model = AutoModel.from_pretrained(self.fallback_checkpoint, token=hf_token)
-
-        self._model = self._model.to(self.device)
-        self._model.eval()
+            return self._model, self._tokenizer
+        # Recupera dinamicamente dalla cache condivisa senza trattenere riferimenti forti
+        # permanenti che impedirebbero l'eviction TTL dopo inattività.
+        return shared_bert_cache.get_encoder_backbone(
+            checkpoint=self.checkpoint,
+            fallback_checkpoint=self.fallback_checkpoint,
+            device=self.device,
+        )
 
     def __call__(self, texts: list[str]) -> np.ndarray:
         if isinstance(texts, str):
@@ -346,22 +528,27 @@ class GreekBertEmbedder:
         if not texts:
             return np.zeros((0, 768), dtype=np.float32)
 
-        self._ensure_loaded()
+        encoder, tokenizer = self._ensure_loaded()
+        try:
+            target_device = next(encoder.parameters()).device
+        except Exception:
+            target_device = torch.device(self.device)
+
         norm_texts = [
             normalize_for_retrieval(t) or "unk"
             for t in texts
         ]
 
-        encoded = self._tokenizer(
+        encoded = tokenizer(
             norm_texts,
             padding=True,
             truncation=True,
             max_length=self.max_length,
             return_tensors="pt",
-        ).to(self.device)
+        ).to(target_device)
 
         with torch.no_grad():
-            outputs = self._model(**encoded)
+            outputs = encoder(**encoded)
             last_hidden = outputs.last_hidden_state
             mask = encoded["attention_mask"].unsqueeze(-1).expand(last_hidden.size()).float()
             summed = torch.sum(last_hidden * mask, dim=1)
@@ -562,7 +749,11 @@ def resolve_candidate_attestations(
     # Determina la frequenza documentale globale nel corpus se l'indice BM25 è disponibile
     postings_list: list[tuple[int, int]] = []
     if retriever is not None and hasattr(retriever, "lexical_index"):
-        postings_list = list(retriever.lexical_index.postings.get(f"w:{target_norm}", ()))
+        lex_idx = retriever.lexical_index
+        if hasattr(lex_idx, "get_postings"):
+            postings_list = lex_idx.get_postings(f"w:{target_norm}")
+        else:
+            postings_list = list(lex_idx.postings.get(f"w:{target_norm}", ()))
     global_doc_freq = len(postings_list)
 
     attestations: list[dict[str, Any]] = []
@@ -661,7 +852,7 @@ class GreekHybridRetriever:
         if not corpus:
             raise ValueError("Il corpus per GreekHybridRetriever non può essere vuoto.")
 
-        self.corpus = list(corpus)
+        self.corpus = corpus if isinstance(corpus, list) else list(corpus)
         self.k = k
         self.lexical_weight = lexical_weight
         self.semantic_weight = semantic_weight
@@ -887,7 +1078,11 @@ class GreekHybridRetriever:
             dspy_embeddings = dspy.Embeddings.from_saved(
                 str(index_dir / "dense_dspy"), dspy_embedder
             )
-            corpus = list(dspy_embeddings.corpus)
+            corpus = (
+                dspy_embeddings.corpus
+                if isinstance(dspy_embeddings.corpus, list)
+                else list(dspy_embeddings.corpus)
+            )
         else:
             corpus = json.loads((index_dir / "corpus.json").read_text(encoding="utf-8"))
 
@@ -906,6 +1101,7 @@ class GreekHybridRetriever:
 
 
 _DEFAULT_RETRIEVER_CACHE: dict[str, GreekHybridRetriever] = {}
+_RETRIEVER_LOCK = threading.Lock()
 
 
 def get_or_build_default_retriever(
@@ -924,25 +1120,29 @@ def get_or_build_default_retriever(
     if cache_key in _DEFAULT_RETRIEVER_CACHE:
         return _DEFAULT_RETRIEVER_CACHE[cache_key]
 
-    for candidate_dir in (Path(index_dir), Path("checkpoints/rag_index")):
-        if (candidate_dir / "hybrid_meta.json").exists():
-            retriever = GreekHybridRetriever.from_saved(candidate_dir)
-            _DEFAULT_RETRIEVER_CACHE[cache_key] = retriever
-            return retriever
+    with _RETRIEVER_LOCK:
+        if cache_key in _DEFAULT_RETRIEVER_CACHE:
+            return _DEFAULT_RETRIEVER_CACHE[cache_key]
 
-    if DATA_PATH.exists() and any(DATA_PATH.glob("*.json")):
-        passages = build_rag_corpus_from_data(
-            corpus_set=corpus_set,
-            max_passages=max_passages,
-        )
-        if passages:
-            retriever = GreekHybridRetriever(
-                corpus=passages,
-                embedder_checkpoint=embedder_checkpoint,
-                enable_dense=enable_dense,
+        for candidate_dir in (Path(index_dir), Path("checkpoints/rag_index")):
+            if (candidate_dir / "hybrid_meta.json").exists():
+                retriever = GreekHybridRetriever.from_saved(candidate_dir)
+                _DEFAULT_RETRIEVER_CACHE[cache_key] = retriever
+                return retriever
+
+        if DATA_PATH.exists() and any(DATA_PATH.glob("*.json")):
+            passages = build_rag_corpus_from_data(
+                corpus_set=corpus_set,
+                max_passages=max_passages,
             )
-            _DEFAULT_RETRIEVER_CACHE[cache_key] = retriever
-            return retriever
+            if passages:
+                retriever = GreekHybridRetriever(
+                    corpus=passages,
+                    embedder_checkpoint=embedder_checkpoint,
+                    enable_dense=enable_dense,
+                )
+                _DEFAULT_RETRIEVER_CACHE[cache_key] = retriever
+                return retriever
 
     return None
 

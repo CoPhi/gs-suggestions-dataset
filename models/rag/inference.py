@@ -24,6 +24,7 @@ from backend.config.settings import (
     RAG_INDEX_DIR,
     RAG_TOP_K_PASSAGES,
 )
+from backend.core.model_cache import shared_bert_cache
 from backend.core.preprocess import (
     normalize_greek,
     remove_punctuation,
@@ -65,7 +66,8 @@ from models.rag.retriever import (
 from models.rag.signatures import GreekCandidate, format_gap_constraints
 
 _COMPILED_MODULE_CACHE: dict[str, GreekRAGInfiller] = {}
-_LOCAL_MLM_CACHE: dict[str, tuple[Any, Any]] = {}
+# Condivide la cache LRU unificata con SuggestionsService e GreekBertEmbedder per evitare copie duplicate in RAM
+_LOCAL_MLM_CACHE = shared_bert_cache.cache
 
 
 def _load_or_create_infiller(
@@ -116,19 +118,10 @@ def is_bert_checkpoint(checkpoint: str) -> bool:
 
 def _get_cached_mlm(checkpoint: str) -> tuple[Any, Any]:
     """
-    Carica o recupera dalla cache in-process il modello Masked Language Model greco
+    Carica o recupera dalla cache condivisa in-process il modello Masked Language Model greco
     (es. `CNR-ILC/gs-GreBerta`) utilizzato per il motore neuro-lessicale locale.
     """
-    if checkpoint in _LOCAL_MLM_CACHE:
-        return _LOCAL_MLM_CACHE[checkpoint]
-
-    from transformers import AutoModelForMaskedLM, AutoTokenizer
-
-    model = AutoModelForMaskedLM.from_pretrained(checkpoint)
-    tokenizer = AutoTokenizer.from_pretrained(checkpoint)
-    model.eval()
-    _LOCAL_MLM_CACHE[checkpoint] = (model, tokenizer)
-    return model, tokenizer
+    return shared_bert_cache.get_or_load_mlm(checkpoint)
 
 
 def _build_neuro_lexical_rag_prediction(
