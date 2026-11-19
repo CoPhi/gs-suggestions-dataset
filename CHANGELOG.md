@@ -8,6 +8,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- **Allineamento Container e Documentazione Frontend ad Angular 22 (`frontend/Dockerfile`, `frontend/README.md`)**:
+  - Aggiornato [`frontend/Dockerfile`](./frontend/Dockerfile) a `node:24-alpine`, installazione deterministica con `npm ci` e avvio tramite CLI locale (`npx ng serve`) rimuovendo `@angular/cli` globale non pinnata.
+  - Aggiornata la versione di Angular CLI citata in [`frontend/README.md`](./frontend/README.md) a `22.3.0`.
 - **Aggiornamento Graduale Frontend ad Angular 22 (`22.3.0`, `frontend`)**:
   - Aggiornati i pacchetti core/CLI (`@angular/core`, `@angular/common`, `@angular/compiler`, `@angular/compiler-cli`, `@angular/forms`, `@angular/platform-browser`, `@angular/router`, `@angular/service-worker`, `@angular/cdk`, `@angular/cli` a `^22.3.0`) e `typescript` a `~6.0.3` in [`frontend/package.json`](./frontend/package.json) e [`frontend/package-lock.json`](./frontend/package-lock.json).
   - Migrato il build/test system da `@angular-devkit/build-angular` a `@angular/build` (`@angular/build:application`, `@angular/build:dev-server`, `@angular/build:extract-i18n`, `@angular/build:karma`) in [`angular.json`](./frontend/angular.json), aggiungendo `istanbul-lib-instrument` (`^6.0.3`) e rimuovendo l'ormai superflua dipendenza `@angular/platform-browser-dynamic`.
