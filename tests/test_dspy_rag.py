@@ -1123,6 +1123,64 @@ async def test_editor_markers_validation_rejection():
         )
 
 
+@pytest.mark.asyncio
+async def test_session_id_propagation_in_suggestions_service():
+    """
+    Verifica che `SuggestionsService.get_predictions` e `get_batch_predictions`
+    inoltrino `session_id` (e `model_id`) a `fill_mask_rag` quando valorizzato,
+    preservando la retrocompatibilità quando è omesso.
+    """
+    rag_id = ObjectId()
+    mock_collection = MagicMock()
+    mock_collection.find_one = AsyncMock(
+        return_value={
+            "_id": rag_id,
+            "CHECKPOINT": "Qwen/Qwen2.5-72B-Instruct",
+            "BACKEND": "auto",
+            "TOP_K_PASSAGES": 5,
+            "TYPE": ModelType.RAG,
+        }
+    )
+    sugg_service = SuggestionsService(
+        db_collection=mock_collection,
+        gridfs=MagicMock(),
+        feedback_db=MagicMock(),
+    )
+
+    with patch(
+        "models.rag.inference.fill_mask_rag",
+        return_value=([("λητα", 0.9)], {"philological_reasoning": "Test"}),
+    ) as mock_rag:
+        await sugg_service.get_predictions(
+            model_id=str(rag_id),
+            context="Ἆρες Ἆρες βροτολοιγὲ μιαιφόνε τειχεσιβ[....]",
+            num_tokens=1,
+            num_predictions=PredictionCount.FIVE,
+            session_id="sess-xyz-123",
+        )
+        assert mock_rag.call_args.kwargs["session_id"] == "sess-xyz-123"
+        assert mock_rag.call_args.kwargs["model_id"] == str(rag_id)
+
+        await sugg_service.get_batch_predictions(
+            model_ids=[str(rag_id)],
+            context="Ἆρες Ἆρες βροτολοιγὲ μιαιφόνε τειχεσιβ[....]",
+            num_tokens=1,
+            num_predictions=PredictionCount.FIVE,
+            session_id="sess-batch-999",
+        )
+        assert mock_rag.call_args.kwargs["session_id"] == "sess-batch-999"
+
+        # Quando session_id è omesso non viene aggiunto alcun kwarg superfluo
+        await sugg_service.get_predictions(
+            model_id=str(rag_id),
+            context="Ἆρες Ἆρες βροτολοιγὲ μιαιφόνε τειχεσιβ[....]",
+            num_tokens=1,
+            num_predictions=PredictionCount.FIVE,
+        )
+        assert "session_id" not in mock_rag.call_args.kwargs
+
+
+
 
 
 

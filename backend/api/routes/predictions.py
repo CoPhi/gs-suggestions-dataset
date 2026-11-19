@@ -87,6 +87,14 @@ async def get_predictions(
             description="Se True per un modello BERT, attiva a priori il recupero ibrido delle informazioni dai corpora (modalità neuro-lessicale BERT + RAG)",
         ),
     ] = None,
+    session_id: Annotated[
+        Optional[str],
+        Query(
+            title="ID sessione filologo",
+            description="Identificativo di sessione opzionale per correlare turni multi-modello, raffinamenti HITL e feedback nei log di debug",
+            max_length=128,
+        ),
+    ] = None,
     service: SuggestionsService = Depends(get_service),
 ):
     # Mantiene la chiamata compatibile con eventuali mock/spy nei test che non espongono
@@ -98,6 +106,8 @@ async def get_predictions(
         extra_kwargs["rejected_candidates"] = rejected_candidates
     if use_rag is not None:
         extra_kwargs["use_rag"] = use_rag
+    if session_id is not None and session_id.strip():
+        extra_kwargs["session_id"] = session_id.strip()
 
     predictions = await service.get_predictions(
         model_id=model_id,
@@ -166,8 +176,20 @@ async def get_batch_predictions(
             description="Se True per i modelli BERT selezionati, attiva il recupero informazioni neuro-lessicale (BERT + RAG)",
         ),
     ] = None,
+    session_id: Annotated[
+        Optional[str],
+        Query(
+            title="ID sessione filologo",
+            description="Identificativo di sessione opzionale per correlare tutti i modelli consultati nel confronto parallelo",
+            max_length=128,
+        ),
+    ] = None,
     service: SuggestionsService = Depends(get_service),
 ):
+    batch_kwargs: dict = {}
+    if session_id is not None and session_id.strip():
+        batch_kwargs["session_id"] = session_id.strip()
+
     results = await service.get_batch_predictions(
         model_ids=model_ids,
         context=context,
@@ -176,6 +198,7 @@ async def get_batch_predictions(
         human_feedback=human_feedback,
         rejected_candidates=rejected_candidates,
         use_rag=bool(use_rag),
+        **batch_kwargs,
     )
     return JSONResponse(status_code=200, content={"results": results})
 

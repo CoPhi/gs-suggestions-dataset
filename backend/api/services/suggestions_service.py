@@ -142,6 +142,7 @@ class SuggestionsService:
             await self._feedback_collection.create_index([("created_at", -1)])
             await self._feedback_collection.create_index([("model_id", 1), ("is_accepted", 1)])
             await self._feedback_collection.create_index([("context", 1)])
+            await self._feedback_collection.create_index([("session_id", 1)])
         except Exception:
             pass
 
@@ -173,6 +174,7 @@ class SuggestionsService:
         human_feedback: str | None = None,
         rejected_candidates: list[str] | None = None,
         use_rag: bool = False,
+        session_id: str | None = None,
     ) -> list[dict]:
         self._validate_context(context)
         model = await self._fetch_model(model_id)
@@ -194,12 +196,14 @@ class SuggestionsService:
                             "BACKEND": "neuro_lexical",
                             "TOP_K_PASSAGES": int(model.get("TOP_K_PASSAGES", 5)),
                         }
+                        rag_extra = {"session_id": session_id} if session_id else {}
                         predictions = await self._predict_rag(
                             rag_bert_model,
                             context,
                             num_predictions,
                             human_feedback=human_feedback,
                             rejected_candidates=rejected_candidates,
+                            **rag_extra,
                         )
                     else:
                         predictions = await self._predict_bert(
@@ -210,12 +214,14 @@ class SuggestionsService:
                         model, context, num_predictions
                     )
                 elif model_type == ModelType.RAG:
+                    rag_extra = {"session_id": session_id} if session_id else {}
                     predictions = await self._predict_rag(
                         model,
                         context,
                         num_predictions,
                         human_feedback=human_feedback,
                         rejected_candidates=rejected_candidates,
+                        **rag_extra,
                     )
             except RepositoryNotFoundError:
                 raise ModelNotFoundError(
@@ -296,6 +302,7 @@ class SuggestionsService:
         human_feedback: str | None = None,
         rejected_candidates: list[str] | None = None,
         use_rag: bool = False,
+        session_id: str | None = None,
     ) -> list[dict]:
         """
         Esegue in parallelo l'inferenza su più modelli sincronizzando il rilascio delle risposte
@@ -315,6 +322,7 @@ class SuggestionsService:
             err_msg: str | None = None
             try:
                 model_doc = await self._fetch_model(mid)
+                extra_pred_kwargs = {"session_id": session_id} if session_id else {}
                 preds = await self.get_predictions(
                     model_id=mid,
                     context=context,
@@ -323,6 +331,7 @@ class SuggestionsService:
                     human_feedback=human_feedback,
                     rejected_candidates=rejected_candidates,
                     use_rag=use_rag,
+                    **extra_pred_kwargs,
                 )
             except Exception as exc:
                 err_msg = str(exc)
@@ -516,6 +525,7 @@ class SuggestionsService:
         num_predictions: Any,
         human_feedback: str | None = None,
         rejected_candidates: list[str] | None = None,
+        session_id: str | None = None,
     ) -> list[dict]:
         """Genera predizioni usando il sistema DSPy RAG specificato dal modello."""
         from models.rag.inference import fill_mask_rag
@@ -526,7 +536,7 @@ class SuggestionsService:
         compiled_program_path = model.get("COMPILED_PROGRAM_PATH")
 
         loop = asyncio.get_running_loop()
-        # Passa i parametri HITL (human_feedback / rejected_candidates) solo se valorizzati
+        # Passa i parametri HITL e di correlazione sessione solo se valorizzati
         # per preservare la compatibilità con eventuali mock di test con firma minimale.
         rag_kwargs: dict[str, Any] = {
             "text": context,
@@ -542,6 +552,10 @@ class SuggestionsService:
             rag_kwargs["human_feedback"] = human_feedback
         if rejected_candidates:
             rag_kwargs["rejected_candidates"] = rejected_candidates
+        if session_id and session_id.strip():
+            rag_kwargs["session_id"] = session_id.strip()
+        if model.get("_id") is not None:
+            rag_kwargs["model_id"] = str(model["_id"])
 
         predict_func = partial(fill_mask_rag, **rag_kwargs)
         raw_result = await loop.run_in_executor(None, predict_func)
