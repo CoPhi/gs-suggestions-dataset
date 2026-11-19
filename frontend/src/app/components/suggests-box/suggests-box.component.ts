@@ -1,4 +1,4 @@
-import { Component, computed, effect, inject, input, output, signal } from '@angular/core';
+import { Component, computed, effect, inject, input, output, signal, ChangeDetectionStrategy } from '@angular/core';
 import { ReactiveFormsModule, FormsModule } from '@angular/forms';
 import { ApiService, HitlRefinementOptions, SuggestionInterface } from '../../services/api.service';
 import {
@@ -13,6 +13,7 @@ import {
   selector: 'app-suggests-box',
   imports: [ReactiveFormsModule, FormsModule, SuggestComponent],
   templateUrl: './suggests-box.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './suggests-box.component.css'
 })
 export class SuggestsBoxComponent {

@@ -1,4 +1,4 @@
-import { Component, ElementRef, HostListener, computed, effect, inject, input, model, output, signal } from '@angular/core';
+import { Component, ElementRef, HostListener, computed, effect, inject, input, model, output, signal, ChangeDetectionStrategy } from '@angular/core';
 import { AbstractControl, FormControl, FormGroup, ReactiveFormsModule, ValidationErrors, Validators } from '@angular/forms';
 import { isBertCheckpoint, modelType } from '../../services/api.service';
 import { NotificationService } from '../../services/notification.service';
@@ -22,6 +22,7 @@ export interface PromptRefineSubmitEvent {
   selector: 'app-prompt-box',
   imports: [ReactiveFormsModule],
   templateUrl: './prompt-box.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './prompt-box.component.css'
 })
 export class PromptBoxComponent {

@@ -1,4 +1,4 @@
-import { Component, computed, DestroyRef, effect, inject, input, output, signal } from '@angular/core';
+import { Component, computed, DestroyRef, effect, inject, input, output, signal, ChangeDetectionStrategy } from '@angular/core';
 import { AlternativeCandidateInterface, CorpusAttestationInterface, SuggestionInterface } from '../../services/api.service';
 import { Clipboard } from '@angular/cdk/clipboard';
 
@@ -155,6 +155,7 @@ export function parseHighlightedSegments(
   selector: 'app-suggest',
   imports: [],
   templateUrl: './suggest.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './suggest.component.css'
 })
 export class SuggestComponent {

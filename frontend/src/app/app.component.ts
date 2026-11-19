@@ -1,4 +1,4 @@
-import { Component, ElementRef, computed, inject, signal, viewChild } from '@angular/core';
+import { Component, ElementRef, computed, inject, signal, viewChild, ChangeDetectionStrategy } from '@angular/core';
 import { ApiService, HitlRefinementOptions, isBertCheckpoint, modelType, SuggestionInterface } from './services/api.service';
 import { SuggestsBoxComponent } from './components/suggests-box/suggests-box.component';
 import { SuggestionFeedbackEvent } from './components/suggest/suggest.component';
@@ -49,6 +49,7 @@ export interface ConversationTurn {
   selector: 'app-root',
   imports: [SuggestsBoxComponent, ModelsBoxComponent, PromptBoxComponent],
   templateUrl: './app.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './app.component.css'
 })
 export class AppComponent {

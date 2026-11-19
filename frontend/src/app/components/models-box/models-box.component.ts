@@ -1,4 +1,4 @@
-import { Component, computed, inject, model, OnInit, signal } from '@angular/core';
+import { Component, computed, inject, model, OnInit, signal, ChangeDetectionStrategy } from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ApiService, CreateRAGModelPayload, isBertCheckpoint, modelType, RagBackendType, RAGModelInterface, SupportedRAGModelInterface } from '../../services/api.service';
 import { NotificationService } from '../../services/notification.service';
@@ -8,6 +8,7 @@ import { ModelComponent } from "../model/model.component";
   selector: 'app-models-box',
   imports: [ModelComponent, ReactiveFormsModule],
   templateUrl: './models-box.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './models-box.component.css'
 })
 export class ModelsBoxComponent implements OnInit {

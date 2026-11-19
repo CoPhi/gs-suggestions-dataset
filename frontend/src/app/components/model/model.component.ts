@@ -1,4 +1,4 @@
-import { Component, computed, inject, input, model, output } from '@angular/core';
+import { Component, computed, inject, input, model, output, ChangeDetectionStrategy } from '@angular/core';
 import { ApiService, BERTModelInterface, isBertCheckpoint, IthacaModelInterface, modelType, NgramsModelInterface, RAGModelInterface } from '../../services/api.service';
 import { NotificationService } from '../../services/notification.service';
 
@@ -6,6 +6,7 @@ import { NotificationService } from '../../services/notification.service';
   selector: 'app-model',
   imports: [],
   templateUrl: './model.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './model.component.css'
 })
 export class ModelComponent {
