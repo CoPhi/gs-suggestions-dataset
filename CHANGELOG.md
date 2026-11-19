@@ -8,6 +8,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- **Aggiornamento Graduale Frontend ad Angular 20 (`frontend`)**:
+  - Aggiornati i pacchetti core/CLI (`@angular/core`, `@angular/common`, `@angular/compiler`, `@angular/compiler-cli`, `@angular/forms`, `@angular/platform-browser`, `@angular/platform-browser-dynamic`, `@angular/router`, `@angular/service-worker` a `^20.3.35`, `@angular/cli` e `@angular-devkit/build-angular` a `^20.3.43`, `@angular/cdk` a `^20.2.14`) e `typescript` a `~5.9.3` in [`frontend/package.json`](./frontend/package.json) e [`frontend/package-lock.json`](./frontend/package-lock.json).
+  - Aggiornata la configurazione schematics in [`angular.json`](./frontend/angular.json) tramite la migrazione automatica di Angular CLI 20 preservando il runner Karma/Jasmine e `zone.js`.
 - **Pulizia Dipendenze e Configurazione Preparatoria Frontend (`frontend`)**:
   - Rimosse le dipendenze inutilizzate `@ng-bootstrap/ng-bootstrap`, `@angular/localize` e `@popperjs/core` da [`frontend/package.json`](./frontend/package.json) e [`frontend/package-lock.json`](./frontend/package-lock.json) per sbloccare l'aggiornamento verso Angular 22, insieme ai relativi riferimenti in [`main.ts`](./frontend/src/main.ts), [`angular.json`](./frontend/angular.json), [`tsconfig.app.json`](./frontend/tsconfig.app.json) e [`tsconfig.spec.json`](./frontend/tsconfig.spec.json).
   - Spostato `@angular/platform-browser-dynamic` in `devDependencies` di [`frontend/package.json`](./frontend/package.json) (richiesto solo dal builder Karma v19 per `@angular/platform-browser-dynamic/testing`, non dal runtime standalone).
