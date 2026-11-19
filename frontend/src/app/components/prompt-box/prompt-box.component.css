@@ -9,6 +9,20 @@
     box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.15) !important;
 }
 
+.prompt-box.refinement-active {
+    border-color: #93c5fd;
+    background-color: #fcfdff !important;
+}
+
+.refinement-mode-banner {
+    background-color: #eff6ff;
+    border: 1px solid #bfdbfe;
+}
+
+.refinement-context-preview {
+    max-width: 420px;
+}
+
 .prompt-textarea {
     resize: none;
     font-size: 1.05rem;
@@ -101,9 +115,18 @@
     margin-top: 0.35rem;
     min-width: 280px;
     max-width: 380px;
+    max-height: 360px;
+    overflow-y: auto;
     z-index: 1050;
     border-radius: 0.75rem;
     animation: fadeIn 0.15s ease-in-out;
+}
+
+.model-dropdown.dropup .model-dropdown-menu {
+    top: auto;
+    bottom: 100%;
+    margin-top: 0;
+    margin-bottom: 0.35rem;
 }
 
 @keyframes fadeIn {

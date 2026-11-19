@@ -8,6 +8,16 @@ import {
   stripContextLacunae,
 } from '../../utils/lacuna';
 
+export interface PromptRefineSubmitEvent {
+  human_feedback: string;
+  rejected_candidates: string[];
+  modelID: string;
+  modelIDs?: string[];
+  num_tokens: number;
+  num_predictions: number;
+  use_rag?: boolean;
+}
+
 @Component({
   selector: 'app-prompt-box',
   imports: [ReactiveFormsModule],
@@ -21,6 +31,13 @@ export class PromptBoxComponent {
   models = input.required<modelType[]>();
   curr_id = model.required<string | null>();
   isGenerating = input.required<boolean>();
+  // Modalità raffinamento HITL attivata dal toggle su un turno attivo della conversazione
+  isRefinementMode = input<boolean>(false);
+  refinementContextText = input<string | null>(null);
+  refinementRejectedCandidates = input<string[]>([]);
+  // Apre il menù modelli verso l'alto quando la barra è ancorata sul fondo dello schermo
+  dropdownDirection = input<'down' | 'up'>('down');
+  textareaRows = input<number>(4);
 
   onGenerate = output<{
     text: string;
@@ -30,6 +47,9 @@ export class PromptBoxComponent {
     num_predictions: number;
     use_rag?: boolean;
   }>();
+  onExitRefinement = output<void>();
+  onRemoveRejectedCandidate = output<string>();
+  onRefineSubmit = output<PromptRefineSubmitEvent>();
 
   isDropdownOpen = signal<boolean>(false);
   // Attiva/disattiva la modalità di confronto multi-modello con esposizione della checklist nel menù a tendina
@@ -202,6 +222,30 @@ export class PromptBoxComponent {
     this.closeDropdown();
   }
 
+  /**
+   * Imposta programmaticamente un testo greco nella barra di input (usato dal pulsante Riutilizza sui turni).
+   */
+  setPromptText(value: string) {
+    const control = this.form.controls['text'];
+    control.setValue(value);
+    control.markAsDirty();
+    control.updateValueAndValidity();
+    this.focusTextarea();
+  }
+
+  /**
+   * Pre-seleziona un singolo modello (usato dal toggle Raffina per allineare la barra al tab attivo),
+   * lasciando comunque libero l'utente di cambiarlo o riattivare il confronto dal menù a tendina.
+   */
+  setSingleModelSelection(modelId: string, useRag?: boolean) {
+    this.isCompareMode.set(false);
+    this.selectedModelIds.set(modelId ? [modelId] : []);
+    this.curr_id.set(modelId || null);
+    this.form.controls['modelID'].setValue(modelId || '');
+    const chosen = this.models().find(m => m._id === modelId);
+    this.coupleBertWithRag.set(Boolean(useRag && chosen?.TYPE === 'BERT'));
+  }
+
   @HostListener('document:click', ['$event'])
   onDocumentClick(event: MouseEvent) {
     if (!this.isDropdownOpen()) return;
@@ -220,6 +264,7 @@ export class PromptBoxComponent {
 
   isFocused = false;
   form: FormGroup;
+  private lastRefiningState: boolean | null = null;
 
   constructor() {
     this.form = new FormGroup({
@@ -233,6 +278,27 @@ export class PromptBoxComponent {
 
     effect(() => {
       this.form.controls['modelID'].setValue(this.curr_id() || '');
+    });
+
+    // In modalità raffinamento la textarea accetta indicazioni filologiche in linguaggio naturale
+    // oppure può restare vuota se sono già stati scartati uno o più candidati con 👎.
+    effect(() => {
+      const refining = this.isRefinementMode();
+      if (this.lastRefiningState === null && !refining) {
+        this.lastRefiningState = false;
+        return;
+      }
+      if (this.lastRefiningState === refining) {
+        return;
+      }
+      this.lastRefiningState = refining;
+      const textControl = this.form.controls['text'];
+      if (refining) {
+        textControl.clearValidators();
+      } else {
+        textControl.setValidators([Validators.required, this.isContextValid]);
+      }
+      textControl.updateValueAndValidity({ emitEvent: false });
     });
   }
 
@@ -261,6 +327,9 @@ export class PromptBoxComponent {
 
   handleBlur() {
     this.isFocused = false;
+    if (this.isRefinementMode()) {
+      return;
+    }
     const current = this.form.controls['text'].value;
     if (typeof current === 'string' && current.trim()) {
       const normalized = this.extractBoundaryCharactersFromLacuna(current);
@@ -289,14 +358,26 @@ export class PromptBoxComponent {
     return TARGET_LACUNA_REGEX.test(c.value) ? null : { notMasked: true };
   }
 
+  canSubmit(): boolean {
+    if (this.isRefinementMode()) {
+      if (this.form.controls['modelID'].invalid || this.form.controls['num_tokens'].invalid) {
+        return false;
+      }
+      const feedback = (this.form.controls['text'].value || '').trim();
+      return feedback.length > 0 || this.refinementRejectedCandidates().length > 0;
+    }
+    return this.form.valid;
+  }
+
   focusTextarea(event?: MouseEvent) {
     if (event) {
       const target = event.target as HTMLElement | null;
-      if (target?.closest('.prompt-toolbar')) {
+      if (target?.closest('.prompt-toolbar') || target?.closest('.refinement-mode-banner')) {
         return;
       }
     }
-    const textarea = document.getElementById('inputText');
+    const textarea = (this.elementRef.nativeElement.querySelector('#inputText') as HTMLElement | null)
+      ?? document.getElementById('inputText');
     if (textarea) {
       textarea.focus();
     }
@@ -310,12 +391,59 @@ export class PromptBoxComponent {
     this.notifications.showAlert(message, type);
   }
 
+  private validateSharedParameters(): boolean {
+    const modelErrors = this.form.controls['modelID'].errors;
+    const tokenErrors = this.form.controls['num_tokens'].errors;
+    if (modelErrors?.['required']) {
+      this.showAlert('Seleziona un modello', 'danger');
+      return false;
+    }
+    if (modelErrors?.['minlength'] || modelErrors?.['maxlength']) {
+      this.showAlert('L\'ID del modello deve essere di 24 caratteri', 'danger');
+      return false;
+    }
+    if (tokenErrors?.['required']) {
+      this.showAlert('Specifica il numero di token', 'danger');
+      return false;
+    }
+    if (tokenErrors?.['min'] || tokenErrors?.['max']) {
+      this.showAlert('Il numero di token deve essere tra 1 e 10', 'danger');
+      return false;
+    }
+    return true;
+  }
+
   generateSuggestions() {
     this.form.markAllAsTouched();
+
+    if (this.isRefinementMode()) {
+      if (!this.validateSharedParameters()) {
+        return;
+      }
+      const rawValue = this.form.getRawValue();
+      const humanFeedback = (rawValue.text || '').trim();
+      const rejected = [...this.refinementRejectedCandidates()];
+      if (!humanFeedback && rejected.length === 0) {
+        this.showAlert('Inserisci un\'indicazione filologica o scarta almeno un suggerimento', 'warning');
+        return;
+      }
+      const ids = this.effectiveSelectedIds();
+      const useRag = (this.curr_type_model() === 'BERT' || ids.some(id => this.models().find(m => m._id === id)?.TYPE === 'BERT')) && this.coupleBertWithRag();
+      this.onRefineSubmit.emit({
+        human_feedback: humanFeedback,
+        rejected_candidates: rejected,
+        modelID: rawValue.modelID,
+        ...(ids.length > 1 ? { modelIDs: ids } : {}),
+        num_tokens: rawValue.num_tokens,
+        num_predictions: Number(rawValue.num_predictions),
+        ...(useRag ? { use_rag: true } : {})
+      });
+      this.clearForm();
+      return;
+    }
+
     if (this.form.invalid) {
       const textErrors = this.form.controls['text'].errors;
-      const modelErrors = this.form.controls['modelID'].errors;
-      const tokenErrors = this.form.controls['num_tokens'].errors;
 
       if (textErrors?.['required']) {
         this.showAlert('Il campo testo è obbligatorio', 'danger');
@@ -333,22 +461,7 @@ export class PromptBoxComponent {
         this.showAlert('Il testo è troppo corto', 'danger');
         return;
       }
-      if (modelErrors?.['required']) {
-        this.showAlert('Seleziona un modello', 'danger');
-        return;
-      }
-      if (modelErrors?.['minlength'] || modelErrors?.['maxlength']) {
-        this.showAlert('L\'ID del modello deve essere di 24 caratteri', 'danger');
-        return;
-      }
-      if (tokenErrors?.['required']) {
-        this.showAlert('Specifica il numero di token', 'danger');
-        return;
-      }
-      if (tokenErrors?.['min'] || tokenErrors?.['max']) {
-        this.showAlert('Il numero di token deve essere tra 1 e 10', 'danger');
-        return;
-      }
+      this.validateSharedParameters();
       return;
     }
 

@@ -1,36 +1,20 @@
 .close-btn {
-    width: 32px;
-    height: 32px;
-    border-color: rgba(255, 255, 255, 0.45);
-    color: #ffffff;
+    width: 28px;
+    height: 28px;
     transition: all 0.2s ease-in-out;
 }
 
 .close-btn:hover {
-    background-color: rgba(255, 255, 255, 0.25);
-    border-color: #ffffff;
-    color: #ffffff;
-    transform: scale(1.08);
+    transform: scale(1.06);
 }
 
-.close-btn:active {
-    transform: scale(0.95);
+.turn-status-bar {
+    border-top: 1px solid #f1f5f9;
 }
 
 .rag-details-panel {
     background-color: #faf5ff;
     border: 1px solid #e9d5ff;
-}
-
-.rag-details-title {
-    color: #6b21a8;
-    font-size: 0.92rem;
-}
-
-.rag-toggle-link {
-    color: #7e22ce;
-    font-weight: 600;
-    font-size: 0.82rem;
 }
 
 .rag-reasoning-text {
@@ -101,11 +85,6 @@
     border: 1px solid #cbd5e1;
 }
 
-.hitl-panel-title {
-    color: #0f172a;
-    font-size: 0.92rem;
-}
-
 .unattested-empty-state {
     background-color: #fffbeb;
     border: 1px solid #fde68a;
@@ -115,4 +94,3 @@
     background-color: #fff7ed;
     border: 1px dashed #fed7aa;
 }
-

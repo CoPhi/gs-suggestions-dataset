@@ -28,10 +28,18 @@ export class SuggestsBoxComponent {
   // Stato HITL ereditato dalla sessione padre per preservare i vincoli dopo una rigenerazione
   initialHumanFeedback = input<string>('');
   initialRejectedCandidates = input<string[]>([]);
+  // Controlli opzionali per l'integrazione nella vista conversazionale di AppComponent
+  isRefinementActive = input<boolean>(false);
+  externalRefinementMode = input<boolean>(false);
+  externalRejectedCount = input<number | null>(null);
+  hideModelBadgeInFooter = input<boolean>(false);
+  showCloseButton = input<boolean>(true);
+  initialSubmittedFeedback = input<Partial<Record<string, 'accepted' | 'rejected'>>>({});
 
   onClose = output<void>();
   onFeedback = output<SuggestionFeedbackEvent>();
   onRefine = output<HitlRefinementOptions>();
+  onToggleRefinement = output<void>();
 
   // L'analisi filologica RAG (CoT 1° livello + Loci Similes), il menù secondario di approfondimento
   // dei loci similes e il menu di raffinamento HITL sono nascosti di default e apribili su richiesta
@@ -43,14 +51,14 @@ export class SuggestsBoxComponent {
   onlyAttested = signal<boolean>(true);
   humanFeedback = signal<string>('');
   rejectedCandidates = signal<string[]>([]);
-  // Mappa dei feedback già registrati sui suggerimenti correnti per mantenerne il blocco anche al cambio filtro
+  // Mappa dei feedback già registrati sui suggerimenti correnti per mantenerne il blocco anche al cambio filtro o tab
   submittedFeedback = signal<Partial<Record<string, 'accepted' | 'rejected'>>>({});
 
   constructor() {
-    // Azzera lo stato dei feedback registrati quando viene caricato un nuovo set di suggerimenti
+    // Ripristina la mappa feedback solo quando cambia l'elenco dei suggerimenti (es. cambio tab o nuovo set)
     effect(() => {
       this.suggestions();
-      this.submittedFeedback.set({});
+      this.submittedFeedback.set({ ...this.initialSubmittedFeedback() });
     });
 
     // Riallinea i segnali locali con i vincoli della sessione corrente quando il componente
@@ -60,7 +68,7 @@ export class SuggestsBoxComponent {
       const rej = [...this.initialRejectedCandidates()];
       this.humanFeedback.set(fb);
       this.rejectedCandidates.set(rej);
-      if (fb.trim().length > 0 || rej.length > 0) {
+      if (!this.externalRefinementMode() && (fb.trim().length > 0 || rej.length > 0)) {
         this.showHitlMenu.set(true);
       }
     });
@@ -148,6 +156,11 @@ export class SuggestsBoxComponent {
     return this.humanFeedback().trim().length > 0 || this.rejectedCandidates().length > 0;
   });
 
+  effectiveRejectedCount = computed<number>(() => {
+    const ext = this.externalRejectedCount();
+    return ext !== null ? ext : this.rejectedCandidates().length;
+  });
+
   toggleOnlyAttested() {
     this.onlyAttested.update(v => !v);
   }
@@ -172,7 +185,12 @@ export class SuggestsBoxComponent {
   }
 
   toggleHitlMenu() {
-    this.showHitlMenu.update(v => !v);
+    // In modalità integrata il pannello di raffinamento è delegato alla barra inferiore;
+    // in uso isolato mantiene l'apertura del pannello inline per retrocompatibilità.
+    if (!this.externalRefinementMode()) {
+      this.showHitlMenu.update(v => !v);
+    }
+    this.onToggleRefinement.emit();
   }
 
   /**
@@ -191,7 +209,9 @@ export class SuggestsBoxComponent {
       this.rejectedCandidates.update(list =>
         list.includes(event.token_str) ? list : [...list, event.token_str]
       );
-      this.showHitlMenu.set(true);
+      if (!this.externalRefinementMode()) {
+        this.showHitlMenu.set(true);
+      }
     } else {
       this.rejectedCandidates.update(list =>
         list.filter(token => token !== event.token_str)

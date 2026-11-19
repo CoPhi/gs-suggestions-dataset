@@ -70,3 +70,25 @@ export function normalizeLacunaeForApi(text: string): string {
 export function stripContextLacunae(text: string): string {
   return text.replace(CONTEXT_LACUNA_REGEX, '');
 }
+
+/**
+ * Converte la lacuna target normalizzata (`[...]`) nella sintassi editabile (`*...*`)
+ * per ricaricarla nella barra di input quando il filologo riutilizza un turno precedente.
+ */
+export function formatNormalizedLacunaForPrompt(text: string): string {
+  if (!text) return '';
+  return text.replace(/\[([.\s…]+)\]/gu, '*$1*');
+}
+
+/**
+ * Suddivide un testo greco in segmenti normali ed evidenziati per mettere in risalto
+ * la lacuna target (`[...]` o `*...*`) nell'intestazione dei turni.
+ */
+export function splitLacunaHighlightSegments(text: string): Array<{ text: string; isLacuna: boolean }> {
+  if (!text) return [];
+  const parts = text.split(/(\[[.\s…]+\]|\*[^*]+\*)/gu).filter(p => p.length > 0);
+  return parts.map(part => ({
+    text: part,
+    isLacuna: /^(\[[.\s…]+\]|\*[^*]+\*)$/u.test(part),
+  }));
+}

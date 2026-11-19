@@ -2,44 +2,107 @@
     background-color: #f9f9f9;
 }
 
-.horizontal-suggestions-track {
-    scroll-snap-type: x proximity;
+.app-shell {
+    width: 100%;
+}
+
+.initial-screen-layout {
+    justify-content: center;
+    padding: 2rem 0;
+}
+
+.conversation-screen-layout {
+    justify-content: space-between;
+}
+
+.conversation-container {
+    width: 100%;
+    max-width: 860px;
+}
+
+.app-main-title {
+    color: #2d2d2d;
+    font-size: 2.35rem;
+    letter-spacing: -0.03em;
+}
+
+.conversation-header {
+    position: sticky;
+    top: 0;
+    z-index: 1020;
+    background-color: rgba(249, 249, 249, 0.94);
+    backdrop-filter: blur(6px);
+}
+
+.bottom-prompt-dock {
+    position: sticky;
+    bottom: 0;
+    z-index: 1020;
+    background: linear-gradient(180deg, rgba(249, 249, 249, 0) 0%, #f9f9f9 20%);
+    padding-top: 0.75rem;
+    padding-bottom: 0.35rem;
+}
+
+.turn-lacuna-text {
+    font-size: 1.12rem;
+    line-height: 1.55;
+    word-break: break-word;
+}
+
+.close-turn-btn {
+    width: 28px;
+    height: 28px;
+}
+
+.turn-divider {
+    border-color: #cbd5e1;
+    opacity: 0.85;
+}
+
+.scrollable-models-bar {
+    scrollbar-width: thin;
     -webkit-overflow-scrolling: touch;
 }
 
-.horizontal-suggestion-col {
-    flex: 0 0 520px;
-    max-width: 90vw;
-    scroll-snap-align: start;
+.model-comparison-tab {
+    background-color: #ffffff;
+    border: 1px solid #dee2e6;
+    transition: border-color 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease;
 }
 
-.early-consult-section {
-    border-color: #dbeafe !important;
-    background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
-    animation: fadeInConsult 0.2s ease-out;
+.model-comparison-tab:hover {
+    border-color: #93c5fd;
+    background-color: #f8fbff;
 }
 
-.early-consult-btn {
-    transition: transform 0.15s ease, box-shadow 0.15s ease;
+.model-comparison-tab.active {
+    border-color: #0d6efd;
+    background-color: #eff6ff;
+    box-shadow: 0 0 0 1px rgba(13, 110, 253, 0.15);
 }
 
-.early-consult-btn:hover {
-    transform: translateY(-1px);
+.model-comparison-tab.pending {
+    background-color: #f8fafc;
+    border-style: dashed;
 }
 
-.model-pending-placeholder-card {
-    border: 1px dashed #cbd5e1 !important;
-    background-color: #fbfcfe;
-    min-height: 280px;
+.model-tab-select-btn {
+    color: #1e293b;
+    font-size: 0.85rem;
 }
 
-@keyframes fadeInConsult {
-    from {
-        opacity: 0;
-        transform: translateY(6px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
+.model-tab-select-btn:disabled {
+    opacity: 0.8;
+    cursor: default;
+}
+
+.close-model-tab-btn {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+}
+
+.close-model-tab-btn:hover {
+    color: #dc3545 !important;
+    background-color: rgba(220, 53, 69, 0.08);
 }

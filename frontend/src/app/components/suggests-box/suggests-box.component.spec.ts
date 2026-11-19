@@ -419,4 +419,45 @@ describe('SuggestsBoxComponent', () => {
     expect(cardsAfter[0].querySelector('.feedback-accept-btn')).toBeNull();
     expect(cardsAfter[0].querySelector('.feedback-status-badge')).toBeTruthy();
   });
+
+  it('should emit onToggleRefinement and delegate refinement UI when externalRefinementMode is enabled', () => {
+    const toggleSpy = spyOn(component.onToggleRefinement, 'emit');
+    fixture.componentRef.setInput('externalRefinementMode', true);
+    fixture.componentRef.setInput('isRefinementActive', true);
+    fixture.componentRef.setInput('externalRejectedCount', 2);
+    fixture.componentRef.setInput('hideModelBadgeInFooter', true);
+    fixture.componentRef.setInput('modelLabel', 'gs-GreBerta + RAG');
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    const hitlBtn = compiled.querySelector('.hitl-toggle-btn') as HTMLButtonElement;
+    expect(hitlBtn).toBeTruthy();
+    expect(hitlBtn.classList.contains('btn-primary')).toBeTrue();
+    expect(compiled.querySelector('.hitl-rejected-count-badge')?.textContent?.trim()).toBe('2');
+    expect(compiled.querySelector('.model-origin-badge')).toBeNull();
+
+    hitlBtn.click();
+    fixture.detectChanges();
+
+    expect(toggleSpy).toHaveBeenCalledTimes(1);
+    expect(compiled.querySelector('.hitl-refinement-panel')).toBeNull();
+  });
+
+  it('should preserve initialSubmittedFeedback when rendering suggestions across tab switches', () => {
+    fixture.componentRef.setInput('initialSubmittedFeedback', { 'λῆτα': 'rejected' });
+    fixture.componentRef.setInput('suggestions', [
+      {
+        token_str: 'λῆτα',
+        sentence: 'τειχεσιβλῆτα',
+        score: 0.95,
+        tlg_attested: true
+      }
+    ]);
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    const card = compiled.querySelector('app-suggest') as HTMLElement;
+    expect(card.querySelector('.feedback-accept-btn')).toBeNull();
+    expect(card.querySelector('.feedback-status-badge')).toBeTruthy();
+  });
 });

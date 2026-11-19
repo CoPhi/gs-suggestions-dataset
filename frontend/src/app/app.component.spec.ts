@@ -33,59 +33,56 @@ describe('AppComponent', () => {
     fixture.detectChanges();
     const compiled = fixture.nativeElement as HTMLElement;
     expect(compiled.querySelector('h1')?.textContent).toContain('Generatore di Suggerimenti');
+    expect(compiled.querySelector('.initial-screen-layout')).not.toBeNull();
   });
 
-  it('should reset suggestions to null when closeSuggestions is called', () => {
+  it('should reset suggestions and return to initial screen when closeSuggestions is called', () => {
     const fixture = TestBed.createComponent(AppComponent);
     const app = fixture.componentInstance;
     app.suggestions.set([{ sentence: 'test', token_str: 'test', score: 1.0 }]);
     expect(app.suggestions()).not.toBeNull();
     app.closeSuggestions();
     expect(app.suggestions()).toBeNull();
+    expect(app.conversationTurns().length).toBe(0);
   });
 
-  it('should execute parallel requests on barrier and render horizontal suggestion boxes with model provenance', () => {
+  it('should transition from initial screen to loading state and then to suggestions for a single model', () => {
     const fixture = TestBed.createComponent(AppComponent);
     const app = fixture.componentInstance;
     const api = TestBed.inject(ApiService);
 
     app.models.set([
-      { _id: '67066928e4414eb1d8109bf1', CHECKPOINT: 'CNR-ILC/gs-GreBerta', BACKEND: 'neuro_lexical', TOP_K_PASSAGES: 5, TYPE: 'RAG' },
-      { _id: '67066928e4414eb1d8109bf2', CHECKPOINT: 'Qwen/Qwen2.5-72B-Instruct', BACKEND: 'auto', TOP_K_PASSAGES: 5, TYPE: 'RAG' }
+      { _id: '67066928e4414eb1d8109bf1', CHECKPOINT: 'CNR-ILC/gs-GreBerta', BACKEND: 'neuro_lexical', TOP_K_PASSAGES: 5, TYPE: 'RAG' }
     ]);
 
-    spyOn(api, 'generateSuggestion').and.callFake((modelId: string) => {
-      if (modelId === '67066928e4414eb1d8109bf1') {
-        return of([{ sentence: 'τειχεσιβλητα', token_str: 'λητα', score: 0.9 }]);
-      }
-      return of([{ sentence: 'τειχεσιβλῆτα', token_str: 'βλητα', score: 0.95 }]);
-    });
+    const model$ = new Subject<SuggestionInterface[]>();
+    spyOn(api, 'generateSuggestion').and.returnValue(model$.asObservable());
 
     app.generateSuggestions({
-      text: 'τειχεσι[....]',
+      text: 'τειχεσι*....*',
       modelID: '67066928e4414eb1d8109bf1',
-      modelIDs: ['67066928e4414eb1d8109bf1', '67066928e4414eb1d8109bf2'],
       num_tokens: 1,
       num_predictions: 5
     });
     fixture.detectChanges();
 
-    expect(app.modelSuggestionBoxes()?.length).toBe(2);
-    expect(app.modelSuggestionBoxes()?.[0].modelLabel).toBe('gs-GreBerta + RAG');
-    expect(app.modelSuggestionBoxes()?.[0].modelType).toBe('BERT + RAG');
-    expect(app.modelSuggestionBoxes()?.[1].modelLabel).toBe('Qwen2.5-72B-Instruct');
-    expect(app.modelSuggestionBoxes()?.[1].modelType).toBe('RAG');
-
     const compiled = fixture.nativeElement as HTMLElement;
-    const horizontalCols = compiled.querySelectorAll('.horizontal-suggestion-col');
-    expect(horizontalCols.length).toBe(2);
-    const originBadges = compiled.querySelectorAll('.model-origin-badge');
-    expect(originBadges.length).toBe(2);
-    expect(originBadges[0].textContent).toContain('gs-GreBerta + RAG');
-    expect(originBadges[1].textContent).toContain('Qwen2.5-72B-Instruct');
+    expect(compiled.querySelector('.initial-screen-layout')).toBeNull();
+    expect(compiled.querySelector('.conversation-screen-layout')).not.toBeNull();
+    expect(compiled.querySelector('.bottom-prompt-dock')).not.toBeNull();
+    expect(compiled.querySelector('.turn-lacuna-text')?.textContent).toContain('τειχεσι[....]');
+    expect(compiled.querySelector('.turn-loading-state')?.textContent).toContain('loading...');
+
+    model$.next([{ sentence: 'τειχεσιβλῆτα', token_str: 'βλῆτα', score: 0.94, tlg_attested: true }]);
+    model$.complete();
+    fixture.detectChanges();
+
+    expect(compiled.querySelector('.turn-loading-state')).toBeNull();
+    expect(compiled.querySelectorAll('app-suggest').length).toBe(1);
+    expect(compiled.querySelector('.model-origin-badge')?.textContent).toContain('gs-GreBerta + RAG');
   });
 
-  it('should show centered early consultation banner when a model has candidates while another is still pending on barrier', () => {
+  it('should unlock comparison view automatically on first ready model, show scrollable model tabs with live spinners, and switch tabs', () => {
     const fixture = TestBed.createComponent(AppComponent);
     const app = fixture.componentInstance;
     const api = TestBed.inject(ApiService);
@@ -95,11 +92,11 @@ describe('AppComponent', () => {
       { _id: '67066928e4414eb1d8109bf2', CHECKPOINT: 'Qwen/Qwen2.5-72B-Instruct', BACKEND: 'auto', TOP_K_PASSAGES: 5, TYPE: 'RAG' }
     ]);
 
-    const fastModel$ = new Subject<SuggestionInterface[]>();
     const slowModel$ = new Subject<SuggestionInterface[]>();
+    const fastModel$ = new Subject<SuggestionInterface[]>();
 
     spyOn(api, 'generateSuggestion').and.callFake((modelId: string) => {
-      return modelId === '67066928e4414eb1d8109bf1' ? fastModel$.asObservable() : slowModel$.asObservable();
+      return modelId === '67066928e4414eb1d8109bf1' ? slowModel$.asObservable() : fastModel$.asObservable();
     });
 
     app.generateSuggestions({
@@ -113,129 +110,45 @@ describe('AppComponent', () => {
 
     const compiled = fixture.nativeElement as HTMLElement;
     expect(app.isGenerating()).toBeTrue();
-    expect(compiled.querySelector('.early-consult-section')).toBeNull();
+    expect(compiled.querySelector('.turn-loading-state')).not.toBeNull();
+    expect(compiled.querySelector('.scrollable-models-bar')).toBeNull();
 
-    // Il primo modello termina con candidati mentre il secondo è ancora sulla barriera
-    fastModel$.next([{ sentence: 'τειχεσιβλητα', token_str: 'λητα', score: 0.9, tlg_attested: true }]);
+    // Il secondo modello risponde per primo: sblocca subito la schermata confronto selezionando il suo tab
+    fastModel$.next([{ sentence: 'τειχεσιβλῆτα', token_str: 'βλῆτα', score: 0.95, tlg_attested: true }]);
     fastModel$.complete();
     fixture.detectChanges();
 
     expect(app.isGenerating()).toBeTrue();
-    const consultSection = compiled.querySelector('.early-consult-section');
-    expect(consultSection).not.toBeNull();
-    expect(compiled.querySelector('.early-consult-text')?.textContent).toContain('(1/2)');
-    const readyBadges = compiled.querySelectorAll('.early-ready-model-badge');
-    expect(readyBadges.length).toBe(1);
-    expect(readyBadges[0].textContent).toContain('gs-GreBerta + RAG');
-    expect(compiled.querySelector('.early-consult-btn')?.textContent).toContain('Consulta');
-    expect(compiled.querySelector('.multi-model-comparison-wrapper')).toBeNull();
-  });
+    expect(compiled.querySelector('.turn-loading-state')).toBeNull();
+    expect(compiled.querySelector('.scrollable-models-bar')).not.toBeNull();
+    const tabs = compiled.querySelectorAll('.model-comparison-tab');
+    expect(tabs.length).toBe(2);
+    // Il primo tab è ancora pending con mini-spinner e bottone disabilitato; il secondo è attivo
+    expect(tabs[0].classList.contains('pending')).toBeTrue();
+    expect(tabs[0].querySelector('.model-tab-spinner')).not.toBeNull();
+    expect((tabs[0].querySelector('.model-tab-select-btn') as HTMLButtonElement).disabled).toBeTrue();
+    expect(tabs[1].classList.contains('active')).toBeTrue();
+    expect(compiled.textContent).toContain('βλῆτα');
 
-  it('should render ready box and pending placeholder column on Consulta click, then replace placeholder when slow model completes', () => {
-    const fixture = TestBed.createComponent(AppComponent);
-    const app = fixture.componentInstance;
-    const api = TestBed.inject(ApiService);
-
-    app.models.set([
-      { _id: '67066928e4414eb1d8109bf1', CHECKPOINT: 'CNR-ILC/gs-GreBerta', BACKEND: 'neuro_lexical', TOP_K_PASSAGES: 5, TYPE: 'RAG' },
-      { _id: '67066928e4414eb1d8109bf2', CHECKPOINT: 'Qwen/Qwen2.5-72B-Instruct', BACKEND: 'auto', TOP_K_PASSAGES: 5, TYPE: 'RAG' }
-    ]);
-
-    const slowModel$ = new Subject<SuggestionInterface[]>();
-
-    spyOn(api, 'generateSuggestion').and.callFake((modelId: string) => {
-      if (modelId === '67066928e4414eb1d8109bf1') {
-        return of([{ sentence: 'τειχεσιβλητα', token_str: 'λητα', score: 0.9, tlg_attested: true }]);
-      }
-      return slowModel$.asObservable();
-    });
-
-    app.generateSuggestions({
-      text: 'τειχεσι[....]',
-      modelID: '67066928e4414eb1d8109bf1',
-      modelIDs: ['67066928e4414eb1d8109bf1', '67066928e4414eb1d8109bf2'],
-      num_tokens: 1,
-      num_predictions: 5
-    });
-    fixture.detectChanges();
-
-    const compiled = fixture.nativeElement as HTMLElement;
-    const consultBtn = compiled.querySelector('.early-consult-btn') as HTMLButtonElement;
-    expect(consultBtn).not.toBeNull();
-    consultBtn.click();
-    fixture.detectChanges();
-
-    // Dopo il click su Consulta il banner sparisce e mostra colonna pronta + placeholder in attesa
-    expect(compiled.querySelector('.early-consult-section')).toBeNull();
-    expect(compiled.querySelector('.multi-model-comparison-wrapper')).not.toBeNull();
-    const cols = compiled.querySelectorAll('.horizontal-suggestion-col');
-    expect(cols.length).toBe(2);
-    expect(cols[0].querySelector('app-suggests-box')).not.toBeNull();
-    expect(cols[1].querySelector('.model-pending-placeholder-card')).not.toBeNull();
-    expect(cols[1].querySelector('.model-pending-placeholder-card')?.textContent).toContain('Qwen2.5-72B-Instruct');
-    expect(cols[1].querySelector('.spinner-border')).not.toBeNull();
-    expect(app.isGenerating()).toBeTrue();
-
-    // Al completamento del secondo modello, il placeholder viene sostituito dai suggerimenti reali
-    slowModel$.next([{ sentence: 'τειχεσιβλῆτα', token_str: 'βλητα', score: 0.95, tlg_attested: true }]);
+    // Al completamento del modello lento, sparisce lo spinner dal suo tab e diventa cliccabile
+    slowModel$.next([{ sentence: 'τειχεσιπλητα', token_str: 'πλητα', score: 0.89, tlg_attested: true }]);
     slowModel$.complete();
     fixture.detectChanges();
 
     expect(app.isGenerating()).toBeFalse();
-    expect(compiled.querySelector('.model-pending-placeholder-card')).toBeNull();
-    const updatedCols = compiled.querySelectorAll('.horizontal-suggestion-col');
-    expect(updatedCols.length).toBe(2);
-    expect(updatedCols[0].querySelector('app-suggests-box')).not.toBeNull();
-    expect(updatedCols[1].querySelector('app-suggests-box')).not.toBeNull();
-  });
+    expect(compiled.querySelector('.model-tab-spinner')).toBeNull();
+    const firstTabBtn = compiled.querySelectorAll('.model-tab-select-btn')[0] as HTMLButtonElement;
+    expect(firstTabBtn.disabled).toBeFalse();
 
-  it('should not show early consultation banner when completed model returned 0 candidates while another is still pending', () => {
-    const fixture = TestBed.createComponent(AppComponent);
-    const app = fixture.componentInstance;
-    const api = TestBed.inject(ApiService);
-
-    app.models.set([
-      { _id: '67066928e4414eb1d8109bf1', CHECKPOINT: 'CNR-ILC/gs-GreBerta', BACKEND: 'neuro_lexical', TOP_K_PASSAGES: 5, TYPE: 'RAG' },
-      { _id: '67066928e4414eb1d8109bf2', CHECKPOINT: 'Qwen/Qwen2.5-72B-Instruct', BACKEND: 'auto', TOP_K_PASSAGES: 5, TYPE: 'RAG' }
-    ]);
-
-    const slowModel$ = new Subject<SuggestionInterface[]>();
-
-    spyOn(api, 'generateSuggestion').and.callFake((modelId: string) => {
-      if (modelId === '67066928e4414eb1d8109bf1') {
-        return of([]);
-      }
-      return slowModel$.asObservable();
-    });
-
-    app.generateSuggestions({
-      text: 'τειχεσι[....]',
-      modelID: '67066928e4414eb1d8109bf1',
-      modelIDs: ['67066928e4414eb1d8109bf1', '67066928e4414eb1d8109bf2'],
-      num_tokens: 1,
-      num_predictions: 5
-    });
+    // Cliccando sul primo tab si commutano i suggerimenti visualizzati
+    firstTabBtn.click();
     fixture.detectChanges();
 
-    const compiled = fixture.nativeElement as HTMLElement;
-    expect(app.isGenerating()).toBeTrue();
-    expect(compiled.querySelector('.early-consult-section')).toBeNull();
-
-    // Quando la barriera termina completamente, apre comunque la vista di confronto finale
-    slowModel$.next([{ sentence: 'τειχεσιβλῆτα', token_str: 'βλητα', score: 0.95, tlg_attested: true }]);
-    slowModel$.complete();
-    fixture.detectChanges();
-
-    expect(app.isGenerating()).toBeFalse();
-    expect(compiled.querySelector('.early-consult-section')).toBeNull();
-    expect(compiled.querySelector('.multi-model-comparison-wrapper')).not.toBeNull();
-    const cols = compiled.querySelectorAll('.horizontal-suggestion-col');
-    expect(cols.length).toBe(2);
-    expect(cols[0].textContent).toContain('Nessun suggerimento disponibile');
-    expect(cols[1].querySelector('app-suggests-box')).not.toBeNull();
+    expect(compiled.querySelectorAll('.model-comparison-tab')[0].classList.contains('active')).toBeTrue();
+    expect(compiled.textContent).toContain('πλητα');
   });
 
-  it('should allow dismissing a pending placeholder column and resolve generating state if no pending models remain', () => {
+  it('should allow dismissing a pending model tab from the scrollable bar and resolve generating state when no pending models remain', () => {
     const fixture = TestBed.createComponent(AppComponent);
     const app = fixture.componentInstance;
     const api = TestBed.inject(ApiService);
@@ -265,19 +178,134 @@ describe('AppComponent', () => {
     fixture.detectChanges();
 
     const compiled = fixture.nativeElement as HTMLElement;
-    expect(compiled.querySelector('.early-consult-text')?.textContent).toContain('(2/3)');
-    (compiled.querySelector('.early-consult-btn') as HTMLButtonElement).click();
-    fixture.detectChanges();
+    expect(app.isGenerating()).toBeTrue();
+    const tabs = compiled.querySelectorAll('.model-comparison-tab');
+    expect(tabs.length).toBe(3);
 
-    const closePendingBtn = compiled.querySelector('.model-pending-placeholder-card .close-btn') as HTMLButtonElement;
-    expect(closePendingBtn).not.toBeNull();
-    closePendingBtn.click();
+    const closePendingTabBtn = tabs[1].querySelector('.close-model-tab-btn') as HTMLButtonElement;
+    expect(closePendingTabBtn).not.toBeNull();
+    closePendingTabBtn.click();
     fixture.detectChanges();
 
     expect(app.isGenerating()).toBeFalse();
-    expect(app.modelSuggestionBoxes()?.length).toBe(2);
-    expect(compiled.querySelector('.model-pending-placeholder-card')).toBeNull();
-    expect(compiled.querySelectorAll('.horizontal-suggestion-col').length).toBe(2);
+    expect(app.conversationTurns()[0].modelBoxes.length).toBe(2);
+    expect(compiled.querySelectorAll('.model-comparison-tab').length).toBe(2);
+  });
+
+  it('should append multiple turns in conversation stream, support text reuse, and return to initial screen when last turn is closed', () => {
+    const fixture = TestBed.createComponent(AppComponent);
+    const app = fixture.componentInstance;
+    const api = TestBed.inject(ApiService);
+
+    app.models.set([
+      { _id: '67066928e4414eb1d8109bf1', CHECKPOINT: 'CNR-ILC/gs-GreBerta', BACKEND: 'neuro_lexical', TOP_K_PASSAGES: 5, TYPE: 'RAG' }
+    ]);
+    spyOn(api, 'generateSuggestion').and.returnValue(
+      of([{ sentence: 'τειχεσιβλῆτα', token_str: 'βλῆτα', score: 0.95, tlg_attested: true }])
+    );
+
+    app.generateSuggestions({
+      text: 'τειχεσι*....*',
+      modelID: '67066928e4414eb1d8109bf1',
+      num_tokens: 1,
+      num_predictions: 5
+    });
+    app.generateSuggestions({
+      text: 'ἄλλο *...* κείμενον',
+      modelID: '67066928e4414eb1d8109bf1',
+      num_tokens: 1,
+      num_predictions: 5
+    });
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    const turns = compiled.querySelectorAll('.conversation-turn');
+    expect(turns.length).toBe(2);
+
+    // Riutilizzo del testo del primo turno nella barra in basso (riconversione a *....*)
+    const reuseBtn = turns[0].querySelector('.reuse-turn-text-btn') as HTMLButtonElement;
+    reuseBtn.click();
+    fixture.detectChanges();
+    expect(app.promptBox()?.form.controls['text'].value).toBe('τειχεσι*....*');
+
+    // Chiusura di entrambi i turni -> ritorno alla schermata iniziale
+    const closeTurnBtns = compiled.querySelectorAll('.close-turn-btn');
+    (closeTurnBtns[0] as HTMLButtonElement).click();
+    fixture.detectChanges();
+    expect(app.conversationTurns().length).toBe(1);
+
+    (compiled.querySelector('.close-turn-btn') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    expect(app.conversationTurns().length).toBe(0);
+    expect(compiled.querySelector('.initial-screen-layout')).not.toBeNull();
+  });
+
+  it('should toggle refinement mode on a turn, pre-select active model, accumulate rejections across tabs, and append a refinement turn', () => {
+    const fixture = TestBed.createComponent(AppComponent);
+    const app = fixture.componentInstance;
+    const api = TestBed.inject(ApiService);
+
+    app.models.set([
+      { _id: '67066928e4414eb1d8109bf1', CHECKPOINT: 'CNR-ILC/gs-GreBerta', BACKEND: 'neuro_lexical', TOP_K_PASSAGES: 5, TYPE: 'RAG' },
+      { _id: '67066928e4414eb1d8109bf2', CHECKPOINT: 'Qwen/Qwen2.5-72B-Instruct', BACKEND: 'auto', TOP_K_PASSAGES: 5, TYPE: 'RAG' }
+    ]);
+
+    const genSpy = spyOn(api, 'generateSuggestion').and.callFake((modelId: string) => {
+      if (modelId === '67066928e4414eb1d8109bf1') {
+        return of([{ sentence: 'τειχεσιλητα', token_str: 'λητα', score: 0.9, tlg_attested: true }]);
+      }
+      return of([{ sentence: 'τειχεσιβλῆτα', token_str: 'βλῆτα', score: 0.95, tlg_attested: true }]);
+    });
+    spyOn(api, 'submitFeedback').and.returnValue(of({ id: 'fb-1', status: 'saved' }));
+
+    app.generateSuggestions({
+      text: 'τειχεσι*....*',
+      modelID: '67066928e4414eb1d8109bf1',
+      modelIDs: ['67066928e4414eb1d8109bf1', '67066928e4414eb1d8109bf2'],
+      num_tokens: 1,
+      num_predictions: 5
+    });
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    const firstTurn = app.conversationTurns()[0];
+
+    // Scarto su modello 1
+    (compiled.querySelector('.feedback-reject-btn') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    expect(app.conversationTurns()[0].turnRejectedCandidates).toEqual(['λητα']);
+
+    // Cambio tab su modello 2 e scarto anche su modello 2 -> accumulato sul turno
+    (compiled.querySelectorAll('.model-tab-select-btn')[1] as HTMLButtonElement).click();
+    fixture.detectChanges();
+    (compiled.querySelector('.feedback-reject-btn') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    expect(app.conversationTurns()[0].turnRejectedCandidates).toEqual(['λητα', 'βλῆτα']);
+
+    // Click sul toggle "Raffina": attiva modalità raffinamento e preseleziona il modello del tab attivo (modello 2)
+    (compiled.querySelector('.hitl-toggle-btn') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    expect(app.activeRefinementTurnId()).toBe(firstTurn.turnId);
+    expect(app.curr_id()).toBe('67066928e4414eb1d8109bf2');
+    expect(compiled.querySelector('.refinement-mode-banner')).not.toBeNull();
+
+    // Invio del raffinamento dalla barra in basso
+    app.promptBox()!.form.controls['text'].setValue('Solo epiteti epici attestati');
+    fixture.detectChanges();
+    app.promptBox()!.generateSuggestions();
+    fixture.detectChanges();
+
+    expect(app.conversationTurns().length).toBe(2);
+    const secondTurn = app.conversationTurns()[1];
+    expect(secondTurn.isRefinement).toBeTrue();
+    expect(secondTurn.sessionId).toBe(firstTurn.sessionId);
+    expect(secondTurn.appliedHumanFeedback).toBe('Solo epiteti epici attestati');
+    expect(secondTurn.appliedRejectedCandidates).toEqual(['λητα', 'βλῆτα']);
+    expect(app.activeRefinementTurnId()).toBeNull();
+    expect(compiled.querySelectorAll('.conversation-turn')[1].querySelector('.turn-refinement-constraints')?.textContent)
+      .toContain('Solo epiteti epici attestati');
+    expect(genSpy.calls.mostRecent().args[0]).toBe('67066928e4414eb1d8109bf2');
+    expect(genSpy.calls.mostRecent().args[4]?.session_id).toBe(firstTurn.sessionId);
   });
 
   it('should generate a shared per-lacuna session_id across multi-model calls, HITL refinements, and feedback', () => {

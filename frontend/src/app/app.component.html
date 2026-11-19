@@ -31,189 +31,264 @@
     }
 </div>
 
-<div class="container-fluid py-5 d-flex flex-column align-items-center min-vh-100 bg-light-modern">
-    <div class="col-12 col-md-10 col-lg-8">
-        
-        <h1 class="text-center mb-5 fw-bold" style="color: #2d2d2d; font-size: 2.5rem; letter-spacing: -0.03em;">Generatore di Suggerimenti</h1>
+<div class="app-shell d-flex flex-column align-items-center min-vh-100 bg-light-modern"
+     [class.initial-screen-layout]="conversationTurns().length === 0"
+     [class.conversation-screen-layout]="conversationTurns().length > 0">
 
-        <!-- Prompt Box Component -->
-        <app-prompt-box 
-            [models]="models()" 
-            [(curr_id)]="curr_id" 
-            [isGenerating]="isGenerating()"
-            (onGenerate)="generateSuggestions($event)">
-        </app-prompt-box>
-
-        @if (!isGenerating()) {
-            <!-- Models Modal -->
-            <div class="modal fade" id="modelsModal" tabindex="-1" aria-labelledby="modelsModalLabel" aria-hidden="true">
-                <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
-                    <div class="modal-content rounded-4 border-0 shadow-lg overflow-hidden">
-                        <div class="modal-header bg-dark text-white px-4 py-3 border-0">
-                            <div class="d-flex align-items-center gap-2">
-                                <i class="bi bi-boxes fs-4 text-primary"></i>
-                                <div>
-                                    <h5 class="modal-title fw-bold mb-0" id="modelsModalLabel">Dettagli Modelli di Linguaggio</h5>
-                                    <small class="text-white-50">{{ models().length }} modelli disponibili per l'inferenza</small>
-                                </div>
-                            </div>
-                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Chiudi"></button>
-                        </div>
-                        <div class="modal-body p-4 bg-light">
-                            <app-models-box [(models)]="models" [(curr_id)]="curr_id" />
-                        </div>
-                    </div>
-                </div>
-            </div>
-        }
-
-        @if (showEarlyConsultBanner()) {
-            <div class="mt-4 p-4 bg-white rounded-4 shadow-sm border text-center early-consult-section" id="earlyConsultSection">
-                <div class="mb-3">
-                    <p class="mb-2 fw-semibold text-dark early-consult-text">
-                        <i class="bi bi-hourglass-split text-primary me-1"></i>
-                        I seguenti modelli hanno già generato i suggerimenti ({{ readyComparisonBoxesWithCandidates().length }}/{{ modelSuggestionBoxes()!.length }}):
-                    </p>
-                    <div class="d-flex justify-content-center align-items-center flex-wrap gap-2 early-consult-models-list">
-                        @for (readyBox of readyComparisonBoxesWithCandidates(); track readyBox.modelId) {
-                            <span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill px-3 py-2 fw-semibold d-inline-flex align-items-center gap-1 early-ready-model-badge">
-                                <i class="bi bi-check-circle-fill"></i>
-                                <span>{{ readyBox.modelLabel }}</span>
-                            </span>
-                        }
-                    </div>
-                </div>
+    @if (conversationTurns().length > 0) {
+        <!-- Header compatto conversazionale -->
+        <header class="conversation-header w-100 border-bottom py-2 px-3">
+            <div class="conversation-container d-flex justify-content-between align-items-center gap-2 mx-auto">
+                <h1 class="h5 mb-0 fw-bold text-dark">Generatore di Suggerimenti</h1>
                 <button type="button"
-                        class="btn btn-primary rounded-pill px-4 py-2 fw-semibold shadow-sm early-consult-btn"
-                        (click)="openEarlyConsultation()">
-                    <i class="bi bi-eye-fill me-2"></i>Consulta
+                        class="btn btn-sm btn-outline-secondary rounded-pill px-3 new-conversation-btn"
+                        (click)="closeSuggestions()">
+                    <i class="bi bi-plus-lg me-1"></i>Nuova conversazione
                 </button>
             </div>
-        }
+        </header>
 
-        @if (showMultiModelComparison()) {
-            <div class="mt-4 multi-model-comparison-wrapper">
-                <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3 px-1">
-                    <div class="d-flex align-items-center gap-2">
-                        <span class="badge bg-primary rounded-pill px-3 py-2">
-                            <i class="bi bi-layout-three-columns me-1"></i>
-                            Confronto parallelo ({{ modelSuggestionBoxes()!.length }} modelli)
-                        </span>
-                        <span class="text-muted small">Scorri orizzontalmente per confrontare le risposte dei modelli consultati</span>
-                    </div>
-                    <button type="button"
-                            class="btn btn-sm btn-outline-secondary rounded-pill px-3"
-                            (click)="closeSuggestions()">
-                        <i class="bi bi-x-lg me-1"></i>Chiudi confronto
-                    </button>
-                </div>
-
-                <div class="horizontal-suggestions-track d-flex flex-row flex-nowrap overflow-x-auto gap-4 pb-3">
-                    @for (box of modelSuggestionBoxes()!; track box.modelId) {
-                        <div class="horizontal-suggestion-col">
-                            @if (box.pending) {
-                                <div class="card rounded-4 shadow border-0 h-100 model-pending-placeholder-card">
-                                    <div class="card-header rounded-top-4 bg-secondary bg-opacity-75 text-white d-flex justify-content-between align-items-center py-3">
-                                        <div class="d-flex align-items-center flex-wrap gap-2">
-                                            <span class="badge bg-dark text-white rounded-pill px-3 py-1 fw-semibold model-origin-badge">
-                                                {{ box.modelLabel }}
-                                            </span>
-                                            <span class="badge bg-white text-dark border rounded-pill px-2 py-1 small fw-semibold model-type-origin-badge">
-                                                {{ box.modelType }}
-                                            </span>
-                                        </div>
-                                        <button type="button"
-                                                class="btn btn-sm btn-outline-light rounded-circle d-flex align-items-center justify-content-center p-0 close-btn"
-                                                style="width: 28px; height: 28px;"
-                                                (click)="closeModelBox(box.modelId)"
-                                                title="Ignora e chiudi modello in elaborazione"
-                                                aria-label="Chiudi pannello">
-                                            <i class="bi bi-x-lg"></i>
-                                        </button>
-                                    </div>
-                                    <div class="card-body d-flex flex-column justify-content-center align-items-center text-center p-5 text-muted">
-                                        <div class="spinner-border text-primary mb-3" role="status" aria-hidden="true"></div>
-                                        <h6 class="fw-bold text-dark mb-1">Generazione dei suggerimenti in corso...</h6>
-                                        <p class="small mb-0">I candidati compariranno automaticamente in questa colonna non appena il modello avrà terminato.</p>
-                                    </div>
-                                </div>
-                            } @else if (box.suggestions.length > 0) {
-                                <app-suggests-box
-                                    [suggestions]="box.suggestions"
-                                    [modelId]="box.modelId"
-                                    [modelLabel]="box.modelLabel"
-                                    [modelType]="box.modelType"
-                                    [checkpoint]="box.checkpoint"
-                                    [useRag]="box.use_rag"
-                                    [initialHumanFeedback]="sessionHumanFeedback()"
-                                    [initialRejectedCandidates]="sessionRejectedCandidates()"
-                                    (onFeedback)="recordFeedback($event, box.modelId, box.modelLabel, box.modelType, box.checkpoint, box.use_rag)"
-                                    (onRefine)="refineSuggestions($event)"
-                                    (onClose)="closeModelBox(box.modelId)" />
-                            } @else {
-                                <div class="card rounded-4 shadow border-0 h-100">
-                                    <div class="card-header rounded-top-4 bg-secondary text-white d-flex justify-content-between align-items-center py-3">
-                                        <div class="d-flex align-items-center gap-2">
-                                            <span class="badge bg-dark text-white rounded-pill px-3 py-1 fw-semibold">
-                                                {{ box.modelLabel }}
-                                            </span>
-                                            <span class="badge bg-white text-dark border rounded-pill px-2 py-1 small fw-semibold">
-                                                {{ box.modelType }}
-                                            </span>
-                                        </div>
-                                        <button type="button"
-                                                class="btn btn-sm btn-outline-light rounded-circle d-flex align-items-center justify-content-center p-0 close-btn"
-                                                style="width: 28px; height: 28px;"
-                                                (click)="closeModelBox(box.modelId)"
-                                                title="Chiudi pannello">
-                                            <i class="bi bi-x-lg"></i>
-                                        </button>
-                                    </div>
-                                    <div class="card-body text-center p-5 text-muted">
-                                        <i class="bi bi-emoji-frown fs-1 mb-3 d-block text-warning"></i>
-                                        <h6 class="fw-bold">Nessun suggerimento disponibile</h6>
-                                        @if (box.error) {
-                                            <p class="small text-danger mb-0">{{ box.error }}</p>
+        <!-- Cronologia multi-turno -->
+        <main class="conversation-stream flex-grow-1 w-100 px-3 py-4">
+            <div class="conversation-container mx-auto d-flex flex-column gap-4">
+                @for (turn of conversationTurns(); track turn.turnId) {
+                    <section class="conversation-turn" [attr.data-turn-id]="turn.turnId">
+                        <!-- Intestazione del turno: testo lacunoso ed eventuali vincoli HITL applicati -->
+                        <div class="d-flex justify-content-between align-items-start gap-2 mb-3 turn-header">
+                            <div class="flex-grow-1 min-w-0">
+                                <div class="turn-lacuna-text fw-medium text-dark">
+                                    @for (seg of getTurnTextSegments(turn.normalizedText); track $index) {
+                                        @if (seg.isLacuna) {
+                                            <span class="gap-highlight">{{ seg.text }}</span>
                                         } @else {
-                                            <p class="small mb-0">Il modello non ha restituito candidati per questa lacuna.</p>
+                                            <span>{{ seg.text }}</span>
                                         }
+                                    }
+                                </div>
+                                @if (turn.isRefinement) {
+                                    <div class="d-flex align-items-center flex-wrap gap-2 mt-2 turn-refinement-constraints">
+                                        <span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill px-2 py-1">
+                                            <i class="bi bi-arrow-return-right me-1"></i>Raffinamento
+                                        </span>
+                                        @if (turn.appliedHumanFeedback) {
+                                            <span class="small text-secondary fst-italic turn-applied-feedback">
+                                                "{{ turn.appliedHumanFeedback }}"
+                                            </span>
+                                        }
+                                        @for (rej of turn.appliedRejectedCandidates; track rej) {
+                                            <span class="badge bg-danger-subtle text-danger border border-danger-subtle rounded-pill px-2 py-1">
+                                                Escluso: {{ rej }}
+                                            </span>
+                                        }
+                                    </div>
+                                }
+                            </div>
+                            <div class="d-flex align-items-center gap-1 flex-shrink-0">
+                                <button type="button"
+                                        class="btn btn-sm btn-outline-secondary rounded-pill px-2 py-1 reuse-turn-text-btn"
+                                        (click)="reuseTurnText(turn)"
+                                        title="Riutilizza o modifica questo testo lacunoso nella barra in basso">
+                                    <i class="bi bi-pencil-square me-1"></i><span class="d-none d-sm-inline">Riutilizza</span>
+                                </button>
+                                <button type="button"
+                                        class="btn btn-sm btn-outline-secondary rounded-circle d-flex align-items-center justify-content-center p-0 close-turn-btn"
+                                        (click)="closeTurn(turn.turnId)"
+                                        title="Rimuovi questo turno"
+                                        aria-label="Rimuovi turno">
+                                    <i class="bi bi-x-lg"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Stato 1: Schermata Attesa (nessun modello ha ancora risposto) -->
+                        @if (isTurnWaitingInitialResponse(turn)) {
+                            <div class="turn-loading-state py-4 d-flex flex-column gap-2" role="status">
+                                <div class="d-flex align-items-center gap-2 text-muted">
+                                    <div class="spinner-border spinner-border-sm text-primary" aria-hidden="true"></div>
+                                    <span class="fw-medium">loading...</span>
+                                </div>
+                                @if (turn.modelBoxes.length > 1) {
+                                    <div class="d-flex align-items-center flex-wrap gap-2 mt-1">
+                                        @for (box of turn.modelBoxes; track box.modelId) {
+                                            <span class="badge bg-light text-secondary border rounded-pill px-2 py-1 d-inline-flex align-items-center gap-1">
+                                                <span class="spinner-border spinner-border-sm" style="width: 0.65rem; height: 0.65rem;" aria-hidden="true"></span>
+                                                <span>{{ box.modelLabel }}</span>
+                                            </span>
+                                        }
+                                    </div>
+                                }
+                            </div>
+                        } @else if (turn.modelBoxes.length === 1) {
+                            <!-- Stato 2: Schermata con Suggerimenti (singolo modello) -->
+                            @let singleBox = turn.modelBoxes[0];
+                            @if (singleBox.suggestions.length > 0) {
+                                <app-suggests-box
+                                    [suggestions]="singleBox.suggestions"
+                                    [modelId]="singleBox.modelId"
+                                    [modelLabel]="singleBox.modelLabel"
+                                    [modelType]="singleBox.modelType"
+                                    [checkpoint]="singleBox.checkpoint"
+                                    [useRag]="singleBox.use_rag"
+                                    [externalRefinementMode]="true"
+                                    [isRefinementActive]="activeRefinementTurnId() === turn.turnId"
+                                    [externalRejectedCount]="turn.turnRejectedCandidates.length"
+                                    [showCloseButton]="false"
+                                    [initialSubmittedFeedback]="singleBox.submittedFeedback ?? {}"
+                                    (onToggleRefinement)="toggleTurnRefinement(turn.turnId)"
+                                    (onFeedback)="recordFeedback($event, singleBox.modelId, singleBox.modelLabel, singleBox.modelType, singleBox.checkpoint, singleBox.use_rag, turn.turnId)"
+                                    (onClose)="closeTurn(turn.turnId)" />
+                            } @else {
+                                <div class="turn-empty-state rounded-3 p-4 text-center text-muted bg-white border my-2">
+                                    <i class="bi bi-emoji-frown fs-3 mb-2 d-block text-warning"></i>
+                                    <h6 class="fw-bold text-dark mb-1">Nessun suggerimento trovato</h6>
+                                    @if (singleBox.error) {
+                                        <p class="small text-danger mb-0">{{ singleBox.error }}</p>
+                                    } @else {
+                                        <p class="small mb-0">Riprova con un’altra richiesta o scegli un altro modello.</p>
+                                    }
+                                    <div class="d-flex justify-content-end mt-3">
+                                        <span class="badge bg-dark text-white rounded-pill px-3 py-1 fw-semibold model-origin-badge">
+                                            {{ singleBox.modelLabel }}
+                                        </span>
                                     </div>
                                 </div>
                             }
-                        </div>
-                    }
-                </div>
-            </div>
-        } @else if (suggestions() !== null && !isGenerating()) {
-            <div class="mt-4">
-                @if (suggestions()!.length > 0) {
-                <app-suggests-box
-                    [suggestions]="suggestions()!"
-                    [modelId]="curr_id()"
-                    [modelLabel]="activeSingleModelLabel()"
-                    [modelType]="activeSingleModelType()"
-                    [checkpoint]="activeSingleModelCheckpoint()"
-                    [useRag]="lastGenerationPayload()?.use_rag"
-                    [initialHumanFeedback]="sessionHumanFeedback()"
-                    [initialRejectedCandidates]="sessionRejectedCandidates()"
-                    (onFeedback)="recordFeedback($event, curr_id(), activeSingleModelLabel(), activeSingleModelType(), activeSingleModelCheckpoint(), lastGenerationPayload()?.use_rag)"
-                    (onRefine)="refineSuggestions($event)"
-                    (onClose)="closeSuggestions()" />
-                }
-                @else {
-                <div class="text-center p-5 text-muted bg-white rounded-4 shadow-sm mt-3 position-relative">
-                    <button type="button" 
-                            class="btn-close position-absolute top-0 end-0 m-3" 
-                            (click)="closeSuggestions()" 
-                            aria-label="Chiudi"
-                            title="Chiudi finestra"></button>
-                    <i class="bi bi-emoji-frown fs-1 mb-3 d-block text-warning"></i>
-                    <h5 class="fw-bold">Nessun suggerimento trovato</h5>
-                    <p>Riprova con un’altra richiesta o scegli un altro modello.</p>
-                </div>
-                }
-            </div>
-        }
+                        } @else {
+                            <!-- Stato 3: Schermata Confronto (switcher compatto con barra scrollabile dei modelli) -->
+                            @let activeBox = getActiveTurnBox(turn);
+                            <div class="turn-comparison-view">
+                                @if (activeBox) {
+                                    @if (activeBox.pending) {
+                                        <div class="turn-loading-state py-4 d-flex align-items-center gap-2 text-muted" role="status">
+                                            <div class="spinner-border spinner-border-sm text-primary" aria-hidden="true"></div>
+                                            <span>Generazione dei suggerimenti per {{ activeBox.modelLabel }} in corso...</span>
+                                        </div>
+                                    } @else if (activeBox.suggestions.length > 0) {
+                                        <app-suggests-box
+                                            [suggestions]="activeBox.suggestions"
+                                            [modelId]="activeBox.modelId"
+                                            [modelLabel]="activeBox.modelLabel"
+                                            [modelType]="activeBox.modelType"
+                                            [checkpoint]="activeBox.checkpoint"
+                                            [useRag]="activeBox.use_rag"
+                                            [externalRefinementMode]="true"
+                                            [isRefinementActive]="activeRefinementTurnId() === turn.turnId"
+                                            [externalRejectedCount]="turn.turnRejectedCandidates.length"
+                                            [hideModelBadgeInFooter]="true"
+                                            [showCloseButton]="false"
+                                            [initialSubmittedFeedback]="activeBox.submittedFeedback ?? {}"
+                                            (onToggleRefinement)="toggleTurnRefinement(turn.turnId)"
+                                            (onFeedback)="recordFeedback($event, activeBox.modelId, activeBox.modelLabel, activeBox.modelType, activeBox.checkpoint, activeBox.use_rag, turn.turnId)"
+                                            (onClose)="closeModelBox(activeBox.modelId, turn.turnId)" />
+                                    } @else {
+                                        <div class="turn-empty-state rounded-3 p-4 text-center text-muted bg-white border my-2">
+                                            <i class="bi bi-emoji-frown fs-3 mb-2 d-block text-warning"></i>
+                                            <h6 class="fw-bold text-dark mb-1">Nessun suggerimento disponibile</h6>
+                                            @if (activeBox.error) {
+                                                <p class="small text-danger mb-0">{{ activeBox.error }}</p>
+                                            } @else {
+                                                <p class="small mb-0">Il modello {{ activeBox.modelLabel }} non ha restituito candidati per questa lacuna.</p>
+                                            }
+                                        </div>
+                                    }
+                                }
 
+                                <!-- Barra orizzontale scrollabile dei modelli consultati -->
+                                <div class="scrollable-models-bar d-flex flex-row flex-nowrap overflow-x-auto align-items-center gap-2 py-2 mt-2"
+                                     role="tablist"
+                                     aria-label="Modelli consultati per il confronto">
+                                    @for (box of turn.modelBoxes; track box.modelId) {
+                                        <div class="model-comparison-tab d-inline-flex align-items-center gap-2 rounded-pill px-3 py-1 flex-shrink-0"
+                                             [class.active]="turn.activeModelId === box.modelId"
+                                             [class.pending]="box.pending"
+                                             role="tab"
+                                             [attr.aria-selected]="turn.activeModelId === box.modelId">
+                                            <button type="button"
+                                                    class="btn btn-link p-0 text-decoration-none d-inline-flex align-items-center gap-2 model-tab-select-btn"
+                                                    [disabled]="!!box.pending"
+                                                    (click)="selectTurnModelTab(turn.turnId, box.modelId)"
+                                                    [attr.title]="box.pending ? 'Generazione in corso per ' + box.modelLabel : 'Visualizza suggerimenti di ' + box.modelLabel">
+                                                @if (box.pending) {
+                                                    <span class="spinner-border spinner-border-sm text-primary model-tab-spinner" role="status" aria-hidden="true"></span>
+                                                }
+                                                <span class="fw-semibold model-origin-badge">{{ box.modelLabel }}</span>
+                                                <span class="badge bg-light text-secondary border rounded-pill small model-type-origin-badge">{{ box.modelType }}</span>
+                                                @if (!box.pending) {
+                                                    <span class="badge rounded-pill small model-tab-count"
+                                                          [class.bg-primary]="turn.activeModelId === box.modelId"
+                                                          [class.text-white]="turn.activeModelId === box.modelId"
+                                                          [class.bg-secondary-subtle]="turn.activeModelId !== box.modelId"
+                                                          [class.text-secondary]="turn.activeModelId !== box.modelId">
+                                                        {{ box.suggestions.length }}
+                                                    </span>
+                                                }
+                                            </button>
+                                            <button type="button"
+                                                    class="btn btn-sm btn-link p-0 text-muted d-inline-flex align-items-center justify-content-center close-btn close-model-tab-btn"
+                                                    (click)="closeModelBox(box.modelId, turn.turnId); $event.stopPropagation()"
+                                                    [attr.title]="box.pending ? 'Interrompi e rimuovi ' + box.modelLabel : 'Rimuovi ' + box.modelLabel + ' dal confronto'"
+                                                    [attr.aria-label]="'Chiudi modello ' + box.modelLabel">
+                                                <i class="bi bi-x-lg" style="font-size: 0.75rem;"></i>
+                                            </button>
+                                        </div>
+                                    }
+                                </div>
+                            </div>
+                        }
+
+                        <hr class="turn-divider mt-3 mb-0" />
+                    </section>
+                }
+                <div #conversationBottomAnchor></div>
+            </div>
+        </main>
+    }
+
+    <!-- Istanza unica del PromptBox: centrata nella schermata iniziale, ancorata in basso durante la conversazione -->
+    <div class="prompt-dock-container w-100 px-3"
+         [class.initial-prompt-center]="conversationTurns().length === 0"
+         [class.bottom-prompt-dock]="conversationTurns().length > 0">
+        <div class="conversation-container mx-auto">
+            @if (conversationTurns().length === 0) {
+                <h1 class="text-center mb-4 fw-bold app-main-title">Generatore di Suggerimenti</h1>
+            }
+            <app-prompt-box
+                [models]="models()"
+                [(curr_id)]="curr_id"
+                [isGenerating]="isGenerating()"
+                [isRefinementMode]="activeRefinementTurn() !== null"
+                [refinementContextText]="activeRefinementTurn()?.normalizedText ?? null"
+                [refinementRejectedCandidates]="activeRefinementTurn()?.turnRejectedCandidates ?? []"
+                [dropdownDirection]="conversationTurns().length > 0 ? 'up' : 'down'"
+                [textareaRows]="conversationTurns().length > 0 ? 2 : 4"
+                (onGenerate)="generateSuggestions($event)"
+                (onRefineSubmit)="handlePromptRefineSubmit($event)"
+                (onExitRefinement)="exitRefinementMode()"
+                (onRemoveRejectedCandidate)="removeTurnRejectedCandidate($event)">
+            </app-prompt-box>
+        </div>
     </div>
+
+    @if (!isGenerating()) {
+        <!-- Models Modal -->
+        <div class="modal fade" id="modelsModal" tabindex="-1" aria-labelledby="modelsModalLabel" aria-hidden="true">
+            <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+                <div class="modal-content rounded-4 border-0 shadow-lg overflow-hidden">
+                    <div class="modal-header bg-dark text-white px-4 py-3 border-0">
+                        <div class="d-flex align-items-center gap-2">
+                            <i class="bi bi-boxes fs-4 text-primary"></i>
+                            <div>
+                                <h5 class="modal-title fw-bold mb-0" id="modelsModalLabel">Dettagli Modelli di Linguaggio</h5>
+                                <small class="text-white-50">{{ models().length }} modelli disponibili per l'inferenza</small>
+                            </div>
+                        </div>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Chiudi"></button>
+                    </div>
+                    <div class="modal-body p-4 bg-light">
+                        <app-models-box [(models)]="models" [(curr_id)]="curr_id" />
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
 </div>

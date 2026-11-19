@@ -1,13 +1,56 @@
-<div class="prompt-box shadow-sm rounded-4 p-3 bg-white" [formGroup]="form" [class.focused]="isFocused" (click)="focusTextarea($event)">
-    
+<div class="prompt-box shadow-sm rounded-4 p-3 bg-white"
+     [formGroup]="form"
+     [class.focused]="isFocused"
+     [class.refinement-active]="isRefinementMode()"
+     (click)="focusTextarea($event)">
+
+    @if (isRefinementMode()) {
+        <div class="refinement-mode-banner rounded-3 px-3 py-2 mb-2">
+            <div class="d-flex justify-content-between align-items-center gap-2 flex-wrap">
+                <div class="d-flex align-items-center gap-2 min-w-0 flex-grow-1">
+                    <span class="badge bg-primary rounded-pill px-2 py-1 flex-shrink-0">
+                        <i class="bi bi-sliders2 me-1"></i>Raffinamento attivo
+                    </span>
+                    @if (refinementContextText()) {
+                        <span class="small text-secondary text-truncate refinement-context-preview" [title]="refinementContextText()">
+                            {{ refinementContextText() }}
+                        </span>
+                    }
+                </div>
+                <button type="button"
+                        class="btn btn-sm btn-link text-decoration-none p-0 text-secondary fw-semibold exit-refinement-btn flex-shrink-0"
+                        (click)="onExitRefinement.emit()"
+                        title="Torna all'inserimento di un nuovo testo lacunoso">
+                    <i class="bi bi-x-circle me-1"></i>Nuovo testo
+                </button>
+            </div>
+            @if (refinementRejectedCandidates().length > 0) {
+                <div class="d-flex align-items-center flex-wrap gap-1 mt-2">
+                    <span class="small text-muted me-1">Esclusi:</span>
+                    @for (cand of refinementRejectedCandidates(); track cand) {
+                        <span class="badge bg-danger-subtle text-danger border border-danger-subtle rounded-pill d-inline-flex align-items-center gap-1 px-2 py-1 rejected-chip">
+                            <span>{{ cand }}</span>
+                            <button type="button"
+                                    class="btn-close btn-close-sm p-0 ms-1"
+                                    style="font-size: 0.55rem;"
+                                    (click)="onRemoveRejectedCandidate.emit(cand)"
+                                    title="Rimuovi esclusione"
+                                    aria-label="Rimuovi esclusione"></button>
+                        </span>
+                    }
+                </div>
+            }
+        </div>
+    }
+
     <!-- Textarea -->
     <textarea class="form-control border-0 shadow-none prompt-textarea" 
         id="inputText" 
         formControlName="text" 
-        rows="4"
+        [rows]="textareaRows()"
         (focus)="isFocused = true"
         (blur)="handleBlur()"
-        placeholder="Inserisci il testo con una lacuna target (es: τὰς ὀφειλομένας τῇ τοῦ Ἀνθεντίου μητρὶ *...* Σισόιτος). Usa [...] per le lacune contestuali.">
+        [attr.placeholder]="isRefinementMode() ? 'Indicazioni filologiche per il raffinamento (es. preferisci forme omeriche, dativo plurale, semantica)...' : 'Inserisci il testo con una lacuna target (es: τὰς ὀφειλομένας τῇ τοῦ Ἀνθεντίου μητρὶ *...* Σισόιτος). Usa [...] per le lacune contestuali.'">
     </textarea>
     
     <!-- Toolbar inside the box at the bottom -->
@@ -30,7 +73,9 @@
         <!-- Right: Model selection dropdown menu + Clear + Submit buttons -->
         <div class="d-flex align-items-center gap-2">
             <!-- Menù a tendina Modelli con opzione di espansione/ingrandimento -->
-            <div class="dropdown model-dropdown" [class.show]="isDropdownOpen()">
+            <div class="dropdown model-dropdown"
+                 [class.show]="isDropdownOpen()"
+                 [class.dropup]="dropdownDirection() === 'up'">
                 <div class="input-group input-group-sm model-control-group shadow-sm">
                     <!-- Dropdown Trigger -->
                     <button class="btn btn-outline-secondary model-dropdown-trigger d-flex align-items-center gap-2 dropdown-toggle" 
@@ -183,12 +228,12 @@
                 </button>
             }
 
-            <!-- Submit button for inference -->
+            <!-- Submit button for inference or HITL refinement -->
             <button class="btn btn-primary rounded-circle send-btn d-flex align-items-center justify-content-center" 
                     (click)="generateSuggestions()" 
-                    [disabled]="isGenerating() || form.invalid" 
+                    [disabled]="isGenerating() || !canSubmit()" 
                     type="button"
-                    title="Invia testo per l'inferenza">
+                    [attr.title]="isRefinementMode() ? 'Invia raffinamento filologico' : 'Invia testo per l\'inferenza'">
                 @if (isGenerating()) {
                     <div class="spinner-border spinner-border-sm text-white" role="status"></div>
                 } @else {
@@ -202,7 +247,11 @@
 <!-- Validation & Hints Below the Box -->
 <div class="px-3 py-2 d-flex justify-content-between align-items-start prompt-hints" style="min-height: 24px;">
     <div class="text-muted small">
-        @if (form.get('text')?.dirty && form.get('text')?.invalid) {
+        @if (isRefinementMode()) {
+            <span class="text-primary">
+                <i class="bi bi-sliders2 me-1"></i>Modalità raffinamento attiva: aggiungi indicazioni filologiche o invia con i soli supplementi esclusi.
+            </span>
+        } @else if (form.get('text')?.dirty && form.get('text')?.invalid) {
             @if (form.get('text')?.hasError('unknownCharacters')) {
                 <span class="text-danger"><i class="bi bi-exclamation-triangle me-1"></i>la stringa contiene carattere sconosciuti</span>
             }

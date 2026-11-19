@@ -1,7 +1,9 @@
 import {
   convertContextLacunaeToDots,
   convertTargetLacunaeToBrackets,
+  formatNormalizedLacunaForPrompt,
   normalizeLacunaeForApi,
+  splitLacunaHighlightSegments,
   stripContextLacunae,
 } from './lacuna';
 
@@ -32,5 +34,17 @@ describe('lacuna utils', () => {
 
   it('should strip only valid contextual lacunae', () => {
     expect(stripContextLacunae('τὰ [...] αὐτὰ [κατ\'] *...* ὑπὲρ')).toBe('τὰ  αὐτὰ [κατ\'] *...* ὑπὲρ');
+  });
+
+  it('should convert normalized bracket lacuna back to asterisk syntax for prompt reuse', () => {
+    expect(formatNormalizedLacunaForPrompt('τὰ ... αὐτὰ [...] ὑπὲρ')).toBe('τὰ ... αὐτὰ *...* ὑπὲρ');
+  });
+
+  it('should split text into plain and highlighted lacuna segments', () => {
+    expect(splitLacunaHighlightSegments('τὰ [...] ὑπὲρ')).toEqual([
+      { text: 'τὰ ', isLacuna: false },
+      { text: '[...]', isLacuna: true },
+      { text: ' ὑπὲρ', isLacuna: false },
+    ]);
   });
 });

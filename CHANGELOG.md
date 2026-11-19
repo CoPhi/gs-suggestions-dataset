@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+- **Ristrutturazione Conversazionale Multi-Turno della UI Filologica (`frontend`)**:
+  - Ridisegnati [`app.component.ts`](./frontend/src/app/app.component.ts), [`app.component.html`](./frontend/src/app/app.component.html) e [`app.component.css`](./frontend/src/app/app.component.css) passando dal form statico con colonne larghe a un workspace dialogico a 4 stati:
+    - **Schermata Iniziale** centrata verticalmente (`.initial-screen-layout`) con istanza unica di `<app-prompt-box>` che preserva modello e parametri selezionati nella transizione verso la conversazione.
+    - **Cronologia Multi-Turno** scrollabile con intestazione `testo lacunoso` evidenziata (`.gap-highlight` tramite `splitLacunaHighlightSegments` in [`lacuna.ts`](./frontend/src/app/utils/lacuna.ts)), pulsante `Riutilizza` (`formatNormalizedLacunaForPrompt`), rimozione selettiva del turno (`×`), pulsante `Nuova conversazione` e barra inferiore ancorata (`.bottom-prompt-dock`) con apertura verso l'alto del menù modelli (`dropdownDirection="up"`) e svuotamento automatico all'invio.
+    - **Schermata Attesa** contestuale (`.turn-loading-state`, `loading...`) sopra il divisore del turno fino alla prima risposta utile.
+    - **Schermata Confronto** con sblocco automatico sul primo modello pronto e barra orizzontale scrollabile compatta (`.scrollable-models-bar`) con tab `.model-comparison-tab` per tutti i modelli interrogati (stato live con mini-spinner sui modelli ancora in coda, switch istantaneo dei suggerimenti al click e interruzione selettiva `×`).
+  - Ridisegnati [`SuggestComponent`](./frontend/src/app/components/suggest/suggest.component.html) ([`suggest.component.css`](./frontend/src/app/components/suggest/suggest.component.css)) e [`SuggestsBoxComponent`](./frontend/src/app/components/suggests-box/suggests-box.component.ts) ([`suggests-box.component.html`](./frontend/src/app/components/suggests-box/suggests-box.component.html), [`suggests-box.component.css`](./frontend/src/app/components/suggests-box/suggests-box.component.css)) con righe suggerimento compatte separate da divisori sottili, barra di stato in fondo al turno (controlli `Raffina`, `CoT`, `Solo attestati` a sinistra e firma modello a destra), persistenza dello stato feedback al cambio tab (`initialSubmittedFeedback`) e toggle esterno di raffinamento HITL (`onToggleRefinement`, `externalRefinementMode`).
+  - Esteso [`PromptBoxComponent`](./frontend/src/app/components/prompt-box/prompt-box.component.ts) ([`prompt-box.component.html`](./frontend/src/app/components/prompt-box/prompt-box.component.html), [`prompt-box.component.css`](./frontend/src/app/components/prompt-box/prompt-box.component.css)) con la modalità raffinamento HITL (`isRefinementMode`, banner `.refinement-mode-banner` con anteprima contesto e chip dei supplementi esclusi accumulati a livello di turno, accettazione di indicazioni in linguaggio naturale, pre-selezione automatica del modello del tab attivo modificabile dal menù a tendina).
+  - Aggiornate ed estese le suite di test unitari in [`app.component.spec.ts`](./frontend/src/app/app.component.spec.ts), [`suggests-box.component.spec.ts`](./frontend/src/app/components/suggests-box/suggests-box.component.spec.ts), [`prompt-box.component.spec.ts`](./frontend/src/app/components/prompt-box/prompt-box.component.spec.ts) e [`lacuna.spec.ts`](./frontend/src/app/utils/lacuna.spec.ts).
+
 ## [0.8.2] - 2026-11-19
 
 ### Added

@@ -1,33 +1,193 @@
-<div class="card rounded-4 shadow border-0 h-100" id="resultsCard">
-    <div class="card-header rounded-top-4 bg-info text-white d-flex justify-content-between align-items-center py-3 flex-wrap gap-2">
-        <div class="d-flex align-items-center flex-wrap gap-2">
-            <h3 class="h5 mb-0"><i class="bi bi-lightbulb-fill me-2"></i> Suggerimenti generati</h3>
-            @if (modelLabel()) {
-                <span class="badge bg-dark bg-opacity-75 text-white rounded-pill px-3 py-1 fw-semibold model-origin-badge"
-                      title="Modello da cui provengono i suggerimenti">
-                    {{ modelLabel() }}
-                </span>
-            }
-            @if (modelType()) {
-                <span class="badge bg-white text-dark border rounded-pill px-2 py-1 small fw-semibold model-type-origin-badge">
-                    {{ modelType() }}
-                </span>
+<div class="suggests-box-wrapper" id="resultsCard">
+    @if (visibleSuggestions().length > 0) {
+        <div class="d-flex flex-column" id="suggestionsList">
+            @for (suggest of visibleSuggestions(); track $index) {
+                <app-suggest [suggest]="suggest"
+                             [philologicalReasoning]="philologicalReasoning()"
+                             [initialFeedbackStatus]="submittedFeedback()[suggest.token_str] ?? null"
+                             (onFeedback)="handleSuggestionFeedback($event)" />
             }
         </div>
-        <div class="d-flex align-items-center flex-wrap gap-2">
-            <span class="badge bg-light text-dark fw-semibold rounded-pill px-3 py-2 predictions-count-badge">
-                <i class="bi bi-check2-circle text-success me-1"></i>
-                @if (onlyAttested() && hiddenUnattestedCount() > 0) {
-                    {{ visibleSuggestions().length }}/{{ suggestions().length }} {{ visibleSuggestions().length === 1 ? 'attestata' : 'attestate' }}
-                } @else {
-                    {{ suggestions().length }} {{ suggestions().length === 1 ? 'predizione pronta' : 'predizioni pronte' }}
+        @if (onlyAttested() && hiddenUnattestedCount() > 0) {
+            <div class="unattested-footer-notice rounded-3 p-2 px-3 mt-2 d-flex justify-content-between align-items-center flex-wrap gap-2 small">
+                <span class="text-secondary">
+                    <i class="bi bi-cpu me-1 text-warning"></i>
+                    {{ hiddenUnattestedCount() }} {{ hiddenUnattestedCount() === 1 ? 'congettura AI non attestata nascosta' : 'congetture AI non attestate nascoste' }} (modalità <strong>Solo attestati</strong>).
+                </span>
+                <button type="button"
+                        class="btn btn-sm btn-outline-secondary rounded-pill px-3 show-unattested-footer-btn"
+                        (click)="showAllSuggestions()">
+                    Mostra tutte ({{ suggestions().length }})
+                </button>
+            </div>
+        }
+    } @else if (onlyAttested() && suggestions().length > 0) {
+        <div class="unattested-empty-state rounded-4 p-4 text-center">
+            <i class="bi bi-shield-exclamation fs-2 text-warning mb-2 d-block"></i>
+            <h6 class="fw-bold text-dark mb-1">Nessun suggerimento attestato nel TLG o nei corpora del retriever</h6>
+            <p class="small text-muted mb-3">
+                Tutte le {{ suggestions().length }} {{ suggestions().length === 1 ? 'predizione generata è una congettura AI non attestata' : 'predizioni generate sono congetture AI non attestate' }}.
+            </p>
+            <button type="button"
+                    class="btn btn-sm btn-outline-warning text-dark fw-semibold rounded-pill px-3 show-all-ai-btn"
+                    (click)="showAllSuggestions()">
+                <i class="bi bi-eye me-1"></i>Mostra comunque {{ suggestions().length === 1 ? 'la congettura AI' : 'le ' + suggestions().length + ' congetture AI' }}
+            </button>
+        </div>
+    }
+
+    <!-- Pannello CoT di 1° livello e Loci Similes (espandibile su richiesta) -->
+    @if (hasRagDetails() && showRagContext()) {
+        <div class="rag-details-panel rounded-3 p-3 mt-3">
+            @if (philologicalReasoning()) {
+                <div>
+                    <span class="d-block small text-uppercase fw-semibold text-secondary mb-1">
+                        Ragionamento Logico-Filologico sul Contesto (CoT – 1° Livello)
+                    </span>
+                    <p class="mb-0 small text-dark rag-reasoning-text">
+                        @for (seg of philologicalReasoningSegments(); track $index) {
+                            @if (seg.bold) {
+                                <strong class="fw-bold attestation-highlight">{{ seg.text }}</strong>
+                            } @else {
+                                <span>{{ seg.text }}</span>
+                            }
+                        }
+                    </p>
+                </div>
+            }
+
+            @if (primaryPassages().length > 0) {
+                <div [class.mt-3]="!!philologicalReasoning()">
+                    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
+                        <span class="d-block small text-uppercase fw-semibold text-secondary">
+                            Loci Similes Più Rilevanti ({{ primaryPassages().length }} di {{ allRetrievedPassages().length }})
+                        </span>
+                        @if (secondaryPassages().length > 0) {
+                            <button type="button"
+                                    class="btn btn-sm rounded-pill px-2 py-1 secondary-loci-toggle-btn"
+                                    [class.btn-purple-active]="showSecondaryLociMenu()"
+                                    [class.btn-outline-purple]="!showSecondaryLociMenu()"
+                                    (click)="toggleSecondaryLociMenu()"
+                                    title="Approfondisci tutti i loci similes trovati dal retriever per questo prompt">
+                                <i class="bi bi-collection me-1"></i>
+                                {{ showSecondaryLociMenu() ? 'Chiudi approfondimento' : 'Ulteriori approfondimenti (' + secondaryPassages().length + ' altri loci similes)' }}
+                            </button>
+                        }
+                    </div>
+                    <div class="d-flex flex-column gap-2">
+                        @for (passage of primaryPassages(); track $index) {
+                            <div class="rag-passage-item rounded-2 p-2 small">
+                                <span class="badge bg-purple-subtle text-purple me-1">#{{ $index + 1 }}</span>
+                                @for (seg of getPassageSegments(passage); track $index) {
+                                    @if (seg.bold) {
+                                        <strong class="fw-bold attestation-highlight">{{ seg.text }}</strong>
+                                    } @else {
+                                        <span>{{ seg.text }}</span>
+                                    }
+                                }
+                            </div>
+                        }
+                    </div>
+
+                    @if (showSecondaryLociMenu() && secondaryPassages().length > 0) {
+                        <div class="secondary-loci-menu rounded-3 p-3 mt-3">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <span class="small text-uppercase fw-semibold text-purple">
+                                    <i class="bi bi-journals me-1"></i>Menù Secondario – Ulteriori Loci Similes Trovati ({{ secondaryPassages().length }})
+                                </span>
+                                <span class="badge bg-light text-secondary border small">
+                                    Totale corpus per il prompt: {{ allRetrievedPassages().length }}
+                                </span>
+                            </div>
+                            <div class="d-flex flex-column gap-2 secondary-loci-list">
+                                @for (passage of secondaryPassages(); track $index) {
+                                    <div class="rag-passage-item secondary-passage-item rounded-2 p-2 small">
+                                        <span class="badge bg-light text-secondary border me-1">#{{ primaryPassages().length + $index + 1 }}</span>
+                                        @for (seg of getPassageSegments(passage); track $index) {
+                                            @if (seg.bold) {
+                                                <strong class="fw-bold attestation-highlight">{{ seg.text }}</strong>
+                                            } @else {
+                                                <span>{{ seg.text }}</span>
+                                            }
+                                        }
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+    }
+
+    <!-- Menu inline di raffinamento HITL mantenuto per uso isolato fuori dal flusso conversazionale -->
+    @if (showHitlMenu() && !externalRefinementMode()) {
+        <div class="hitl-refinement-panel rounded-3 p-3 mt-3">
+            <div class="input-group input-group-sm">
+                <input type="text"
+                       class="form-control hitl-feedback-input"
+                       placeholder="Indicazioni filologiche (es. dialetto, morfologia, semantica)..."
+                       [ngModel]="humanFeedback()"
+                       (ngModelChange)="humanFeedback.set($event)"
+                       (keyup.enter)="triggerRefinement()" />
+                <button type="button"
+                        class="btn btn-primary hitl-refine-btn fw-semibold px-3"
+                        [disabled]="!canRefine()"
+                        (click)="triggerRefinement()">
+                    <i class="bi bi-arrow-repeat me-1"></i>Raffina
+                </button>
+            </div>
+
+            @if (rejectedCandidates().length > 0) {
+                <div class="d-flex align-items-center flex-wrap gap-1 mt-2">
+                    @for (cand of rejectedCandidates(); track cand) {
+                        <span class="badge bg-danger-subtle text-danger border border-danger-subtle rounded-pill d-inline-flex align-items-center gap-1 px-2 py-1 rejected-chip">
+                            <span>{{ cand }}</span>
+                            <button type="button"
+                                    class="btn-close btn-close-sm p-0 ms-1"
+                                    style="font-size: 0.55rem;"
+                                    (click)="removeRejectedCandidate(cand)"
+                                    title="Rimuovi esclusione"
+                                    aria-label="Rimuovi esclusione"></button>
+                        </span>
+                    }
+                </div>
+            }
+        </div>
+    }
+
+    <!-- Barra di stato in fondo al blocco (a sinistra controlli filologici/HITL, a destra firma modello) -->
+    <div class="turn-status-bar d-flex justify-content-between align-items-center flex-wrap gap-2 pt-3 mt-2">
+        <div class="d-flex align-items-center flex-wrap gap-2 turn-controls-left">
+            <button type="button"
+                    class="btn btn-sm rounded-pill d-flex align-items-center gap-1 px-2 py-1 hitl-toggle-btn"
+                    [class.btn-primary]="isRefinementActive() || (!externalRefinementMode() && (showHitlMenu() || canRefine()))"
+                    [class.btn-outline-secondary]="!(isRefinementActive() || (!externalRefinementMode() && (showHitlMenu() || canRefine())))"
+                    (click)="toggleHitlMenu()"
+                    title="Attiva o disattiva la modalità raffinamento (Human-in-the-loop) nella barra in basso"
+                    aria-label="Raffina suggerimenti">
+                <i class="bi bi-sliders2"></i>
+                <span class="small fw-semibold">Raffina</span>
+                @if (effectiveRejectedCount() > 0) {
+                    <span class="badge bg-danger rounded-pill hitl-rejected-count-badge" style="font-size: 0.65rem;">{{ effectiveRejectedCount() }}</span>
                 }
-            </span>
+            </button>
+            @if (hasRagDetails()) {
+                <button type="button"
+                        class="btn btn-sm rounded-pill d-flex align-items-center gap-1 px-2 py-1 rag-toggle-btn"
+                        [class.btn-purple-active]="showRagContext()"
+                        [class.btn-outline-purple]="!showRagContext()"
+                        (click)="toggleRagContext()"
+                        title="Consulta ragionamento filologico (CoT) e passi paralleli del corpus (RAG)"
+                        aria-label="Analisi filologica e passi paralleli">
+                    <i class="bi bi-journal-bookmark-fill"></i>
+                    <span class="small fw-semibold">CoT</span>
+                </button>
+            }
             <button type="button"
                     class="btn btn-sm rounded-pill d-flex align-items-center gap-1 px-2 py-1 attested-filter-toggle-btn"
-                    [class.btn-light]="onlyAttested()"
-                    [class.text-dark]="onlyAttested()"
-                    [class.btn-outline-light]="!onlyAttested()"
+                    [class.btn-dark]="onlyAttested()"
+                    [class.btn-outline-secondary]="!onlyAttested()"
                     (click)="toggleOnlyAttested()"
                     [attr.title]="onlyAttested() ? 'Modalità Solo Attestati attiva (TLG o Corpus Retriever). Clicca per mostrare anche le congetture AI non attestate' : 'Mostra tutti i suggerimenti attivo. Clicca per visualizzare solo i suggerimenti attestati nel TLG o nel corpus'"
                     aria-label="Filtra solo suggerimenti attestati nel TLG o nel corpus">
@@ -39,196 +199,39 @@
                     </span>
                 }
             </button>
-            @if (hasRagDetails()) {
-                <button type="button"
-                        class="btn btn-sm rounded-pill d-flex align-items-center gap-1 px-2 py-1 rag-toggle-btn"
-                        [class.btn-light]="showRagContext()"
-                        [class.text-dark]="showRagContext()"
-                        [class.btn-outline-light]="!showRagContext()"
-                        (click)="toggleRagContext()"
-                        title="Consulta ragionamento filologico (CoT) e passi paralleli del corpus (RAG)"
-                        aria-label="Analisi filologica e passi paralleli">
-                    <i class="bi bi-journal-bookmark-fill"></i>
-                    <span class="small fw-semibold">CoT</span>
-                </button>
-            }
-            <button type="button"
-                    class="btn btn-sm rounded-pill d-flex align-items-center gap-1 px-2 py-1 hitl-toggle-btn"
-                    [class.btn-light]="showHitlMenu() || canRefine()"
-                    [class.text-dark]="showHitlMenu() || canRefine()"
-                    [class.btn-outline-light]="!showHitlMenu() && !canRefine()"
-                    (click)="toggleHitlMenu()"
-                    title="Raffinamento guidato (Human-in-the-loop)"
-                    aria-label="Raffinamento guidato">
-                <i class="bi bi-sliders2"></i>
-                @if (rejectedCandidates().length > 0) {
-                    <span class="badge bg-danger rounded-pill" style="font-size: 0.65rem;">{{ rejectedCandidates().length }}</span>
+            <span class="badge bg-light text-dark border fw-semibold rounded-pill px-2 py-1 predictions-count-badge">
+                <i class="bi bi-check2-circle text-success me-1"></i>
+                @if (onlyAttested() && hiddenUnattestedCount() > 0) {
+                    {{ visibleSuggestions().length }}/{{ suggestions().length }} {{ visibleSuggestions().length === 1 ? 'attestata' : 'attestate' }}
+                } @else {
+                    {{ suggestions().length }} {{ suggestions().length === 1 ? 'predizione pronta' : 'predizioni pronte' }}
                 }
-            </button>
-            <button type="button" 
-                    class="btn btn-sm btn-outline-light rounded-circle d-flex align-items-center justify-content-center p-0 close-btn" 
-                    (click)="close()" 
-                    title="Chiudi suggerimenti" 
-                    aria-label="Chiudi suggerimenti">
-                <i class="bi bi-x-lg"></i>
-            </button>
+            </span>
         </div>
-    </div>
-    <div class="card-body p-4">
-        <!-- Menu minimale a comparsa per il Raffinamento Guidato HITL (Fase 2) -->
-        @if (showHitlMenu()) {
-            <div class="hitl-refinement-panel rounded-3 p-3 mb-3">
-                <div class="input-group input-group-sm">
-                    <input type="text"
-                           class="form-control hitl-feedback-input"
-                           placeholder="Indicazioni filologiche (es. dialetto, morfologia, semantica)..."
-                           [ngModel]="humanFeedback()"
-                           (ngModelChange)="humanFeedback.set($event)"
-                           (keyup.enter)="triggerRefinement()" />
-                    <button type="button"
-                            class="btn btn-primary hitl-refine-btn fw-semibold px-3"
-                            [disabled]="!canRefine()"
-                            (click)="triggerRefinement()">
-                        <i class="bi bi-arrow-repeat me-1"></i>Raffina
-                    </button>
-                </div>
 
-                @if (rejectedCandidates().length > 0) {
-                    <div class="d-flex align-items-center flex-wrap gap-1 mt-2">
-                        @for (cand of rejectedCandidates(); track cand) {
-                            <span class="badge bg-danger-subtle text-danger border border-danger-subtle rounded-pill d-inline-flex align-items-center gap-1 px-2 py-1 rejected-chip">
-                                <span>{{ cand }}</span>
-                                <button type="button"
-                                        class="btn-close btn-close-sm p-0 ms-1"
-                                        style="font-size: 0.55rem;"
-                                        (click)="removeRejectedCandidate(cand)"
-                                        title="Rimuovi esclusione"
-                                        aria-label="Rimuovi esclusione"></button>
-                            </span>
-                        }
-                    </div>
-                }
-            </div>
-        }
-
-        @if (hasRagDetails() && showRagContext()) {
-            <div class="rag-details-panel rounded-3 p-3 mb-3">
-                @if (philologicalReasoning()) {
-                    <div>
-                        <span class="d-block small text-uppercase fw-semibold text-secondary mb-1">
-                            Ragionamento Logico-Filologico sul Contesto (CoT – 1° Livello)
-                        </span>
-                        <p class="mb-0 small text-dark rag-reasoning-text">
-                            @for (seg of philologicalReasoningSegments(); track $index) {
-                                @if (seg.bold) {
-                                    <strong class="fw-bold attestation-highlight">{{ seg.text }}</strong>
-                                } @else {
-                                    <span>{{ seg.text }}</span>
-                                }
-                            }
-                        </p>
-                    </div>
-                }
-
-                @if (primaryPassages().length > 0) {
-                    <div [class.mt-3]="!!philologicalReasoning()">
-                        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
-                            <span class="d-block small text-uppercase fw-semibold text-secondary">
-                                Loci Similes Più Rilevanti ({{ primaryPassages().length }} di {{ allRetrievedPassages().length }})
-                            </span>
-                            @if (secondaryPassages().length > 0) {
-                                <button type="button"
-                                        class="btn btn-sm rounded-pill px-2 py-1 secondary-loci-toggle-btn"
-                                        [class.btn-purple-active]="showSecondaryLociMenu()"
-                                        [class.btn-outline-purple]="!showSecondaryLociMenu()"
-                                        (click)="toggleSecondaryLociMenu()"
-                                        title="Approfondisci tutti i loci similes trovati dal retriever per questo prompt">
-                                    <i class="bi bi-collection me-1"></i>
-                                    {{ showSecondaryLociMenu() ? 'Chiudi approfondimento' : 'Ulteriori approfondimenti (' + secondaryPassages().length + ' altri loci similes)' }}
-                                </button>
-                            }
-                        </div>
-                        <div class="d-flex flex-column gap-2">
-                            @for (passage of primaryPassages(); track $index) {
-                                <div class="rag-passage-item rounded-2 p-2 small">
-                                    <span class="badge bg-purple-subtle text-purple me-1">#{{ $index + 1 }}</span>
-                                    @for (seg of getPassageSegments(passage); track $index) {
-                                        @if (seg.bold) {
-                                            <strong class="fw-bold attestation-highlight">{{ seg.text }}</strong>
-                                        } @else {
-                                            <span>{{ seg.text }}</span>
-                                        }
-                                    }
-                                </div>
-                            }
-                        </div>
-
-                        @if (showSecondaryLociMenu() && secondaryPassages().length > 0) {
-                            <div class="secondary-loci-menu rounded-3 p-3 mt-3">
-                                <div class="d-flex justify-content-between align-items-center mb-2">
-                                    <span class="small text-uppercase fw-semibold text-purple">
-                                        <i class="bi bi-journals me-1"></i>Menù Secondario – Ulteriori Loci Similes Trovati ({{ secondaryPassages().length }})
-                                    </span>
-                                    <span class="badge bg-light text-secondary border small">
-                                        Totale corpus per il prompt: {{ allRetrievedPassages().length }}
-                                    </span>
-                                </div>
-                                <div class="d-flex flex-column gap-2 secondary-loci-list">
-                                    @for (passage of secondaryPassages(); track $index) {
-                                        <div class="rag-passage-item secondary-passage-item rounded-2 p-2 small">
-                                            <span class="badge bg-light text-secondary border me-1">#{{ primaryPassages().length + $index + 1 }}</span>
-                                            @for (seg of getPassageSegments(passage); track $index) {
-                                                @if (seg.bold) {
-                                                    <strong class="fw-bold attestation-highlight">{{ seg.text }}</strong>
-                                                } @else {
-                                                    <span>{{ seg.text }}</span>
-                                                }
-                                            }
-                                        </div>
-                                    }
-                                </div>
-                            </div>
-                        }
-                    </div>
-                }
-            </div>
-        }
-
-        @if (visibleSuggestions().length > 0) {
-            <div class="d-flex flex-column" id="suggestionsList">
-                @for (suggest of visibleSuggestions(); track $index) {
-                <app-suggest [suggest]="suggest"
-                             [philologicalReasoning]="philologicalReasoning()"
-                             [initialFeedbackStatus]="submittedFeedback()[suggest.token_str] ?? null"
-                             (onFeedback)="handleSuggestionFeedback($event)" />
-                }
-            </div>
-            @if (onlyAttested() && hiddenUnattestedCount() > 0) {
-                <div class="unattested-footer-notice rounded-3 p-2 px-3 mt-2 d-flex justify-content-between align-items-center flex-wrap gap-2 small">
-                    <span class="text-secondary">
-                        <i class="bi bi-cpu me-1 text-warning"></i>
-                        {{ hiddenUnattestedCount() }} {{ hiddenUnattestedCount() === 1 ? 'congettura AI non attestata nascosta' : 'congetture AI non attestate nascoste' }} (modalità <strong>Solo attestati</strong>).
+        <div class="d-flex align-items-center flex-wrap gap-2 turn-meta-right">
+            @if (!hideModelBadgeInFooter()) {
+                @if (modelLabel()) {
+                    <span class="badge bg-dark text-white rounded-pill px-3 py-1 fw-semibold model-origin-badge"
+                          title="Modello da cui provengono i suggerimenti">
+                        {{ modelLabel() }}
                     </span>
-                    <button type="button"
-                            class="btn btn-sm btn-outline-secondary rounded-pill px-3 show-unattested-footer-btn"
-                            (click)="showAllSuggestions()">
-                        Mostra tutte ({{ suggestions().length }})
-                    </button>
-                </div>
+                }
+                @if (modelType()) {
+                    <span class="badge bg-light text-secondary border rounded-pill px-2 py-1 small fw-semibold model-type-origin-badge">
+                        {{ modelType() }}
+                    </span>
+                }
             }
-        } @else if (onlyAttested() && suggestions().length > 0) {
-            <div class="unattested-empty-state rounded-4 p-4 text-center">
-                <i class="bi bi-shield-exclamation fs-2 text-warning mb-2 d-block"></i>
-                <h6 class="fw-bold text-dark mb-1">Nessun suggerimento attestato nel TLG o nei corpora del retriever</h6>
-                <p class="small text-muted mb-3">
-                    Tutte le {{ suggestions().length }} {{ suggestions().length === 1 ? 'predizione generata è una congettura AI non attestata' : 'predizioni generate sono congetture AI non attestate' }}.
-                </p>
+            @if (showCloseButton()) {
                 <button type="button"
-                        class="btn btn-sm btn-outline-warning text-dark fw-semibold rounded-pill px-3 show-all-ai-btn"
-                        (click)="showAllSuggestions()">
-                    <i class="bi bi-eye me-1"></i>Mostra comunque {{ suggestions().length === 1 ? 'la congettura AI' : 'le ' + suggestions().length + ' congetture AI' }}
+                        class="btn btn-sm btn-outline-secondary rounded-circle d-flex align-items-center justify-content-center p-0 close-btn"
+                        (click)="close()"
+                        title="Chiudi suggerimenti"
+                        aria-label="Chiudi suggerimenti">
+                    <i class="bi bi-x-lg"></i>
                 </button>
-            </div>
-        }
+            }
+        </div>
     </div>
 </div>

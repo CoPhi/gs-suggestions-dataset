@@ -401,4 +401,64 @@ describe('PromptBoxComponent', () => {
     expect(component.form.controls['text'].hasError('notMasked')).toBeTrue();
     expect(component.form.valid).toBeFalse();
   });
+
+  it('should support refinement mode with natural language feedback and rejected candidate chips', () => {
+    const refineSpy = spyOn(component.onRefineSubmit, 'emit');
+    const exitSpy = spyOn(component.onExitRefinement, 'emit');
+    const removeSpy = spyOn(component.onRemoveRejectedCandidate, 'emit');
+
+    component.setSingleModelSelection(mockRagModel._id);
+    fixture.componentRef.setInput('isRefinementMode', true);
+    fixture.componentRef.setInput('refinementContextText', 'τειχεσι[...]');
+    fixture.componentRef.setInput('refinementRejectedCandidates', ['πλητα']);
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    expect(compiled.querySelector('.refinement-mode-banner')).toBeTruthy();
+    expect(compiled.querySelector('.refinement-context-preview')?.textContent).toContain('τειχεσι[...]');
+    expect(compiled.querySelectorAll('.rejected-chip').length).toBe(1);
+
+    // Accetta indicazioni filologiche in linguaggio naturale (caratteri latini) senza errori di validazione greca
+    component.form.controls['text'].setValue('Preferisci forme omeriche al vocativo');
+    fixture.detectChanges();
+    expect(component.canSubmit()).toBeTrue();
+
+    component.generateSuggestions();
+    fixture.detectChanges();
+
+    expect(refineSpy).toHaveBeenCalledWith(jasmine.objectContaining({
+      human_feedback: 'Preferisci forme omeriche al vocativo',
+      rejected_candidates: ['πλητα'],
+      modelID: mockRagModel._id
+    }));
+    // Dopo l'invio del raffinamento, la textarea viene svuotata
+    expect(component.form.controls['text'].value).toBe('');
+
+    // Anche con feedback vuoto resta inviabile finché c'è almeno un candidato scartato
+    expect(component.canSubmit()).toBeTrue();
+
+    // Rimozione chip escluso e uscita dalla modalità raffinamento
+    const chipCloseBtn = compiled.querySelector('.rejected-chip .btn-close') as HTMLButtonElement;
+    chipCloseBtn.click();
+    expect(removeSpy).toHaveBeenCalledWith('πλητα');
+
+    const exitBtn = compiled.querySelector('.exit-refinement-btn') as HTMLButtonElement;
+    exitBtn.click();
+    expect(exitSpy).toHaveBeenCalled();
+  });
+
+  it('should pre-select single model and restore prompt text via helper methods', () => {
+    component.toggleCompareMode();
+    component.toggleModelComparison(mockIthacaModel._id);
+    component.toggleModelComparison(mockBertModel._id);
+    expect(component.isCompareMode()).toBeTrue();
+
+    component.setSingleModelSelection(mockBertModel._id, true);
+    expect(component.isCompareMode()).toBeFalse();
+    expect(component.curr_id()).toBe(mockBertModel._id);
+    expect(component.coupleBertWithRag()).toBeTrue();
+
+    component.setPromptText('τὰ κατ\' αὐτὰ *...* ὑπὲρ');
+    expect(component.form.controls['text'].value).toBe('τὰ κατ\' αὐτὰ *...* ὑπὲρ');
+  });
 });
