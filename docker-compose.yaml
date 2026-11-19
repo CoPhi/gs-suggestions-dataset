@@ -19,6 +19,10 @@ services:
       - RAG_LLM_LOG_LEVEL=${RAG_LLM_LOG_LEVEL:-INFO}
       - RAG_LLM_LOG_HEADERS=${RAG_LLM_LOG_HEADERS:-safe}
       - RAG_LLM_LOG_PROMPTS=${RAG_LLM_LOG_PROMPTS:-false}
+      - RAG_CONVERSATION_LOG_ENABLED=${RAG_CONVERSATION_LOG_ENABLED:-false}
+      - RAG_CONVERSATION_LOG_FILE=${RAG_CONVERSATION_LOG_FILE:-logs/dspy_conversations.jsonl}
+    volumes:
+      - ./logs:/app/logs
     depends_on:
       mongodb:
         condition: service_healthy   

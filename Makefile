@@ -109,7 +109,7 @@ endif
         sweep sweep-agent sweep-best \
         dataset-herc dataset-eval dataset-train dataset-tlg dataset-all dataset-dry-run \
         ithaca ithaca-setup ithaca-data ithaca-train ithaca-hpo-nsga2 ithaca-pareto ithaca-pareto-train ithaca-compare ithaca-publish \
-        rag rag-index rag-compile rag-eval rag-eval-abs rag-predict \
+        rag rag-index rag-compile rag-eval rag-eval-abs rag-predict rag-logs \
         export-ngrams tlg-wordlist
 
 # ---------------------------------------------------------
@@ -409,7 +409,7 @@ restart: stop run
 
 test-api:
 	@echo "=== [QA] Esecuzione Test Suite Backend / API ==="
-	uv run python -m pytest tests/test_multiple_lacunae.py tests/backend/core/test_preprocess.py tests/backend/core/test_transpiler.py tests/test_model_service_checkpoints.py tests/test_dspy_rag.py
+	uv run python -m pytest tests/test_multiple_lacunae.py tests/backend/core/test_preprocess.py tests/backend/core/test_transpiler.py tests/test_model_service_checkpoints.py tests/test_dspy_rag.py tests/test_llm_logging.py tests/test_conversation_logging.py
 
 
 test-frontend:
@@ -754,6 +754,10 @@ RAG_OUTPUT_MD ?= eval/results/rag_test_abs_evaluation.md
 RAG_OUTPUT_CSV ?= eval/results/rag_test_abs_predictions.csv
 RAG_OUTPUT_JSON ?= eval/results/rag_test_abs_evaluation.json
 RAG_TEXT ?= Ἆρες Ἆρες βροτολοιγὲ μιαιφόνε τειχεσιβ[....]
+RAG_LOG_FILE ?= logs/dspy_conversations.jsonl
+RAG_LOG_LAST ?= 5
+RAG_LOG_SESSION ?=
+RAG_LOG_MODEL ?=
 
 rag:
 	@echo "=========================================================================="
@@ -771,6 +775,9 @@ rag:
 	@echo ""
 	@echo "4. Test di inferenza interattiva da terminale:"
 	@echo "   make rag-predict RAG_TEXT=\"$(RAG_TEXT)\" [RAG_LM=$(RAG_LM)]"
+	@echo ""
+	@echo "5. Ispezione dei log di conversazione DSPy <-> LLM (opt-in con RAG_CONVERSATION_LOG_ENABLED=true):"
+	@echo "   make rag-logs [RAG_LOG_LAST=$(RAG_LOG_LAST) RAG_LOG_SESSION=... RAG_LOG_MODEL=...]"
 	@echo "=========================================================================="
 
 rag-index:
@@ -824,3 +831,11 @@ rag-predict:
 		--backend "$(RAG_BACKEND)" \
 		--top-k-passages $(RAG_TOP_K_PASSAGES) \
 		$(if $(strip $(RAG_COMPILED_PATH)),--compiled-path "$(RAG_COMPILED_PATH)",)
+
+rag-logs:
+	@echo "=== Log Conversazioni DSPy <-> LLM [$(RAG_LOG_FILE)] ==="
+	uv run --no-sync python -m models.rag.conversation_logging \
+		--file "$(RAG_LOG_FILE)" \
+		--last $(RAG_LOG_LAST) \
+		$(if $(strip $(RAG_LOG_SESSION)),--session-id "$(RAG_LOG_SESSION)",) \
+		$(if $(strip $(RAG_LOG_MODEL)),--model "$(RAG_LOG_MODEL)",)

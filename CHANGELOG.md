@@ -5,7 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
 
+### Added
+- **Logging JSONL Opt-In delle Conversazioni Complete DSPy <-> LLM e Tracciamento per Sessione (`session_id`)**:
+  - Introdotto il modulo [`models/rag/conversation_logging.py`](./models/rag/conversation_logging.py) (con export lazy in [`models/rag/__init__.py`](./models/rag/__init__.py)) basato su `dspy.utils.callback.BaseCallback` e `UsageTracker` dedicati in `dspy.context(...)`: registra su file JSONL rotante (`RAG_CONVERSATION_LOG_ENABLED=false` di default, `RAG_CONVERSATION_LOG_FILE=logs/dspy_conversations.jsonl`) l'input del filologo, i vincoli HITL, i *loci similes* recuperati, gli scambi completi `messages`/risposta grezza di ogni step (`GreekInfillingSignature` e `ConstraintRefinementSignature`), l'output parsato da DSPy, il rilevamento deterministico di `cache_hit`, token/costi/latenza, gli eventuali eventi di fallback verso Ollama o `neuro_lexical` e l'output finale, escludendo i segreti (`api_key`, token, header `Authorization`) e i run `neuro_lexical` invocati direttamente a priori.
+  - Integrato il tracciamento in `fill_mask_rag` ([`models/rag/inference.py`](./models/rag/inference.py)) con parametri opzionali `session_id` e `model_id` (e `--session-id` da CLI), gestendo anche il salvataggio delle tracce fallite quando `allow_local_fallback=False`.
+  - Aggiunto il visualizzatore CLI `python -m models.rag.conversation_logging` e il target `make rag-logs` in [`Makefile`](./Makefile) per filtrare e leggere i turni per `session_id` o modello.
+  - Propagato il parametro opzionale `session_id` in `GET /predictions` e `GET /predictions/batch` ([`backend/api/routes/predictions.py`](./backend/api/routes/predictions.py), [`backend/api/services/suggestions_service.py`](./backend/api/services/suggestions_service.py)), indicizzando anche `session_id` su `feedback_collection`.
+  - Aggiornato il frontend Angular ([`frontend/src/app/app.component.ts`](./frontend/src/app/app.component.ts), [`frontend/src/app/services/api.service.ts`](./frontend/src/app/services/api.service.ts)) per generare un `session_id` univoco per ogni nuova ricerca dalla `PromptBox` e mantenerlo su confronti multi-modello, raffinamenti HITL e `POST /feedback`.
+  - Esposte le variabili `RAG_CONVERSATION_LOG_ENABLED` / `RAG_CONVERSATION_LOG_FILE` e il volume persistente `./logs:/app/logs` in [`docker-compose.yaml`](./docker-compose.yaml), con suite di test dedicate in [`tests/test_conversation_logging.py`](./tests/test_conversation_logging.py), [`tests/test_dspy_rag.py`](./tests/test_dspy_rag.py), [`api.service.spec.ts`](./frontend/src/app/services/api.service.spec.ts) e [`app.component.spec.ts`](./frontend/src/app/app.component.spec.ts).
 
 ## [0.8.1] - 2026-11-18
 
