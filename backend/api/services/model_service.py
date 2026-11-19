@@ -25,8 +25,10 @@ from backend.config.settings import (
     RAG_CHECKPOINTS,
     RAG_DEFAULT_BACKEND,
     RAG_TOP_K_PASSAGES,
+    get_compact_ngram_checkpoint_path,
     get_ngram_checkpoint_path,
 )
+from backend.core.model_cache import shared_bert_cache
 from models.ngrams.train.training import pipeline_train
 from models.rag.inference import is_bert_checkpoint
 from backend.api.services.suggestions_service import SuggestionsService
@@ -119,7 +121,9 @@ class ModelService:
         if model["TYPE"] == "Ngrams":
             await self._delete_gridfs_files(model)
         elif model["TYPE"] == "BERT":
-            SuggestionsService._bert_cache.pop(model.get("CHECKPOINT"), None)
+            ckpt = model.get("CHECKPOINT")
+            if ckpt:
+                shared_bert_cache.pop(ckpt)
 
         await self._collection.delete_one({"_id": ObjectId(model_id)})
         return model
@@ -204,7 +208,20 @@ class ModelService:
         n = model_dict["N"]
 
         checkpoint_path = get_ngram_checkpoint_path(lm_type, n, gamma)
+        compact_path = get_compact_ngram_checkpoint_path(
+            n=n, base_dir=checkpoint_path.parent
+        )
         loop = asyncio.get_running_loop()
+
+        if compact_path.exists() and model_dict.get("CORPUS_NAMES") is None:
+            # Preferisce lo storage SQLite compatto (~15 MB RAM condiviso tra MLE e Lidstone)
+            # evitando di espandere in RAM i pickle NLTK e di duplicarli su GridFS.
+            model_dict["STORAGE_FORMAT"] = "sqlite_compact"
+            model_dict["COMPACT_CHECKPOINT_PATH"] = str(compact_path)
+            model_dict["GLOBAL_MODEL_FILE_ID"] = None
+            model_dict["DOMAIN_MODEL_FILE_ID"] = None
+            model_dict.setdefault("TYPE", "Ngrams")
+            return await self._insert_one_safe(model_dict)
 
         if checkpoint_path.exists():
             def _load_ckpt():
@@ -290,8 +307,11 @@ class ModelService:
             "DOMAIN_MODEL_FILE_ID",
         ]
         for key in file_keys:
+            file_id = model.get(key)
+            if not file_id:
+                continue
             try:
-                await self._fs.delete_by_name(model[key])
-                SuggestionsService._ngram_cache.pop(model[key], None)
+                await self._fs.delete_by_name(file_id)
+                SuggestionsService.evict_legacy_ngram(file_id)
             except Exception:
                 pass

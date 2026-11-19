@@ -37,10 +37,10 @@ from models.ngrams.metrics import (
 )
 
 
-# Edit distance con cache
+# Edit distance con cache limitata per evitare crescita indefinita in RAM
 
 
-@lru_cache(maxsize=None)
+@lru_cache(maxsize=65536)
 def cached_edit_distance(a: str, b: str) -> int:
     """Versione con cache di `nltk.metrics.distance.edit_distance`."""
     return edit_distance(a, b)

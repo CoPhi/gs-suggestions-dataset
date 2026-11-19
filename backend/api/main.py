@@ -1,3 +1,6 @@
+import asyncio
+import os
+import sys
 import tomllib
 from pathlib import Path
 from contextlib import asynccontextmanager
@@ -15,6 +18,11 @@ from backend.api.exceptions import (
 )
 from backend.api.services.model_service import ModelService
 from backend.api.services.suggestions_service import SuggestionsService
+from backend.config.settings import (
+    GS_CACHE_SWEEP_INTERVAL_SECONDS,
+    GS_MODEL_IDLE_TTL_SECONDS,
+)
+from backend.core.model_cache import shared_bert_cache
 
 
 def get_version() -> str:
@@ -29,6 +37,21 @@ def get_version() -> str:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Limita i thread CPU di PyTorch all'avvio per contenere l'esplosione delle arene glibc
+    try:
+        import torch
+
+        cpu_threads = max(1, int(os.getenv("OMP_NUM_THREADS", "4")))
+        torch.set_num_threads(cpu_threads)
+    except Exception:
+        pass
+    try:
+        import torch
+
+        torch.set_num_interop_threads(max(1, int(os.getenv("TORCH_INTEROP_THREADS", "2"))))
+    except Exception:
+        pass
+
     try:
         service = ModelService()
         await service.init_models()
@@ -39,7 +62,37 @@ async def lifespan(app: FastAPI):
         await sugg_service.ensure_feedback_indices()
     except Exception as e:
         print(f"Error initializing feedback indices: {e}")
-    yield
+
+    # Sweeper periodico per rilasciare i modelli neurali e legacy dopo inattività prolungata
+    async def _idle_cache_sweeper() -> None:
+        interval = max(5, GS_CACHE_SWEEP_INTERVAL_SECONDS)
+        while True:
+            await asyncio.sleep(interval)
+            try:
+                ttl = GS_MODEL_IDLE_TTL_SECONDS
+                if ttl <= 0:
+                    continue
+                shared_bert_cache.evict_expired(ttl)
+                SuggestionsService.evict_expired_ngrams(ttl)
+                # Esegue l'eviction di Ithaca solo se il runtime JAX/Ithaca è già stato importato
+                if "models.ithaca.inference.predict" in sys.modules:
+                    from models.ithaca.inference.predict import evict_expired_ithaca
+
+                    evict_expired_ithaca(ttl)
+            except asyncio.CancelledError:
+                raise
+            except Exception as exc:
+                print(f"Error during idle cache sweep: {exc}")
+
+    sweeper_task = asyncio.create_task(_idle_cache_sweeper())
+    try:
+        yield
+    finally:
+        sweeper_task.cancel()
+        try:
+            await sweeper_task
+        except asyncio.CancelledError:
+            pass
 
 
 app = FastAPI(

@@ -1,13 +1,14 @@
 import asyncio
 import pickle
 import re
+import threading
+import time
 import unicodedata
 import zlib
+from pathlib import Path
 from typing import Any
-from concurrent.futures import ThreadPoolExecutor
 from functools import partial
 from collections import OrderedDict
-import torch
 import gc
 
 from bson import ObjectId
@@ -22,7 +23,14 @@ from datetime import datetime, timezone
 from backend.api.database import collection, feedback_collection, fs
 from backend.api.exceptions import InvalidContextError, ModelNotFoundError
 from backend.api.models import FeedbackCreateRequest, ModelType
+from backend.config.settings import (
+    GAMMA,
+    GS_MAX_BERT_MODELS,
+    get_compact_ngram_checkpoint_path,
+)
+from backend.core.model_cache import shared_bert_cache, trim_memory
 from models.ngrams.inference.suggests import generate_k_suggests
+from models.ngrams.storage import load_compact_ngram_pair
 from models.bert.inference.predict import fill_mask
 from models.bert.inference.vocab import (
     check_tlg_attestation,
@@ -50,9 +58,67 @@ def _load_bert_checkpoint(checkpoint: str) -> tuple:
 class SuggestionsService:
     """Service layer for generating textual suggestions via N-gram or BERT models."""
 
-    _bert_cache: OrderedDict[str, tuple] = OrderedDict()
-    _ngram_cache: dict[str, Any] = {}
-    MAX_BERT_MODELS = 3
+    # Alias diretto alla cache condivisa: garantisce compatibilità coi test che popolano `_bert_cache`
+    _bert_cache: OrderedDict[str, tuple] = shared_bert_cache.cache
+    _ngram_cache: OrderedDict[str, Any] = OrderedDict()
+    _ngram_last_used: dict[str, float] = {}
+    _compact_ngram_cache: dict[tuple[str, str, float], tuple[Any, Any]] = {}
+    _ngram_cache_lock = threading.Lock()
+    MAX_BERT_MODELS = GS_MAX_BERT_MODELS
+    MAX_LEGACY_NGRAM_FILES = 2
+
+    @classmethod
+    def evict_legacy_ngram(cls, filename: str) -> None:
+        """Rimuove un modello N-gram legacy dalla cache e restituisce memoria al kernel."""
+        with cls._ngram_cache_lock:
+            removed = cls._ngram_cache.pop(filename, None) is not None
+            cls._ngram_last_used.pop(filename, None)
+        if removed:
+            trim_memory(clear_jax=False)
+
+    @classmethod
+    def _get_compact_ngram_pair(
+        cls,
+        db_path: Path,
+        lm_type: str,
+        gamma: float | None,
+    ) -> tuple[Any, Any]:
+        lm_upper = lm_type.upper()
+        gamma_val = float(gamma) if (lm_upper != "MLE" and gamma is not None) else 0.0
+        key = (str(db_path.resolve()), lm_upper, gamma_val)
+        with cls._ngram_cache_lock:
+            pair = cls._compact_ngram_cache.get(key)
+            if pair is not None:
+                return pair
+            pair = load_compact_ngram_pair(
+                db_path=db_path,
+                lm_type=lm_upper,
+                gamma=gamma_val if lm_upper != "MLE" else None,
+            )
+            cls._compact_ngram_cache[key] = pair
+            return pair
+
+    @classmethod
+    def evict_expired_ngrams(cls, ttl_seconds: float) -> list[str]:
+        """Scarica eventuali pickle N-gram legacy inutilizzati da più di `ttl_seconds`."""
+        if ttl_seconds <= 0:
+            return []
+        now = time.monotonic()
+        expired: list[str] = []
+        with cls._ngram_cache_lock:
+            for key in list(cls._ngram_cache.keys()):
+                last = cls._ngram_last_used.get(key)
+                if last is None:
+                    cls._ngram_last_used[key] = now
+                    continue
+                if (now - last) > ttl_seconds:
+                    expired.append(key)
+            for key in expired:
+                cls._ngram_cache.pop(key, None)
+                cls._ngram_last_used.pop(key, None)
+        if expired:
+            trim_memory(clear_jax=False)
+        return expired
 
     def __init__(
         self,
@@ -389,23 +455,68 @@ class SuggestionsService:
 
     async def _load_compressed_file(self, filename: str) -> Any:
         """Fetch a GridFS file by name, decompress it, and deserialise with pickle."""
-        if filename in self._ngram_cache:
-            return self._ngram_cache[filename]
+        now = time.monotonic()
+        with self._ngram_cache_lock:
+            if filename in self._ngram_cache:
+                self._ngram_cache.move_to_end(filename)
+                self._ngram_last_used[filename] = now
+                return self._ngram_cache[filename]
 
         try:
             stream = await self._fs.open_download_stream_by_name(filename)
         except NoFile:
             raise ModelNotFoundError(f"Model file '{filename}' not found in GridFS")
         raw = await stream.read()
-        model = pickle.loads(zlib.decompress(raw))
-        self._ngram_cache[filename] = model
+        loop = asyncio.get_running_loop()
+        model = await loop.run_in_executor(None, lambda: pickle.loads(zlib.decompress(raw)))
+        del raw
+
+        evicted = False
+        with self._ngram_cache_lock:
+            self._ngram_cache[filename] = model
+            self._ngram_cache.move_to_end(filename)
+            self._ngram_last_used[filename] = time.monotonic()
+            while len(self._ngram_cache) > self.MAX_LEGACY_NGRAM_FILES:
+                old_key, _ = self._ngram_cache.popitem(last=False)
+                self._ngram_last_used.pop(old_key, None)
+                evicted = True
+        if evicted:
+            trim_memory(clear_jax=False)
         return model
 
     async def _predict_ngrams(
         self, model: dict, context: str, num_tokens: int, num_predictions: Any
     ) -> list[dict]:
-        global_model = await self._load_compressed_file(model["GLOBAL_MODEL_FILE_ID"])
-        domain_model = await self._load_compressed_file(model["DOMAIN_MODEL_FILE_ID"])
+        n = int(model["N"])
+        lm_type = model["LM_SCORE"]
+        gamma = model.get("GAMMA")
+        if lm_type.upper() != "MLE" and gamma is None:
+            gamma = GAMMA
+
+        compact_path: Path | None = None
+        if model.get("STORAGE_FORMAT") == "sqlite_compact":
+            raw_path = model.get("COMPACT_CHECKPOINT_PATH")
+            compact_path = Path(raw_path) if raw_path else get_compact_ngram_checkpoint_path(n=n)
+            if not compact_path.exists():
+                fallback_compact = get_compact_ngram_checkpoint_path(n=n)
+                if fallback_compact.exists():
+                    compact_path = fallback_compact
+        elif model.get("CORPUS_NAMES") is None:
+            # Retrocompatibilità per record MongoDB già esistenti nel volume dati:
+            # se lo SQLite compatto locale è disponibile, evita il download del pickle da GridFS.
+            candidate_compact = get_compact_ngram_checkpoint_path(n=n)
+            if candidate_compact.exists():
+                compact_path = candidate_compact
+
+        if compact_path is not None and compact_path.exists():
+            global_model, domain_model = self._get_compact_ngram_pair(
+                db_path=compact_path,
+                lm_type=lm_type,
+                gamma=gamma,
+            )
+        else:
+            global_model = await self._load_compressed_file(model["GLOBAL_MODEL_FILE_ID"])
+            domain_model = await self._load_compressed_file(model["DOMAIN_MODEL_FILE_ID"])
 
         loop = asyncio.get_running_loop()
         predict_func = partial(
@@ -446,19 +557,19 @@ class SuggestionsService:
             await self._validate_hf_checkpoint(checkpoint)
             loop = asyncio.get_running_loop()
             bert_model, tokenizer = await loop.run_in_executor(
-                None, _load_bert_checkpoint, checkpoint
+                None,
+                lambda: shared_bert_cache.get_or_load_mlm(
+                    checkpoint,
+                    loader_fn=_load_bert_checkpoint,
+                    max_models=self.MAX_BERT_MODELS,
+                ),
             )
-            self._bert_cache[checkpoint] = (bert_model, tokenizer)
-            self._bert_cache.move_to_end(checkpoint)
-
-            if len(self._bert_cache) > self.MAX_BERT_MODELS:
-                self._bert_cache.popitem(last=False)
-                gc.collect()
-                if torch.cuda.is_available():
-                    torch.cuda.empty_cache()
         else:
-            bert_model, tokenizer = self._bert_cache[checkpoint]
-            self._bert_cache.move_to_end(checkpoint)
+            bert_model, tokenizer = shared_bert_cache.get_or_load_mlm(
+                checkpoint,
+                loader_fn=_load_bert_checkpoint,
+                max_models=self.MAX_BERT_MODELS,
+            )
 
         loop = asyncio.get_running_loop()
         predict_func = partial(
@@ -625,8 +736,7 @@ class SuggestionsService:
     async def _validate_hf_checkpoint(self, checkpoint: str) -> None:
         """Verifica che il checkpoint esista su HuggingFace Hub e sia un modello fill-mask."""
         loop = asyncio.get_running_loop()
-        with ThreadPoolExecutor() as executor:
-            info = await loop.run_in_executor(executor, HfApi().model_info, checkpoint)
+        info = await loop.run_in_executor(None, HfApi().model_info, checkpoint)
         pipeline_tag = getattr(info, "pipeline_tag", None)
         if pipeline_tag and pipeline_tag != "fill-mask":
             raise ValueError(
