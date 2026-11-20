@@ -3,6 +3,7 @@ services:
     image: gabrielegiannessi/gs-api:latest
     pull_policy: always
     container_name: gs-api
+    restart: unless-stopped
     ports:
       - "8000:8000"
     environment:
@@ -28,7 +29,7 @@ services:
       - GS_CACHE_SWEEP_INTERVAL_SECONDS=${GS_CACHE_SWEEP_INTERVAL_SECONDS:-60}
       - GS_ITHACA_MICRO_BATCH=${GS_ITHACA_MICRO_BATCH:-4}
     volumes:
-      - ./logs:/app/logs
+      - gs_api_logs:/app/logs
     depends_on:
       mongodb:
         condition: service_healthy   
@@ -36,13 +37,15 @@ services:
   frontend:
     image: gabrielegiannessi/gs-frontend:latest
     pull_policy: always
-    container_name: frontend
+    container_name: gs-frontend
+    restart: unless-stopped
     ports:
       - "4200:4200"
 
   mongodb:
     image: mongo:4.4
-    container_name: mongodb
+    container_name: gs-mongodb
+    restart: unless-stopped
     command: ["mongod", "--wiredTigerCacheSizeGB", "0.25"]
     ports:
       - "27017:27017"
@@ -60,3 +63,4 @@ services:
 
 volumes:
   mongodb_data:
+  gs_api_logs:

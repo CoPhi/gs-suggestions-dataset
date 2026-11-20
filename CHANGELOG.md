@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+- **Hardening `docker-compose.yaml` per esportazione su Portainer**:
+  - Sostituito il bind mount relativo `./logs:/app/logs` di `gs-api` con il volume nominato `gs_api_logs`.
+  - Aggiunta la policy `restart: unless-stopped` a tutti i servizi (`gs-api`, `frontend`, `mongodb`).
+  - Uniformati i `container_name` con prefisso `gs-` (`gs-api`, `gs-frontend`, `gs-mongodb`) per evitare collisioni tra stack.
+
 ## [0.10.0] - 2026-11-19
 
 ### Optimized
