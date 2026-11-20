@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Configurazione Dinamica Endpoint API Frontend (`frontend/src/assets/config.js`, `ApiService`, `nginx.conf`)**:
+  - Aggiunto [`frontend/src/assets/config.js`](./frontend/src/assets/config.js) (esposto a `/assets/config.js` tramite [`frontend/angular.json`](./frontend/angular.json) e caricato in [`frontend/src/index.html`](./frontend/src/index.html)) per configurare `window.__env.apiUrl` a runtime senza rebuild.
+  - Aggiornato [`ApiService`](./frontend/src/app/services/api.service.ts) per risolvere dinamicamente `apiUrl` da `window.__env?.apiUrl` (normalizzando eventuali trailing slash, con fallback a `http://127.0.0.1:8000`) e aggiunti test unitari in [`api.service.spec.ts`](./frontend/src/app/services/api.service.spec.ts).
+  - Escluso `/assets/config.js` dalla cache immutabile di 1 anno in [`frontend/nginx.conf`](./frontend/nginx.conf) applicando `Cache-Control: no-cache, no-store, must-revalidate`.
+
 ### Changed
 - **Hardening `docker-compose.yaml` per esportazione su Portainer**:
   - Sostituito il bind mount relativo `./logs:/app/logs` di `gs-api` con il volume nominato `gs_api_logs`.

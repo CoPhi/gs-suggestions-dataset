@@ -8,9 +8,20 @@ import { map, Observable } from 'rxjs';
 })
 export class ApiService {
 
-  private apiUrl = 'http://127.0.0.1:8000'; // base URL dell'API FastAPI
+  private readonly apiUrl: string = ApiService.resolveApiUrl(); // base URL dell'API FastAPI
 
   constructor(private http: HttpClient) {}
+
+  /**
+   * Risolve l'URL base dell'API dalla configurazione runtime (assets/config.js),
+   * ripiegando su http://127.0.0.1:8000 in assenza di override valido.
+   */
+  private static resolveApiUrl(): string {
+    const envUrl = (window as unknown as { __env?: { apiUrl?: string } }).__env?.apiUrl;
+    const raw = envUrl && envUrl.trim() ? envUrl.trim() : 'http://127.0.0.1:8000';
+    // Rimuove eventuali trailing slash per evitare doppi '/' nella composizione degli endpoint.
+    return raw.replace(/\/+$/, '');
+  }
 
   getModels(): Observable<modelType[]> {
     return this.http.get<{ models: modelType[] }>(`${this.apiUrl}/models`).pipe(

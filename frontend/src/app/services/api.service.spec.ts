@@ -48,4 +48,54 @@ describe('ApiService', () => {
     );
     plainReq.flush({ predictions: [] });
   });
+
+  it('should use runtime apiUrl from window.__env and strip trailing slashes', () => {
+    const win = window as unknown as { __env?: { apiUrl?: string } };
+    const prevEnv = win.__env;
+    try {
+      win.__env = { apiUrl: 'https://api.example.org///' };
+      TestBed.resetTestingModule();
+      TestBed.configureTestingModule({
+        providers: [
+          provideHttpClient(withXhr()),
+          provideHttpClientTesting()
+        ]
+      });
+      const configuredService = TestBed.inject(ApiService);
+      const configuredHttpMock = TestBed.inject(HttpTestingController);
+
+      configuredService.getModels().subscribe();
+      const req = configuredHttpMock.expectOne('https://api.example.org/models');
+      expect(req.request.method).toBe('GET');
+      req.flush({ models: [] });
+      configuredHttpMock.verify();
+    } finally {
+      win.__env = prevEnv;
+    }
+  });
+
+  it('should fallback to default apiUrl when window.__env.apiUrl is empty or whitespace', () => {
+    const win = window as unknown as { __env?: { apiUrl?: string } };
+    const prevEnv = win.__env;
+    try {
+      win.__env = { apiUrl: '   ' };
+      TestBed.resetTestingModule();
+      TestBed.configureTestingModule({
+        providers: [
+          provideHttpClient(withXhr()),
+          provideHttpClientTesting()
+        ]
+      });
+      const fallbackService = TestBed.inject(ApiService);
+      const fallbackHttpMock = TestBed.inject(HttpTestingController);
+
+      fallbackService.getModels().subscribe();
+      const req = fallbackHttpMock.expectOne('http://127.0.0.1:8000/models');
+      expect(req.request.method).toBe('GET');
+      req.flush({ models: [] });
+      fallbackHttpMock.verify();
+    } finally {
+      win.__env = prevEnv;
+    }
+  });
 });
