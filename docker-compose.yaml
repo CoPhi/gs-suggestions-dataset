@@ -41,6 +41,8 @@ services:
     restart: unless-stopped
     ports:
       - "4200:4200"
+    environment:
+      - GS_API_URL=${GS_API_URL:-http://127.0.0.1:8000}
 
   mongodb:
     image: mongo:4.4

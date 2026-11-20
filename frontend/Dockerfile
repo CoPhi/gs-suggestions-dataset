@@ -14,6 +14,9 @@ FROM nginx:1.27-alpine
 
 COPY nginx.conf /etc/nginx/nginx.conf
 COPY --from=builder /app/dist/frontend/browser /usr/share/nginx/html
+# Script eseguito automaticamente da /docker-entrypoint.sh di nginx per iniettare GS_API_URL in assets/config.js
+COPY docker-entrypoint.d/40-config.sh /docker-entrypoint.d/40-config.sh
+RUN chmod +x /docker-entrypoint.d/40-config.sh
 
 EXPOSE 4200
 CMD ["nginx", "-g", "daemon off;"]

@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- **Configurazione Endpoint API Frontend da `.env` / Portainer (`docker-compose.yaml`, `frontend/Dockerfile`, `40-config.sh`)**:
+  - Aggiunto lo script [`frontend/docker-entrypoint.d/40-config.sh`](./frontend/docker-entrypoint.d/40-config.sh) (copiato in [`frontend/Dockerfile`](./frontend/Dockerfile)) per generare `/usr/share/nginx/html/assets/config.js` all'avvio del container Nginx a partire dalla variabile d'ambiente `GS_API_URL`.
+  - Aggiunta la variabile `GS_API_URL=${GS_API_URL:-http://127.0.0.1:8000}` al servizio `frontend` in [`docker-compose.yaml`](./docker-compose.yaml).
+
 ## [0.10.1] - 2026-11-20
 
 ### Added
