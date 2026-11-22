@@ -721,7 +721,7 @@ def test_nsga2_ithaca_helpers():
 
 @pytest.mark.asyncio
 async def test_suggestions_service_predict_ithaca_lowercases_output(monkeypatch):
-    """Verifica che SuggestionsService._predict_ithaca normalizzi sempre in minuscolo sentence, token_str e reconstructed_word."""
+    """Verifica che SuggestionsService._predict_ithaca normalizzi in minuscolo token_str e reconstructed_word preservando il casing del contesto in sentence."""
     from unittest.mock import AsyncMock, MagicMock
     from bson import ObjectId
 
@@ -760,10 +760,55 @@ async def test_suggestions_service_predict_ithaca_lowercases_output(monkeypatch)
 
     assert len(preds) == 2
     assert preds[0]["token_str"] == "αγαθος"
-    assert preds[0]["sentence"] == "ἔδοξεν τῇ βουλῇ αγαθος"
+    assert preds[0]["sentence"] == "Ἔδοξεν τῇ βουλῇ αγαθος"
     assert preds[0]["reconstructed_word"] == "αγαθος"
     assert preds[1]["token_str"] == "καλον"
-    assert preds[1]["sentence"] == "ἔδοξεν τῇ βουλῇ καλον"
+    assert preds[1]["sentence"] == "Ἔδοξεν τῇ βουλῇ καλον"
     assert preds[1]["reconstructed_word"] == "καλον"
+
+
+@pytest.mark.asyncio
+async def test_suggestions_service_preserves_uppercase_context_around_partial_lacuna(monkeypatch):
+    """Verifica che la ricostruzione e la frase restituita gestiscano prefissi/suffissi maiuscoli attorno alla lacuna."""
+    from unittest.mock import AsyncMock, MagicMock
+    from bson import ObjectId
+
+    from backend.api.models import ModelType, PredictionCount
+    from backend.api.services.suggestions_service import SuggestionsService
+    import models.ithaca.inference.predict as pred_module
+
+    mock_collection = MagicMock()
+    ithaca_id = ObjectId()
+    mock_collection.find_one = AsyncMock(
+        return_value={
+            "_id": ithaca_id,
+            "CHECKPOINT": "CNR-ILC/gs-ithaca-tlg",
+            "TYPE": ModelType.ITHACA,
+        }
+    )
+
+    sugg_service = SuggestionsService(
+        db_collection=mock_collection,
+        gridfs=MagicMock(),
+        feedback_db=MagicMock(),
+    )
+
+    monkeypatch.setattr(
+        pred_module,
+        "fill_mask_ithaca",
+        lambda **kwargs: [("ΛΗΤΑ", 0.95)],
+    )
+
+    preds = await sugg_service.get_predictions(
+        model_id=str(ithaca_id),
+        context="Ἆρες Ἆρες ΤΕΙΧΕΣΙΒ[....]",
+        num_tokens=1,
+        num_predictions=PredictionCount.FIVE,
+    )
+
+    assert len(preds) == 1
+    assert preds[0]["token_str"] == "λητα"
+    assert preds[0]["sentence"] == "Ἆρες Ἆρες ΤΕΙΧΕΣΙΒλητα"
+    assert preds[0]["reconstructed_word"] == "τειχεσιβλητα"
 
 

@@ -589,7 +589,8 @@ class SuggestionsService:
 
         return [
             {
-                "sentence": re.sub(BERT_LACUNA_PATTERN, entry["token_str"], context, count=1).lower(),
+                # Inserisce il supplemento in minuscolo preservando il casing originale del contesto
+                "sentence": re.sub(BERT_LACUNA_PATTERN, str(entry["token_str"]).lower(), context, count=1),
                 "token_str": str(entry["token_str"]).lower(),
                 "score": float(entry["score"]),
                 "tlg_attested": bool(entry["tlg_attested"]),
@@ -620,8 +621,8 @@ class SuggestionsService:
 
         return [
             {
-                # Allinea il casing a BERT e RAG restituendo frase, supplemento e parola ricostruita in minuscolo
-                "sentence": re.sub(BERT_LACUNA_PATTERN, entry["token_str"], context, count=1).lower(),
+                # Allinea il casing di token_str e reconstructed_word preservando le maiuscole del contesto in sentence
+                "sentence": re.sub(BERT_LACUNA_PATTERN, str(entry["token_str"]).lower(), context, count=1),
                 "token_str": str(entry["token_str"]).lower(),
                 "score": float(entry["score"]),
                 "tlg_attested": bool(entry["tlg_attested"]),
@@ -705,7 +706,7 @@ class SuggestionsService:
                 is_tlg_attested = True
 
             item: dict[str, Any] = {
-                "sentence": re.sub(BERT_LACUNA_PATTERN, p[0], context, count=1).lower(),
+                "sentence": re.sub(BERT_LACUNA_PATTERN, token_lower, context, count=1),
                 "token_str": token_lower,
                 "score": float(p[1]),
                 "tlg_attested": is_tlg_attested,

@@ -1180,6 +1180,83 @@ async def test_session_id_propagation_in_suggestions_service():
         assert "session_id" not in mock_rag.call_args.kwargs
 
 
+@pytest.mark.asyncio
+async def test_uppercase_greek_around_lacuna_preserves_sentence_case_and_affixes():
+    """
+    Verifica che lettere maiuscole (anche con diacritici combinatori) adiacenti alla lacuna
+    vengano estratte correttamente come prefissi/suffissi e che il contesto originale non
+    venga convertito in minuscolo nella sentence restituita da _predict_bert e _predict_rag.
+    """
+    from models.bert.inference.vocab import extract_lacuna_affixes
+    from models.rag.modules import extract_lacuna_metadata
+
+    # Diacritico combinatorio non precomposto su maiuscola (Α + U+0313)
+    decomposed_ctx = "Α\u0313νθεντ[...]ου"
+    pref, suff = extract_lacuna_affixes(decomposed_ctx)
+    assert pref == "Ἀνθεντ"
+    assert suff == "ου"
+
+    meta = extract_lacuna_metadata(decomposed_ctx)
+    assert meta["word_prefix"] == "Ἀνθεντ"
+    assert meta["word_suffix"] == "ου"
+
+    mock_collection = MagicMock()
+    sugg_service = SuggestionsService(
+        db_collection=mock_collection,
+        gridfs=MagicMock(),
+        feedback_db=MagicMock(),
+    )
+
+    bert_id = ObjectId()
+    mock_collection.find_one = AsyncMock(
+        return_value={
+            "_id": bert_id,
+            "CHECKPOINT": "CNR-ILC/gs-GreBerta",
+            "TYPE": ModelType.BERT,
+        }
+    )
+    sugg_service._bert_cache["CNR-ILC/gs-GreBerta"] = (MagicMock(), MagicMock())
+    with patch(
+        "backend.api.services.suggestions_service.fill_mask",
+        return_value=[("ΛΗΤΑ", 0.9)],
+    ):
+        bert_preds = await sugg_service.get_predictions(
+            model_id=str(bert_id),
+            context="Ἆρες Ἆρες ΤΕΙΧΕΣΙΒ[....]",
+            num_tokens=1,
+            num_predictions=PredictionCount.FIVE,
+        )
+    assert bert_preds[0]["sentence"] == "Ἆρες Ἆρες ΤΕΙΧΕΣΙΒλητα"
+    assert bert_preds[0]["reconstructed_word"] == "τειχεσιβλητα"
+
+    rag_id = ObjectId()
+    mock_collection.find_one = AsyncMock(
+        return_value={
+            "_id": rag_id,
+            "CHECKPOINT": "Qwen/Qwen2.5-7B-Instruct",
+            "BACKEND": "auto",
+            "TOP_K_PASSAGES": 5,
+            "TYPE": ModelType.RAG,
+        }
+    )
+    with patch(
+        "models.rag.inference.fill_mask_rag",
+        return_value=(
+            [("λητα", 0.95)],
+            {"tlg_attestations": {"λητα": {"tlg_attested": True, "reconstructed_word": "τειχεσιβλητα"}}},
+        ),
+    ):
+        rag_preds = await sugg_service.get_predictions(
+            model_id=str(rag_id),
+            context="Ἆρες Ἆρες ΤΕΙΧΕΣΙΒ[....]",
+            num_tokens=1,
+            num_predictions=PredictionCount.FIVE,
+        )
+    assert rag_preds[0]["sentence"] == "Ἆρες Ἆρες ΤΕΙΧΕΣΙΒλητα"
+    assert rag_preds[0]["reconstructed_word"] == "τειχεσιβλητα"
+
+
+
 
 
 
