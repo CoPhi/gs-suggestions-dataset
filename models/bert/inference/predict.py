@@ -319,7 +319,10 @@ def fill_mask(
     word_prefix = ""
     word_suffix = ""
     if not return_raw:
-        match_word = re.search(r"([^\W\d_]*)\[(\.+|\-+)\]([^\W\d_]*)", text)
+        match_word = re.search(
+            r"((?:[^\W\d_][\u0300-\u036f]*)*)\[(\.+|\-+)\]((?:[^\W\d_][\u0300-\u036f]*)*)",
+            text,
+        )
         if match_word:
             word_prefix = match_word.group(1)
             word_suffix = match_word.group(3)

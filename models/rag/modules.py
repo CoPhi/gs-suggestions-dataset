@@ -13,6 +13,7 @@ Implementa `GreekRAGInfiller`, che orchestra:
 from __future__ import annotations
 
 import re
+import unicodedata
 from typing import Any
 
 import dspy
@@ -38,7 +39,7 @@ from models.rag.signatures import (
 )
 
 TARGET_LACUNA_REGEX = re.compile(r"\[(\.+|\-+)\]")
-AFFIX_LACUNA_REGEX = re.compile(r"([^\W\d_]*)\[(\.+|\-+)\]([^\W\d_]*)")
+AFFIX_LACUNA_REGEX = re.compile(r"((?:[^\W\d_][\u0300-\u036f]*)*)\[(\.+|\-+)\]((?:[^\W\d_][\u0300-\u036f]*)*)")
 
 
 def extract_lacuna_metadata(
@@ -52,6 +53,7 @@ def extract_lacuna_metadata(
     - Estrae `min_chars`, `max_chars`, `center_chars`.
     - Estrae `word_prefix` e/o `word_suffix` se la lacuna è interna a una parola.
     """
+    text = unicodedata.normalize("NFC", text) if text else ""
     parts = re.split(r"(\[.*?\])", text)
     cleaned_loose_dots = "".join(
         re.sub(r"\.{2,}", f" {UNK_TOKEN} ", part) if i % 2 == 0 else part

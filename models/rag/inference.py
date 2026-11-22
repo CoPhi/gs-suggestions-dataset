@@ -748,7 +748,13 @@ def fill_mask_rag(
                 str(a.get("corpus_id", "")).strip().lower().startswith("tlg")
                 for a in atts
             )
-            if corpus_tlg_attested and atts and atts[0].get("attested_form"):
+            if (
+                corpus_tlg_attested
+                and atts
+                and atts[0].get("attested_form")
+                and normalize_for_tlg_lookup(str(atts[0]["attested_form"]))
+                == normalize_for_tlg_lookup(recon_word)
+            ):
                 recon_word = str(atts[0]["attested_form"]).lower()
             tlg_info = {
                 "tlg_attested": bool(lex_attested or corpus_tlg_attested),

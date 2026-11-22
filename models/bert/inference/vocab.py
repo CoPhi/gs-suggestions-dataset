@@ -7,6 +7,7 @@ import os
 import re
 import struct
 import tempfile
+import unicodedata
 from collections.abc import Iterator, Set as AbstractSet
 from pathlib import Path
 from typing import Any, Optional, Sequence, Set
@@ -27,7 +28,7 @@ DEFAULT_TLG_VOCAB_PATH = PROJECT_ROOT / "backend" / "core" / "resources" / "tlg.
 # Uniche parole greche autonome di 1 sola lettera (ὁ/ὅ, ἡ/ἤ/ἦ, ἃ, ὦ)
 VALID_SINGLE_CHAR_WORDS = frozenset({"ο", "η", "α", "ω"})
 
-_AFFIX_LACUNA_REGEX = re.compile(r"([^\W\d_]*)\[(\.+|\-+)\]([^\W\d_]*)")
+_AFFIX_LACUNA_REGEX = re.compile(r"((?:[^\W\d_][\u0300-\u036f]*)*)\[(\.+|\-+)\]((?:[^\W\d_][\u0300-\u036f]*)*)")
 _TARGET_LACUNA_REGEX = re.compile(r"\[(\.+|\-+)\]")
 _PRE_NORMALIZED_GREEK_REGEX = re.compile(r"^[α-ωσ]+$")
 
@@ -312,6 +313,7 @@ def extract_lacuna_affixes(text_with_gap: str) -> tuple[str, str]:
     if not text_with_gap:
         return "", ""
 
+    text_with_gap = unicodedata.normalize("NFC", text_with_gap)
     parts = re.split(r"(\[.*?\])", text_with_gap)
     cleaned_loose_dots = "".join(
         re.sub(r"\.{2,}", f" {UNK_TOKEN} ", part) if i % 2 == 0 else part
