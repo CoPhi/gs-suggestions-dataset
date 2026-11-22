@@ -25,7 +25,12 @@ from models.rag.evaluation import (
     format_rag_impact_markdown,
     load_cases_from_test_abs_csv,
 )
-from models.rag.inference import fill_mask_rag, is_bert_checkpoint
+from models.rag.inference import (
+    RAG_SOFTMAX_TEMPERATURE,
+    calibrate_candidate_attestation_score,
+    fill_mask_rag,
+    is_bert_checkpoint,
+)
 from models.rag.lm import (
     _is_compact_hf_model,
     build_dspy_lm,
@@ -1254,6 +1259,180 @@ async def test_uppercase_greek_around_lacuna_preserves_sentence_case_and_affixes
         )
     assert rag_preds[0]["sentence"] == "Ἆρες Ἆρες ΤΕΙΧΕΣΙΒλητα"
     assert rag_preds[0]["reconstructed_word"] == "τειχεσιβλητα"
+
+
+def test_attestation_score_calibration_reranks_double_attested_over_tlg_only():
+    """
+    Verifica la calibrazione pre-ranking a 4 livelli basata sulle attestazioni (TLG + Retriever):
+    1. `calibrate_candidate_attestation_score` rispetta l'ordinamento Tier 1 > Tier 2 > Tier 3 > Tier 4
+       e distingue i candidati confermati dal modello rispetto ai soli match per affisso (`is_index_only`).
+    2. In `fill_mask_rag` (sia con `DummyLM` sia in modalità `neuro_lexical` BERT+RAG), un candidato
+       con confidenza iniziale inferiore ma attestato sia nel TLG sia dal retriever scavalca
+       un candidato attestato solo lessicamente nel TLG (Tier 3) o non attestato (Tier 4),
+       con separazione softmax amplificata da `RAG_SOFTMAX_TEMPERATURE` e nota in CoT di 2° livello.
+    3. Un candidato estratto solo da `match_affix_words` senza supporto di BERT/LLM non scavalca
+       un candidato generato dal modello contestuale e confermato sia nel TLG sia nei corpora.
+    """
+    assert 0.0 < RAG_SOFTMAX_TEMPERATURE < 1.0
+
+    # 1. Test diretto sui 4 tier della funzione di calibrazione
+    base = 0.80
+    s_t1, t1 = calibrate_candidate_attestation_score(
+        base_score=base,
+        is_tlg_attested=True,
+        attestations=[{"source_type": "retrieved_passage", "doc_freq": 3}],
+    )
+    s_t2, t2 = calibrate_candidate_attestation_score(
+        base_score=base,
+        is_tlg_attested=True,
+        attestations=[{"source_type": "corpus_index", "doc_freq": 3}],
+        is_index_only=False,
+    )
+    s_t2_idx, t2_idx = calibrate_candidate_attestation_score(
+        base_score=base,
+        is_tlg_attested=True,
+        attestations=[{"source_type": "corpus_index", "doc_freq": 3}],
+        is_index_only=True,
+    )
+    s_t3_tlg, t3_tlg = calibrate_candidate_attestation_score(
+        base_score=base,
+        is_tlg_attested=True,
+        attestations=[],
+    )
+    s_t3_corp, t3_corp = calibrate_candidate_attestation_score(
+        base_score=base,
+        is_tlg_attested=False,
+        attestations=[{"source_type": "retrieved_passage", "doc_freq": 1}],
+    )
+    s_t4, t4 = calibrate_candidate_attestation_score(
+        base_score=base,
+        is_tlg_attested=False,
+        attestations=[],
+    )
+
+    assert (t1, t2, t2_idx, t3_tlg, t3_corp, t4) == (1, 2, 2, 3, 3, 4)
+    assert s_t1 > s_t2 > s_t2_idx > s_t3_tlg > s_t4
+    assert s_t3_corp > s_t4
+
+    # 2. End-to-end LLM + RAG: Tier 1 (TLG + retrieved_passage) supera Tier 3 (solo TLG) e Tier 4
+    # Nota: il passo parallelo contiene 'νόμον' senza vicino comune ('ἔθηκαν'), così il reranking
+    # dipende interamente dalla calibrazione pre-ranking e non da extract_parallel_attestations.
+    llm_corpus = [
+        "[Corpus: tlg | Leges] περὶ τούτων νόμον κείμενον ἀνέγραψαν",
+    ]
+    llm_retriever = GreekHybridRetriever(
+        corpus=llm_corpus,
+        embedder=_dummy_greek_embedder,
+        k=1,
+    )
+    dummy_lm = DummyLM(
+        [
+            {
+                "philological_reasoning": "Analisi sintattica del complemento oggetto.",
+                "candidates": [
+                    {"supplement": "ζζζζζ", "confidence": 0.90, "rationale": "Ipotesi non attestata."},
+                    {"supplement": "λόγον", "confidence": 0.88, "rationale": "Attestato solo nel lessico TLG."},
+                    {"supplement": "νόμον", "confidence": 0.78, "rationale": "Coerente col passo legale."},
+                ],
+            }
+        ]
+    )
+    llm_preds, llm_details = fill_mask_rag(
+        text="ἐνταῦθα δὲ [.....] ἔθηκαν οἱ παλαιοί",
+        lm=dummy_lm,
+        retriever=llm_retriever,
+        top_k_passages=1,
+        K=5,
+        normalize_probs=True,
+        return_details=True,
+    )
+
+    assert [tok for tok, _ in llm_preds] == ["νομον", "λογον", "ζζζζζ"]
+    assert math.isclose(sum(score for _, score in llm_preds), 1.0, rel_tol=1e-5)
+    assert llm_preds[0][1] > llm_preds[1][1] > llm_preds[2][1]
+    assert llm_details["tlg_attestations"]["νομον"]["attestation_tier"] == 1
+    assert llm_details["tlg_attestations"]["λογον"]["attestation_tier"] == 3
+    assert llm_details["tlg_attestations"]["ζζζζζ"]["attestation_tier"] == 4
+    assert "doppia attestazione" in llm_details["candidate_rationales"]["νομον"]
+
+    # 3. End-to-end BERT + RAG (neuro_lexical): Tier 2 (TLG + corpus_index) supera Tier 3 (solo TLG)
+    # Costruiamo 26 passaggi dove i primi 25 contengono parole della query e solo il 26° contiene 'τύπον',
+    # così 'τυπον' resta fuori da all_retrieved_passages (pool=25) ma è presente in corpus_index.
+    nl_corpus = [
+        f"[Corpus: DCLP | P. Filler {i}] ἐνταῦθα δὲ ἔθηκαν οἱ παλαιοί ῥῆμα_{i}"
+        for i in range(25)
+    ] + [
+        "[Corpus: tlg | Plato Leg.] περὶ τούτων τύπον κείμενον ἀνέγραψαν",
+    ]
+    nl_retriever = GreekHybridRetriever(
+        corpus=nl_corpus,
+        embedder=_dummy_greek_embedder,
+        k=1,
+    )
+    with (
+        patch(
+            "models.rag.inference._get_cached_mlm",
+            return_value=(MagicMock(), MagicMock()),
+        ),
+        patch(
+            "models.rag.inference.fill_mask",
+            return_value=[("λογον", -0.2), ("τυπον", -0.4)],
+        ),
+    ):
+        nl_preds, nl_details = fill_mask_rag(
+            text="ἐνταῦθα δὲ [.....] ἔθηκαν οἱ παλαιοί",
+            checkpoint="CNR-ILC/gs-GreBerta",
+            backend="neuro_lexical",
+            retriever=nl_retriever,
+            top_k_passages=1,
+            K=5,
+            normalize_probs=True,
+            return_details=True,
+        )
+
+    assert [tok for tok, _ in nl_preds] == ["τυπον", "λογον"]
+    assert nl_details["tlg_attestations"]["τυπον"]["attestation_tier"] == 2
+    assert nl_details["tlg_attestations"]["λογον"]["attestation_tier"] == 3
+    assert "doppia attestazione" in nl_details["candidate_rationales"]["τυπον"]
+
+    # 4. Protezione contro candidati index-only (match_affix_words senza supporto BERT):
+    # 'ἄνθρωπος' occorre in 10 documenti ma non è proposto da BERT, mentre 'ἀνθρώπων' è proposto da BERT
+    # ed è attestato sia nel TLG sia nel corpus.
+    idx_corpus = [
+        f"[Corpus: tlg | Doc {i}] περὶ δὲ τοῦτο ἄνθρωπος ἀγαθός ἐστιν ἀριθμὸς_{i}"
+        for i in range(10)
+    ] + [
+        "[Corpus: tlg | Doc 10] περὶ δὲ τοῦτο ἀνθρώπων ἀγαθῶν βίος",
+    ]
+    idx_retriever = GreekHybridRetriever(
+        corpus=idx_corpus,
+        embedder=_dummy_greek_embedder,
+        k=1,
+    )
+    with (
+        patch(
+            "models.rag.inference._get_cached_mlm",
+            return_value=(MagicMock(), MagicMock()),
+        ),
+        patch(
+            "models.rag.inference.fill_mask",
+            return_value=[("ων", -0.2)],
+        ),
+    ):
+        idx_preds, _idx_details = fill_mask_rag(
+            text="καὶ τούτων ἀνθρωπ[..] ἀγαθῶν",
+            checkpoint="CNR-ILC/gs-GreBerta",
+            backend="neuro_lexical",
+            retriever=idx_retriever,
+            top_k_passages=1,
+            K=5,
+            normalize_probs=True,
+            return_details=True,
+        )
+
+    assert idx_preds[0][0] == "ων"
+    assert any(tok == "οσ" for tok, _ in idx_preds)
+
 
 
 

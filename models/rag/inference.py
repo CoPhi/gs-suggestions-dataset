@@ -68,6 +68,65 @@ from models.rag.signatures import GreekCandidate, format_gap_constraints
 _COMPILED_MODULE_CACHE: dict[str, GreekRAGInfiller] = {}
 # Condivide la cache LRU unificata con SuggestionsService e GreekBertEmbedder per evitare copie duplicate in RAM
 _LOCAL_MLM_CACHE = shared_bert_cache.cache
+# Temperatura softmax calibrata per amplificare il distacco percentuale dei candidati con doppia attestazione
+RAG_SOFTMAX_TEMPERATURE: float = 0.28
+
+
+def calibrate_candidate_attestation_score(
+    base_score: float,
+    is_tlg_attested: bool,
+    attestations: list[dict[str, Any]] | None,
+    is_index_only: bool = False,
+    apply_unattested_penalty: bool = True,
+) -> tuple[float, int]:
+    """
+    Calibra lo score di un candidato combinando il punteggio contestuale del modello
+    con una gerarchia di evidenza documentaria a 4 livelli:
+      - Tier 1: doppia attestazione TLG (`tlg.wl.gz`) + passi paralleli contestuali (`retrieved_passage`).
+      - Tier 2: doppia attestazione TLG + indice globale dei corpora (`corpus_index`, pesato per `doc_freq`),
+                riducendo il delta se il candidato proviene solo da `match_affix_words`.
+      - Tier 3: attestazione singola (solo corpus del retriever oppure solo lessico TLG).
+      - Tier 4: nessuna attestazione (congettura non attestata).
+    Restituisce `(calibrated_score, attestation_tier)`.
+    """
+    atts = attestations or []
+    has_retriever_att = bool(atts)
+    has_passage_att = any(
+        str(a.get("source_type", "")) == "retrieved_passage" for a in atts
+    )
+    max_doc_freq = max(
+        (int(a.get("doc_freq", 1) or 1) for a in atts),
+        default=0,
+    )
+    doc_freq_bonus = (
+        min(0.12, 0.03 * math.log1p(max_doc_freq)) if max_doc_freq > 0 else 0.0
+    )
+
+    if is_tlg_attested and has_passage_att:
+        # Tier 1: convergenza tra lessico TLG e loci similes recuperati per il contesto
+        delta = 0.35 + doc_freq_bonus
+        tier = 1
+    elif is_tlg_attested and has_retriever_att:
+        # Tier 2: doppia attestazione TLG + indice globale del corpus; evita il doppio conteggio
+        # per i candidati proposti solo per affisso senza conferma contestuale BERT/LLM.
+        if is_index_only:
+            delta = 0.06 + 0.5 * doc_freq_bonus
+        else:
+            delta = 0.22 + doc_freq_bonus
+        tier = 2
+    elif is_tlg_attested or has_retriever_att:
+        # Tier 3: evidenza su un solo fronte (solo corpus papirologico o solo wordlist TLG)
+        if has_retriever_att:
+            delta = (0.15 if has_passage_att else 0.08) + 0.5 * doc_freq_bonus
+        else:
+            delta = 0.05
+        tier = 3
+    else:
+        # Tier 4: forma priva di riscontri sia nel TLG sia nei corpora indicizzati
+        delta = -0.20 if apply_unattested_penalty else 0.0
+        tier = 4
+
+    return float(base_score + delta), tier
 
 
 def _load_or_create_infiller(
@@ -200,6 +259,8 @@ def _build_neuro_lexical_rag_prediction(
     cand_scores: dict[str, float] = {}
     cand_rationales: dict[str, str] = {}
     attested_forms_info: list[str] = []
+    passage_att_norms: set[str] = set()
+    index_only_norms: set[str] = set()
 
     for att in passage_attestations:
         san = sanitize_greek_supplement(
@@ -210,7 +271,9 @@ def _build_neuro_lexical_rag_prediction(
             max_chars=max_chars,
         )
         if san:
+            norm_san = normalize_greek(san, case_folding="fold", strip_diacritics_flag=True)
             cand_scores[san] = max(cand_scores.get(san, 0.0), float(att.confidence))
+            passage_att_norms.add(norm_san)
             if att.rationale:
                 cand_rationales[san] = att.rationale
 
@@ -224,15 +287,16 @@ def _build_neuro_lexical_rag_prediction(
             max_chars=max_chars,
         )
         if san:
-            # Se la radice conservata (prefisso + suffisso) ha almeno 3 lettere, il vincolo
-            # lessicale del corpus è altamente selettivo; per affissi brevi (1-2 lettere, es. -ν)
-            # manteniamo il prior lessicale sotto 0.83 così da non sovrascrivere la predizione
-            # contestuale Top-1 di GreBerta (0.84) a meno che entrambi i modelli concordino.
+            norm_san = normalize_greek(san, case_folding="fold", strip_diacritics_flag=True)
+            # Manteniamo un prior lessicale moderato per le forme trovate solo per affisso
+            # nell'indice BM25, così che non prevalgano sui candidati confermati dal modello BERT.
             if affix_specificity >= 3:
-                freq_conf = min(0.95, 0.80 + 0.035 * math.log1p(doc_freq))
+                freq_conf = min(0.68, 0.56 + 0.025 * math.log1p(doc_freq))
             else:
-                freq_conf = min(0.82, 0.70 + 0.02 * math.log1p(doc_freq))
+                freq_conf = min(0.62, 0.52 + 0.02 * math.log1p(doc_freq))
             cand_scores[san] = max(cand_scores.get(san, 0.0), freq_conf)
+            if norm_san not in passage_att_norms:
+                index_only_norms.add(norm_san)
             cand_rationales.setdefault(
                 san,
                 f"Ricostruisce la forma **{full_word}** attestata in {doc_freq} "
@@ -259,6 +323,10 @@ def _build_neuro_lexical_rag_prediction(
             K=max(num_candidates * 2, 15),
             normalize_probs=False,
         )
+        norm_to_cand_key: dict[str, str] = {
+            normalize_greek(k, case_folding="fold", strip_diacritics_flag=True): k
+            for k in cand_scores
+        }
         valid_rank = 0
         fb_rank = 0
         for raw_supp, _log_p in mlm_raw:
@@ -277,15 +345,21 @@ def _build_neuro_lexical_rag_prediction(
             if min_chars <= cand_len <= max_chars:
                 mlm_conf = max(0.25, 0.84 - 0.05 * valid_rank)
                 valid_rank += 1
-                if san in cand_scores:
-                    # Bonus sinergico se il candidato è confermato sia dal corpus sia dal modello BERT
-                    cand_scores[san] = min(0.99, max(cand_scores[san], mlm_conf) + 0.12)
-                    if san in cand_rationales:
-                        cand_rationales[san] = (
-                            f"{cand_rationales[san]} Confermato anche dalla distribuzione contestuale {bert_short_name}."
+                norm_san = normalize_greek(san, case_folding="fold", strip_diacritics_flag=True)
+                existing_key = san if san in cand_scores else norm_to_cand_key.get(norm_san)
+                if existing_key is not None:
+                    # La conferma contestuale di BERT promuove il candidato fuori dal gruppo index-only
+                    index_only_norms.discard(norm_san)
+                    cand_scores[existing_key] = min(
+                        0.96, max(cand_scores[existing_key], mlm_conf) + 0.08
+                    )
+                    if existing_key in cand_rationales:
+                        cand_rationales[existing_key] = (
+                            f"{cand_rationales[existing_key]} Confermato anche dalla distribuzione contestuale {bert_short_name}."
                         )
                 else:
                     cand_scores[san] = mlm_conf
+                    norm_to_cand_key[norm_san] = san
                     full_rec = f"{word_prefix}{san}{word_suffix}"
                     cand_rationales[san] = (
                         f"Completa la forma **{full_rec}** ({cand_len} lettere) con elevata probabilità "
@@ -354,6 +428,7 @@ def _build_neuro_lexical_rag_prediction(
         max_chars=max_chars,
         word_prefix=word_prefix,
         word_suffix=word_suffix,
+        index_only_supplements=sorted(index_only_norms),
     )
 
 
@@ -670,11 +745,26 @@ def fill_mask_rag(
         if r and r.strip()
     }
 
+    raw_index_only = getattr(pred, "index_only_supplements", None) or ()
+    index_only_norm_set: set[str] = {
+        re.sub(
+            r"[\s\u200B-\u200D\uFEFF]",
+            "",
+            normalize_greek(
+                str(s),
+                case_folding=case_folding,
+                strip_diacritics_flag=strip_diacritics_flag,
+            ),
+        ).strip()
+        for s in raw_index_only
+        if s
+    }
+
     seen: set[str] = set()
-    unique_candidates: list[tuple[str, float]] = []
+    dedup_pool: list[tuple[str, float, bool]] = []
     raw_rationales_by_norm: dict[str, str] = {}
 
-    for raw_supp, score, _is_valid_len, raw_rationale in scored_pool:
+    for raw_supp, score, is_valid_len, raw_rationale in scored_pool:
         norm_key = normalize_greek(
             raw_supp,
             case_folding=case_folding,
@@ -695,18 +785,7 @@ def fill_mask_rag(
 
         if norm_key not in seen:
             seen.add(norm_key)
-            unique_candidates.append((norm_key, float(score)))
-        if len(unique_candidates) >= K:
-            break
-
-    if normalize_probs and unique_candidates:
-        max_s = max(s for _, s in unique_candidates)
-        unnorm = [math.exp(s - max_s) for _, s in unique_candidates]
-        total = sum(unnorm) or 1.0
-        unique_candidates = [
-            (item, float(p / total))
-            for (item, _), p in zip(unique_candidates, unnorm)
-        ]
+            dedup_pool.append((norm_key, float(score), bool(is_valid_len)))
 
     retrieved_passages_list = list(getattr(pred, "retrieved_passages", []) or [])
     all_retrieved_passages_list = list(
@@ -714,52 +793,106 @@ def fill_mask_rag(
     )
     raw_reasoning = str(getattr(pred, "philological_reasoning", "") or "").strip()
 
+    # Calibriamo gli score in base alle attestazioni (TLG + Retriever) prima del taglio `[:K]`
+    # e della softmax, così da promuovere i candidati doppiamente attestati nel ranking.
+    passages_for_attestation = all_retrieved_passages_list or retrieved_passages_list
+    has_retriever_context = active_retriever is not None or bool(passages_for_attestation)
+    tlg_vocab = vocab if vocab is not None else get_normalized_vocab(vocab_path)
+
+    precomputed_atts: dict[str, list[dict[str, Any]]] = {}
+    precomputed_tlg: dict[str, dict[str, Any]] = {}
+    calibrated_pool: list[tuple[str, float, bool]] = []
+
+    for norm_key, base_score, is_valid_len in dedup_pool:
+        atts = (
+            resolve_candidate_attestations(
+                supplement=norm_key,
+                word_prefix=word_prefix,
+                word_suffix=word_suffix,
+                retrieved_passages=passages_for_attestation,
+                retriever=active_retriever,
+                max_attestations=3,
+            )
+            if has_retriever_context
+            else []
+        )
+
+        # Intercetta l'attestazione TLG sia dal lookup lessicale sull'intero TLG sia dai documenti RAG recuperati
+        lex_attested, recon_word = check_tlg_attestation(
+            supplement=norm_key,
+            word_prefix=word_prefix,
+            word_suffix=word_suffix,
+            vocab=tlg_vocab,
+        )
+        corpus_tlg_attested = any(
+            str(a.get("corpus_id", "")).strip().lower().startswith("tlg")
+            for a in atts
+        )
+        if (
+            corpus_tlg_attested
+            and atts
+            and atts[0].get("attested_form")
+            and normalize_for_tlg_lookup(str(atts[0]["attested_form"]))
+            == normalize_for_tlg_lookup(recon_word)
+        ):
+            recon_word = str(atts[0]["attested_form"]).lower()
+
+        is_tlg_attested = bool(lex_attested or corpus_tlg_attested)
+        calibrated_score, att_tier = calibrate_candidate_attestation_score(
+            base_score=base_score,
+            is_tlg_attested=is_tlg_attested,
+            attestations=atts,
+            is_index_only=(norm_key in index_only_norm_set),
+            apply_unattested_penalty=bool(tlg_vocab or has_retriever_context),
+        )
+
+        precomputed_atts[norm_key] = atts
+        precomputed_tlg[norm_key] = {
+            "tlg_attested": is_tlg_attested,
+            "reconstructed_word": recon_word,
+            "attestation_tier": att_tier,
+        }
+        calibrated_pool.append((norm_key, calibrated_score, is_valid_len))
+
+    calibrated_pool.sort(key=lambda item: (item[2], item[1]), reverse=True)
+    unique_candidates: list[tuple[str, float]] = [
+        (norm_key, float(cal_score))
+        for norm_key, cal_score, _is_valid_len in calibrated_pool[:K]
+    ]
+
+    if normalize_probs and unique_candidates:
+        max_s = max(s for _, s in unique_candidates)
+        temp = RAG_SOFTMAX_TEMPERATURE if RAG_SOFTMAX_TEMPERATURE > 0 else 1.0
+        unnorm = [math.exp((s - max_s) / temp) for _, s in unique_candidates]
+        total = sum(unnorm) or 1.0
+        unique_candidates = [
+            (item, float(p / total))
+            for (item, _), p in zip(unique_candidates, unnorm)
+        ]
+
     if return_details:
         # Risolve per ciascun suggerimento restituito:
         # 1) le attestazioni puntuali nella collezione di documenti (corpus) con la forma in grassetto (**...**);
-        # 2) l'attestazione lessicale nell'intero TLG (boundary reconstruction + lookup su tlg.wl.gz
-        #    oppure intercettazione diretta delle attestazioni nel corpus TLG);
+        # 2) l'attestazione lessicale nell'intero TLG (riutilizzando i dati calcolati in pre-ranking);
         # 3) il ragionamento di 2° livello (CoT specifica per il singolo suggerimento).
         candidate_attestations: dict[str, list[dict[str, Any]]] = {}
         candidate_rationales: dict[str, str] = {}
         tlg_attestations: dict[str, dict[str, Any]] = {}
-        tlg_vocab = get_normalized_vocab(vocab_path)
 
         for cand_supp, _cand_score in unique_candidates:
-            atts = resolve_candidate_attestations(
-                supplement=cand_supp,
-                word_prefix=word_prefix,
-                word_suffix=word_suffix,
-                retrieved_passages=all_retrieved_passages_list or retrieved_passages_list,
-                retriever=active_retriever,
-                max_attestations=3,
-            )
+            atts = precomputed_atts.get(cand_supp, [])
             if atts:
                 candidate_attestations[cand_supp] = atts
 
-            # Intercetta l'attestazione TLG sia dal lookup lessicale sull'intero TLG sia dai documenti RAG recuperati
-            lex_attested, recon_word = check_tlg_attestation(
-                supplement=cand_supp,
-                word_prefix=word_prefix,
-                word_suffix=word_suffix,
-                vocab=tlg_vocab,
+            tlg_info = precomputed_tlg.get(
+                cand_supp,
+                {
+                    "tlg_attested": False,
+                    "reconstructed_word": cand_supp.lower(),
+                    "attestation_tier": 4,
+                },
             )
-            corpus_tlg_attested = any(
-                str(a.get("corpus_id", "")).strip().lower().startswith("tlg")
-                for a in atts
-            )
-            if (
-                corpus_tlg_attested
-                and atts
-                and atts[0].get("attested_form")
-                and normalize_for_tlg_lookup(str(atts[0]["attested_form"]))
-                == normalize_for_tlg_lookup(recon_word)
-            ):
-                recon_word = str(atts[0]["attested_form"]).lower()
-            tlg_info = {
-                "tlg_attested": bool(lex_attested or corpus_tlg_attested),
-                "reconstructed_word": recon_word,
-            }
+            is_tlg_attested = bool(tlg_info.get("tlg_attested", False))
             tlg_attestations[cand_supp] = tlg_info
             tlg_attestations[cand_supp.lower()] = tlg_info
 
@@ -787,14 +920,26 @@ def fill_mask_rag(
                 )
                 att_form = first_att.get("attested_form") or reconstructed_word
                 doc_freq = first_att.get("doc_freq", 1)
-                att_note = (
-                    f"Forma **{att_form}** attestata nel corpus [{loc_label}] "
-                    f"({doc_freq} {'documento' if doc_freq == 1 else 'documenti'})."
-                )
+                if is_tlg_attested:
+                    att_note = (
+                        f"Forma **{att_form}** con doppia attestazione "
+                        f"(lessico TLG e corpus [{loc_label}], "
+                        f"{doc_freq} {'documento' if doc_freq == 1 else 'documenti'})."
+                    )
+                else:
+                    att_note = (
+                        f"Forma **{att_form}** attestata nel corpus [{loc_label}] "
+                        f"({doc_freq} {'documento' if doc_freq == 1 else 'documenti'})."
+                    )
                 if loc_label not in base_rationale:
                     base_rationale = f"{base_rationale} {att_note}".strip()
-                elif f"**{att_form}**" not in base_rationale and att_form in base_rationale:
-                    base_rationale = base_rationale.replace(att_form, f"**{att_form}**", 1)
+                else:
+                    if f"**{att_form}**" not in base_rationale and att_form in base_rationale:
+                        base_rationale = base_rationale.replace(att_form, f"**{att_form}**", 1)
+                    if is_tlg_attested and "doppia attestazione" not in base_rationale:
+                        base_rationale = (
+                            f"{base_rationale} Confermata anche dal lessico TLG (doppia attestazione)."
+                        ).strip()
 
             candidate_rationales[cand_supp] = base_rationale
 

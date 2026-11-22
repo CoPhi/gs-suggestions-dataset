@@ -564,7 +564,11 @@ class GreekRAGInfiller(dspy.Module):
                 pass
 
         # 5. Integrazione con attestazioni dirette dai passi paralleli recuperati e dall'indice BM25 del corpus
-        corpus_attestations = extract_parallel_attestations(
+        llm_norm_set: set[str] = {
+            normalize_greek(c.supplement, case_folding="fold", strip_diacritics_flag=True)
+            for c in valid_candidates
+        }
+        passage_attestations = extract_parallel_attestations(
             context_with_gap=clean_context,
             retrieved_passages=all_retrieved_passages or retrieved_passages,
             min_chars=req_min,
@@ -572,6 +576,12 @@ class GreekRAGInfiller(dspy.Module):
             word_prefix=w_prefix,
             word_suffix=w_suffix,
         )
+        passage_att_norm_set: set[str] = {
+            normalize_greek(att.supplement, case_folding="fold", strip_diacritics_flag=True)
+            for att in passage_attestations
+        }
+
+        index_attestation_cands: list[GreekCandidate] = []
         if (
             self.retriever is not None
             and self.top_k_passages > 0
@@ -587,8 +597,9 @@ class GreekRAGInfiller(dspy.Module):
                     top_n=max(num_candidates, 10),
                 )
                 for _full_w, idx_supp, doc_freq in idx_matches:
-                    idx_conf = min(0.92, 0.72 + 0.03 * min(doc_freq, 6))
-                    corpus_attestations.append(
+                    # Prior lessicale moderato per i candidati estratti dall'indice BM25 senza conferma LLM
+                    idx_conf = min(0.68, 0.56 + 0.02 * min(doc_freq, 6))
+                    index_attestation_cands.append(
                         GreekCandidate(
                             supplement=idx_supp,
                             confidence=idx_conf,
@@ -601,18 +612,25 @@ class GreekRAGInfiller(dspy.Module):
             except Exception:
                 pass
 
-        existing_by_norm: dict[str, GreekCandidate] = {
-            normalize_greek(c.supplement, case_folding="fold", strip_diacritics_flag=True): c
-            for c in valid_candidates
-        }
-        for att in corpus_attestations:
+        existing_by_norm: dict[str, GreekCandidate] = {}
+        for c in valid_candidates:
+            norm_c = normalize_greek(c.supplement, case_folding="fold", strip_diacritics_flag=True)
+            if norm_c and norm_c not in existing_by_norm:
+                existing_by_norm[norm_c] = c
+
+        boosted_llm_norms: set[str] = set()
+        index_only_norms: set[str] = set()
+
+        for att in passage_attestations:
             norm_att = normalize_greek(att.supplement, case_folding="fold", strip_diacritics_flag=True)
             if not norm_att or norm_att in rejected_norm_set:
                 continue
             if norm_att in existing_by_norm:
-                # Bonus sinergico quando un candidato proposto dall'LLM è anche attestato nel corpus
                 existing = existing_by_norm[norm_att]
-                existing.confidence = min(0.99, max(existing.confidence, att.confidence) + 0.05)
+                if norm_att in llm_norm_set and norm_att not in boosted_llm_norms:
+                    # Bonus sinergico quando un candidato proposto dall'LLM è anche attestato nei passi paralleli
+                    existing.confidence = min(0.96, max(existing.confidence, att.confidence) + 0.06)
+                    boosted_llm_norms.add(norm_att)
                 if att.attestations and not existing.attestations:
                     existing.attestations = list(att.attestations)
                 if att.rationale and not existing.rationale:
@@ -620,6 +638,25 @@ class GreekRAGInfiller(dspy.Module):
             else:
                 valid_candidates.append(att)
                 existing_by_norm[norm_att] = att
+
+        for att in index_attestation_cands:
+            norm_att = normalize_greek(att.supplement, case_folding="fold", strip_diacritics_flag=True)
+            if not norm_att or norm_att in rejected_norm_set:
+                continue
+            if norm_att in existing_by_norm:
+                existing = existing_by_norm[norm_att]
+                if norm_att in llm_norm_set and norm_att not in boosted_llm_norms:
+                    # Bonus sinergico quando un candidato proposto dall'LLM è confermato nell'indice del corpus
+                    existing.confidence = min(0.96, max(existing.confidence, att.confidence) + 0.06)
+                    boosted_llm_norms.add(norm_att)
+                if att.rationale and not existing.rationale:
+                    existing.rationale = att.rationale
+            else:
+                valid_candidates.append(att)
+                existing_by_norm[norm_att] = att
+                # Traccia i supplementi introdotti solo da match_affix_words (senza LLM né loci similes)
+                if norm_att not in passage_att_norm_set:
+                    index_only_norms.add(norm_att)
 
         return dspy.Prediction(
             philological_reasoning=reasoning,
@@ -632,4 +669,5 @@ class GreekRAGInfiller(dspy.Module):
             max_chars=req_max,
             word_prefix=w_prefix,
             word_suffix=w_suffix,
+            index_only_supplements=sorted(index_only_norms),
         )
