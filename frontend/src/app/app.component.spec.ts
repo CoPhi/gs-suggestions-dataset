@@ -788,15 +788,91 @@ describe('AppComponent', () => {
     expect(app.savedChats().length).toBe(1);
     expect(app.conversationTurns().length).toBe(0);
 
-    // Svuota tutto lo storico
+    // Svuota tutto lo storico tramite il menu impostazioni (tre punti) nella toolbar della sidebar
     if (!app.isSidebarOpen()) {
       (compiled.querySelector('.sidebar-toggle-btn') as HTMLButtonElement).click();
       fixture.detectChanges();
     }
-    (compiled.querySelector('.clear-history-btn') as HTMLButtonElement).click();
+    expect(compiled.querySelector('.sidebar-footer .clear-history-btn')).toBeNull();
+    (compiled.querySelector('.sidebar-settings-btn') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    expect(app.isSidebarSettingsOpen()).toBeTrue();
+    (compiled.querySelector('.sidebar-settings-menu .clear-history-btn') as HTMLButtonElement).click();
     await app.flushHistoryPersistence();
     fixture.detectChanges();
 
     expect(app.savedChats().length).toBe(0);
+    expect(app.isSidebarSettingsOpen()).toBeFalse();
+  });
+
+  it('should render top sidebar toolbar without grey header button, truncate sidebar lacuna text with ellipsis, and manage settings menu', async () => {
+    const fixture = TestBed.createComponent(AppComponent);
+    const app = fixture.componentInstance;
+    const api = TestBed.inject(ApiService);
+
+    app.models.set([
+      { _id: 'm1', CHECKPOINT: 'Qwen/Qwen2.5-72B-Instruct', BACKEND: 'auto', TOP_K_PASSAGES: 5, TYPE: 'RAG' }
+    ]);
+    spyOn(api, 'generateSuggestion').and.returnValue(
+      of([{ sentence: 'τειχεσιβλῆτα', token_str: 'βλῆτα', score: 0.94, tlg_attested: true }])
+    );
+
+    const longLacunaText = 'ὅτε ἤρξω *...* εψιν αὐτοῦ διερωτᾶν, οἴεται δὲ καὶ τόδ’ ὅμοιον ὂν τούτῳ, ὅλως οὐ συνείς, ἀποδεικνύειν ἐπιχειρεῖ αὐτὸς τί δεῖ σοι ἐγγενέσθαι.';
+    app.generateSuggestions({
+      text: longLacunaText,
+      modelID: 'm1',
+      num_tokens: 1,
+      num_predictions: 5
+    });
+    await app.flushHistoryPersistence();
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    // Il pulsante grigio "Nuova conversazione" nell'header conversazione non deve più esistere
+    expect(compiled.querySelector('.conversation-header .new-conversation-btn')).toBeNull();
+
+    // Apre la sidebar e verifica la toolbar superiore
+    (compiled.querySelector('.sidebar-toggle-btn') as HTMLButtonElement).click();
+    fixture.detectChanges();
+
+    const toolbar = compiled.querySelector('.sidebar-toolbar') as HTMLElement;
+    expect(toolbar).not.toBeNull();
+    expect(toolbar.querySelector('.sidebar-new-chat-btn')).not.toBeNull();
+    expect(toolbar.querySelector('.sidebar-settings-btn')).not.toBeNull();
+    expect(toolbar.querySelector('.sidebar-close-btn')).not.toBeNull();
+    // Il footer non contiene più il pulsante "Svuota tutto"
+    expect(compiled.querySelector('.sidebar-footer .clear-history-btn')).toBeNull();
+
+    // Verifica il troncamento CSS con ellipsis del testo lacunoso dentro la card della sidebar
+    const titleEl = compiled.querySelector('.chat-history-title') as HTMLElement;
+    const titleContainer = titleEl.parentElement as HTMLElement;
+    expect(titleEl).not.toBeNull();
+    expect(titleEl.getAttribute('title')).toContain('ὅτε ἤρξω [...]');
+    const titleStyles = window.getComputedStyle(titleEl);
+    expect(titleStyles.textOverflow).toBe('ellipsis');
+    expect(titleStyles.overflow).toBe('hidden');
+    expect(titleStyles.whiteSpace).toBe('nowrap');
+    expect(window.getComputedStyle(titleContainer).minWidth).toBe('0px');
+
+    // Click sul pulsante nuova generazione nella toolbar -> reset conversazione
+    (toolbar.querySelector('.sidebar-new-chat-btn') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    expect(app.conversationTurns().length).toBe(0);
+    expect(compiled.querySelector('.initial-screen-layout')).not.toBeNull();
+
+    // Apertura menu impostazioni, svuotamento chat e verifica stato disabilitato a storico vuoto
+    (compiled.querySelector('.sidebar-settings-btn') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    const clearBtn = compiled.querySelector('.sidebar-settings-menu .clear-history-btn') as HTMLButtonElement;
+    expect(clearBtn.disabled).toBeFalse();
+    clearBtn.click();
+    await app.flushHistoryPersistence();
+    fixture.detectChanges();
+
+    expect(app.savedChats().length).toBe(0);
+    (compiled.querySelector('.sidebar-settings-btn') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    const disabledClearBtn = compiled.querySelector('.sidebar-settings-menu .clear-history-btn') as HTMLButtonElement;
+    expect(disabledClearBtn.disabled).toBeTrue();
   });
 });

@@ -27,3 +27,8 @@
     right: 20px;
     z-index: 1100;
 }
+
+/* Bootstrap 5.3 non espone .min-w-0: necessaria sui figli flex per abilitare text-truncate/ellipsis */
+.min-w-0 {
+    min-width: 0 !important;
+}

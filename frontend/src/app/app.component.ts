@@ -27,7 +27,11 @@ export type { ConversationTurn, ModelSuggestionBoxItem } from './services/chat-h
   imports: [SuggestsBoxComponent, ModelsBoxComponent, PromptBoxComponent],
   templateUrl: './app.component.html',
   changeDetection: ChangeDetectionStrategy.Eager,
-  styleUrl: './app.component.css'
+  styleUrl: './app.component.css',
+  host: {
+    '(document:click)': 'closeSidebarSettingsMenu()',
+    '(document:keydown.escape)': 'closeSidebarSettingsMenu()',
+  }
 })
 export class AppComponent {
   title = 'gs-api';
@@ -61,6 +65,7 @@ export class AppComponent {
   currentChatCreatedAt = signal<string | null>(null);
   savedChats = signal<ChatHistorySession[]>([]);
   isSidebarOpen = signal<boolean>(false);
+  isSidebarSettingsOpen = signal<boolean>(false);
 
   activeRefinementTurn = computed<ConversationTurn | null>(() => {
     const id = this.activeRefinementTurnId();
@@ -133,8 +138,8 @@ export class AppComponent {
     const first = turns[0];
     if (!first) return 'Nuova conversazione';
     const clean = (first.normalizedText || first.rawText || '').replace(/\s+/g, ' ').trim();
-    if (!clean) return 'Conversazione';
-    return clean.length > 64 ? `${clean.slice(0, 64)}…` : clean;
+    // Mantiene il testo integrale per il tooltip nativo; il troncamento con "..." avviene via CSS
+    return clean || 'Conversazione';
   }
 
   private buildCurrentChatSnapshot(): ChatHistorySession | null {
@@ -166,11 +171,29 @@ export class AppComponent {
   }
 
   toggleSidebar() {
-    this.isSidebarOpen.update(open => !open);
+    this.isSidebarOpen.update(open => {
+      if (open) {
+        this.isSidebarSettingsOpen.set(false);
+      }
+      return !open;
+    });
   }
 
   closeSidebar() {
+    this.isSidebarSettingsOpen.set(false);
     this.isSidebarOpen.set(false);
+  }
+
+  toggleSidebarSettingsMenu(event: Event) {
+    // Ferma la propagazione per evitare che il listener globale document:click richiuda subito il menu
+    event.stopPropagation();
+    this.isSidebarSettingsOpen.update(open => !open);
+  }
+
+  closeSidebarSettingsMenu() {
+    if (this.isSidebarSettingsOpen()) {
+      this.isSidebarSettingsOpen.set(false);
+    }
   }
 
   loadChatFromHistory(chat: ChatHistorySession) {
@@ -234,6 +257,7 @@ export class AppComponent {
 
   clearAllChatHistory(event?: Event) {
     event?.stopPropagation();
+    this.isSidebarSettingsOpen.set(false);
     if (this.currentChatId()) {
       this.closeSuggestions();
     }
