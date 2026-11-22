@@ -66,10 +66,44 @@
     z-index: 1040;
 }
 
-.sidebar-toolbar-btn {
-    width: 28px;
-    height: 28px;
-    font-size: 0.85rem;
+.initial-top-bar {
+    /* Mantiene un'altezza fissa per evitare salti verticali quando il toggle si sposta nella sidebar */
+    min-height: 48px;
+}
+
+/* Pulsanti icona della sidebar (sia compressa che espansa): sempre privi di bordi */
+.sidebar-icon-btn {
+    width: 32px;
+    height: 32px;
+    border: 0 !important;
+    background-color: transparent;
+    color: #475569;
+    border-radius: 0.5rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    font-size: 1rem;
+    box-shadow: none !important;
+    transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.sidebar-icon-btn:hover,
+.sidebar-icon-btn:active,
+.sidebar-icon-btn[aria-expanded="true"] {
+    border: 0 !important;
+    background-color: rgba(15, 23, 42, 0.07);
+    color: #0f172a;
+}
+
+.sidebar-icon-btn:focus {
+    border: 0 !important;
+    box-shadow: none !important;
+}
+
+.sidebar-icon-btn:focus-visible {
+    outline: 2px solid rgba(13, 110, 253, 0.35);
+    outline-offset: 2px;
 }
 
 .sidebar-settings-dropdown {

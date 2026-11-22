@@ -37,17 +37,18 @@
         <div class="sidebar-backdrop d-lg-none" (click)="closeSidebar()"></div>
         <aside class="chat-history-sidebar d-flex flex-column bg-white border-end shadow-sm"
                aria-label="Storico conversazioni">
-            <div class="d-flex align-items-center justify-content-between gap-2 px-3 py-2 border-bottom sidebar-header sidebar-toolbar">
-                <div class="d-flex align-items-center gap-2 min-w-0">
-                    <i class="bi bi-clock-history text-primary flex-shrink-0"></i>
-                    <h2 class="h6 mb-0 fw-bold text-dark text-truncate">Storico chat</h2>
-                    @if (savedChats().length > 0) {
-                        <span class="badge bg-secondary-subtle text-secondary rounded-pill flex-shrink-0">{{ savedChats().length }}</span>
-                    }
-                </div>
+            <div class="d-flex align-items-center justify-content-between gap-2 px-2 py-2 border-bottom sidebar-header sidebar-toolbar">
+                <button type="button"
+                        class="btn sidebar-icon-btn sidebar-toolbar-btn sidebar-close-btn"
+                        (click)="toggleSidebar()"
+                        [attr.aria-expanded]="isSidebarOpen()"
+                        title="Chiudi pannello storico"
+                        aria-label="Chiudi storico">
+                    <i class="bi bi-layout-sidebar"></i>
+                </button>
                 <div class="d-flex align-items-center gap-1 flex-shrink-0 sidebar-toolbar-actions">
                     <button type="button"
-                            class="btn btn-sm btn-primary rounded-circle d-flex align-items-center justify-content-center p-0 sidebar-toolbar-btn sidebar-new-chat-btn"
+                            class="btn sidebar-icon-btn sidebar-toolbar-btn sidebar-new-chat-btn"
                             (click)="closeSuggestions()"
                             title="Nuova conversazione"
                             aria-label="Nuova conversazione">
@@ -57,7 +58,7 @@
                     <div class="dropdown sidebar-settings-dropdown"
                          [class.show]="isSidebarSettingsOpen()">
                         <button type="button"
-                                class="btn btn-sm btn-outline-secondary rounded-circle d-flex align-items-center justify-content-center p-0 sidebar-toolbar-btn sidebar-settings-btn"
+                                class="btn sidebar-icon-btn sidebar-toolbar-btn sidebar-settings-btn"
                                 (click)="toggleSidebarSettingsMenu($event)"
                                 [attr.aria-expanded]="isSidebarSettingsOpen()"
                                 aria-haspopup="menu"
@@ -82,14 +83,6 @@
                             </li>
                         </ul>
                     </div>
-
-                    <button type="button"
-                            class="btn btn-sm btn-outline-secondary rounded-circle d-flex align-items-center justify-content-center p-0 sidebar-toolbar-btn sidebar-close-btn"
-                            (click)="closeSidebar()"
-                            title="Chiudi pannello storico"
-                            aria-label="Chiudi storico">
-                        <i class="bi bi-x-lg"></i>
-                    </button>
                 </div>
             </div>
 
@@ -142,17 +135,16 @@
 
         @if (conversationTurns().length === 0) {
             <div class="initial-top-bar w-100 px-3 py-2 d-flex align-items-center">
-                <button type="button"
-                        class="btn btn-sm btn-outline-secondary rounded-pill px-3 d-inline-flex align-items-center gap-2 sidebar-toggle-btn"
-                        (click)="toggleSidebar()"
-                        [attr.aria-expanded]="isSidebarOpen()"
-                        title="Apri o chiudi lo storico delle conversazioni">
-                    <i class="bi bi-layout-sidebar"></i>
-                    <span>Storico</span>
-                    @if (savedChats().length > 0) {
-                        <span class="badge bg-secondary-subtle text-secondary rounded-pill">{{ savedChats().length }}</span>
-                    }
-                </button>
+                @if (!isSidebarOpen()) {
+                    <button type="button"
+                            class="btn sidebar-icon-btn sidebar-toggle-btn"
+                            (click)="toggleSidebar()"
+                            [attr.aria-expanded]="isSidebarOpen()"
+                            title="Apri lo storico delle conversazioni"
+                            aria-label="Apri storico">
+                        <i class="bi bi-layout-sidebar"></i>
+                    </button>
+                }
             </div>
         }
 
@@ -161,17 +153,16 @@
             <header class="conversation-header w-100 border-bottom px-3">
                 <div class="conversation-container d-flex justify-content-between align-items-center flex-nowrap gap-2 mx-auto">
                     <div class="d-flex align-items-center gap-2 min-w-0">
-                        <button type="button"
-                                class="btn btn-sm btn-outline-secondary rounded-pill px-2 py-1 d-inline-flex align-items-center gap-1 flex-shrink-0 sidebar-toggle-btn"
-                                (click)="toggleSidebar()"
-                                [attr.aria-expanded]="isSidebarOpen()"
-                                title="Apri o chiudi lo storico delle conversazioni"
-                                aria-label="Storico conversazioni">
-                            <i class="bi bi-layout-sidebar"></i>
-                            @if (savedChats().length > 0) {
-                                <span class="badge bg-secondary-subtle text-secondary rounded-pill">{{ savedChats().length }}</span>
-                            }
-                        </button>
+                        @if (!isSidebarOpen()) {
+                            <button type="button"
+                                    class="btn sidebar-icon-btn flex-shrink-0 sidebar-toggle-btn"
+                                    (click)="toggleSidebar()"
+                                    [attr.aria-expanded]="isSidebarOpen()"
+                                    title="Apri lo storico delle conversazioni"
+                                    aria-label="Apri storico">
+                                <i class="bi bi-layout-sidebar"></i>
+                            </button>
+                        }
                         <h1 class="h5 mb-0 fw-bold text-dark text-truncate">Generatore di Suggerimenti</h1>
                     </div>
                 </div>

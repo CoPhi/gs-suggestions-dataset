@@ -830,16 +830,32 @@ describe('AppComponent', () => {
     const compiled = fixture.nativeElement as HTMLElement;
     // Il pulsante grigio "Nuova conversazione" nell'header conversazione non deve più esistere
     expect(compiled.querySelector('.conversation-header .new-conversation-btn')).toBeNull();
+    // Con sidebar chiusa il pulsante toggle è presente nell'header, privo di bordi e senza la scritta "Storico"
+    const headerToggleBtn = compiled.querySelector('.conversation-header .sidebar-toggle-btn') as HTMLButtonElement;
+    expect(headerToggleBtn).not.toBeNull();
+    expect(headerToggleBtn.textContent?.trim()).toBe('');
+    expect(window.getComputedStyle(headerToggleBtn).borderTopWidth).toBe('0px');
 
-    // Apre la sidebar e verifica la toolbar superiore
-    (compiled.querySelector('.sidebar-toggle-btn') as HTMLButtonElement).click();
+    // Apre la sidebar e verifica la toolbar superiore senza etichette "Storico chat" e senza duplicazione esterna
+    headerToggleBtn.click();
     fixture.detectChanges();
 
+    expect(compiled.querySelector('.conversation-header .sidebar-toggle-btn')).toBeNull();
     const toolbar = compiled.querySelector('.sidebar-toolbar') as HTMLElement;
     expect(toolbar).not.toBeNull();
-    expect(toolbar.querySelector('.sidebar-new-chat-btn')).not.toBeNull();
-    expect(toolbar.querySelector('.sidebar-settings-btn')).not.toBeNull();
-    expect(toolbar.querySelector('.sidebar-close-btn')).not.toBeNull();
+    expect(toolbar.textContent).not.toContain('Storico chat');
+    expect(toolbar.textContent).not.toContain('Storico');
+
+    const newChatBtn = toolbar.querySelector('.sidebar-new-chat-btn') as HTMLButtonElement;
+    const settingsBtn = toolbar.querySelector('.sidebar-settings-btn') as HTMLButtonElement;
+    const closeBtn = toolbar.querySelector('.sidebar-close-btn') as HTMLButtonElement;
+    expect(newChatBtn).not.toBeNull();
+    expect(settingsBtn).not.toBeNull();
+    expect(closeBtn).not.toBeNull();
+    // Tutti i bottoni della toolbar (espansi e non) sono privi di bordi
+    expect(window.getComputedStyle(newChatBtn).borderTopWidth).toBe('0px');
+    expect(window.getComputedStyle(settingsBtn).borderTopWidth).toBe('0px');
+    expect(window.getComputedStyle(closeBtn).borderTopWidth).toBe('0px');
     // Il footer non contiene più il pulsante "Svuota tutto"
     expect(compiled.querySelector('.sidebar-footer .clear-history-btn')).toBeNull();
 
@@ -855,14 +871,17 @@ describe('AppComponent', () => {
     expect(window.getComputedStyle(titleContainer).minWidth).toBe('0px');
 
     // Click sul pulsante nuova generazione nella toolbar -> reset conversazione
-    (toolbar.querySelector('.sidebar-new-chat-btn') as HTMLButtonElement).click();
+    newChatBtn.click();
     fixture.detectChanges();
     expect(app.conversationTurns().length).toBe(0);
     expect(compiled.querySelector('.initial-screen-layout')).not.toBeNull();
+    // Nella schermata iniziale, finché la sidebar è aperta, non compare il toggle duplicato nella top bar
+    expect(compiled.querySelector('.initial-top-bar .sidebar-toggle-btn')).toBeNull();
 
-    // Apertura menu impostazioni, svuotamento chat e verifica stato disabilitato a storico vuoto
-    (compiled.querySelector('.sidebar-settings-btn') as HTMLButtonElement).click();
+    // Apertura menu impostazioni (il bottone resta senza bordi anche in stato espanso), svuotamento chat e verifica stato disabilitato
+    settingsBtn.click();
     fixture.detectChanges();
+    expect(window.getComputedStyle(settingsBtn).borderTopWidth).toBe('0px');
     const clearBtn = compiled.querySelector('.sidebar-settings-menu .clear-history-btn') as HTMLButtonElement;
     expect(clearBtn.disabled).toBeFalse();
     clearBtn.click();
@@ -870,9 +889,18 @@ describe('AppComponent', () => {
     fixture.detectChanges();
 
     expect(app.savedChats().length).toBe(0);
-    (compiled.querySelector('.sidebar-settings-btn') as HTMLButtonElement).click();
+    settingsBtn.click();
     fixture.detectChanges();
     const disabledClearBtn = compiled.querySelector('.sidebar-settings-menu .clear-history-btn') as HTMLButtonElement;
     expect(disabledClearBtn.disabled).toBeTrue();
+
+    // Chiudendo la sidebar dalla toolbar interna, riappare il toggle senza bordi e senza testo "Storico" nella top bar
+    closeBtn.click();
+    fixture.detectChanges();
+    expect(app.isSidebarOpen()).toBeFalse();
+    const initialToggleBtn = compiled.querySelector('.initial-top-bar .sidebar-toggle-btn') as HTMLButtonElement;
+    expect(initialToggleBtn).not.toBeNull();
+    expect(initialToggleBtn.textContent?.trim()).toBe('');
+    expect(window.getComputedStyle(initialToggleBtn).borderTopWidth).toBe('0px');
   });
 });
