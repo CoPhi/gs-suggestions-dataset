@@ -602,4 +602,38 @@ describe('PromptBoxComponent', () => {
     expect(compiled.querySelector('.text-danger')).toBeNull();
     expect(compiled.querySelector('.prompt-manual-toggle-link')).toBeTruthy();
   });
+
+  it('should allow only LLM RAG models to be selected or submitted during refinement mode', () => {
+    fixture.componentRef.setInput('models', [
+      mockIthacaModel,
+      mockBertModel,
+      mockNgramsModel,
+      mockRagModel,
+      mockGrebertaRagModel,
+    ]);
+    component.setSingleModelSelection(mockRagModel._id);
+    fixture.componentRef.setInput('isRefinementMode', true);
+    fixture.componentRef.setInput('refinementRejectedCandidates', ['πλητα']);
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    const items = Array.from(compiled.querySelectorAll('.model-dropdown-item')) as HTMLButtonElement[];
+    // Ithaca e GreBerta+RAG devono essere disabilitati; Qwen RAG abilitato
+    const ithacaBtn = items.find(btn => btn.textContent?.includes('gs-ithaca-tlg'));
+    const grebertaBtn = items.find(btn => btn.textContent?.includes('gs-GreBerta'));
+    const qwenBtn = items.find(btn => btn.textContent?.includes('Qwen2.5-7B-Instruct'));
+    expect(ithacaBtn?.disabled).toBeTrue();
+    expect(grebertaBtn?.disabled).toBeTrue();
+    expect(qwenBtn?.disabled).toBeFalse();
+
+    // Tentativo programmatico di selezionare Ithaca in refinement mode non cambia modello
+    component.selectModel(mockIthacaModel._id);
+    expect(component.curr_id()).toBe(mockRagModel._id);
+    expect(component.canSubmit()).toBeTrue();
+
+    // Se per stato esterno fosse selezionato un modello non-LLM, canSubmit è false
+    component.setSingleModelSelection(mockIthacaModel._id);
+    fixture.detectChanges();
+    expect(component.canSubmit()).toBeFalse();
+  });
 });

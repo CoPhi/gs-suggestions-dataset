@@ -161,10 +161,11 @@
         <div class="d-flex align-items-center flex-wrap gap-2 turn-controls-left">
             <button type="button"
                     class="btn btn-sm rounded-pill d-flex align-items-center gap-1 px-2 py-1 hitl-toggle-btn"
-                    [class.btn-primary]="isRefinementActive() || (!externalRefinementMode() && (showHitlMenu() || canRefine()))"
-                    [class.btn-outline-secondary]="!(isRefinementActive() || (!externalRefinementMode() && (showHitlMenu() || canRefine())))"
+                    [disabled]="!canSupportRefinement()"
+                    [class.btn-primary]="canSupportRefinement() && (isRefinementActive() || (!externalRefinementMode() && (showHitlMenu() || canRefine())))"
+                    [class.btn-outline-secondary]="!canSupportRefinement() || !(isRefinementActive() || (!externalRefinementMode() && (showHitlMenu() || canRefine())))"
                     (click)="toggleHitlMenu()"
-                    title="Attiva o disattiva la modalità raffinamento (Human-in-the-loop) nella barra in basso"
+                    [attr.title]="canSupportRefinement() ? 'Attiva o disattiva la modalità raffinamento (Human-in-the-loop) nella barra in basso' : 'Il raffinamento del prompt è disponibile solo per i modelli LLM'"
                     aria-label="Raffina suggerimenti">
                 <i class="bi bi-sliders2"></i>
                 <span class="small fw-semibold">Raffina</span>

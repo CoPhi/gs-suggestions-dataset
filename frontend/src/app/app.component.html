@@ -31,100 +31,288 @@
     }
 </div>
 
-<div class="app-shell d-flex flex-column align-items-center min-vh-100 bg-light-modern"
-     [class.initial-screen-layout]="conversationTurns().length === 0"
-     [class.conversation-screen-layout]="conversationTurns().length > 0">
-
-    @if (conversationTurns().length > 0) {
-        <!-- Header compatto conversazionale -->
-        <header class="conversation-header w-100 border-bottom px-3">
-            <div class="conversation-container d-flex justify-content-between align-items-center flex-nowrap gap-2 mx-auto">
-                <h1 class="h5 mb-0 fw-bold text-dark text-truncate">Generatore di Suggerimenti</h1>
+<div class="app-workspace d-flex min-vh-100 w-100 bg-light-modern">
+    <!-- Sidebar laterale sinistra collassabile con storico conversazioni persistito in IndexedDB -->
+    @if (isSidebarOpen()) {
+        <div class="sidebar-backdrop d-lg-none" (click)="closeSidebar()"></div>
+        <aside class="chat-history-sidebar d-flex flex-column bg-white border-end shadow-sm"
+               aria-label="Storico conversazioni">
+            <div class="d-flex align-items-center justify-content-between px-3 py-2 border-bottom sidebar-header">
+                <div class="d-flex align-items-center gap-2 min-w-0">
+                    <i class="bi bi-clock-history text-primary"></i>
+                    <h2 class="h6 mb-0 fw-bold text-dark text-truncate">Storico chat</h2>
+                    @if (savedChats().length > 0) {
+                        <span class="badge bg-secondary-subtle text-secondary rounded-pill">{{ savedChats().length }}</span>
+                    }
+                </div>
                 <button type="button"
-                        class="btn btn-sm btn-outline-secondary rounded-pill px-3 flex-shrink-0 new-conversation-btn"
+                        class="btn btn-sm btn-outline-secondary rounded-circle d-flex align-items-center justify-content-center p-0 sidebar-close-btn"
+                        (click)="closeSidebar()"
+                        title="Chiudi pannello storico"
+                        aria-label="Chiudi storico">
+                    <i class="bi bi-x-lg"></i>
+                </button>
+            </div>
+
+            <div class="p-2 border-bottom">
+                <button type="button"
+                        class="btn btn-sm btn-primary w-100 rounded-pill fw-semibold sidebar-new-chat-btn"
                         (click)="closeSuggestions()">
                     <i class="bi bi-plus-lg me-1"></i>Nuova conversazione
                 </button>
             </div>
-        </header>
 
-        <!-- Cronologia multi-turno -->
-        <main class="conversation-stream flex-grow-1 w-100 px-3 py-4">
-            <div class="conversation-container mx-auto d-flex flex-column gap-4">
-                @for (turn of conversationTurns(); track turn.turnId) {
-                    <section class="conversation-turn"
-                             [attr.data-turn-id]="turn.turnId"
-                             [class.is-collapsed]="!!turn.isCollapsed">
-                        <!-- Intestazione del turno: sticky sotto la top bar quando i suggerimenti sono pronti ed espansi -->
-                        <div class="turn-sticky-header d-flex align-items-start gap-2 py-2"
-                             [class.is-sticky]="hasTurnGeneratedSuggestions(turn)">
-                            <!-- Pulsante collapse/expand agganciato sul lato sinistro del turno -->
-                            <button type="button"
-                                    class="btn btn-sm btn-outline-secondary rounded-circle d-flex align-items-center justify-content-center p-0 flex-shrink-0 turn-collapse-btn"
-                                    (click)="toggleTurnCollapse(turn.turnId)"
-                                    [attr.aria-expanded]="!turn.isCollapsed"
-                                    [attr.title]="turn.isCollapsed ? 'Espandi turno' : 'Comprimi turno'"
-                                    [attr.aria-label]="turn.isCollapsed ? 'Espandi turno' : 'Comprimi turno'">
-                                <i class="bi" [class.bi-chevron-right]="turn.isCollapsed" [class.bi-chevron-down]="!turn.isCollapsed"></i>
-                            </button>
-
-                            <div class="d-flex justify-content-between align-items-start gap-2 flex-grow-1 min-w-0 turn-header">
-                                <div class="flex-grow-1 min-w-0">
-                                    <div class="turn-lacuna-text fw-medium text-dark">
-                                        @for (seg of getTurnTextSegments(turn.normalizedText); track $index) {
-                                            @if (seg.isLacuna) {
-                                                <span class="gap-highlight">{{ seg.text }}</span>
-                                            } @else {
-                                                <span>{{ seg.text }}</span>
-                                            }
-                                        }
-                                    </div>
-                                    @if (turn.isRefinement) {
-                                        <div class="d-flex align-items-center flex-wrap gap-2 mt-2 turn-refinement-constraints">
-                                            <span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill px-2 py-1">
-                                                <i class="bi bi-arrow-return-right me-1"></i>Raffinamento
-                                            </span>
-                                            @if (turn.appliedHumanFeedback) {
-                                                <span class="small text-secondary fst-italic turn-applied-feedback">
-                                                    "{{ turn.appliedHumanFeedback }}"
-                                                </span>
-                                            }
-                                            @for (rej of turn.appliedRejectedCandidates; track rej) {
-                                                <span class="badge bg-danger-subtle text-danger border border-danger-subtle rounded-pill px-2 py-1">
-                                                    Escluso: {{ rej }}
-                                                </span>
-                                            }
-                                        </div>
-                                    }
+            <div class="flex-grow-1 overflow-y-auto p-2 d-flex flex-column gap-1 sidebar-chat-list">
+                @if (savedChats().length === 0) {
+                    <div class="text-center text-muted small py-4 px-2 sidebar-empty-state">
+                        <i class="bi bi-chat-square-text fs-4 d-block mb-2 opacity-50"></i>
+                        Nessuna conversazione salvata.
+                    </div>
+                } @else {
+                    @for (chat of savedChats(); track chat.chatId) {
+                        <div class="chat-history-item rounded-3 p-2 d-flex align-items-start justify-content-between gap-2"
+                             [class.active]="currentChatId() === chat.chatId"
+                             role="button"
+                             tabindex="0"
+                             (click)="loadChatFromHistory(chat)"
+                             (keydown.enter)="loadChatFromHistory(chat)"
+                             [attr.aria-current]="currentChatId() === chat.chatId ? 'true' : null">
+                            <div class="flex-grow-1 min-w-0">
+                                <div class="fw-medium text-dark small text-truncate chat-history-title" [title]="chat.title">
+                                    {{ chat.title }}
                                 </div>
-                                <div class="d-flex align-items-center gap-1 flex-shrink-0">
-                                    <button type="button"
-                                            class="btn btn-sm btn-outline-secondary rounded-pill px-2 py-1 reuse-turn-text-btn"
-                                            (click)="reuseTurnText(turn)"
-                                            title="Riutilizza o modifica questo testo lacunoso nella barra in basso">
-                                        <i class="bi bi-pencil-square me-1"></i><span class="d-none d-sm-inline">Riutilizza</span>
-                                    </button>
-                                    <button type="button"
-                                            class="btn btn-sm btn-outline-secondary rounded-circle d-flex align-items-center justify-content-center p-0 close-turn-btn"
-                                            (click)="closeTurn(turn.turnId)"
-                                            title="Rimuovi questo turno"
-                                            aria-label="Rimuovi turno">
-                                        <i class="bi bi-x-lg"></i>
-                                    </button>
+                                <div class="d-flex align-items-center gap-2 mt-1 text-muted chat-history-meta">
+                                    <span>{{ chat.turns.length }} {{ chat.turns.length === 1 ? 'turno' : 'turni' }}</span>
+                                    <span>·</span>
+                                    <span>{{ formatTurnTimestamp(chat.updatedAt) }}</span>
                                 </div>
                             </div>
+                            <button type="button"
+                                    class="btn btn-sm btn-link text-muted p-0 flex-shrink-0 delete-chat-btn"
+                                    (click)="deleteChatFromHistory(chat.chatId, $event)"
+                                    title="Elimina questa conversazione"
+                                    aria-label="Elimina conversazione">
+                                <i class="bi bi-trash"></i>
+                            </button>
                         </div>
+                    }
+                }
+            </div>
 
-                        <div class="turn-body-content mt-2">
-                            @if (turn.isCollapsed) {
+            <div class="p-2 border-top bg-light d-flex align-items-center justify-content-between gap-2 sidebar-footer">
+                <small class="text-muted">Conservate per 7 giorni</small>
+                @if (savedChats().length > 0) {
+                    <button type="button"
+                            class="btn btn-sm btn-outline-danger rounded-pill px-2 py-0 clear-history-btn"
+                            (click)="clearAllChatHistory($event)"
+                            title="Svuota tutto lo storico salvato nel browser">
+                        Svuota tutto
+                    </button>
+                }
+            </div>
+        </aside>
+    }
+
+    <div class="app-shell flex-grow-1 min-w-0 d-flex flex-column align-items-center min-vh-100 bg-light-modern"
+         [class.initial-screen-layout]="conversationTurns().length === 0"
+         [class.conversation-screen-layout]="conversationTurns().length > 0">
+
+        @if (conversationTurns().length === 0) {
+            <div class="initial-top-bar w-100 px-3 py-2 d-flex align-items-center">
+                <button type="button"
+                        class="btn btn-sm btn-outline-secondary rounded-pill px-3 d-inline-flex align-items-center gap-2 sidebar-toggle-btn"
+                        (click)="toggleSidebar()"
+                        [attr.aria-expanded]="isSidebarOpen()"
+                        title="Apri o chiudi lo storico delle conversazioni">
+                    <i class="bi bi-layout-sidebar"></i>
+                    <span>Storico</span>
+                    @if (savedChats().length > 0) {
+                        <span class="badge bg-secondary-subtle text-secondary rounded-pill">{{ savedChats().length }}</span>
+                    }
+                </button>
+            </div>
+        }
+
+        @if (conversationTurns().length > 0) {
+            <!-- Header compatto conversazionale -->
+            <header class="conversation-header w-100 border-bottom px-3">
+                <div class="conversation-container d-flex justify-content-between align-items-center flex-nowrap gap-2 mx-auto">
+                    <div class="d-flex align-items-center gap-2 min-w-0">
+                        <button type="button"
+                                class="btn btn-sm btn-outline-secondary rounded-pill px-2 py-1 d-inline-flex align-items-center gap-1 flex-shrink-0 sidebar-toggle-btn"
+                                (click)="toggleSidebar()"
+                                [attr.aria-expanded]="isSidebarOpen()"
+                                title="Apri o chiudi lo storico delle conversazioni"
+                                aria-label="Storico conversazioni">
+                            <i class="bi bi-layout-sidebar"></i>
+                            @if (savedChats().length > 0) {
+                                <span class="badge bg-secondary-subtle text-secondary rounded-pill">{{ savedChats().length }}</span>
+                            }
+                        </button>
+                        <h1 class="h5 mb-0 fw-bold text-dark text-truncate">Generatore di Suggerimenti</h1>
+                    </div>
+                    <button type="button"
+                            class="btn btn-sm btn-outline-secondary rounded-pill px-3 flex-shrink-0 new-conversation-btn"
+                            (click)="closeSuggestions()">
+                        <i class="bi bi-plus-lg me-1"></i>Nuova conversazione
+                    </button>
+                </div>
+            </header>
+
+            <!-- Cronologia multi-turno -->
+            <main class="conversation-stream flex-grow-1 w-100 px-3 py-4">
+                <div class="conversation-container mx-auto d-flex flex-column gap-4">
+                    @for (turn of conversationTurns(); track turn.turnId) {
+                        <section class="conversation-turn"
+                                 [attr.data-turn-id]="turn.turnId"
+                                 [class.is-collapsed]="!!turn.isCollapsed"
+                                 tabindex="-1">
+                            <!-- Intestazione del turno: sticky sotto la top bar quando i suggerimenti sono pronti ed espansi -->
+                            <div class="turn-sticky-header d-flex align-items-start gap-2 py-2"
+                                 [class.is-sticky]="hasTurnGeneratedSuggestions(turn)">
+                                <!-- Pulsante collapse/expand agganciato sul lato sinistro del turno -->
                                 <button type="button"
-                                        class="btn btn-sm btn-light border rounded-pill px-3 py-1 text-secondary small turn-collapsed-summary"
+                                        class="btn btn-sm btn-outline-secondary rounded-circle d-flex align-items-center justify-content-center p-0 flex-shrink-0 turn-collapse-btn"
                                         (click)="toggleTurnCollapse(turn.turnId)"
-                                        title="Clicca per espandere il turno">
-                                    <i class="bi bi-arrows-expand me-1"></i>
-                                    <span>{{ getTurnCollapsedSummary(turn) }}</span>
+                                        [attr.aria-expanded]="!turn.isCollapsed"
+                                        [attr.title]="turn.isCollapsed ? 'Espandi turno' : 'Comprimi turno'"
+                                        [attr.aria-label]="turn.isCollapsed ? 'Espandi turno' : 'Comprimi turno'">
+                                    <i class="bi" [class.bi-chevron-right]="turn.isCollapsed" [class.bi-chevron-down]="!turn.isCollapsed"></i>
                                 </button>
-                            } @else {
+
+                                <div class="d-flex flex-column flex-grow-1 min-w-0 turn-header">
+                                    <div class="d-flex justify-content-between align-items-start gap-2">
+                                        <div class="flex-grow-1 min-w-0">
+                                            <!-- Task 5: Identificativo turno con numero progressivo, eventuale padre e data/ora -->
+                                            <div class="d-flex align-items-center flex-wrap gap-2 mb-1 turn-identifier-bar">
+                                                <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle rounded-pill px-2 py-1 fw-semibold turn-number-badge">
+                                                    Turno #{{ $index + 1 }}
+                                                </span>
+                                                @if (turn.isRefinement) {
+                                                    <span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill px-2 py-1 turn-refinement-badge">
+                                                        <i class="bi bi-arrow-return-right me-1"></i>Raffinamento{{ getParentTurnNumber(turn) ? ' di #' + getParentTurnNumber(turn) : '' }}
+                                                    </span>
+                                                }
+                                                @if (turn.createdAt) {
+                                                    <span class="small text-muted d-inline-flex align-items-center gap-1 turn-timestamp">
+                                                        <i class="bi bi-clock"></i>{{ formatTurnTimestamp(turn.createdAt) }}
+                                                    </span>
+                                                }
+                                            </div>
+
+                                            <div class="turn-lacuna-text fw-medium text-dark">
+                                                @for (seg of getTurnTextSegments(turn.normalizedText); track $index) {
+                                                    @if (seg.isLacuna) {
+                                                        <span class="gap-highlight">{{ seg.text }}</span>
+                                                    } @else {
+                                                        <span>{{ seg.text }}</span>
+                                                    }
+                                                }
+                                            </div>
+                                            @if (turn.isRefinement && (turn.appliedHumanFeedback || turn.appliedRejectedCandidates.length > 0)) {
+                                                <div class="d-flex align-items-center flex-wrap gap-2 mt-2 turn-refinement-constraints">
+                                                    @if (turn.appliedHumanFeedback) {
+                                                        <span class="small text-secondary fst-italic turn-applied-feedback">
+                                                            "{{ turn.appliedHumanFeedback }}"
+                                                        </span>
+                                                    }
+                                                    @for (rej of turn.appliedRejectedCandidates; track rej) {
+                                                        <span class="badge bg-danger-subtle text-danger border border-danger-subtle rounded-pill px-2 py-1">
+                                                            Escluso: {{ rej }}
+                                                        </span>
+                                                    }
+                                                </div>
+                                            }
+                                        </div>
+                                        <div class="d-flex align-items-center gap-1 flex-shrink-0">
+                                            <button type="button"
+                                                    class="btn btn-sm btn-outline-secondary rounded-pill px-2 py-1 reuse-turn-text-btn"
+                                                    (click)="reuseTurnText(turn)"
+                                                    title="Riutilizza o modifica questo testo lacunoso nella barra in basso">
+                                                <i class="bi bi-pencil-square me-1"></i><span class="d-none d-sm-inline">Riutilizza</span>
+                                            </button>
+                                            <button type="button"
+                                                    class="btn btn-sm btn-outline-secondary rounded-circle d-flex align-items-center justify-content-center p-0 close-turn-btn"
+                                                    (click)="closeTurn(turn.turnId)"
+                                                    title="Rimuovi questo turno"
+                                                    aria-label="Rimuovi turno">
+                                                <i class="bi bi-x-lg"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <!-- Task 1: Modelli usati per la generazione in cima al turno (sezione sticky sotto al testo lacunoso) -->
+                                    @if (!turn.isCollapsed && !isTurnWaitingInitialResponse(turn)) {
+                                        @if (turn.modelBoxes.length === 1) {
+                                            @let singleHeaderBox = turn.modelBoxes[0];
+                                            <div class="turn-header-models d-flex align-items-center flex-wrap gap-2 mt-2">
+                                                <span class="badge bg-dark text-white rounded-pill px-3 py-1 fw-semibold model-origin-badge"
+                                                      title="Modello da cui provengono i suggerimenti">
+                                                    {{ singleHeaderBox.modelLabel }}
+                                                </span>
+                                                <span class="badge bg-light text-secondary border rounded-pill px-2 py-1 small fw-semibold model-type-origin-badge">
+                                                    {{ singleHeaderBox.modelType }}
+                                                </span>
+                                            </div>
+                                        } @else if (turn.modelBoxes.length > 1) {
+                                            <div class="turn-header-models mt-2">
+                                                <div class="scrollable-models-bar d-flex flex-row flex-nowrap overflow-x-auto align-items-center gap-2 py-1"
+                                                     role="tablist"
+                                                     aria-label="Modelli consultati per il confronto">
+                                                    @for (box of turn.modelBoxes; track box.modelId) {
+                                                        <div class="model-comparison-tab d-inline-flex align-items-center gap-2 rounded-pill px-3 py-1 flex-shrink-0"
+                                                             [class.active]="turn.activeModelId === box.modelId"
+                                                             [class.pending]="box.pending"
+                                                             role="tab"
+                                                             [attr.aria-selected]="turn.activeModelId === box.modelId">
+                                                            <button type="button"
+                                                                    class="btn btn-link p-0 text-decoration-none d-inline-flex align-items-center gap-2 model-tab-select-btn"
+                                                                    [disabled]="!!box.pending"
+                                                                    (click)="selectTurnModelTab(turn.turnId, box.modelId)"
+                                                                    [attr.title]="box.pending ? 'Generazione in corso per ' + box.modelLabel : 'Visualizza suggerimenti di ' + box.modelLabel">
+                                                                @if (box.pending) {
+                                                                    <span class="spinner-border spinner-border-sm text-primary model-tab-spinner" role="status" aria-hidden="true"></span>
+                                                                }
+                                                                <span class="fw-semibold model-origin-badge">{{ box.modelLabel }}</span>
+                                                                <span class="badge bg-light text-secondary border rounded-pill small model-type-origin-badge">{{ box.modelType }}</span>
+                                                                @if (!box.pending) {
+                                                                    <span class="badge rounded-pill small model-tab-count"
+                                                                          [class.bg-primary]="turn.activeModelId === box.modelId"
+                                                                          [class.text-white]="turn.activeModelId === box.modelId"
+                                                                          [class.bg-secondary-subtle]="turn.activeModelId !== box.modelId"
+                                                                          [class.text-secondary]="turn.activeModelId !== box.modelId">
+                                                                        {{ box.suggestions.length }}
+                                                                    </span>
+                                                                }
+                                                            </button>
+                                                            <button type="button"
+                                                                    class="btn btn-sm btn-link p-0 text-muted d-inline-flex align-items-center justify-content-center close-btn close-model-tab-btn"
+                                                                    (click)="closeModelBox(box.modelId, turn.turnId); $event.stopPropagation()"
+                                                                    [attr.title]="box.pending ? 'Interrompi e rimuovi ' + box.modelLabel : 'Rimuovi ' + box.modelLabel + ' dal confronto'"
+                                                                    [attr.aria-label]="'Chiudi modello ' + box.modelLabel">
+                                                                <i class="bi bi-x-lg" style="font-size: 0.75rem;"></i>
+                                                            </button>
+                                                        </div>
+                                                    }
+                                                </div>
+                                            </div>
+                                        }
+                                    }
+                                </div>
+                            </div>
+
+                            <div class="turn-body-content mt-2"
+                                 [attr.data-turn-body-id]="turn.turnId"
+                                 tabindex="-1">
+                                @if (turn.isCollapsed) {
+                                    <button type="button"
+                                            class="btn btn-sm btn-light border rounded-pill px-3 py-1 text-secondary small turn-collapsed-summary"
+                                            (click)="toggleTurnCollapse(turn.turnId)"
+                                            title="Clicca per espandere il turno">
+                                        <i class="bi bi-arrows-expand me-1"></i>
+                                        <span>{{ getTurnCollapsedSummary(turn) }}</span>
+                                    </button>
+                                } @else {
                                     <!-- Stato 1: Schermata Attesa (nessun modello ha ancora risposto) -->
                                     @if (isTurnWaitingInitialResponse(turn)) {
                                         <div class="turn-loading-state py-4 d-flex flex-column gap-2" role="status">
@@ -155,8 +343,10 @@
                                                 [checkpoint]="singleBox.checkpoint"
                                                 [useRag]="singleBox.use_rag"
                                                 [externalRefinementMode]="true"
+                                                [canSupportRefinement]="isBoxRefinementSupported(singleBox)"
                                                 [isRefinementActive]="activeRefinementTurnId() === turn.turnId"
                                                 [externalRejectedCount]="turn.turnRejectedCandidates.length"
+                                                [hideModelBadgeInFooter]="true"
                                                 [showCloseButton]="false"
                                                 [initialSubmittedFeedback]="singleBox.submittedFeedback ?? {}"
                                                 (onToggleRefinement)="toggleTurnRefinement(turn.turnId)"
@@ -171,15 +361,10 @@
                                                 } @else {
                                                     <p class="small mb-0">Riprova con un’altra richiesta o scegli un altro modello.</p>
                                                 }
-                                                <div class="d-flex justify-content-end mt-3">
-                                                    <span class="badge bg-dark text-white rounded-pill px-3 py-1 fw-semibold model-origin-badge">
-                                                        {{ singleBox.modelLabel }}
-                                                    </span>
-                                                </div>
                                             </div>
                                         }
                                     } @else {
-                                        <!-- Stato 3: Schermata Confronto (switcher compatto con barra scrollabile dei modelli) -->
+                                        <!-- Stato 3: Schermata Confronto (switcher compatto con tab nell'intestazione sticky) -->
                                         @let activeBox = getActiveTurnBox(turn);
                                         <div class="turn-comparison-view">
                                             @if (activeBox) {
@@ -197,6 +382,7 @@
                                                         [checkpoint]="activeBox.checkpoint"
                                                         [useRag]="activeBox.use_rag"
                                                         [externalRefinementMode]="true"
+                                                        [canSupportRefinement]="isBoxRefinementSupported(activeBox)"
                                                         [isRefinementActive]="activeRefinementTurnId() === turn.turnId"
                                                         [externalRejectedCount]="turn.turnRejectedCandidates.length"
                                                         [hideModelBadgeInFooter]="true"
@@ -217,111 +403,71 @@
                                                     </div>
                                                 }
                                             }
-
-                                            <!-- Barra orizzontale scrollabile dei modelli consultati -->
-                                            <div class="scrollable-models-bar d-flex flex-row flex-nowrap overflow-x-auto align-items-center gap-2 py-2 mt-2"
-                                                 role="tablist"
-                                                 aria-label="Modelli consultati per il confronto">
-                                                @for (box of turn.modelBoxes; track box.modelId) {
-                                                    <div class="model-comparison-tab d-inline-flex align-items-center gap-2 rounded-pill px-3 py-1 flex-shrink-0"
-                                                         [class.active]="turn.activeModelId === box.modelId"
-                                                         [class.pending]="box.pending"
-                                                         role="tab"
-                                                         [attr.aria-selected]="turn.activeModelId === box.modelId">
-                                                        <button type="button"
-                                                                class="btn btn-link p-0 text-decoration-none d-inline-flex align-items-center gap-2 model-tab-select-btn"
-                                                                [disabled]="!!box.pending"
-                                                                (click)="selectTurnModelTab(turn.turnId, box.modelId)"
-                                                                [attr.title]="box.pending ? 'Generazione in corso per ' + box.modelLabel : 'Visualizza suggerimenti di ' + box.modelLabel">
-                                                            @if (box.pending) {
-                                                                <span class="spinner-border spinner-border-sm text-primary model-tab-spinner" role="status" aria-hidden="true"></span>
-                                                            }
-                                                            <span class="fw-semibold model-origin-badge">{{ box.modelLabel }}</span>
-                                                            <span class="badge bg-light text-secondary border rounded-pill small model-type-origin-badge">{{ box.modelType }}</span>
-                                                            @if (!box.pending) {
-                                                                <span class="badge rounded-pill small model-tab-count"
-                                                                      [class.bg-primary]="turn.activeModelId === box.modelId"
-                                                                      [class.text-white]="turn.activeModelId === box.modelId"
-                                                                      [class.bg-secondary-subtle]="turn.activeModelId !== box.modelId"
-                                                                      [class.text-secondary]="turn.activeModelId !== box.modelId">
-                                                                    {{ box.suggestions.length }}
-                                                                </span>
-                                                            }
-                                                        </button>
-                                                        <button type="button"
-                                                                class="btn btn-sm btn-link p-0 text-muted d-inline-flex align-items-center justify-content-center close-btn close-model-tab-btn"
-                                                                (click)="closeModelBox(box.modelId, turn.turnId); $event.stopPropagation()"
-                                                                [attr.title]="box.pending ? 'Interrompi e rimuovi ' + box.modelLabel : 'Rimuovi ' + box.modelLabel + ' dal confronto'"
-                                                                [attr.aria-label]="'Chiudi modello ' + box.modelLabel">
-                                                            <i class="bi bi-x-lg" style="font-size: 0.75rem;"></i>
-                                                        </button>
-                                                    </div>
-                                                }
-                                            </div>
                                         </div>
                                     }
                                 }
-                        </div>
-
-                        <hr class="turn-divider mt-3 mb-0" />
-                    </section>
-                }
-                <div #conversationBottomAnchor></div>
-            </div>
-        </main>
-    }
-
-    <!-- Istanza unica del PromptBox: centrata nella schermata iniziale, ancorata in basso durante la conversazione -->
-    <div class="prompt-dock-container w-100 px-3"
-         [class.initial-prompt-center]="conversationTurns().length === 0"
-         [class.bottom-prompt-dock]="conversationTurns().length > 0">
-        <div class="conversation-container mx-auto">
-            @if (conversationTurns().length === 0) {
-                <h1 class="text-center mb-4 fw-bold app-main-title">Generatore di Suggerimenti</h1>
-            }
-            <app-prompt-box
-                [models]="models()"
-                [(curr_id)]="curr_id"
-                [(isCompareMode)]="isCompareMode"
-                [(selectedModelIds)]="selectedModelIds"
-                [isGenerating]="isGenerating()"
-                [isRefinementMode]="activeRefinementTurn() !== null"
-                [refinementContextText]="activeRefinementTurn()?.normalizedText ?? null"
-                [refinementRejectedCandidates]="activeRefinementTurn()?.turnRejectedCandidates ?? []"
-                [dropdownDirection]="conversationTurns().length > 0 ? 'up' : 'down'"
-                [textareaRows]="conversationTurns().length > 0 ? 2 : 4"
-                (onGenerate)="generateSuggestions($event)"
-                (onRefineSubmit)="handlePromptRefineSubmit($event)"
-                (onExitRefinement)="exitRefinementMode()"
-                (onRemoveRejectedCandidate)="removeTurnRejectedCandidate($event)">
-            </app-prompt-box>
-        </div>
-    </div>
-
-    @if (!isGenerating()) {
-        <!-- Models Modal -->
-        <div class="modal fade" id="modelsModal" tabindex="-1" aria-labelledby="modelsModalLabel" aria-hidden="true">
-            <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
-                <div class="modal-content rounded-4 border-0 shadow-lg overflow-hidden">
-                    <div class="modal-header bg-dark text-white px-4 py-3 border-0">
-                        <div class="d-flex align-items-center gap-2">
-                            <i class="bi bi-boxes fs-4 text-primary"></i>
-                            <div>
-                                <h5 class="modal-title fw-bold mb-0" id="modelsModalLabel">Dettagli Modelli di Linguaggio</h5>
-                                <small class="text-white-50">{{ models().length }} modelli disponibili per l'inferenza</small>
                             </div>
+
+                            <hr class="turn-divider mt-3 mb-0" />
+                        </section>
+                    }
+                    <div #conversationBottomAnchor></div>
+                </div>
+            </main>
+        }
+
+        <!-- Istanza unica del PromptBox: centrata nella schermata iniziale, ancorata in basso durante la conversazione -->
+        <div class="prompt-dock-container w-100 px-3"
+             [class.initial-prompt-center]="conversationTurns().length === 0"
+             [class.bottom-prompt-dock]="conversationTurns().length > 0">
+            <div class="conversation-container mx-auto">
+                @if (conversationTurns().length === 0) {
+                    <h1 class="text-center mb-4 fw-bold app-main-title">Generatore di Suggerimenti</h1>
+                }
+                <app-prompt-box
+                    [models]="models()"
+                    [(curr_id)]="curr_id"
+                    [(isCompareMode)]="isCompareMode"
+                    [(selectedModelIds)]="selectedModelIds"
+                    [isGenerating]="isGenerating()"
+                    [isRefinementMode]="activeRefinementTurn() !== null"
+                    [refinementContextText]="activeRefinementTurn()?.normalizedText ?? null"
+                    [refinementRejectedCandidates]="activeRefinementTurn()?.turnRejectedCandidates ?? []"
+                    [dropdownDirection]="conversationTurns().length > 0 ? 'up' : 'down'"
+                    [textareaRows]="conversationTurns().length > 0 ? 2 : 4"
+                    (onGenerate)="generateSuggestions($event)"
+                    (onRefineSubmit)="handlePromptRefineSubmit($event)"
+                    (onExitRefinement)="exitRefinementMode()"
+                    (onRemoveRejectedCandidate)="removeTurnRejectedCandidate($event)">
+                </app-prompt-box>
+            </div>
+        </div>
+
+        @if (!isGenerating()) {
+            <!-- Models Modal -->
+            <div class="modal fade" id="modelsModal" tabindex="-1" aria-labelledby="modelsModalLabel" aria-hidden="true">
+                <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+                    <div class="modal-content rounded-4 border-0 shadow-lg overflow-hidden">
+                        <div class="modal-header bg-dark text-white px-4 py-3 border-0">
+                            <div class="d-flex align-items-center gap-2">
+                                <i class="bi bi-boxes fs-4 text-primary"></i>
+                                <div>
+                                    <h5 class="modal-title fw-bold mb-0" id="modelsModalLabel">Dettagli Modelli di Linguaggio</h5>
+                                    <small class="text-white-50">{{ models().length }} modelli disponibili per l'inferenza</small>
+                                </div>
+                            </div>
+                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Chiudi"></button>
                         </div>
-                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Chiudi"></button>
-                    </div>
-                    <div class="modal-body p-4 bg-light">
-                        <app-models-box
-                            [(models)]="models"
-                            [(curr_id)]="curr_id"
-                            [(isCompareMode)]="isCompareMode"
-                            [(selectedModelIds)]="selectedModelIds" />
+                        <div class="modal-body p-4 bg-light">
+                            <app-models-box
+                                [(models)]="models"
+                                [(curr_id)]="curr_id"
+                                [(isCompareMode)]="isCompareMode"
+                                [(selectedModelIds)]="selectedModelIds" />
+                        </div>
                     </div>
                 </div>
             </div>
-        </div>
-    }
+        }
+    </div>
 </div>

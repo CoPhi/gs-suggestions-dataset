@@ -126,20 +126,22 @@
                             <button type="button"
                                     class="btn btn-sm btn-link text-decoration-none p-0 small fw-semibold compare-all-btn"
                                     (click)="selectAllModelsForComparison($event)">
-                                {{ effectiveSelectedIds().length === dropdownModels().length ? 'Deseleziona tutti' : 'Seleziona tutti' }}
+                                {{ isAllComparisonSelected() ? 'Deseleziona tutti' : 'Seleziona tutti' }}
                             </button>
                         </li>
                     }
 
                     @for (m of dropdownModels(); track m._id) {
+                        @let isDisabledInRefinement = isRefinementMode() && !isModelRefinementCompatible(m);
                         <li>
                             <div class="d-flex align-items-center gap-1 mb-1">
                                 @if (isCompareMode()) {
                                     <div class="form-check ms-2 me-1 mb-0 d-flex align-items-center model-compare-checklist-item"
-                                         (click)="toggleModelComparison(m._id, $event)">
+                                         (click)="!isDisabledInRefinement && toggleModelComparison(m._id, $event)">
                                         <input class="form-check-input m-0 model-compare-checkbox"
                                                type="checkbox"
                                                [checked]="isModelInComparison(m._id)"
+                                               [disabled]="isDisabledInRefinement"
                                                (click)="$event.stopPropagation()"
                                                (change)="toggleModelComparison(m._id, $event)"
                                                [attr.aria-label]="'Seleziona ' + getDropdownModelLabel(m) + ' per il confronto'">
@@ -147,6 +149,9 @@
                                 }
                                 <button class="dropdown-item d-flex align-items-center justify-content-between rounded-2 px-3 py-2 model-dropdown-item flex-grow-1"
                                         [class.active-item]="isModelInComparison(m._id)"
+                                        [class.disabled]="isDisabledInRefinement"
+                                        [disabled]="isDisabledInRefinement"
+                                        [attr.title]="isDisabledInRefinement ? 'Modello non supportato per il raffinamento del prompt (solo LLM)' : null"
                                         type="button"
                                         (click)="selectModel(m._id)">
                                     <span class="fw-medium text-truncate me-2">{{ getDropdownModelLabel(m) }}</span>

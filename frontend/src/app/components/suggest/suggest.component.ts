@@ -36,6 +36,7 @@ export function normalizeGreekForMatch(value: string): string {
     return '';
   }
   return value
+    .normalize('NFKC')
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase()
@@ -117,6 +118,7 @@ export function parseHighlightedSegments(
     }
 
     let lastIndex = 0;
+    let matchedAny = false;
     for (let i = 0; i < tokens.length; i++) {
       let matchedCount = 0;
 
@@ -131,6 +133,7 @@ export function parseHighlightedSegments(
       }
 
       if (matchedCount > 0) {
+        matchedAny = true;
         const start = tokens[i].start;
         const end = tokens[i + matchedCount - 1].end;
 
@@ -140,6 +143,23 @@ export function parseHighlightedSegments(
         segments.push({ text: part.slice(start, end), bold: true });
         lastIndex = end;
         i += matchedCount - 1;
+      }
+    }
+
+    // Fallback: se nessun token coincide per intero (es. parola parziale ricostruita attorno a prefissi/suffissi
+    // maiuscoli quando manca `reconstructed_word`), evidenzia il token che incorpora uno dei target normalizzati.
+    if (!matchedAny) {
+      const sortedTargets = Array.from(normalizedTargets).sort((a, b) => b.length - a.length);
+      lastIndex = 0;
+      for (const t of tokens) {
+        const minLen = tokens.length === 1 ? 1 : 2;
+        if (sortedTargets.some(targetNorm => targetNorm.length >= minLen && t.norm.includes(targetNorm))) {
+          if (t.start > lastIndex) {
+            segments.push({ text: part.slice(lastIndex, t.start), bold: false });
+          }
+          segments.push({ text: part.slice(t.start, t.end), bold: true });
+          lastIndex = t.end;
+        }
       }
     }
 
@@ -183,8 +203,8 @@ export class SuggestComponent {
     const sent = this.sentence();
     const word = this.reconstructedWord();
     const tok = this.token();
-    const target = word || tok;
-    return parseHighlightedSegments(sent, target ? [target] : []);
+    const targets = [word, tok].filter((v): v is string => !!v && v.trim().length > 0);
+    return parseHighlightedSegments(sent, targets);
   });
   // Attestazione lessicale nel TLG (da post-processing post-HCB o intercettata dal retriever RAG)
   isTlgAttested = computed<boolean>(

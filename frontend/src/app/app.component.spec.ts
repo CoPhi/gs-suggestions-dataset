@@ -4,6 +4,7 @@ import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { of, Subject } from 'rxjs';
 import { AppComponent } from './app.component';
 import { ApiService, SuggestionInterface } from './services/api.service';
+import { CHAT_HISTORY_TTL_MS, ChatHistoryService } from './services/chat-history.service';
 
 describe('AppComponent', () => {
   beforeEach(async () => {
@@ -14,6 +15,11 @@ describe('AppComponent', () => {
         provideHttpClientTesting()
       ]
     }).compileComponents();
+    await TestBed.inject(ChatHistoryService).clearAllChats();
+  });
+
+  afterEach(async () => {
+    await TestBed.inject(ChatHistoryService).clearAllChats();
   });
 
   it('should create the app', () => {
@@ -512,5 +518,285 @@ describe('AppComponent', () => {
     const headers = compiled.querySelectorAll('.turn-sticky-header');
     expect(headers.length).toBe(2);
     expect(headers[1].classList.contains('is-sticky')).toBeFalse();
+  });
+
+  it('should display turn identifier (number, refinement parent, timestamp) and render models inside the sticky header instead of footer', () => {
+    const fixture = TestBed.createComponent(AppComponent);
+    const app = fixture.componentInstance;
+    const api = TestBed.inject(ApiService);
+
+    app.models.set([
+      { _id: 'm1', CHECKPOINT: 'Qwen/Qwen2.5-72B-Instruct', BACKEND: 'auto', TOP_K_PASSAGES: 5, TYPE: 'RAG' },
+      { _id: 'm2', CHECKPOINT: 'CNR-ILC/gs-ithaca-tlg', TYPE: 'Ithaca' }
+    ]);
+    spyOn(api, 'generateSuggestion').and.returnValue(
+      of([{ sentence: 'τειχεσιβλῆτα', token_str: 'βλῆτα', score: 0.94, tlg_attested: true }])
+    );
+
+    // Turno #1 (singolo modello LLM)
+    app.generateSuggestions({
+      text: 'τειχεσι*....*',
+      modelID: 'm1',
+      num_tokens: 1,
+      num_predictions: 5
+    });
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    const turn1Header = compiled.querySelectorAll('.turn-sticky-header')[0] as HTMLElement;
+    expect(turn1Header.querySelector('.turn-number-badge')?.textContent?.trim()).toBe('Turno #1');
+    expect(turn1Header.querySelector('.turn-timestamp')?.textContent?.trim()).toBeTruthy();
+    // Modello visibile nella sezione sticky, assente dal footer di app-suggests-box
+    expect(turn1Header.querySelector('.turn-header-models .model-origin-badge')?.textContent).toContain('Qwen2.5-72B-Instruct');
+    expect(compiled.querySelectorAll('.conversation-turn')[0].querySelector('app-suggests-box .model-origin-badge')).toBeNull();
+
+    // Turno #2 (raffinamento multi-modello)
+    const firstTurnId = app.conversationTurns()[0].turnId;
+    app.refineSuggestions({ human_feedback: 'Solo epico', rejected_candidates: [] }, firstTurnId);
+    fixture.detectChanges();
+
+    // Turno #2 con confronto multi-modello per verificare .scrollable-models-bar dentro .turn-sticky-header
+    app.generateSuggestions({
+      text: 'ἄλλο *...*',
+      modelID: 'm1',
+      modelIDs: ['m1', 'm2'],
+      num_tokens: 1,
+      num_predictions: 5
+    });
+    fixture.detectChanges();
+
+    const turn2Header = compiled.querySelectorAll('.turn-sticky-header')[1] as HTMLElement;
+    expect(turn2Header.querySelector('.turn-number-badge')?.textContent?.trim()).toBe('Turno #2');
+    expect(turn2Header.querySelector('.turn-refinement-badge')?.textContent).toContain('Raffinamento di #1');
+
+    const turn3Header = compiled.querySelectorAll('.turn-sticky-header')[2] as HTMLElement;
+    expect(turn3Header.querySelector('.scrollable-models-bar')).not.toBeNull();
+    expect(compiled.querySelectorAll('.conversation-turn')[2].querySelector('.turn-body-content .scrollable-models-bar')).toBeNull();
+  });
+
+  it('should disable Raffina on non-LLM models and exit refinement mode when switching to a non-LLM tab', () => {
+    const fixture = TestBed.createComponent(AppComponent);
+    const app = fixture.componentInstance;
+    const api = TestBed.inject(ApiService);
+
+    app.models.set([
+      { _id: 'llm1', CHECKPOINT: 'Qwen/Qwen2.5-72B-Instruct', BACKEND: 'auto', TOP_K_PASSAGES: 5, TYPE: 'RAG' },
+      { _id: 'ith1', CHECKPOINT: 'CNR-ILC/gs-ithaca-tlg', TYPE: 'Ithaca' }
+    ]);
+    spyOn(api, 'generateSuggestion').and.returnValue(
+      of([{ sentence: 'τειχεσιβλῆτα', token_str: 'βλῆτα', score: 0.94, tlg_attested: true }])
+    );
+
+    app.generateSuggestions({
+      text: 'τειχεσι*....*',
+      modelID: 'llm1',
+      modelIDs: ['llm1', 'ith1'],
+      num_tokens: 1,
+      num_predictions: 5
+    });
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    const refineBtnOnLlm = compiled.querySelector('.hitl-toggle-btn') as HTMLButtonElement;
+    expect(refineBtnOnLlm.disabled).toBeFalse();
+
+    // Attiva raffinamento sul tab LLM
+    refineBtnOnLlm.click();
+    fixture.detectChanges();
+    expect(app.activeRefinementTurnId()).toBe(app.conversationTurns()[0].turnId);
+
+    // Commuta al tab Ithaca -> disabilita Raffina e chiude la modalità raffinamento attiva
+    const tabBtns = compiled.querySelectorAll('.model-tab-select-btn');
+    (tabBtns[1] as HTMLButtonElement).click();
+    fixture.detectChanges();
+
+    expect(app.activeRefinementTurnId()).toBeNull();
+    const refineBtnOnIthaca = compiled.querySelector('.hitl-toggle-btn') as HTMLButtonElement;
+    expect(refineBtnOnIthaca.disabled).toBeTrue();
+  });
+
+  it('should move focus and scroll to the new turn on generate and to the suggestions list on model tab click', async () => {
+    const fixture = TestBed.createComponent(AppComponent);
+    const app = fixture.componentInstance;
+    const api = TestBed.inject(ApiService);
+
+    app.models.set([
+      { _id: 'm1', CHECKPOINT: 'Qwen/Qwen2.5-72B-Instruct', BACKEND: 'auto', TOP_K_PASSAGES: 5, TYPE: 'RAG' },
+      { _id: 'm2', CHECKPOINT: 'meta-llama/Llama-3.3-70B-Instruct', BACKEND: 'auto', TOP_K_PASSAGES: 5, TYPE: 'RAG' }
+    ]);
+    spyOn(api, 'generateSuggestion').and.returnValue(
+      of([{ sentence: 'τειχεσιβλῆτα', token_str: 'βλῆτα', score: 0.94, tlg_attested: true }])
+    );
+
+    app.generateSuggestions({
+      text: 'τειχεσι*....*',
+      modelID: 'm1',
+      modelIDs: ['m1', 'm2'],
+      num_tokens: 1,
+      num_predictions: 5
+    });
+    fixture.detectChanges();
+    await Promise.resolve();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    const turnSection = compiled.querySelector('.conversation-turn') as HTMLElement;
+    const turnBody = compiled.querySelector('.turn-body-content') as HTMLElement;
+    const turnScrollSpy = spyOn(turnSection, 'scrollIntoView');
+    const turnFocusSpy = spyOn(turnSection, 'focus');
+    const bodyScrollSpy = spyOn(turnBody, 'scrollIntoView');
+    const bodyFocusSpy = spyOn(turnBody, 'focus');
+
+    // Al cambio tab modello lo scroll e il focus vanno in cima alla lista suggerimenti (.turn-body-content)
+    const tabBtns = compiled.querySelectorAll('.model-tab-select-btn');
+    (tabBtns[1] as HTMLButtonElement).click();
+    await Promise.resolve();
+    expect(bodyScrollSpy).toHaveBeenCalledWith({ behavior: 'smooth', block: 'start' });
+    expect(bodyFocusSpy).toHaveBeenCalledWith({ preventScroll: true });
+
+    // Alla creazione di un secondo turno lo scroll e il focus vanno sul nuovo turno
+    app.generateSuggestions({
+      text: 'ἄλλο *...*',
+      modelID: 'm1',
+      num_tokens: 1,
+      num_predictions: 5
+    });
+    fixture.detectChanges();
+    const secondTurnEl = compiled.querySelectorAll('.conversation-turn')[1] as HTMLElement;
+    const secondFocusSpy = spyOn(secondTurnEl, 'focus');
+    const secondScrollSpy = spyOn(secondTurnEl, 'scrollIntoView');
+    // Verifica anche invocazione diretta su nuovo turno successivo (prima del microtask)
+    (app as unknown as { focusAndScrollToTurn: (id: string) => void }).focusAndScrollToTurn(app.conversationTurns()[1].turnId);
+    await Promise.resolve();
+    expect(secondScrollSpy).toHaveBeenCalledWith({ behavior: 'smooth', block: 'start' });
+    expect(secondFocusSpy).toHaveBeenCalledWith({ preventScroll: true });
+    expect(turnScrollSpy).not.toHaveBeenCalled();
+    expect(turnFocusSpy).not.toHaveBeenCalled();
+  });
+
+  it('should persist chats in IndexedDB sidebar, purge chats older than 7 days on new request, and allow restoring/deleting chats', async () => {
+    const historyService = TestBed.inject(ChatHistoryService);
+    const oldUpdatedAt = new Date(Date.now() - CHAT_HISTORY_TTL_MS - 3600_000).toISOString();
+    const recentUpdatedAt = new Date(Date.now() - 3600_000).toISOString();
+
+    await historyService.saveChat({
+      chatId: 'old-chat',
+      title: 'Παλαιὰ *...*',
+      createdAt: oldUpdatedAt,
+      updatedAt: oldUpdatedAt,
+      turns: []
+    });
+    await historyService.saveChat({
+      chatId: 'recent-chat',
+      title: 'Πρόσφατος *...*',
+      createdAt: recentUpdatedAt,
+      updatedAt: recentUpdatedAt,
+      turns: [
+        {
+          turnId: 't-recent',
+          sessionId: 's-recent',
+          createdAt: recentUpdatedAt,
+          rawText: 'Πρόσφατος *...*',
+          normalizedText: 'Πρόσφατος [...]',
+          numTokens: 1,
+          numPredictions: 5,
+          isRefinement: false,
+          parentTurnId: null,
+          appliedHumanFeedback: '',
+          appliedRejectedCandidates: [],
+          modelBoxes: [
+            {
+              modelId: 'm1',
+              modelLabel: 'Qwen2.5-72B-Instruct',
+              modelType: 'RAG',
+              suggestions: [{ sentence: 'Πρόσφατος λόγος', token_str: 'λόγος', score: 0.9 }],
+              pending: false,
+              error: null,
+              submittedFeedback: {}
+            }
+          ],
+          activeModelId: 'm1',
+          userSelectedTab: false,
+          isCollapsed: false,
+          turnRejectedCandidates: [],
+          turnHumanFeedback: ''
+        }
+      ]
+    });
+
+    const fixture = TestBed.createComponent(AppComponent);
+    const app = fixture.componentInstance;
+    const api = TestBed.inject(ApiService);
+    app.models.set([
+      { _id: 'm1', CHECKPOINT: 'Qwen/Qwen2.5-72B-Instruct', BACKEND: 'auto', TOP_K_PASSAGES: 5, TYPE: 'RAG' }
+    ]);
+    spyOn(api, 'generateSuggestion').and.returnValue(
+      of([{ sentence: 'τειχεσιβλῆτα', token_str: 'βλῆτα', score: 0.94, tlg_attested: true }])
+    );
+
+    await app.flushHistoryPersistence();
+    fixture.detectChanges();
+
+    // All'avvio l'app resta sulla schermata iniziale e la sidebar mostra le chat salvate
+    const compiled = fixture.nativeElement as HTMLElement;
+    expect(compiled.querySelector('.initial-screen-layout')).not.toBeNull();
+    expect(app.savedChats().length).toBe(2);
+
+    // Apre la sidebar dalla schermata iniziale
+    (compiled.querySelector('.sidebar-toggle-btn') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    expect(compiled.querySelector('.chat-history-sidebar')).not.toBeNull();
+    expect(compiled.querySelectorAll('.chat-history-item').length).toBe(2);
+
+    // Nuova richiesta: elimina automaticamente la chat scaduta (> 7 giorni) e salva quella corrente
+    app.generateSuggestions({
+      text: 'τειχεσι*....*',
+      modelID: 'm1',
+      num_tokens: 1,
+      num_predictions: 5
+    });
+    await app.flushHistoryPersistence();
+    fixture.detectChanges();
+
+    expect(app.savedChats().some(c => c.chatId === 'old-chat')).toBeFalse();
+    expect(app.savedChats().some(c => c.chatId === 'recent-chat')).toBeTrue();
+    expect(app.savedChats().length).toBe(2);
+
+    // Click sulla chat precedente nella sidebar per ricaricarla
+    const recentItem = Array.from(compiled.querySelectorAll('.chat-history-item'))
+      .find(el => el.textContent?.includes('Πρόσφατος')) as HTMLElement;
+    expect(recentItem).toBeTruthy();
+    recentItem.click();
+    fixture.detectChanges();
+
+    expect(app.currentChatId()).toBe('recent-chat');
+    expect(app.conversationTurns()[0].turnId).toBe('t-recent');
+
+    // Su viewport stretti (es. Karma Headless < 992px) la sidebar si chiude alla selezione: riaprila
+    if (!app.isSidebarOpen()) {
+      (compiled.querySelector('.sidebar-toggle-btn') as HTMLButtonElement).click();
+      fixture.detectChanges();
+    }
+
+    // Eliminazione singola chat dalla sidebar
+    const refreshedRecentItem = Array.from(compiled.querySelectorAll('.chat-history-item'))
+      .find(el => el.textContent?.includes('Πρόσφατος')) as HTMLElement;
+    const deleteBtn = refreshedRecentItem.querySelector('.delete-chat-btn') as HTMLButtonElement;
+    deleteBtn.click();
+    await app.flushHistoryPersistence();
+    fixture.detectChanges();
+
+    expect(app.savedChats().length).toBe(1);
+    expect(app.conversationTurns().length).toBe(0);
+
+    // Svuota tutto lo storico
+    if (!app.isSidebarOpen()) {
+      (compiled.querySelector('.sidebar-toggle-btn') as HTMLButtonElement).click();
+      fixture.detectChanges();
+    }
+    (compiled.querySelector('.clear-history-btn') as HTMLButtonElement).click();
+    await app.flushHistoryPersistence();
+    fixture.detectChanges();
+
+    expect(app.savedChats().length).toBe(0);
   });
 });

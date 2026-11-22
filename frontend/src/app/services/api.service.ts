@@ -184,6 +184,36 @@ export function isBertCheckpoint(checkpoint: string | null | undefined): boolean
   return ['greberta', 'aristoberto', 'logion', 'ancient-greek-bert', 'bert'].some(kw => clean.includes(kw));
 }
 
+/**
+ * Restituisce true solo per i modelli LLM generativi con RAG che supportano il
+ * raffinamento del prompt in linguaggio naturale (escludendo Ithaca, N-grammi,
+ * BERT puro e il motore neuro-lessicale BERT + RAG).
+ */
+export function isLlmRefinementSupported(
+  modelOrType: modelType | string | null | undefined,
+  checkpoint?: string | null,
+  backend?: string | null,
+  useRag?: boolean | null
+): boolean {
+  if (!modelOrType) return false;
+  if (typeof modelOrType === 'object') {
+    if (modelOrType.TYPE !== 'RAG') return false;
+    if (modelOrType.BACKEND === 'neuro_lexical' || isBertCheckpoint(modelOrType.CHECKPOINT)) {
+      return false;
+    }
+    return true;
+  }
+  const normType = modelOrType.trim();
+  if (normType !== 'RAG') return false;
+  if (backend === 'neuro_lexical' || isBertCheckpoint(checkpoint)) {
+    return false;
+  }
+  if (useRag && isBertCheckpoint(checkpoint)) {
+    return false;
+  }
+  return true;
+}
+
 export type modelType = BERTModelInterface | NgramsModelInterface | IthacaModelInterface | RAGModelInterface;
 
 export interface BERTModelInterface {

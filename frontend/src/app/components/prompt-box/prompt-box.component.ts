@@ -1,6 +1,6 @@
 import { Component, ElementRef, HostListener, computed, effect, inject, input, model, output, signal, ChangeDetectionStrategy } from '@angular/core';
 import { AbstractControl, FormControl, FormGroup, ReactiveFormsModule, ValidationErrors, Validators } from '@angular/forms';
-import { isBertCheckpoint, modelType } from '../../services/api.service';
+import { isBertCheckpoint, isLlmRefinementSupported, modelType } from '../../services/api.service';
 import { NotificationService } from '../../services/notification.service';
 import {
   TARGET_LACUNA_REGEX,
@@ -83,6 +83,20 @@ export class PromptBoxComponent {
   // Riconosce se un modello RAG registrato usa un checkpoint BERT (motore neuro-lessicale locale)
   isNeuroLexicalRag(m: modelType): boolean {
     return m.TYPE === 'RAG' && (m.BACKEND === 'neuro_lexical' || isBertCheckpoint(m.CHECKPOINT));
+  }
+
+  // Solo i modelli LLM generativi con RAG supportano il raffinamento del prompt in linguaggio naturale
+  isModelRefinementCompatible(m: modelType): boolean {
+    return isLlmRefinementSupported(m);
+  }
+
+  private areSelectedModelsRefinementCompatible(): boolean {
+    const ids = this.effectiveSelectedIds();
+    if (ids.length === 0) return false;
+    return ids.every(id => {
+      const m = this.models().find(item => item._id === id);
+      return m ? this.isModelRefinementCompatible(m) : false;
+    });
   }
 
   private isGrebertaCheckpoint(checkpoint: string | null | undefined): boolean {
@@ -212,6 +226,10 @@ export class PromptBoxComponent {
     if (event) {
       event.stopPropagation();
     }
+    const chosen = this.models().find(m => m._id === id);
+    if (this.isRefinementMode() && chosen && !this.isModelRefinementCompatible(chosen)) {
+      return;
+    }
     this.isCompareMode.set(true);
     const current = [...this.effectiveSelectedIds()];
     const idx = current.indexOf(id);
@@ -230,20 +248,30 @@ export class PromptBoxComponent {
     }
   }
 
+  isAllComparisonSelected(): boolean {
+    const eligible = this.isRefinementMode()
+      ? this.dropdownModels().filter(m => this.isModelRefinementCompatible(m))
+      : this.dropdownModels();
+    return eligible.length > 0 && eligible.every(m => this.isModelInComparison(m._id));
+  }
+
   selectAllModelsForComparison(event?: Event) {
     if (event) {
       event.stopPropagation();
     }
     this.isCompareMode.set(true);
-    const allIds = this.dropdownModels().map(m => m._id);
-    if (this.effectiveSelectedIds().length === allIds.length && allIds.length > 0) {
+    const eligibleModels = this.isRefinementMode()
+      ? this.dropdownModels().filter(m => this.isModelRefinementCompatible(m))
+      : this.dropdownModels();
+    const allIds = eligibleModels.map(m => m._id);
+    if (this.isAllComparisonSelected()) {
       this.selectedModelIds.set([]);
       this.curr_id.set(null);
       this.coupleBertWithRag.set(false);
     } else {
       this.selectedModelIds.set(allIds);
       this.curr_id.set(allIds[0] || null);
-      if (this.dropdownModels().some(m => this.isFallbackGrebertaRag(m))) {
+      if (eligibleModels.some(m => this.isFallbackGrebertaRag(m))) {
         this.coupleBertWithRag.set(true);
       }
     }
@@ -282,11 +310,14 @@ export class PromptBoxComponent {
   }
 
   selectModel(id: string) {
+    const chosen = this.models().find(m => m._id === id);
+    if (this.isRefinementMode() && chosen && !this.isModelRefinementCompatible(chosen)) {
+      return;
+    }
     if (this.isCompareMode()) {
       this.toggleModelComparison(id);
       return;
     }
-    const chosen = this.models().find(m => m._id === id);
     if (chosen && this.isFallbackGrebertaRag(chosen)) {
       this.coupleBertWithRag.set(true);
     } else if (chosen && chosen.TYPE !== 'BERT') {
@@ -449,6 +480,9 @@ export class PromptBoxComponent {
       if (this.form.controls['modelID'].invalid || this.form.controls['num_tokens'].invalid) {
         return false;
       }
+      if (!this.areSelectedModelsRefinementCompatible()) {
+        return false;
+      }
       const feedback = (this.form.controls['text'].value || '').trim();
       return feedback.length > 0 || this.refinementRejectedCandidates().length > 0;
     }
@@ -511,6 +545,10 @@ export class PromptBoxComponent {
 
     if (this.isRefinementMode()) {
       if (!this.validateSharedParameters()) {
+        return;
+      }
+      if (!this.areSelectedModelsRefinementCompatible()) {
+        this.showAlert('Il raffinamento del prompt è disponibile solo per i modelli LLM', 'warning');
         return;
       }
       const rawValue = this.form.getRawValue();

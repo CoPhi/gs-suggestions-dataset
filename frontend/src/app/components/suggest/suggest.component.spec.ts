@@ -164,4 +164,31 @@ describe('SuggestComponent', () => {
     expect(compiled.querySelector('.ai-hypothesis-badge')).toBeNull();
     expect(compiled.querySelector('.tlg-attested-badge')).toBeTruthy();
   });
+
+  it('should highlight reconstructed words containing uppercase Greek prefixes or suffixes', () => {
+    fixture.componentRef.setInput('suggest', {
+      sentence: 'Ἆρες Ἆρες ΤΕΙΧΕΣΙΒλητα',
+      token_str: 'λητα',
+      score: 0.94,
+      reconstructed_word: 'τειχεσιβλητα'
+    });
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    const highlighted = compiled.querySelectorAll('p strong.attestation-highlight');
+    expect(highlighted.length).toBe(1);
+    expect(highlighted[0].textContent?.trim()).toBe('ΤΕΙΧΕΣΙΒλητα');
+
+    // Fallback anche quando `reconstructed_word` non è valorizzato nel payload
+    fixture.componentRef.setInput('suggest', {
+      sentence: 'Καὶ ἈΝΘΕΝΤΙον ἔδοξεν',
+      token_str: 'ντι',
+      score: 0.85
+    });
+    fixture.detectChanges();
+
+    const fallbackHighlights = compiled.querySelectorAll('p strong.attestation-highlight');
+    expect(fallbackHighlights.length).toBe(1);
+    expect(fallbackHighlights[0].textContent?.trim()).toBe('ἈΝΘΕΝΤΙον');
+  });
 });

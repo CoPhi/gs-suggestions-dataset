@@ -1,10 +1,17 @@
-import { Component, ElementRef, computed, inject, signal, viewChild, ChangeDetectionStrategy } from '@angular/core';
-import { ApiService, HitlRefinementOptions, isBertCheckpoint, modelType, SuggestionInterface } from './services/api.service';
+import { Component, DestroyRef, ElementRef, computed, inject, signal, viewChild, ChangeDetectionStrategy } from '@angular/core';
+import { ApiService, HitlRefinementOptions, isBertCheckpoint, isLlmRefinementSupported, modelType, SuggestionInterface } from './services/api.service';
 import { SuggestsBoxComponent } from './components/suggests-box/suggests-box.component';
 import { SuggestionFeedbackEvent } from './components/suggest/suggest.component';
 import { ModelsBoxComponent } from "./components/models-box/models-box.component";
 import { NotificationService } from './services/notification.service';
 import { PromptBoxComponent, PromptRefineSubmitEvent } from './components/prompt-box/prompt-box.component';
+import {
+  CHAT_HISTORY_TTL_MS,
+  ChatHistoryService,
+  ChatHistorySession,
+  ConversationTurn,
+  ModelSuggestionBoxItem,
+} from './services/chat-history.service';
 import {
   formatNormalizedLacunaForPrompt,
   normalizeLacunaeForApi,
@@ -13,37 +20,7 @@ import {
 
 import { catchError, map, Observable, of, Subscription } from 'rxjs';
 
-export interface ModelSuggestionBoxItem {
-  modelId: string;
-  modelLabel: string;
-  modelType: string;
-  checkpoint?: string | null;
-  use_rag?: boolean | null;
-  suggestions: SuggestionInterface[];
-  error?: string | null;
-  pending?: boolean;
-  submittedFeedback?: Partial<Record<string, 'accepted' | 'rejected'>>;
-}
-
-export interface ConversationTurn {
-  turnId: string;
-  sessionId: string;
-  rawText: string;
-  normalizedText: string;
-  numTokens: number;
-  numPredictions: number;
-  useRag?: boolean;
-  isRefinement: boolean;
-  parentTurnId?: string | null;
-  appliedHumanFeedback?: string;
-  appliedRejectedCandidates: string[];
-  modelBoxes: ModelSuggestionBoxItem[];
-  activeModelId: string;
-  userSelectedTab?: boolean;
-  isCollapsed?: boolean;
-  turnRejectedCandidates: string[];
-  turnHumanFeedback: string;
-}
+export type { ConversationTurn, ModelSuggestionBoxItem } from './services/chat-history.service';
 
 @Component({
   selector: 'app-root',
@@ -57,6 +34,9 @@ export class AppComponent {
 
   api = inject(ApiService);
   notifications = inject(NotificationService);
+  chatHistory = inject(ChatHistoryService);
+  private destroyRef = inject(DestroyRef);
+  private destroyed = false;
 
   promptBox = viewChild(PromptBoxComponent);
   conversationBottomAnchor = viewChild<ElementRef<HTMLElement>>('conversationBottomAnchor');
@@ -75,6 +55,12 @@ export class AppComponent {
   conversationTurns = signal<ConversationTurn[]>([]);
   // Turno attualmente collegato alla barra inferiore in modalità raffinamento HITL
   activeRefinementTurnId = signal<string | null>(null);
+
+  // Stato della persistenza conversazioni in IndexedDB e visibilità della sidebar laterale
+  currentChatId = signal<string | null>(null);
+  currentChatCreatedAt = signal<string | null>(null);
+  savedChats = signal<ChatHistorySession[]>([]);
+  isSidebarOpen = signal<boolean>(false);
 
   activeRefinementTurn = computed<ConversationTurn | null>(() => {
     const id = this.activeRefinementTurnId();
@@ -102,12 +88,158 @@ export class AppComponent {
   // Traccia le sottoscrizioni per turno e modello (`${turnId}:${modelId}`) per consentire
   // l'interruzione selettiva di singoli modelli lenti o la rimozione di un intero turno
   private pendingModelSubscriptions = new Map<string, Subscription>();
+  private lastHistoryUpdate: Promise<void> = Promise.resolve();
+  private readonly turnDateFormatter = new Intl.DateTimeFormat('it-IT', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
 
   constructor() {
+    this.destroyRef.onDestroy(() => {
+      this.destroyed = true;
+      this.cancelAllRequests();
+    });
     this.api.getModels().subscribe({
       next: (loadedModels) => this.models.set(loadedModels),
       error: () => {}
     });
+    void this.trackHistoryUpdate(this.refreshSavedChats());
+  }
+
+  private trackHistoryUpdate(promise: Promise<void>): Promise<void> {
+    const next = Promise.all([this.lastHistoryUpdate, promise]).then(
+      () => undefined,
+      () => undefined
+    );
+    this.lastHistoryUpdate = next;
+    return next;
+  }
+
+  flushHistoryPersistence(): Promise<void> {
+    return this.chatHistory.flushQueue().then(() => this.lastHistoryUpdate);
+  }
+
+  private async refreshSavedChats(): Promise<void> {
+    const chats = await this.chatHistory.getAllChats();
+    if (!this.destroyed) {
+      this.savedChats.set(chats);
+    }
+  }
+
+  private buildChatTitle(turns: ConversationTurn[]): string {
+    const first = turns[0];
+    if (!first) return 'Nuova conversazione';
+    const clean = (first.normalizedText || first.rawText || '').replace(/\s+/g, ' ').trim();
+    if (!clean) return 'Conversazione';
+    return clean.length > 64 ? `${clean.slice(0, 64)}…` : clean;
+  }
+
+  private buildCurrentChatSnapshot(): ChatHistorySession | null {
+    const chatId = this.currentChatId();
+    const turns = this.conversationTurns();
+    if (!chatId || turns.length === 0) return null;
+    const nowIso = new Date().toISOString();
+    const createdAt = this.currentChatCreatedAt() || turns[0].createdAt || nowIso;
+    return {
+      chatId,
+      title: this.buildChatTitle(turns),
+      createdAt,
+      updatedAt: nowIso,
+      turns,
+    };
+  }
+
+  private persistCurrentChat(purgeExpired: boolean = false): void {
+    const snapshot = this.buildCurrentChatSnapshot();
+    void this.trackHistoryUpdate(
+      this.chatHistory
+        .syncSessionAndPurge(snapshot, purgeExpired, CHAT_HISTORY_TTL_MS)
+        .then((chats) => {
+          if (!this.destroyed) {
+            this.savedChats.set(chats);
+          }
+        })
+    );
+  }
+
+  toggleSidebar() {
+    this.isSidebarOpen.update(open => !open);
+  }
+
+  closeSidebar() {
+    this.isSidebarOpen.set(false);
+  }
+
+  loadChatFromHistory(chat: ChatHistorySession) {
+    this.cancelAllRequests();
+    this.isGenerating.set(false);
+
+    // Eventuali richieste interrotte da un reload vengono marcate come non pendenti
+    const restoredTurns: ConversationTurn[] = (chat.turns || []).map(t => ({
+      ...t,
+      createdAt: t.createdAt || chat.createdAt || new Date().toISOString(),
+      modelBoxes: (t.modelBoxes || []).map(b =>
+        b.pending
+          ? {
+              ...b,
+              pending: false,
+              error: b.error || (b.suggestions?.length ? null : 'Generazione interrotta'),
+            }
+          : { ...b }
+      ),
+    }));
+
+    if (restoredTurns.length === 0) {
+      this.closeSuggestions();
+      return;
+    }
+
+    this.currentChatId.set(chat.chatId);
+    this.currentChatCreatedAt.set(chat.createdAt || restoredTurns[0].createdAt);
+    this.activeRefinementTurnId.set(null);
+    this.conversationTurns.set(restoredTurns);
+
+    const latest = restoredTurns[restoredTurns.length - 1];
+    this.currentSessionId.set(latest.sessionId);
+    this.sessionHumanFeedback.set(latest.appliedHumanFeedback || '');
+    this.sessionRejectedCandidates.set([...(latest.turnRejectedCandidates || [])]);
+    this.lastGenerationPayload.set({
+      text: latest.normalizedText,
+      modelID: latest.activeModelId,
+      ...(latest.modelBoxes.length > 1 ? { modelIDs: latest.modelBoxes.map(b => b.modelId) } : {}),
+      num_tokens: latest.numTokens,
+      num_predictions: latest.numPredictions,
+      ...(latest.useRag ? { use_rag: true } : {})
+    });
+    this.syncStateFromTurns(restoredTurns);
+    this.focusAndScrollToTurn(latest.turnId);
+
+    if (typeof window !== 'undefined' && window.innerWidth < 992) {
+      this.isSidebarOpen.set(false);
+    }
+  }
+
+  deleteChatFromHistory(chatId: string, event?: Event) {
+    event?.stopPropagation();
+    if (this.currentChatId() === chatId) {
+      this.closeSuggestions();
+    }
+    void this.trackHistoryUpdate(
+      this.chatHistory.deleteChat(chatId).then(() => this.refreshSavedChats())
+    );
+  }
+
+  clearAllChatHistory(event?: Event) {
+    event?.stopPropagation();
+    if (this.currentChatId()) {
+      this.closeSuggestions();
+    }
+    void this.trackHistoryUpdate(
+      this.chatHistory.clearAllChats().then(() => this.refreshSavedChats())
+    );
   }
 
   selectedModel = computed(() => {
@@ -149,6 +281,15 @@ export class AppComponent {
     return 'N-grammi';
   }
 
+  isBoxRefinementSupported(box: ModelSuggestionBoxItem | null | undefined): boolean {
+    if (!box) return false;
+    const catalogModel = this.models().find(m => m._id === box.modelId);
+    if (catalogModel) {
+      return isLlmRefinementSupported(catalogModel);
+    }
+    return isLlmRefinementSupported(box.modelType, box.checkpoint, null, box.use_rag);
+  }
+
   setCurrentID($event: Event) {
     const target = $event.target as HTMLInputElement;
     this.curr_id.set(target.value);
@@ -160,6 +301,24 @@ export class AppComponent {
 
   getTurnTextSegments(text: string): Array<{ text: string; isLacuna: boolean }> {
     return splitLacunaHighlightSegments(text);
+  }
+
+  getTurnNumber(turnId: string): number {
+    const idx = this.conversationTurns().findIndex(t => t.turnId === turnId);
+    return idx >= 0 ? idx + 1 : 0;
+  }
+
+  getParentTurnNumber(turn: ConversationTurn): number | null {
+    if (!turn.isRefinement || !turn.parentTurnId) return null;
+    const idx = this.conversationTurns().findIndex(t => t.turnId === turn.parentTurnId);
+    return idx >= 0 ? idx + 1 : null;
+  }
+
+  formatTurnTimestamp(isoString?: string | null): string {
+    if (!isoString) return '';
+    const date = new Date(isoString);
+    if (Number.isNaN(date.getTime())) return '';
+    return this.turnDateFormatter.format(date);
   }
 
   isTurnWaitingInitialResponse(turn: ConversationTurn): boolean {
@@ -184,6 +343,7 @@ export class AppComponent {
     this.conversationTurns.update(turns =>
       turns.map(t => (t.turnId === turnId ? { ...t, isCollapsed: !t.isCollapsed } : t))
     );
+    this.persistCurrentChat(false);
   }
 
   getTurnCollapsedSummary(turn: ConversationTurn): string {
@@ -224,11 +384,51 @@ export class AppComponent {
     }
   }
 
-  private scrollToLatestTurn() {
+  /**
+   * Porta lo scroll e il focus da tastiera in cima al turno appena creato o selezionato,
+   * evitando lo scorrimento forzato durante il focus grazie a `preventScroll`.
+   */
+  private focusAndScrollToTurn(turnId: string) {
     queueMicrotask(() => {
+      const turnEl = document.querySelector<HTMLElement>(`.conversation-turn[data-turn-id="${turnId}"]`);
+      if (turnEl) {
+        if (typeof turnEl.scrollIntoView === 'function') {
+          turnEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+        if (typeof turnEl.focus === 'function') {
+          turnEl.focus({ preventScroll: true });
+        }
+        return;
+      }
       const anchor = this.conversationBottomAnchor()?.nativeElement;
       if (anchor && typeof anchor.scrollIntoView === 'function') {
         anchor.scrollIntoView({ behavior: 'smooth', block: 'end' });
+      }
+    });
+  }
+
+  /**
+   * Riporta lo scroll e il focus in cima alla lista dei suggerimenti del turno selezionato,
+   * compensando dinamicamente l'altezza della top bar e dell'intestazione sticky del turno.
+   */
+  private focusAndScrollToTurnSuggestions(turnId: string) {
+    queueMicrotask(() => {
+      const turnEl = document.querySelector<HTMLElement>(`.conversation-turn[data-turn-id="${turnId}"]`);
+      const bodyEl = document.querySelector<HTMLElement>(`.turn-body-content[data-turn-body-id="${turnId}"]`) ?? turnEl;
+      if (bodyEl) {
+        const headerEl = document.querySelector<HTMLElement>('.conversation-header');
+        const stickyEl = turnEl?.querySelector<HTMLElement>('.turn-sticky-header');
+        const headerHeight = headerEl ? headerEl.getBoundingClientRect().height : 49;
+        const stickyHeight = stickyEl ? stickyEl.getBoundingClientRect().height : 0;
+        if (stickyHeight > 0) {
+          bodyEl.style.scrollMarginTop = `${Math.ceil(headerHeight + stickyHeight + 8)}px`;
+        }
+        if (typeof bodyEl.scrollIntoView === 'function') {
+          bodyEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+        if (typeof bodyEl.focus === 'function') {
+          bodyEl.focus({ preventScroll: true });
+        }
       }
     });
   }
@@ -269,6 +469,8 @@ export class AppComponent {
     this.sessionHumanFeedback.set('');
     this.sessionRejectedCandidates.set([]);
     this.currentSessionId.set(null);
+    this.currentChatId.set(null);
+    this.currentChatCreatedAt.set(null);
     this.promptBox()?.clearForm();
   }
 
@@ -279,7 +481,13 @@ export class AppComponent {
     }
     const remaining = this.conversationTurns().filter(t => t.turnId !== turnId);
     if (remaining.length === 0) {
+      const emptyChatId = this.currentChatId();
       this.closeSuggestions();
+      if (emptyChatId) {
+        void this.trackHistoryUpdate(
+          this.chatHistory.deleteChat(emptyChatId).then(() => this.refreshSavedChats())
+        );
+      }
       return;
     }
     this.conversationTurns.set(remaining);
@@ -294,6 +502,7 @@ export class AppComponent {
       ...(latest.useRag ? { use_rag: true } : {})
     });
     this.syncStateFromTurns(remaining);
+    this.persistCurrentChat(false);
   }
 
   closeModelBox(modelId: string, turnId?: string) {
@@ -333,11 +542,14 @@ export class AppComponent {
     );
     this.conversationTurns.set(updatedTurns);
     this.syncStateFromTurns(updatedTurns);
+    this.persistCurrentChat(false);
 
     if (this.activeRefinementTurnId() === targetTurn.turnId) {
       const nextBox = remainingBoxes.find(b => b.modelId === nextActiveId);
-      if (nextBox) {
+      if (nextBox && this.isBoxRefinementSupported(nextBox)) {
         this.promptBox()?.setSingleModelSelection(nextBox.modelId, nextBox.use_rag ?? targetTurn.useRag);
+      } else {
+        this.activeRefinementTurnId.set(null);
       }
     }
   }
@@ -357,10 +569,16 @@ export class AppComponent {
     );
     this.conversationTurns.set(updatedTurns);
     this.syncStateFromTurns(updatedTurns);
+    this.persistCurrentChat(false);
+    this.focusAndScrollToTurnSuggestions(turnId);
 
-    // Se il turno è già agganciato alla barra in raffinamento, allinea anche il modello preselezionato
+    // Se il turno è già agganciato alla barra in raffinamento, allinea il modello solo se è un LLM compatibile
     if (this.activeRefinementTurnId() === turnId) {
-      this.promptBox()?.setSingleModelSelection(modelId, targetBox.use_rag ?? targetTurn.useRag);
+      if (this.isBoxRefinementSupported(targetBox)) {
+        this.promptBox()?.setSingleModelSelection(modelId, targetBox.use_rag ?? targetTurn.useRag);
+      } else {
+        this.activeRefinementTurnId.set(null);
+      }
     }
   }
 
@@ -371,6 +589,11 @@ export class AppComponent {
     }
     const targetTurn = this.conversationTurns().find(t => t.turnId === turnId);
     if (!targetTurn) return;
+
+    const activeBox = this.getActiveTurnBox(targetTurn);
+    if (!this.isBoxRefinementSupported(activeBox)) {
+      return;
+    }
 
     this.activeRefinementTurnId.set(turnId);
     this.currentSessionId.set(targetTurn.sessionId);
@@ -384,7 +607,6 @@ export class AppComponent {
       ...(targetTurn.useRag ? { use_rag: true } : {})
     });
 
-    const activeBox = this.getActiveTurnBox(targetTurn);
     const activeModelId = activeBox?.modelId || targetTurn.activeModelId;
     this.promptBox()?.setSingleModelSelection(activeModelId, activeBox?.use_rag ?? targetTurn.useRag);
     this.promptBox()?.focusTextarea();
@@ -410,6 +632,7 @@ export class AppComponent {
       const refreshed = updatedTurns.find(t => t.turnId === targetId);
       this.sessionRejectedCandidates.set(refreshed ? [...refreshed.turnRejectedCandidates] : []);
     }
+    this.persistCurrentChat(false);
   }
 
   reuseTurnText(turn: ConversationTurn) {
@@ -475,6 +698,12 @@ export class AppComponent {
       this.currentSessionId.set(sessionId);
     }
 
+    const nowIso = new Date().toISOString();
+    if (!this.currentChatId()) {
+      this.currentChatId.set(this.createUniqueId('chat'));
+      this.currentChatCreatedAt.set(nowIso);
+    }
+
     this.activeRefinementTurnId.set(null);
     this.lastGenerationPayload.set(payload);
 
@@ -510,6 +739,7 @@ export class AppComponent {
     const newTurn: ConversationTurn = {
       turnId,
       sessionId,
+      createdAt: nowIso,
       rawText: rawText || '',
       normalizedText: text,
       numTokens: num_tokens,
@@ -529,7 +759,9 @@ export class AppComponent {
 
     this.conversationTurns.update(turns => [...turns, newTurn]);
     this.syncStateFromTurns(this.conversationTurns());
-    this.scrollToLatestTurn();
+    // A ogni nuova richiesta rimuove le chat precedenti alla soglia di retention (7 giorni) e salva quella corrente
+    this.persistCurrentChat(true);
+    this.focusAndScrollToTurn(turnId);
 
     for (const id of targetIds) {
       const subKey = `${turnId}:${id}`;
@@ -605,6 +837,7 @@ export class AppComponent {
           );
 
           this.syncStateFromTurns(this.conversationTurns());
+          this.persistCurrentChat(false);
 
           if (turnWasCompletedNow) {
             if (resolvedBoxesForNotice.length > 1) {
@@ -690,6 +923,7 @@ export class AppComponent {
         })
       );
       this.syncStateFromTurns(this.conversationTurns());
+      this.persistCurrentChat(false);
     }
 
     if (!event.is_accepted) {

@@ -8,13 +8,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- **Configurazione Endpoint API Frontend da `.env` / Portainer (`docker-compose.yaml`, `frontend/Dockerfile`, `40-config.sh`)**:
-  - Aggiunto lo script [`frontend/docker-entrypoint.d/40-config.sh`](./frontend/docker-entrypoint.d/40-config.sh) (copiato in [`frontend/Dockerfile`](./frontend/Dockerfile)) per generare `/usr/share/nginx/html/assets/config.js` all'avvio del container Nginx a partire dalla variabile d'ambiente `GS_API_URL`.
-  - Aggiunta la variabile `GS_API_URL=${GS_API_URL:-http://127.0.0.1:8000}` al servizio `frontend` in [`docker-compose.yaml`](./docker-compose.yaml).
+- **Sidebar Storico Conversazioni su IndexedDB con Pulizia Automatica (`ChatHistoryService`, `AppComponent`)**:
+  - Introdotto [`ChatHistoryService`](./frontend/src/app/services/chat-history.service.ts) per persistere le sessioni multi-turno (`ChatHistorySession`) nel database locale del browser (`gs_chat_history_db`), con coda FIFO anti-race, fallback in-memory e rimozione automatica (`purgeExpiredChats`) delle chat inattive da oltre 7 giorni (`CHAT_HISTORY_TTL_MS`) a ogni nuova richiesta di generazione.
+  - Integrata la sidebar laterale sinistra collassabile (`.chat-history-sidebar`) in [`app.component.html`](./frontend/src/app/app.component.html) ([`app.component.ts`](./frontend/src/app/app.component.ts), [`app.component.css`](./frontend/src/app/app.component.css)), accessibile sia dalla schermata iniziale sia in conversazione, mantenendo l'avvio su *Nuova conversazione* al refresh e consentendo ripristino, eliminazione singola o svuotamento completo dello storico.
+  - Aggiunti test unitari dedicati in [`chat-history.service.spec.ts`](./frontend/src/app/services/chat-history.service.spec.ts) e [`app.component.spec.ts`](./frontend/src/app/app.component.spec.ts).
+- **Identificativo Progressivo e Temporale dei Turni (`AppComponent`)**:
+  - Estesa `ConversationTurn` con `createdAt` e aggiunta nella fascia sticky di ciascun turno la barra `.turn-identifier-bar` con numero progressivo (`Turno #N`), riferimento all'eventuale turno padre nei raffinamenti (`Raffinamento di #M`) e timestamp formattato (`formatTurnTimestamp`).
+
+### Changed
+- **Modelli Selezionati Spostati nell'Intestazione Sticky del Turno (`AppComponent`, `SuggestsBoxComponent`)**:
+  - Spostati nella sezione `.turn-sticky-header` (sotto `.turn-lacuna-text`) sia i badge del modello singolo sia la barra scrollabile dei tab di confronto (`.scrollable-models-bar`), rimuovendo i badge modello dal footer di [`suggests-box.component.html`](./frontend/src/app/components/suggests-box/suggests-box.component.html) e dall'empty state singolo.
+- **Restrizione Raffinamento Prompt ai Soli Modelli LLM (`ApiService`, `SuggestsBoxComponent`, `PromptBoxComponent`, `AppComponent`)**:
+  - Introdotto l'helper `isLlmRefinementSupported` in [`api.service.ts`](./frontend/src/app/services/api.service.ts) per abilitare la modalità *Raffina* esclusivamente sui modelli LLM RAG (escludendo Ithaca, BERT, `BERT + RAG` neuro-lessicale e N-grammi).
+  - Disabilitato il pulsante `.hitl-toggle-btn` (con tooltip esplicativo) sui modelli non-LLM in [`suggests-box.component.ts`](./frontend/src/app/components/suggests-box/suggests-box.component.ts), disabilitati i modelli non-LLM nel selettore di [`PromptBoxComponent`](./frontend/src/app/components/prompt-box/prompt-box.component.ts) quando `isRefinementMode` è attivo e disattivata automaticamente la modalità raffinamento al cambio verso un tab non-LLM in [`AppComponent`](./frontend/src/app/app.component.ts).
+- **Gestione Focus e Scroll alla Creazione del Turno e al Cambio Tab (`AppComponent`)**:
+  - Introdotti `focusAndScrollToTurn` (scroll e focus da tastiera in cima al turno appena istanziato/raffinato con `scroll-margin-top` sull'header fisso) e `focusAndScrollToTurnSuggestions` (scroll e focus in cima a `.turn-body-content` al click su un tab modello nella barra di confronto, compensando dinamicamente l'altezza della fascia sticky).
+
+### Fixed
+- **Highlighting e Ricostruzione con Caratteri Maiuscoli Attorno alla Lacuna (`SuggestionsService`, `SuggestComponent`, `models/bert/`, `models/rag/`)**:
+  - Preservato il casing originale del contesto nella `sentence` restituita da `_predict_bert`, `_predict_ithaca` e `_predict_rag` in [`suggestions_service.py`](./backend/api/services/suggestions_service.py) (convertendo in minuscolo il solo supplemento inserito al posto di `[...]`).
+  - Normalizzati in `NFC` ed estesi i pattern di estrazione affissi (`_AFFIX_LACUNA_REGEX` in [`vocab.py`](./models/bert/inference/vocab.py), `AFFIX_LACUNA_REGEX` in [`modules.py`](./models/rag/modules.py) e [`predict.py`](./models/bert/inference/predict.py)) per supportare maiuscole con diacritici combinatori adiacenti alla lacuna, evitando inoltre in [`models/rag/inference.py`](./models/rag/inference.py) di sovrascrivere `reconstructed_word` con `attested_form` se di grafia normalizzata differente.
+  - Estesi `normalizeGreekForMatch` (`NFKC`/`NFD`) e `parseHighlightedSegments` (fallback su token contenente il target normalizzato) in [`suggest.component.ts`](./frontend/src/app/components/suggest/suggest.component.ts) passando `reconstructedWord` e `token` da `sentenceSegments`, con test di regressione in [`suggest.component.spec.ts`](./frontend/src/app/components/suggest/suggest.component.spec.ts), [`test_ithaca_hcb.py`](./tests/test_ithaca_hcb.py) e [`test_dspy_rag.py`](./tests/test_dspy_rag.py).
 
 ## [0.10.1] - 2026-11-20
 
 ### Added
+- **Configurazione Endpoint API Frontend da `.env` / Portainer (`docker-compose.yaml`, `frontend/Dockerfile`, `40-config.sh`)**:
+  - Aggiunto lo script [`frontend/docker-entrypoint.d/40-config.sh`](./frontend/docker-entrypoint.d/40-config.sh) (copiato in [`frontend/Dockerfile`](./frontend/Dockerfile)) per generare `/usr/share/nginx/html/assets/config.js` all'avvio del container Nginx a partire dalla variabile d'ambiente `GS_API_URL`.
+  - Aggiunta la variabile `GS_API_URL=${GS_API_URL:-http://127.0.0.1:8000}` al servizio `frontend` in [`docker-compose.yaml`](./docker-compose.yaml).
 - **Configurazione Dinamica Endpoint API Frontend (`frontend/src/assets/config.js`, `ApiService`, `nginx.conf`)**:
   - Aggiunto [`frontend/src/assets/config.js`](./frontend/src/assets/config.js) (esposto a `/assets/config.js` tramite [`frontend/angular.json`](./frontend/angular.json) e caricato in [`frontend/src/index.html`](./frontend/src/index.html)) per configurare `window.__env.apiUrl` a runtime senza rebuild.
   - Aggiornato [`ApiService`](./frontend/src/app/services/api.service.ts) per risolvere dinamicamente `apiUrl` da `window.__env?.apiUrl` (normalizzando eventuali trailing slash, con fallback a `http://127.0.0.1:8000`) e aggiunti test unitari in [`api.service.spec.ts`](./frontend/src/app/services/api.service.spec.ts).

@@ -31,6 +31,7 @@ export class SuggestsBoxComponent {
   initialRejectedCandidates = input<string[]>([]);
   // Controlli opzionali per l'integrazione nella vista conversazionale di AppComponent
   isRefinementActive = input<boolean>(false);
+  canSupportRefinement = input<boolean>(true);
   externalRefinementMode = input<boolean>(false);
   externalRejectedCount = input<number | null>(null);
   hideModelBadgeInFooter = input<boolean>(false);
@@ -186,6 +187,9 @@ export class SuggestsBoxComponent {
   }
 
   toggleHitlMenu() {
+    if (!this.canSupportRefinement()) {
+      return;
+    }
     // In modalità integrata il pannello di raffinamento è delegato alla barra inferiore;
     // in uso isolato mantiene l'apertura del pannello inline per retrocompatibilità.
     if (!this.externalRefinementMode()) {

@@ -460,4 +460,19 @@ describe('SuggestsBoxComponent', () => {
     expect(card.querySelector('.feedback-accept-btn')).toBeNull();
     expect(card.querySelector('.feedback-status-badge')).toBeTruthy();
   });
+
+  it('should disable the Raffina button and ignore clicks when canSupportRefinement is false', () => {
+    const toggleSpy = spyOn(component.onToggleRefinement, 'emit');
+    fixture.componentRef.setInput('canSupportRefinement', false);
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    const hitlBtn = compiled.querySelector('.hitl-toggle-btn') as HTMLButtonElement;
+    expect(hitlBtn).toBeTruthy();
+    expect(hitlBtn.disabled).toBeTrue();
+    expect(hitlBtn.getAttribute('title')).toContain('solo per i modelli LLM');
+
+    component.toggleHitlMenu();
+    expect(toggleSpy).not.toHaveBeenCalled();
+  });
 });
