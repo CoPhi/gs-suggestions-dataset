@@ -31,8 +31,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Disabilitato il pulsante `.hitl-toggle-btn` (con tooltip esplicativo) sui modelli non-LLM in [`suggests-box.component.ts`](./frontend/src/app/components/suggests-box/suggests-box.component.ts), disabilitati i modelli non-LLM nel selettore di [`PromptBoxComponent`](./frontend/src/app/components/prompt-box/prompt-box.component.ts) quando `isRefinementMode` è attivo e disattivata automaticamente la modalità raffinamento al cambio verso un tab non-LLM in [`AppComponent`](./frontend/src/app/app.component.ts).
 - **Gestione Focus e Scroll alla Creazione del Turno e al Cambio Tab (`AppComponent`)**:
   - Introdotti `focusAndScrollToTurn` (scroll e focus da tastiera in cima al turno appena istanziato/raffinato con `scroll-margin-top` sull'header fisso) e `focusAndScrollToTurnSuggestions` (scroll e focus in cima a `.turn-body-content` al click su un tab modello nella barra di confronto, compensando dinamicamente l'altezza della fascia sticky).
+- **Numero di Predizioni Predefinito Portato a 10 (`PromptBoxComponent`)**:
+  - Aggiornato il valore iniziale del form control `num_predictions` da 1 a 10 in [`prompt-box.component.ts`](./frontend/src/app/components/prompt-box/prompt-box.component.ts), allineando la configurazione iniziale dell'interfaccia utente alla richiesta standard di 10 candidati per lacuna.
 
 ### Fixed
+- **Visibilità Condizionale del Menu Impostazioni della Sidebar (`AppComponent`)**:
+  - Condizionata l'esposizione del pulsante e del relativo menu a tendina impostazioni della toolbar laterale (`.sidebar-settings-dropdown` con l'azione *"Svuota tutte le chat"*) alla presenza effettiva di almeno una sessione salvata (`@if (savedChats().length !== 0)`) in [`app.component.html`](./frontend/src/app/app.component.html), prevenendo aperture vuote o ridondanti su cronologie vuote.
+- **Allineamento Versione Frontend in `package-lock.json` (`frontend`)**:
+  - Sincronizzata la versione del pacchetto frontend a `0.10.1` nel file [`frontend/package-lock.json`](./frontend/package-lock.json) per coerenza con [`package.json`](./frontend/package.json) e [`pyproject.toml`](./pyproject.toml).
 - **Troncamento con Ellipsis (`...`) del Testo Lacunoso nella Sidebar (`styles.css`, `AppComponent`)**:
   - Definita la utility globale `.min-w-0 { min-width: 0 !important; }` in [`styles.css`](./frontend/src/styles.css) (assente in Bootstrap 5.3) e rafforzato il troncamento CSS (`overflow: hidden; text-overflow: ellipsis; white-space: nowrap`) su `.chat-history-item` / `.chat-history-title` in [`app.component.css`](./frontend/src/app/app.component.css), evitando lo sforamento orizzontale del testo greco nella sidebar e mantenendo il testo completo nel tooltip nativo.
 - **Highlighting e Ricostruzione con Caratteri Maiuscoli Attorno alla Lacuna (`SuggestionsService`, `SuggestComponent`, `models/bert/`, `models/rag/`)**:
