@@ -191,4 +191,19 @@ describe('SuggestComponent', () => {
     expect(fallbackHighlights.length).toBe(1);
     expect(fallbackHighlights[0].textContent?.trim()).toBe('ἈΝΘΕΝΤΙον');
   });
+
+  it('should not highlight unrelated words in the sentence matching token_str when reconstructed_word is set', () => {
+    fixture.componentRef.setInput('suggest', {
+      sentence: 'οὐκοῦν οἱ τούτων τι δοκιμάζοντες, ῥητορεύειν δὲ μὴ βουλόμενοι, οὐ φαίνονταουειθεσθαι;',
+      token_str: 'ου',
+      score: 0.15,
+      reconstructed_word: 'φαίνονταουειθεσθαι'
+    });
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    const highlighted = compiled.querySelectorAll('p strong.attestation-highlight');
+    expect(highlighted.length).toBe(1);
+    expect(highlighted[0].textContent?.trim()).toBe('φαίνονταουειθεσθαι');
+  });
 });

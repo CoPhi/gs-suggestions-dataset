@@ -198,12 +198,14 @@ export class SuggestComponent {
   reconstructedWord = computed<string>(() => this.suggest().reconstructed_word || this.token());
 
   // Segmentazione della frase per applicare lo stile di evidenziazione (.attestation-highlight)
-  // alla parola composta sostituendo la lacuna con il suggerimento proposto (reconstructedWord)
+  // alla parola composta sostituendo la lacuna con il suggerimento proposto (reconstructedWord).
+  // Se `reconstructed_word` è valorizzato, non includiamo `token()` nei target per evitare
+  // falsi positivi su altre parole della frase uguali al solo supplemento (es. `οὐ` quando `token_str = "ου"`).
   sentenceSegments = computed<HighlightSegment[]>(() => {
     const sent = this.sentence();
-    const word = this.reconstructedWord();
-    const tok = this.token();
-    const targets = [word, tok].filter((v): v is string => !!v && v.trim().length > 0);
+    const explicitWord = this.suggest().reconstructed_word?.trim();
+    const target = explicitWord || this.token()?.trim();
+    const targets = target ? [target] : [];
     return parseHighlightedSegments(sent, targets);
   });
   // Attestazione lessicale nel TLG (da post-processing post-HCB o intercettata dal retriever RAG)

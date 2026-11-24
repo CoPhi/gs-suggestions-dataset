@@ -42,6 +42,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Aggiornato il valore iniziale del form control `num_predictions` da 1 a 10 in [`prompt-box.component.ts`](./frontend/src/app/components/prompt-box/prompt-box.component.ts), allineando la configurazione iniziale dell'interfaccia utente alla richiesta standard di 10 candidati per lacuna.
 
 ### Fixed
+- **Rimozione Falsi Positivi nell'Highlighting della Frase Ricostruita (`SuggestComponent`)**:
+  - Aggiornato `sentenceSegments` in [`suggest.component.ts`](./frontend/src/app/components/suggest/suggest.component.ts) affinché utilizzi esclusivamente `reconstructed_word` come target di evidenziazione quando valorizzato (ricorrendo a `token_str` solo come fallback in sua assenza), evitando di evidenziare parole indipendenti nella frase che coincidono con il solo supplemento (es. `οὐ` quando `token_str = "ου"`).
+  - Aggiunto test di regressione dedicato in [`suggest.component.spec.ts`](./frontend/src/app/components/suggest/suggest.component.spec.ts).
 - **Visibilità Condizionale del Menu Impostazioni della Sidebar (`AppComponent`)**:
   - Condizionata l'esposizione del pulsante e del relativo menu a tendina impostazioni della toolbar laterale (`.sidebar-settings-dropdown` con l'azione *"Svuota tutte le chat"*) alla presenza effettiva di almeno una sessione salvata (`@if (savedChats().length !== 0)`) in [`app.component.html`](./frontend/src/app/app.component.html), prevenendo aperture vuote o ridondanti su cronologie vuote.
 - **Allineamento Versione Frontend in `package-lock.json` (`frontend`)**:
