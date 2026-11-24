@@ -35,10 +35,12 @@ import torch
 from backend.config.settings import (
     DATA_PATH,
     RAG_DEFAULT_EMBEDDER,
+    RAG_DEFAULT_MAX_PASSAGES,
+    RAG_EXTRA_DATA_PATH,
     RAG_INDEX_DIR,
     RAG_TOP_K_PASSAGES,
 )
-from backend.core.cleaner import load_abs
+from backend.core.cleaner import check_ab, load_abs
 from backend.core.model_cache import shared_bert_cache
 from backend.core.preprocess import (
     normalize_greek,
@@ -559,6 +561,181 @@ class GreekBertEmbedder:
         return pooled.cpu().numpy().astype(np.float32)
 
 
+DEFAULT_RAG_CORPUS_WEIGHTS: dict[str, float] = {
+    "tlg": 0.65,
+    "DCLP": 0.20,
+    "DDbDP": 0.15,
+}
+_RAG_EXTRA_METADATA_FILES = frozenset({"tlg_author_map.json", "selection_import_report.json"})
+
+
+def load_tlg_author_map(extra_dirs: Sequence[Path | str] | None = None) -> dict[str, str]:
+    """
+    Carica la mappa `file_id -> nome autore` (es. `tlg0012001.xml -> Homerus`) dai file
+    `tlg_author_map.json` presenti nelle directory aggiuntive dedicate al RAG.
+    """
+    author_map: dict[str, str] = {}
+    for raw_dir in extra_dirs or ():
+        dir_path = Path(raw_dir)
+        map_path = dir_path / "tlg_author_map.json"
+        if not map_path.exists():
+            continue
+        try:
+            payload = json.loads(map_path.read_text(encoding="utf-8"))
+            if isinstance(payload, dict):
+                for fid, author in payload.items():
+                    if fid and isinstance(author, str) and author.strip():
+                        author_map[str(fid)] = author.strip()
+        except Exception as exc:
+            print(f"[RAG Indexer] Attenzione: impossibile leggere '{map_path}': {exc}")
+    return author_map
+
+
+def load_rag_extra_blocks(
+    extra_dirs: Sequence[Path | str] | None = None,
+    corpus_set: list[str] | None = None,
+) -> list[dict[str, Any]]:
+    """
+    Carica i blocchi testuali aggiuntivi dedicati esclusivamente al RAG (es. `data/rag_corpora/tlg_rag_*.json`),
+    senza toccare `load_abs()` né i corpus di addestramento BERT/N-gram/Ithaca.
+    """
+    corpus_set_fast = set(corpus_set) if corpus_set is not None else None
+    blocks: list[dict[str, Any]] = []
+
+    for raw_dir in extra_dirs or ():
+        dir_path = Path(raw_dir)
+        if not dir_path.exists() or not dir_path.is_dir():
+            continue
+        for json_path in sorted(dir_path.glob("*.json")):
+            if json_path.name in _RAG_EXTRA_METADATA_FILES:
+                continue
+            try:
+                with open(json_path, "r", encoding="utf-8") as f:
+                    payload = json.load(f)
+                if not isinstance(payload, list):
+                    continue
+                for ab in payload:
+                    if isinstance(ab, dict) and check_ab(ab, corpus_set_fast):
+                        blocks.append(ab)
+            except Exception as exc:
+                print(f"[RAG Indexer] Attenzione: impossibile leggere '{json_path}': {exc}")
+    return blocks
+
+
+def _sanitize_header_part(value: str) -> str:
+    """Rimuove delimitatori `[`, `]`, `|` dal label sorgente per preservare il parsing dell'header."""
+    cleaned = re.sub(r"[\[\]|]+", " ", value)
+    return re.sub(r"\s+", " ", cleaned).strip()
+
+
+def _format_passage_source_label(
+    ab: Mapping[str, Any],
+    author_map: Mapping[str, str],
+) -> str:
+    """
+    Compone l'etichetta sorgente per i passaggi RAG nel formato `Autore — Opera` (quando l'autore
+    è disponibile e non è già incluso nel titolo), ricadendo altrimenti sul solo titolo/file_id.
+    """
+    file_id = str(ab.get("file_id") or "").strip()
+    raw_title = _sanitize_header_part(str(ab.get("title") or file_id or ""))
+    raw_author = _sanitize_header_part(
+        str(ab.get("author") or author_map.get(file_id, "") or "")
+    )
+
+    if raw_author and raw_title and raw_author.lower() not in raw_title.lower():
+        return f"{raw_author} — {raw_title}"
+    return raw_title or raw_author
+
+
+def _extract_chunks_from_block(
+    ab: Mapping[str, Any],
+    author_map: Mapping[str, str],
+    max_chunk_words: int,
+    min_chunk_words: int,
+    include_metadata: bool,
+) -> list[tuple[str, str]]:
+    """
+    Normalizza il testo di un blocco anonimo e lo suddivide in chunk `(norm_key, passaggio_formattato)`.
+    """
+    raw_text = ab.get("training_text") or ab.get("text") or ""
+    if not raw_text:
+        return []
+
+    clean_text = transpile(
+        raw_text,
+        case_folding="none",
+        normalize=True,
+        strip_diacritics=False,
+    )
+    clean_text = re.sub(r"<UNK>", " ", clean_text, flags=re.IGNORECASE)
+    clean_text = re.sub(r"\s+", " ", clean_text).strip()
+    if not clean_text:
+        return []
+
+    words = clean_text.split()
+    if len(words) < min_chunk_words:
+        return []
+
+    corpus_id = str(ab.get("corpus_id") or "unknown")
+    source_label = _format_passage_source_label(ab, author_map)
+
+    chunks: list[tuple[str, str]] = []
+    for start in range(0, len(words), max_chunk_words):
+        chunk_words = words[start : start + max_chunk_words]
+        if len(chunk_words) < min_chunk_words:
+            continue
+        chunk_str = " ".join(chunk_words)
+        norm_key = normalize_for_retrieval(chunk_str)
+        if len(norm_key.split()) < min_chunk_words:
+            continue
+        if include_metadata:
+            header = f"[Corpus: {corpus_id}" + (f" | {source_label}] " if source_label else "] ")
+            chunks.append((norm_key, header + chunk_str))
+        else:
+            chunks.append((norm_key, chunk_str))
+    return chunks
+
+
+def _compute_corpus_quotas(
+    ordered_cids: Sequence[str],
+    total_budget: int,
+    corpus_weights: Mapping[str, float],
+) -> dict[str, int]:
+    """
+    Ripartisce `total_budget` tra i corpora presenti usando `corpus_weights` rinormalizzati.
+    """
+    if not ordered_cids or total_budget <= 0:
+        return {}
+    if len(ordered_cids) == 1:
+        return {ordered_cids[0]: total_budget}
+
+    raw_weights = {
+        cid: max(0.0, float(corpus_weights.get(cid, 0.10)))
+        for cid in ordered_cids
+    }
+    weight_sum = sum(raw_weights.values())
+    if weight_sum <= 0:
+        raw_weights = {cid: 1.0 for cid in ordered_cids}
+        weight_sum = float(len(ordered_cids))
+
+    quotas: dict[str, int] = {}
+    remainders: list[tuple[float, str]] = []
+    allocated = 0
+    for cid in ordered_cids:
+        exact = total_budget * (raw_weights[cid] / weight_sum)
+        base = int(math.floor(exact))
+        quotas[cid] = base
+        allocated += base
+        remainders.append((exact - base, cid))
+
+    # Distribuisce gli eventuali arrotondamenti residui sui corpora col resto decimale maggiore
+    remainders.sort(key=lambda item: item[0], reverse=True)
+    for idx in range(total_budget - allocated):
+        _, cid = remainders[idx % len(remainders)]
+        quotas[cid] += 1
+    return quotas
+
+
 def build_rag_corpus_from_data(
     corpus_set: list[str] | None = None,
     budget: int | None = None,
@@ -567,93 +744,158 @@ def build_rag_corpus_from_data(
     min_chunk_words: int = 4,
     include_metadata: bool = True,
     blocks_override: list[dict[str, Any]] | None = None,
+    extra_data_dirs: Sequence[Path | str] | None = None,
+    use_default_extra_dirs: bool = True,
+    corpus_weights: Mapping[str, float] | None = None,
+    stratify_by_work: bool = True,
 ) -> list[str]:
     """
     Costruisce la lista di passaggi in greco antico da indicizzare per il RAG
-    a partire dai file `tlg_*.json` e `maat_*.json` nella directory `data/`.
+    a partire dai file `tlg_*.json` e `maat_*.json` nella directory `data/` e dagli eventuali
+    corpora dedicati al RAG (`data/rag_corpora/`).
 
-    Args:
-        corpus_set: Lista opzionale di corpus_id da includere (es. `["tlg", "DCLP", "DDbDP"]`).
-        budget: Percentuale (1..100) di blocchi anonimi da campionare da `data/`.
-        max_passages: Tetto massimo opzionale al numero di passaggi indicizzati.
-        max_chunk_words: Numero massimo di parole per ciascun passaggio indicizzato.
-        min_chunk_words: Numero minimo di parole richieste per conservare un passaggio.
-        include_metadata: Se True, antepone `[Corpus: <id> | <title>]` al testo del passaggio.
-        blocks_override: Lista opzionale di blocchi anonimi già caricati (utile per i test).
+    Quando `max_passages` impone un tetto e `stratify_by_work=True`, applica un campionamento
+    stratificato a due livelli (Corpus -> Opera -> Chunk) per garantire copertura di tutte le
+    opere distinte (es. tutte le opere filosofiche e poetico-retoriche TLG) oltre a DCLP/DDbDP.
     """
-    raw_blocks = (
-        blocks_override
-        if blocks_override is not None
-        else load_abs(corpus_set=corpus_set, budget=budget)
-    )
+    if blocks_override is not None:
+        raw_blocks = list(blocks_override)
+        resolved_extra_dirs = list(extra_data_dirs) if extra_data_dirs else []
+        author_map = load_tlg_author_map(resolved_extra_dirs)
+    else:
+        raw_blocks = load_abs(corpus_set=corpus_set, budget=budget)
+        if extra_data_dirs is not None:
+            resolved_extra_dirs = list(extra_data_dirs)
+        elif use_default_extra_dirs and RAG_EXTRA_DATA_PATH.exists():
+            resolved_extra_dirs = [RAG_EXTRA_DATA_PATH]
+        else:
+            resolved_extra_dirs = []
 
-    # `load_abs` carica sequenzialmente prima tutti i file `maat_*.json` (prevalentemente DDbDP)
-    # e solo in coda i file `tlg_*.json`. Quando `max_passages` impone un tetto di estrazione,
-    # raggruppiamo per `corpus_id` e intercaliamo in round-robin (dopo shuffle deterministico)
-    # per garantire una copertura bilanciata tra testi letterari (TLG, DCLP) e documentari.
-    if max_passages is not None and blocks_override is None and len(raw_blocks) > 1:
-        by_corpus: dict[str, list[dict[str, Any]]] = defaultdict(list)
-        for ab in raw_blocks:
-            cid = str(ab.get("corpus_id") or "unknown")
-            by_corpus[cid].append(ab)
-        rng = random.Random(42)
-        ordered_cids = sorted(
-            by_corpus.keys(),
-            key=lambda c: (0 if c == "tlg" else 1 if c == "DCLP" else 2, c),
-        )
-        for cid in ordered_cids:
-            rng.shuffle(by_corpus[cid])
-        interleaved: list[dict[str, Any]] = []
-        max_len = max(len(v) for v in by_corpus.values())
-        for idx in range(max_len):
-            for cid in ordered_cids:
-                bucket = by_corpus[cid]
-                if idx < len(bucket):
-                    interleaved.append(bucket[idx])
-        raw_blocks = interleaved
+        author_map = load_tlg_author_map(resolved_extra_dirs)
+        extra_blocks = load_rag_extra_blocks(resolved_extra_dirs, corpus_set=corpus_set)
+        if extra_blocks:
+            # Evita doppioni nel caso la stessa opera compaia sia in `data/tlg_*.json` sia negli shard extra
+            existing_keys = {
+                (str(ab.get("corpus_id") or "unknown"), str(ab.get("file_id") or ""))
+                for ab in raw_blocks
+                if ab.get("file_id")
+            }
+            for eb in extra_blocks:
+                key = (str(eb.get("corpus_id") or "unknown"), str(eb.get("file_id") or ""))
+                if key[1] and key in existing_keys:
+                    continue
+                raw_blocks.append(eb)
 
     passages: list[str] = []
     seen_normalized: set[str] = set()
 
-    for ab in raw_blocks:
-        raw_text = ab.get("training_text") or ab.get("text") or ""
-        if not raw_text:
-            continue
-
-        clean_text = transpile(
-            raw_text,
-            case_folding="none",
-            normalize=True,
-            strip_diacritics=False,
+    if max_passages is not None and stratify_by_work and len(raw_blocks) > 1:
+        rng = random.Random(42)
+        by_corpus_work: dict[str, dict[str, list[dict[str, Any]]]] = defaultdict(
+            lambda: defaultdict(list)
         )
-        clean_text = re.sub(r"<UNK>", " ", clean_text, flags=re.IGNORECASE)
-        clean_text = re.sub(r"\s+", " ", clean_text).strip()
-        if not clean_text:
-            continue
+        for idx, ab in enumerate(raw_blocks):
+            cid = str(ab.get("corpus_id") or "unknown")
+            work_key = str(ab.get("file_id") or ab.get("title") or ab.get("id") or f"blk_{idx}")
+            by_corpus_work[cid][work_key].append(ab)
 
-        words = clean_text.split()
-        if len(words) < min_chunk_words:
-            continue
+        ordered_cids = sorted(
+            by_corpus_work.keys(),
+            key=lambda c: (0 if c == "tlg" else 1 if c == "DCLP" else 2, c),
+        )
+        weights = dict(DEFAULT_RAG_CORPUS_WEIGHTS)
+        if corpus_weights:
+            weights.update(corpus_weights)
+        quotas = _compute_corpus_quotas(ordered_cids, max_passages, weights)
 
-        corpus_id = ab.get("corpus_id") or "unknown"
-        title = ab.get("title") or ab.get("file_id") or ""
+        # Prepara code round-robin per opera: in ogni giro ogni opera cede al più 1 chunk valido,
+        # così tutte le opere (anche i frammenti brevi) ricevono almeno un passaggio prima che
+        # opere molto lunghe consumino più quote.
+        work_queues: dict[str, list[tuple[str, list[dict[str, Any]], list[tuple[str, str]]]]] = {}
+        for cid in ordered_cids:
+            work_keys = sorted(by_corpus_work[cid].keys())
+            rng.shuffle(work_keys)
+            queue: list[tuple[str, list[dict[str, Any]], list[tuple[str, str]]]] = []
+            for wk in work_keys:
+                w_blocks = list(by_corpus_work[cid][wk])
+                rng.shuffle(w_blocks)
+                queue.append((wk, w_blocks, []))
+            work_queues[cid] = queue
 
-        for start in range(0, len(words), max_chunk_words):
-            chunk_words = words[start : start + max_chunk_words]
-            if len(chunk_words) < min_chunk_words:
-                continue
-            chunk_str = " ".join(chunk_words)
-            norm_key = normalize_for_retrieval(chunk_str)
-            if len(norm_key.split()) < min_chunk_words or norm_key in seen_normalized:
+        def _pop_next_chunk_for_work(
+            w_blocks: list[dict[str, Any]],
+            chunk_buf: list[tuple[str, str]],
+        ) -> str | None:
+            while True:
+                while chunk_buf:
+                    norm_key, formatted = chunk_buf.pop(0)
+                    if norm_key not in seen_normalized:
+                        seen_normalized.add(norm_key)
+                        return formatted
+                if not w_blocks:
+                    return None
+                next_ab = w_blocks.pop()
+                chunk_buf.extend(
+                    _extract_chunks_from_block(
+                        next_ab,
+                        author_map=author_map,
+                        max_chunk_words=max_chunk_words,
+                        min_chunk_words=min_chunk_words,
+                        include_metadata=include_metadata,
+                    )
+                )
+
+        def _drain_corpus(cid: str, target_count: int) -> int:
+            collected = 0
+            active = work_queues[cid]
+            while active and collected < target_count and len(passages) < max_passages:
+                next_active: list[tuple[str, list[dict[str, Any]], list[tuple[str, str]]]] = []
+                for wk, w_blocks, chunk_buf in active:
+                    if collected >= target_count or len(passages) >= max_passages:
+                        next_active.append((wk, w_blocks, chunk_buf))
+                        continue
+                    passage = _pop_next_chunk_for_work(w_blocks, chunk_buf)
+                    if passage is not None:
+                        passages.append(passage)
+                        collected += 1
+                    if w_blocks or chunk_buf:
+                        next_active.append((wk, w_blocks, chunk_buf))
+                active = next_active
+            work_queues[cid] = active
+            return collected
+
+        for cid in ordered_cids:
+            _drain_corpus(cid, quotas.get(cid, 0))
+
+        # Se un corpus aveva meno passaggi della sua quota, redistribuisce il budget residuo
+        # sugli altri corpora che hanno ancora opere/chunk disponibili.
+        while len(passages) < max_passages:
+            remaining = max_passages - len(passages)
+            progressed = False
+            for cid in ordered_cids:
+                if not work_queues[cid] or len(passages) >= max_passages:
+                    continue
+                taken = _drain_corpus(cid, remaining)
+                if taken > 0:
+                    progressed = True
+                    remaining = max_passages - len(passages)
+            if not progressed:
+                break
+
+        return passages
+
+    for ab in raw_blocks:
+        for norm_key, formatted in _extract_chunks_from_block(
+            ab,
+            author_map=author_map,
+            max_chunk_words=max_chunk_words,
+            min_chunk_words=min_chunk_words,
+            include_metadata=include_metadata,
+        ):
+            if norm_key in seen_normalized:
                 continue
             seen_normalized.add(norm_key)
-
-            if include_metadata:
-                header = f"[Corpus: {corpus_id}" + (f" | {title}] " if title else "] ")
-                passages.append(header + chunk_str)
-            else:
-                passages.append(chunk_str)
-
+            passages.append(formatted)
             if max_passages is not None and len(passages) >= max_passages:
                 return passages
 
@@ -848,6 +1090,7 @@ class GreekHybridRetriever:
         enable_dense: bool = True,
         dspy_embeddings: dspy.Embeddings | None = None,
         lexical_index: GreekLexicalBM25Index | None = None,
+        embedder_batch_size: int = 32,
     ) -> None:
         if not corpus:
             raise ValueError("Il corpus per GreekHybridRetriever non può essere vuoto.")
@@ -859,6 +1102,7 @@ class GreekHybridRetriever:
         self.rrf_k = rrf_k
         self.enable_dense = enable_dense
         self.embedder_checkpoint = embedder_checkpoint
+        self.embedder_batch_size = max(1, int(embedder_batch_size))
 
         self.lexical_index = (
             lexical_index
@@ -873,10 +1117,15 @@ class GreekHybridRetriever:
             if isinstance(embedder, dspy.Embedder):
                 self.dspy_embedder = embedder
             elif callable(embedder):
-                self.dspy_embedder = dspy.Embedder(embedder, batch_size=64, caching=False)
+                self.dspy_embedder = dspy.Embedder(
+                    embedder, batch_size=self.embedder_batch_size, caching=False
+                )
             else:
                 bert_fn = GreekBertEmbedder(checkpoint=embedder_checkpoint)
-                self.dspy_embedder = dspy.Embedder(bert_fn, batch_size=64, caching=False)
+                # Batch ridotto (`embedder_batch_size=32`) per contenere il picco VRAM su GPU da 4 GB
+                self.dspy_embedder = dspy.Embedder(
+                    bert_fn, batch_size=self.embedder_batch_size, caching=False
+                )
 
             if dspy_embeddings is not None:
                 self.dspy_embeddings = dspy_embeddings
@@ -1022,6 +1271,15 @@ class GreekHybridRetriever:
         index_dir = Path(path)
         index_dir.mkdir(parents=True, exist_ok=True)
 
+        corpus_dist: Counter[str] = Counter()
+        tlg_sources: set[str] = set()
+        for raw_p in self.corpus:
+            p_meta = parse_passage_metadata(raw_p)
+            cid = p_meta["corpus_id"]
+            corpus_dist[cid] += 1
+            if cid.lower() == "tlg" and p_meta["source_id"]:
+                tlg_sources.add(p_meta["source_id"])
+
         meta = {
             "k": self.k,
             "lexical_weight": self.lexical_weight,
@@ -1030,6 +1288,8 @@ class GreekHybridRetriever:
             "enable_dense": self.enable_dense,
             "embedder_checkpoint": self.embedder_checkpoint,
             "corpus_size": len(self.corpus),
+            "corpus_distribution": dict(sorted(corpus_dist.items())),
+            "unique_tlg_sources": len(tlg_sources),
         }
         (index_dir / "hybrid_meta.json").write_text(
             json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8"
@@ -1172,8 +1432,17 @@ def main() -> None:
     parser.add_argument(
         "--max-passages",
         type=int,
-        default=10000,
-        help="Numero massimo di passaggi da indicizzare (default: 10000).",
+        default=RAG_DEFAULT_MAX_PASSAGES,
+        help=f"Numero massimo di passaggi da indicizzare (default: {RAG_DEFAULT_MAX_PASSAGES}).",
+    )
+    parser.add_argument(
+        "--extra-data-dir",
+        type=str,
+        default=str(RAG_EXTRA_DATA_PATH),
+        help=(
+            "Directory opzionale contenente corpora aggiuntivi dedicati al RAG "
+            f"(default: {RAG_EXTRA_DATA_PATH}; passare 'none' per disabilitare)."
+        ),
     )
     parser.add_argument(
         "--embedder",
@@ -1182,29 +1451,82 @@ def main() -> None:
         help=f"Modello Hugging Face per gli embedding densi (default: {RAG_DEFAULT_EMBEDDER}).",
     )
     parser.add_argument(
+        "--embedder-batch-size",
+        type=int,
+        default=32,
+        help="Dimensione batch per il calcolo degli embedding BERT (default: 32).",
+    )
+    parser.add_argument(
+        "--tlg-weight",
+        type=float,
+        default=DEFAULT_RAG_CORPUS_WEIGHTS["tlg"],
+        help="Quota relativa per il corpus TLG nel campionamento stratificato (default: 0.65).",
+    )
+    parser.add_argument(
+        "--dclp-weight",
+        type=float,
+        default=DEFAULT_RAG_CORPUS_WEIGHTS["DCLP"],
+        help="Quota relativa per il corpus DCLP nel campionamento stratificato (default: 0.20).",
+    )
+    parser.add_argument(
+        "--ddbdp-weight",
+        type=float,
+        default=DEFAULT_RAG_CORPUS_WEIGHTS["DDbDP"],
+        help="Quota relativa per il corpus DDbDP nel campionamento stratificato (default: 0.15).",
+    )
+    parser.add_argument(
+        "--no-stratify",
+        action="store_true",
+        help="Disabilita il campionamento stratificato per opera/corpus.",
+    )
+    parser.add_argument(
         "--lexical-only",
         action="store_true",
         help="Costruisce solo l'indice lessicale BM25 + char n-grams (senza calcolare embedding BERT).",
     )
     args = parser.parse_args()
 
-    print(f"[RAG Indexer] Estrazione passaggi da '{DATA_PATH}'...")
+    extra_dirs: list[Path] | None = None
+    if args.extra_data_dir and args.extra_data_dir.strip().lower() != "none":
+        extra_dirs = [Path(args.extra_data_dir)]
+    else:
+        extra_dirs = []
+
+    print(f"[RAG Indexer] Estrazione passaggi da '{DATA_PATH}' (extra={extra_dirs})...")
     passages = build_rag_corpus_from_data(
         corpus_set=args.corpora,
         budget=args.budget,
         max_passages=args.max_passages,
+        extra_data_dirs=extra_dirs,
+        use_default_extra_dirs=False,
+        corpus_weights={
+            "tlg": args.tlg_weight,
+            "DCLP": args.dclp_weight,
+            "DDbDP": args.ddbdp_weight,
+        },
+        stratify_by_work=not args.no_stratify,
     )
     if not passages:
         raise RuntimeError(f"Nessun passaggio valido trovato in '{DATA_PATH}'.")
 
+    dist: Counter[str] = Counter()
+    tlg_works: set[str] = set()
+    for p in passages:
+        pm = parse_passage_metadata(p)
+        dist[pm["corpus_id"]] += 1
+        if pm["corpus_id"].lower() == "tlg" and pm["source_id"]:
+            tlg_works.add(pm["source_id"])
+
     print(
         f"[RAG Indexer] Indicizzazione di {len(passages)} passaggi "
-        f"(dense={not args.lexical_only}, embedder={args.embedder})..."
+        f"(distribuzione={dict(sorted(dist.items()))}, opere TLG uniche={len(tlg_works)}, "
+        f"dense={not args.lexical_only}, embedder={args.embedder}, batch={args.embedder_batch_size})..."
     )
     retriever = GreekHybridRetriever(
         corpus=passages,
         embedder_checkpoint=args.embedder,
         enable_dense=not args.lexical_only,
+        embedder_batch_size=args.embedder_batch_size,
     )
     retriever.save(args.output_dir)
     print(f"[RAG Indexer] Indice salvato con successo in '{args.output_dir}'.")

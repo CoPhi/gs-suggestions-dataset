@@ -52,6 +52,9 @@ NGRAM_CHECKPOINTS_DIR = Path("models/ngrams/checkpoints")
 
 # Parametri di default per il sistema DSPy RAG
 RAG_INDEX_DIR = Path(os.getenv("RAG_INDEX_DIR", "models/rag/index"))
+RAG_EXTRA_DATA_PATH = Path(os.getenv("RAG_EXTRA_DATA_PATH", "data/rag_corpora"))
+RAG_SELECTIONS_DIR = Path(os.getenv("RAG_SELECTIONS_DIR", "data/selections"))
+RAG_DEFAULT_MAX_PASSAGES = int(os.getenv("RAG_DEFAULT_MAX_PASSAGES", "20000"))
 RAG_COMPILED_DIR = Path("models/rag/checkpoints")
 RAG_DEFAULT_LM = os.getenv("RAG_DEFAULT_LM", "Qwen/Qwen2.5-72B-Instruct")
 RAG_DEFAULT_BERT = os.getenv("RAG_DEFAULT_BERT", "CNR-ILC/gs-GreBerta")
