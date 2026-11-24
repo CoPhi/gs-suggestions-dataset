@@ -390,7 +390,7 @@ export class PromptBoxComponent {
         validators: [Validators.required, Validators.minLength(24), Validators.maxLength(24)]
       }),
       num_tokens: new FormControl<number>(1, { validators: [Validators.required, Validators.min(1), Validators.max(10)] }),
-      num_predictions: new FormControl<number>(1, { validators: [Validators.required] })
+      num_predictions: new FormControl<number>(10, { validators: [Validators.required] })
     });
 
     effect(() => {
