@@ -1434,6 +1434,90 @@ def test_attestation_score_calibration_reranks_double_attested_over_tlg_only():
     assert any(tok == "οσ" for tok, _ in idx_preds)
 
 
+def test_build_rag_corpus_extra_dirs_author_map_and_work_stratification(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    import json
+
+    base_dir = tmp_path / "data"
+    extra_dir = base_dir / "rag_corpora"
+    base_dir.mkdir()
+    extra_dir.mkdir()
+
+    # Opera filosofica molto lunga (20 blocchi distinti) in base_dir
+    base_tlg = [
+        {
+            "corpus_id": "tlg",
+            "file_id": "tlg0059001.xml",
+            "title": "Respublica",
+            "language": "grc",
+            "training_text": f"περὶ δικαιοσύνης καὶ πόλεως λόγος ἀγαθὸς ἀριθμὸς_{i} ἐν τῷ διαλόγῳ",
+        }
+        for i in range(20)
+    ]
+    (base_dir / "tlg_0.json").write_text(json.dumps(base_tlg), encoding="utf-8")
+
+    # 5 opere brevi (1 blocco ciascuna) + 1 duplicato di tlg0059001 in extra_dir
+    extra_tlg = [
+        {
+            "corpus_id": "tlg",
+            "file_id": f"tlg001200{i}.xml",
+            "title": f"Poema_{i}",
+            "author": "Homerus",
+            "language": "grc",
+            "training_text": f"μῆνιν ἄειδε θεὰ πηληϊάδεω ἀχιλλῆος ἔπος_{i} ὀλύμπια δώματ",
+        }
+        for i in range(1, 6)
+    ] + [
+        {
+            "corpus_id": "tlg",
+            "file_id": "tlg0059001.xml",
+            "title": "Respublica DUPLICATE",
+            "language": "grc",
+            "training_text": "διπλοῦν κείμενον ὅπερ οὐ δεῖ εἰσαχθῆναι πάλιν",
+        }
+    ]
+    (extra_dir / "tlg_rag_0.json").write_text(json.dumps(extra_tlg), encoding="utf-8")
+    (extra_dir / "tlg_author_map.json").write_text(
+        json.dumps({"tlg0059001.xml": "Plato", "tlg0012001.xml": "Homerus"}),
+        encoding="utf-8",
+    )
+    (extra_dir / "selection_import_report.json").write_text(
+        json.dumps({"total_selection_works": 5}), encoding="utf-8"
+    )
+
+    monkeypatch.setattr("backend.core.cleaner.DATA_PATH", base_dir)
+    corpus = build_rag_corpus_from_data(
+        corpus_set=["tlg"],
+        max_passages=8,
+        extra_data_dirs=[extra_dir],
+        use_default_extra_dirs=False,
+        stratify_by_work=True,
+    )
+
+    assert len(corpus) == 8
+    sources = [parse_passage_metadata(p)["source_id"] for p in corpus]
+    # Tutte e 6 le opere distinte devono essere rappresentate almeno una volta prima del 2° giro
+    assert "Plato — Respublica" in sources
+    for i in range(1, 6):
+        assert f"Homerus — Poema_{i}" in sources
+    # Il duplicato di tlg0059001 in extra_dir non deve essere stato incluso
+    assert all("Respublica DUPLICATE" not in s for s in sources)
+    assert all("διπλοῦν κείμενον" not in p for p in corpus)
+
+    # Verifica risoluzione attestazioni con il nuovo header Autore — Opera
+    retriever = GreekHybridRetriever(corpus=corpus, embedder=_dummy_greek_embedder, k=2)
+    atts = resolve_candidate_attestations(
+        supplement="ος",
+        word_prefix="λογ",
+        retriever=retriever,
+    )
+    assert atts
+    assert atts[0]["corpus_id"] == "tlg"
+    assert atts[0]["source_id"] == "Plato — Respublica"
+
+
 
 
 

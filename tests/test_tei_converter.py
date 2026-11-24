@@ -1,6 +1,7 @@
 import pytest
 import lxml.etree as ET
 from scripts.tei.converter import (
+    author,
     idno,
     title,
     material,
@@ -104,3 +105,68 @@ def test_convert_tei_to_json(sample_tei_xml):
         assert obj["test_cases"] == []
     finally:
         os.remove(temp_path)
+
+
+def test_author_strip_marginalia_and_poetry_grouping(tmp_path):
+    xml = """
+    <TEI xmlns="http://www.tei-c.org/ns/1.0" xml:lang="grc">
+        <teiHeader>
+            <fileDesc>
+                <titleStmt>
+                    <title>Ilias</title>
+                    <author>Homerus Epic.</author>
+                </titleStmt>
+                <publicationStmt>
+                    <idno type="filename">tlg0012001.xml</idno>
+                </publicationStmt>
+            </fileDesc>
+        </teiHeader>
+        <text>
+            <body>
+                <div type="Book" n="1">
+                    <l n="t"><label type="head">ΙΛΙΑΔΟΣ Α</label></l>
+                    <l n="1">Μῆνιν ἄειδε θεὰ Πηληϊάδεω Ἀχιλῆος</l>
+                    <l n="2"><seg rend="Marginalia">&gt;</seg> οὐλομένην ἣ μυρί' Ἀχαιοῖς ἄλγε' ἔθηκε</l>
+                    <l n="3"><seg rend="Marginalia">※</seg> πολλὰς δ' ἰφθίμους ψυχὰς Ἄϊδι προΐαψεν</l>
+                </div>
+                <div type="Book" n="2">
+                    <l n="1">Ἄλλοι μέν ῥα θεοί τε καὶ ἀνέρες ἱπποκορυσταὶ</l>
+                    <p>Προσθήκη πεζοῦ λόγου ἐξ ἑτέρου τμήματος.</p>
+                    <l n="2">εὗδον παννύχιοι Δία δ' οὐκ ἔχε νήδυμος ὕπνος</l>
+                </div>
+            </body>
+        </text>
+    </TEI>
+    """
+    xml_path = tmp_path / "tlg0012001.xml"
+    xml_path.write_text(xml, encoding="utf-8")
+
+    doc = ET.fromstring(xml.encode("utf-8"))
+    assert author(doc) == "Homerus Epic."
+
+    # Default retrocompatibile: un blocco per verso e marginalia preservati
+    default_blocks = convert_tei_to_json(str(xml_path))
+    assert len(default_blocks) == 6
+    assert ">" in default_blocks[1]["training_text"]
+
+    # Modalità RAG: rimozione Marginalia e aggregazione dei <l> entro ciascun <div>
+    grouped_blocks = convert_tei_to_json(
+        str(xml_path),
+        strip_marginalia=True,
+        group_poetry_lines=True,
+        target_poetry_words=100,
+        author_override="Homerus",
+        metadata_extra={"work_id": "0012 001", "title": "SHOULD_NOT_OVERRIDE"},
+    )
+    # Book 1 (3 versi uniti) | Book 2 verso 1 | <p> | Book 2 verso 2 => 4 blocchi
+    assert len(grouped_blocks) == 4
+    assert grouped_blocks[0]["author"] == "Homerus"
+    assert grouped_blocks[0]["title"] == "Ilias"
+    assert grouped_blocks[0]["work_id"] == "0012 001"
+    assert ">" not in grouped_blocks[0]["training_text"]
+    assert "※" not in grouped_blocks[0]["training_text"]
+    assert "Μῆνιν ἄειδε" in grouped_blocks[0]["training_text"]
+    assert "προΐαψεν" in grouped_blocks[0]["training_text"]
+    assert "Ἄλλοι μέν" in grouped_blocks[1]["training_text"]
+    assert "Προσθήκη πεζοῦ" in grouped_blocks[2]["training_text"]
+    assert "εὗδον παννύχιοι" in grouped_blocks[3]["training_text"]
