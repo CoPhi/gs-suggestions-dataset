@@ -12,23 +12,27 @@ class CorpusWriter:
     suddivisi per corpus e dimensionati secondo un limite massimo (LIM).
     """
 
-    def __init__(self, corpus_id, max_size_mb=LIM):
+    def __init__(self, corpus_id, max_size_mb=LIM, output_dir="data", file_prefix=None):
         """
         Inizializza un CorpusWriter.
 
         Args:
             corpus_id (str): ID del corpus.
             max_size_mb (int): Dimensione massima di ogni file in MB.
+            output_dir (str | Path): Directory di destinazione degli shard JSON.
+            file_prefix (str | None): Prefisso opzionale del nome file (default: `corpus_id`).
         """
         self.corpus_id = corpus_id
+        self.output_dir = Path(output_dir)
+        self.file_prefix = file_prefix or corpus_id
         self.max_size_bytes = max_size_mb * 1024 * 1024
         self.file_index = 0
         self.current_file_size = 0
         self.arr_objs = []
         self.indent_level = INDENT if INDENT else None
-        Path("data").mkdir(
+        self.output_dir.mkdir(
             parents=True, exist_ok=True
-        )  # Inizializza la cartella `data/` se non presente dentro la root del progetto
+        )  # Inizializza la cartella di output se non presente
 
     def add(self, obj):
         """
@@ -51,7 +55,7 @@ class CorpusWriter:
         """
         if not self.arr_objs:
             return
-        file_path = f"data/{self.corpus_id}_{self.file_index}.json"
+        file_path = self.output_dir / f"{self.file_prefix}_{self.file_index}.json"
         with open(file_path, "w", encoding="utf-8") as f:
             json.dump(self.arr_objs, f, ensure_ascii=False, indent=self.indent_level)
         self.file_index += 1

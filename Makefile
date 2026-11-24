@@ -109,7 +109,7 @@ endif
         sweep sweep-agent sweep-best \
         dataset-herc dataset-eval dataset-train dataset-tlg dataset-all dataset-dry-run \
         ithaca ithaca-setup ithaca-data ithaca-train ithaca-hpo-nsga2 ithaca-pareto ithaca-pareto-train ithaca-compare ithaca-publish \
-        rag rag-index rag-compile rag-eval rag-eval-abs rag-predict rag-logs \
+        rag rag-import-selection rag-index rag-compile rag-eval rag-eval-abs rag-predict rag-logs \
         export-ngrams tlg-wordlist
 
 # ---------------------------------------------------------
@@ -740,11 +740,15 @@ ithaca-publish:
 # ---------------------------------------------------------
 # 8. Pipeline DSPy RAG (Qwen / Llama su TLG & MAAT)
 # ---------------------------------------------------------
+TLG_BULK_DIR ?= ../datasets/tlg-bulk/tlg
+RAG_SELECTIONS_DIR ?= data/selections
+RAG_EXTRA_DATA_DIR ?= data/rag_corpora
 RAG_LM ?= Qwen/Qwen2.5-72B-Instruct
 RAG_BACKEND ?= auto
 RAG_EMBEDDER ?= CNR-ILC/gs-GreBerta
+RAG_EMBEDDER_BATCH_SIZE ?= 32
 RAG_INDEX_DIR ?= models/rag/index
-RAG_MAX_PASSAGES ?= 3000
+RAG_MAX_PASSAGES ?= 20000
 RAG_TOP_K_PASSAGES ?= 5
 RAG_OPTIMIZER ?= bootstrap
 RAG_MAX_TRAIN_CASES ?= 40
@@ -763,6 +767,9 @@ rag:
 	@echo "=========================================================================="
 	@echo "          PIPELINE DSPy RAG: RETRIEVAL IBRIDO & LLM (QWEN / LLAMA)"
 	@echo "=========================================================================="
+	@echo "0. Importazione selezioni grc-lab/work-selection da tlg-bulk:"
+	@echo "   make rag-import-selection [TLG_BULK_DIR=$(TLG_BULK_DIR)]"
+	@echo ""
 	@echo "1. Costruzione dell'indice ibrido (BM25 + Dense Embeddings BERT) da data/:"
 	@echo "   make rag-index [RAG_MAX_PASSAGES=$(RAG_MAX_PASSAGES) RAG_EMBEDDER=$(RAG_EMBEDDER)]"
 	@echo ""
@@ -780,12 +787,20 @@ rag:
 	@echo "   make rag-logs [RAG_LOG_LAST=$(RAG_LOG_LAST) RAG_LOG_SESSION=... RAG_LOG_MODEL=...]"
 	@echo "=========================================================================="
 
+rag-import-selection:
+	@echo "=== Importazione Selezione TLG per RAG da [$(RAG_SELECTIONS_DIR)] ==="
+	uv run --no-sync python -m scripts.tei.import_work_selection \
+		--tlg-dir "$(TLG_BULK_DIR)" \
+		--output-dir "$(RAG_EXTRA_DATA_DIR)"
+
 rag-index:
 	@echo "=== Costruzione Indice Ibrido DSPy RAG in [$(RAG_INDEX_DIR)] ==="
 	uv run --no-sync python -m models.rag.retriever \
 		--output-dir "$(RAG_INDEX_DIR)" \
+		--extra-data-dir "$(RAG_EXTRA_DATA_DIR)" \
 		--max-passages $(RAG_MAX_PASSAGES) \
-		--embedder "$(RAG_EMBEDDER)"
+		--embedder "$(RAG_EMBEDDER)" \
+		--embedder-batch-size $(RAG_EMBEDDER_BATCH_SIZE)
 
 rag-compile:
 	@echo "=== Compilazione Modulo DSPy GreekRAGInfiller per [$(RAG_LM)] ==="

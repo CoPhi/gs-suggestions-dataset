@@ -28,6 +28,8 @@ uv.lock
 # Dati pesanti pre-elaborati
 data/*
 !data/tlg_*.json
+!data/selections/
+!data/selections/*.json
 
 # wandb logs
 wandb/
