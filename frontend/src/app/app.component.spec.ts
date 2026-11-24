@@ -889,10 +889,8 @@ describe('AppComponent', () => {
     fixture.detectChanges();
 
     expect(app.savedChats().length).toBe(0);
-    settingsBtn.click();
-    fixture.detectChanges();
-    const disabledClearBtn = compiled.querySelector('.sidebar-settings-menu .clear-history-btn') as HTMLButtonElement;
-    expect(disabledClearBtn.disabled).toBeTrue();
+    // Il menu impostazioni viene rimosso dal DOM quando non vi sono chat salvate
+    expect(compiled.querySelector('.sidebar-settings-dropdown')).toBeNull();
 
     // Chiudendo la sidebar dalla toolbar interna, riappare il toggle senza bordi e senza testo "Storico" nella top bar
     closeBtn.click();
