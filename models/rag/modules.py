@@ -12,9 +12,10 @@ Implementa `GreekRAGInfiller`, che orchestra:
 
 from __future__ import annotations
 
+import logging
 import re
+import typing
 import unicodedata
-from typing import Any, Sequence
 
 import dspy
 
@@ -31,7 +32,6 @@ from models.rag.categories import (
 )
 from models.rag.retriever import (
     GreekHybridRetriever,
-    _strip_passage_header,
     highlight_attestation_in_passage,
     parse_passage_metadata,
 )
@@ -43,6 +43,9 @@ from models.rag.signatures import (
     format_gap_constraints,
 )
 
+logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO)
+
 TARGET_LACUNA_REGEX = re.compile(r"\[(\.+|\-+)\]")
 AFFIX_LACUNA_REGEX = re.compile(r"((?:[^\W\d_][\u0300-\u036f]*)*)\[(\.+|\-+)\]((?:[^\W\d_][\u0300-\u036f]*)*)")
 
@@ -51,7 +54,7 @@ def extract_lacuna_metadata(
     text: str,
     n_chars: int | tuple[int, int] | None = None,
     char_tolerance: int = 0,
-) -> dict[str, Any]:
+) -> dict[str, typing.Any]:
     """
     Analizza un contesto con lacuna `[...]` o `[---]`:
     - Isola la prima lacuna come target e converte eventuali lacune secondarie in `<UNK>`.
@@ -181,7 +184,7 @@ def sanitize_greek_supplement(
     return s
 
 
-def coerce_dspy_candidates(raw_candidates: Any) -> list[GreekCandidate]:
+def coerce_dspy_candidates(raw_candidates: typing.Any) -> list[GreekCandidate]:
     """
     Converte in modo resiliente l'output `candidates` del predittore DSPy
     (che può essere `list[GreekCandidate]`, `list[dict]`, `list[str]` o `str`)
@@ -441,7 +444,7 @@ class GreekRAGInfiller(dspy.Module):
         exclude_query_overlap: bool | None = None,
         human_feedback: str = "",
         rejected_candidates: list[str] | None = None,
-        text_category: str | Sequence[str] | None = None,
+        text_category: str | typing.Sequence[str] | None = None,
     ) -> dspy.Prediction:
         # 1. Estrazione automatica dei vincoli se non specificati esplicitamente
         meta = extract_lacuna_metadata(context_with_gap)
@@ -588,7 +591,7 @@ class GreekRAGInfiller(dspy.Module):
                     else:
                         fallback_candidates.append(cleaned_cand)
             except Exception:
-                pass
+                logger.exception("Errore durante la fase di self-refinement dei candidati")
 
         # 5. Integrazione con attestazioni dirette dai passi paralleli recuperati e dall'indice BM25 del corpus
         llm_norm_set: set[str] = {
@@ -637,7 +640,7 @@ class GreekRAGInfiller(dspy.Module):
                         )
                     )
             except Exception:
-                pass
+                logger.exception("Errore durante la ricerca nell'indice lessicale")
 
         existing_by_norm: dict[str, GreekCandidate] = {}
         for c in valid_candidates:
