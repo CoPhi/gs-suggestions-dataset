@@ -36,6 +36,7 @@ from models.bert.inference.vocab import (
     check_tlg_attestation,
     postprocess_tlg_attestations,
 )
+from models.rag.categories import normalize_text_categories
 from backend.core.preprocess import normalize_greek, test_case_contains_lacuna
 
 LACUNA_PATTERN = r"\S*\[.*?\]\S*"
@@ -196,6 +197,11 @@ class SuggestionsService:
             # Predisposizione RLHF / DPO / Preference Modeling
             "alternative_candidates": serialized_alternatives,
             "session_id": payload.session_id,
+            "text_categories": (
+                normalize_text_categories(payload.text_categories)
+                if payload.text_categories
+                else None
+            ),
             "metadata": payload.metadata,
             "created_at": datetime.now(timezone.utc).isoformat(),
         }
@@ -241,8 +247,14 @@ class SuggestionsService:
         rejected_candidates: list[str] | None = None,
         use_rag: bool = False,
         session_id: str | None = None,
+        text_categories: list[str] | None = None,
     ) -> list[dict]:
         self._validate_context(context)
+        normalized_categories = (
+            normalize_text_categories(text_categories)
+            if text_categories is not None
+            else []
+        )
         model = await self._fetch_model(model_id)
         model_type = model.get("TYPE")
 
@@ -262,7 +274,11 @@ class SuggestionsService:
                             "BACKEND": "neuro_lexical",
                             "TOP_K_PASSAGES": int(model.get("TOP_K_PASSAGES", 5)),
                         }
-                        rag_extra = {"session_id": session_id} if session_id else {}
+                        rag_extra: dict[str, Any] = {}
+                        if session_id:
+                            rag_extra["session_id"] = session_id
+                        if normalized_categories:
+                            rag_extra["text_categories"] = normalized_categories
                         predictions = await self._predict_rag(
                             rag_bert_model,
                             context,
@@ -280,7 +296,11 @@ class SuggestionsService:
                         model, context, num_predictions
                     )
                 elif model_type == ModelType.RAG:
-                    rag_extra = {"session_id": session_id} if session_id else {}
+                    rag_extra = {}
+                    if session_id:
+                        rag_extra["session_id"] = session_id
+                    if normalized_categories:
+                        rag_extra["text_categories"] = normalized_categories
                     predictions = await self._predict_rag(
                         model,
                         context,
@@ -369,6 +389,7 @@ class SuggestionsService:
         rejected_candidates: list[str] | None = None,
         use_rag: bool = False,
         session_id: str | None = None,
+        text_categories: list[str] | None = None,
     ) -> list[dict]:
         """
         Esegue in parallelo l'inferenza su più modelli sincronizzando il rilascio delle risposte
@@ -376,6 +397,11 @@ class SuggestionsService:
         simultaneamente i risultati nella UI comparativa.
         """
         self._validate_context(context)
+        normalized_categories = (
+            normalize_text_categories(text_categories)
+            if text_categories is not None
+            else []
+        )
         unique_ids = list(dict.fromkeys(mid.strip() for mid in model_ids if mid and mid.strip()))
         if not unique_ids:
             return []
@@ -388,7 +414,11 @@ class SuggestionsService:
             err_msg: str | None = None
             try:
                 model_doc = await self._fetch_model(mid)
-                extra_pred_kwargs = {"session_id": session_id} if session_id else {}
+                extra_pred_kwargs: dict[str, Any] = {}
+                if session_id:
+                    extra_pred_kwargs["session_id"] = session_id
+                if normalized_categories:
+                    extra_pred_kwargs["text_categories"] = normalized_categories
                 preds = await self.get_predictions(
                     model_id=mid,
                     context=context,
@@ -639,6 +669,7 @@ class SuggestionsService:
         human_feedback: str | None = None,
         rejected_candidates: list[str] | None = None,
         session_id: str | None = None,
+        text_categories: list[str] | None = None,
     ) -> list[dict]:
         """Genera predizioni usando il sistema DSPy RAG specificato dal modello."""
         from models.rag.inference import fill_mask_rag
@@ -667,6 +698,8 @@ class SuggestionsService:
             rag_kwargs["rejected_candidates"] = rejected_candidates
         if session_id and session_id.strip():
             rag_kwargs["session_id"] = session_id.strip()
+        if text_categories:
+            rag_kwargs["text_categories"] = list(text_categories)
         if model.get("_id") is not None:
             rag_kwargs["model_id"] = str(model["_id"])
 

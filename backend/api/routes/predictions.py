@@ -8,8 +8,10 @@ from backend.api.models import (
     FeedbackResponse,
     PredictionCount,
     PredictionsResponse,
+    TextCategoriesResponse,
 )
 from backend.api.services.suggestions_service import SuggestionsService
+from models.rag.categories import list_tlg_categories
 
 router = APIRouter(tags=["Predictions"])
 
@@ -21,6 +23,16 @@ def get_service() -> SuggestionsService:
 @router.get("/", include_in_schema=False)
 async def root():
     return RedirectResponse(url="/docs")
+
+
+@router.get(
+    "/predictions/categories",
+    response_model=TextCategoriesResponse,
+    summary="Restituisce il catalogo delle 75 categorie/generi TLG (<cla>) da canon.xml",
+)
+async def list_prediction_categories():
+    cats = list_tlg_categories()
+    return JSONResponse(status_code=200, content={"categories": cats, "total": len(cats)})
 
 
 @router.get(
@@ -95,6 +107,13 @@ async def get_predictions(
             max_length=128,
         ),
     ] = None,
+    text_categories: Annotated[
+        Optional[List[str]],
+        Query(
+            title="Categorie testuali TLG (<cla>)",
+            description="Uno o più codici di genere letterario TLG (es. 'phil.', 'epic.', 'rhet.') da canon.xml per condizionare il prompt DSPy",
+        ),
+    ] = None,
     service: SuggestionsService = Depends(get_service),
 ):
     # Mantiene la chiamata compatibile con eventuali mock/spy nei test che non espongono
@@ -108,6 +127,8 @@ async def get_predictions(
         extra_kwargs["use_rag"] = use_rag
     if session_id is not None and session_id.strip():
         extra_kwargs["session_id"] = session_id.strip()
+    if text_categories is not None:
+        extra_kwargs["text_categories"] = text_categories
 
     predictions = await service.get_predictions(
         model_id=model_id,
@@ -184,11 +205,20 @@ async def get_batch_predictions(
             max_length=128,
         ),
     ] = None,
+    text_categories: Annotated[
+        Optional[List[str]],
+        Query(
+            title="Categorie testuali TLG (<cla>)",
+            description="Uno o più codici di genere letterario TLG (es. 'phil.', 'epic.', 'rhet.') da canon.xml per condizionare il prompt DSPy",
+        ),
+    ] = None,
     service: SuggestionsService = Depends(get_service),
 ):
     batch_kwargs: dict = {}
     if session_id is not None and session_id.strip():
         batch_kwargs["session_id"] = session_id.strip()
+    if text_categories is not None:
+        batch_kwargs["text_categories"] = text_categories
 
     results = await service.get_batch_predictions(
         model_ids=model_ids,

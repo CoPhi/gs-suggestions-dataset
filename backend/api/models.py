@@ -111,6 +111,29 @@ class PredictionsResponse(BaseModel):
     predictions: List[Prediction]
 
 
+class TextCategoryItem(BaseModel):
+    """Singola categoria letteraria TLG (`<cla>`) estratta da `canon.xml`."""
+
+    code: str = Field(description="Codice canonico TLG <cla> (es. 'phil.', 'epic.', 'rhet.')")
+    label: str = Field(description="Etichetta leggibile della categoria")
+    description: str = Field(description="Descrizione filologica usata nel prompt DSPy")
+    reasoning_category: str = Field(
+        default="",
+        description="Asse/categoria di ragionamento filologico associata al genere",
+    )
+    reasoning_focus: str = Field(
+        default="",
+        description="Criteri prioritari di ragionamento filologico per questo genere",
+    )
+
+
+class TextCategoriesResponse(BaseModel):
+    """Catalogo completo delle categorie testuali TLG supportate."""
+
+    categories: List[TextCategoryItem]
+    total: int
+
+
 class ModelPredictionsItem(BaseModel):
     """Risultato delle predizioni di un singolo modello all'interno di un confronto parallelo."""
 
@@ -221,6 +244,10 @@ class FeedbackCreateRequest(BaseModel):
     session_id: str | None = Field(
         default=None,
         description="Identificativo univoco di sessione di lavoro del filologo",
+    )
+    text_categories: List[str] | None = Field(
+        default=None,
+        description="Categorie/generi letterari TLG (<cla>) del testo lacunoso",
     )
     metadata: dict[str, Any] | None = Field(
         default=None,
