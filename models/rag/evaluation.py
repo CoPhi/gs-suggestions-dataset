@@ -822,6 +822,99 @@ def format_rag_impact_markdown(
     return "\n".join(lines)
 
 
+def evaluate_rag_compiled_vs_baseline(
+    cases: Sequence[DevCase | dict[str, Any]],
+    compiled_program_path: str | Path,
+    checkpoint: str = RAG_DEFAULT_LM,
+    lm: dspy.BaseLM | None = None,
+    backend: Literal["auto", "hf_api", "local", "openai_compatible"] = RAG_DEFAULT_BACKEND,
+    retriever: GreekHybridRetriever | None = None,
+    top_k_passages: int = RAG_TOP_K_PASSAGES,
+    K: int = 20,
+    compute_bertscore: bool = False,
+) -> dict[str, Any]:
+    """
+    Confronta sullo stesso set di casi le istruzioni base (`compiled_program_path=None`)
+    contro un programma DSPy compilato (`.json`) per supportare la decisione opt-in.
+    """
+    compiled_path = Path(compiled_program_path)
+    if not compiled_path.is_file():
+        raise FileNotFoundError(
+            f"Programma DSPy compilato non trovato in '{compiled_path}'."
+        )
+
+    baseline = evaluate_rag_on_cases(
+        cases=cases,
+        checkpoint=checkpoint,
+        lm=lm,
+        backend=backend,
+        retriever=retriever,
+        top_k_passages=top_k_passages,
+        compiled_program_path=None,
+        K=K,
+        compute_bertscore=compute_bertscore,
+    )
+    compiled = evaluate_rag_on_cases(
+        cases=cases,
+        checkpoint=checkpoint,
+        lm=lm,
+        backend=backend,
+        retriever=retriever,
+        top_k_passages=top_k_passages,
+        compiled_program_path=compiled_path,
+        K=K,
+        compute_bertscore=compute_bertscore,
+    )
+
+    delta: dict[str, dict[str, float]] = {}
+    for pol in ("overall", "default", "word", "suffix"):
+        if pol in baseline and pol in compiled:
+            delta[pol] = _compute_delta_metrics(baseline[pol], compiled[pol])
+
+    return {
+        "model": checkpoint,
+        "compiled_program_path": str(compiled_path),
+        "top_k_passages": top_k_passages,
+        "baseline": baseline,
+        "compiled": compiled,
+        "delta": delta,
+    }
+
+
+def format_rag_compiled_comparison_markdown(
+    report: dict[str, Any],
+    model_name: str | None = None,
+) -> str:
+    """Formatta il confronto Baseline vs Programma Compilato in una tabella Markdown."""
+    mdl = model_name or report.get("model", RAG_DEFAULT_LM)
+    compiled_path = report.get("compiled_program_path", "")
+    baseline = report.get("baseline", {})
+    compiled = report.get("compiled", {})
+    delta = report.get("delta", {})
+
+    lines = [
+        f"### Confronto Opt-In Programma Compilato DSPy (`{mdl}`)",
+        f"- **File compilato**: `{compiled_path}`",
+        f"- **Passi recuperati (`top_k`)**: `{report.get('top_k_passages', RAG_TOP_K_PASSAGES)}`",
+        "",
+        "| Policy | Casi | Baseline Top-1 | Compiled Top-1 | Δ Top-1 | Baseline Top-5 | Compiled Top-5 | Δ Top-5 | Δ Char Acc | Δ MRR |",
+        "| :--- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
+    ]
+    for pol in ("overall", "default", "word", "suffix"):
+        if pol not in baseline or pol not in compiled:
+            continue
+        b = baseline[pol]
+        c = compiled[pol]
+        d = delta.get(pol, {})
+        lines.append(
+            f"| **{pol}** | {int(c.get('num_cases', 0))} "
+            f"| {b.get('top1', 0.0):.2f}% | {c.get('top1', 0.0):.2f}% | {d.get('top1', 0.0):+.2f} pp "
+            f"| {b.get('top5', 0.0):.2f}% | {c.get('top5', 0.0):.2f}% | {d.get('top5', 0.0):+.2f} pp "
+            f"| {d.get('char_accuracy', 0.0):+.2f} pp | {d.get('mrr', 0.0):+.2f} pp |"
+        )
+    return "\n".join(lines)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         description="Valutazione del sistema DSPy RAG su test_abs.csv e dataset di benchmark papirologici."
@@ -886,6 +979,11 @@ def main() -> None:
         type=str,
         default=None,
         help="Percorso opzionale al programma DSPy compilato (.json)",
+    )
+    parser.add_argument(
+        "--compare-compiled",
+        action="store_true",
+        help="Confronta le istruzioni base (baseline) vs --compiled-path sugli stessi casi per validare l'opt-in",
     )
     parser.add_argument(
         "--output-json",
@@ -995,6 +1093,36 @@ def main() -> None:
         for c in pol_cases:
             c.gap_type = pol
             all_cases.append(c)
+
+    if args.compare_compiled:
+        if not args.compiled_path:
+            raise ValueError(
+                "--compare-compiled richiede --compiled-path <percorso_file.json>."
+            )
+        comp_report = evaluate_rag_compiled_vs_baseline(
+            cases=all_cases,
+            compiled_program_path=args.compiled_path,
+            checkpoint=args.lm,
+            backend=args.backend,
+            retriever=retriever,
+            top_k_passages=args.top_k_passages,
+        )
+        comp_md = format_rag_compiled_comparison_markdown(comp_report, model_name=args.lm)
+        print("\n" + comp_md + "\n")
+
+        if args.output_md:
+            md_path = Path(args.output_md)
+            md_path.parent.mkdir(parents=True, exist_ok=True)
+            md_path.write_text(comp_md, encoding="utf-8")
+            print(f"Report Markdown salvato in '{md_path}'.")
+        if args.output_json:
+            out_path = Path(args.output_json)
+            out_path.parent.mkdir(parents=True, exist_ok=True)
+            out_path.write_text(
+                json.dumps(comp_report, indent=2, ensure_ascii=False), encoding="utf-8"
+            )
+            print(f"Risultati salvati in '{out_path}'.")
+        return
 
     results = evaluate_rag_on_cases(
         cases=all_cases,
