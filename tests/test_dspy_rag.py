@@ -19,8 +19,10 @@ from backend.api.services.model_service import ModelService
 from backend.api.services.suggestions_service import SuggestionsService
 from models.bert.dataset.dev_set import DevCase
 from models.rag.evaluation import (
+    evaluate_rag_compiled_vs_baseline,
     evaluate_rag_impact_on_test_abs,
     evaluate_rag_on_cases,
+    format_rag_compiled_comparison_markdown,
     format_rag_evaluation_markdown,
     format_rag_impact_markdown,
     load_cases_from_test_abs_csv,
@@ -1551,5 +1553,225 @@ def test_greek_rag_infiller_deepcopy_shares_retriever_without_warnings(caplog):
         student.generate_infill.signature.instructions
         != cloned.generate_infill.signature.instructions
     )
+
+
+def test_selective_opt_in_compiled_program_routes_and_env(tmp_path: Path, monkeypatch):
+    from fastapi.testclient import TestClient
+
+    from backend.api.main import app
+    from backend.api.routes.models import get_service
+    from backend.config.settings import parse_rag_compiled_programs_env
+
+    # 1. Parsing env opt-in (vuoto di default, supporta sia JSON sia key=value)
+    assert parse_rag_compiled_programs_env("") == {}
+    assert parse_rag_compiled_programs_env(
+        '{"Qwen/Qwen2.5-72B-Instruct": "models/rag/checkpoints/compiled_rag_qwen2_5_72b_instruct.json"}'
+    ) == {
+        "Qwen/Qwen2.5-72B-Instruct": "models/rag/checkpoints/compiled_rag_qwen2_5_72b_instruct.json"
+    }
+    assert parse_rag_compiled_programs_env(
+        "Qwen/Qwen2.5-72B-Instruct=a.json, meta-llama/Llama-3.3-70B-Instruct=b.json"
+    ) == {
+        "Qwen/Qwen2.5-72B-Instruct": "a.json",
+        "meta-llama/Llama-3.3-70B-Instruct": "b.json",
+    }
+
+    compiled_file = tmp_path / "compiled_rag_optin.json"
+    compiled_file.write_text('{"generate_infill": {"demos": []}}', encoding="utf-8")
+
+    rag_id = ObjectId()
+    bert_id = ObjectId()
+    store = {
+        str(rag_id): {
+            "_id": rag_id,
+            "CHECKPOINT": "Qwen/Qwen2.5-72B-Instruct",
+            "BACKEND": "auto",
+            "TOP_K_PASSAGES": 5,
+            "COMPILED_PROGRAM_PATH": None,
+            "TYPE": ModelType.RAG,
+        },
+        str(bert_id): {
+            "_id": bert_id,
+            "CHECKPOINT": "CNR-ILC/gs-GreBerta",
+            "TYPE": ModelType.BERT,
+        },
+    }
+
+    async def _fake_find_one(query):
+        oid = query.get("_id")
+        if oid is not None:
+            doc = store.get(str(oid))
+            return dict(doc) if doc else None
+        for doc in store.values():
+            if all(doc.get(k) == v for k, v in query.items()):
+                return dict(doc)
+        return None
+
+    async def _fake_insert_one(doc):
+        new_id = ObjectId()
+        saved = dict(doc)
+        saved["_id"] = new_id
+        store[str(new_id)] = saved
+        return MagicMock(inserted_id=new_id)
+
+    async def _fake_update_one(filt, update):
+        doc = store.get(str(filt.get("_id")))
+        if doc and "$set" in update:
+            doc.update(update["$set"])
+        return MagicMock(matched_count=1 if doc else 0)
+
+    mock_collection = MagicMock()
+    mock_collection.find_one = AsyncMock(side_effect=_fake_find_one)
+    mock_collection.insert_one = AsyncMock(side_effect=_fake_insert_one)
+    mock_collection.update_one = AsyncMock(side_effect=_fake_update_one)
+
+    service = ModelService(db_collection=mock_collection, gridfs=MagicMock())
+    app.dependency_overrides[get_service] = lambda: service
+    try:
+        client = TestClient(app)
+
+        # 2. POST /models rifiuta percorsi inesistenti (400) e accetta path validi (201)
+        resp_bad_post = client.post(
+            "/models",
+            json={
+                "CHECKPOINT": "meta-llama/Llama-3.1-8B-Instruct",
+                "BACKEND": "auto",
+                "TOP_K_PASSAGES": 5,
+                "COMPILED_PROGRAM_PATH": str(tmp_path / "missing.json"),
+                "TYPE": "RAG",
+            },
+        )
+        assert resp_bad_post.status_code == 400
+
+        resp_ok_post = client.post(
+            "/models",
+            json={
+                "CHECKPOINT": "meta-llama/Llama-3.1-8B-Instruct",
+                "BACKEND": "auto",
+                "TOP_K_PASSAGES": 5,
+                "COMPILED_PROGRAM_PATH": str(compiled_file),
+                "TYPE": "RAG",
+            },
+        )
+        assert resp_ok_post.status_code == 201
+
+        # 3. PATCH /models/{id} attiva selettivamente il JSON sul modello RAG esistente
+        resp_patch_on = client.patch(
+            f"/models/{rag_id}",
+            json={"COMPILED_PROGRAM_PATH": str(compiled_file)},
+        )
+        assert resp_patch_on.status_code == 200
+        assert resp_patch_on.json()["model"]["COMPILED_PROGRAM_PATH"] == str(compiled_file)
+
+        # 4. PATCH /models/{id} con null ripristina la modalità base
+        resp_patch_off = client.patch(
+            f"/models/{rag_id}",
+            json={"COMPILED_PROGRAM_PATH": None},
+        )
+        assert resp_patch_off.status_code == 200
+        assert resp_patch_off.json()["model"]["COMPILED_PROGRAM_PATH"] is None
+
+        # 5. PATCH rifiuta file assenti o modelli non-RAG con 400
+        resp_patch_missing = client.patch(
+            f"/models/{rag_id}",
+            json={"COMPILED_PROGRAM_PATH": str(tmp_path / "missing.json")},
+        )
+        assert resp_patch_missing.status_code == 400
+
+        resp_patch_bert = client.patch(
+            f"/models/{bert_id}",
+            json={"COMPILED_PROGRAM_PATH": str(compiled_file)},
+        )
+        assert resp_patch_bert.status_code == 400
+    finally:
+        app.dependency_overrides.clear()
+
+
+@pytest.mark.asyncio
+async def test_init_models_applies_selective_opt_in_map(tmp_path: Path, monkeypatch):
+    compiled_file = tmp_path / "compiled_rag_qwen2_5_72b_instruct.json"
+    compiled_file.write_text('{"generate_infill": {"demos": []}}', encoding="utf-8")
+
+    monkeypatch.setattr(
+        "backend.api.services.model_service.RAG_COMPILED_PROGRAMS",
+        {"Qwen/Qwen2.5-72B-Instruct": str(compiled_file)},
+    )
+
+    mock_collection = MagicMock()
+    mock_collection.find_one = AsyncMock(return_value=None)
+    inserted_counter = 0
+
+    async def _fake_insert(doc):
+        nonlocal inserted_counter
+        inserted_counter += 1
+        return MagicMock(inserted_id=f"id-{inserted_counter}")
+
+    mock_collection.insert_one = AsyncMock(side_effect=_fake_insert)
+    service = ModelService(db_collection=mock_collection, gridfs=MagicMock())
+
+    with patch.object(
+        service, "_create_ngram_model_from_params", new=AsyncMock(return_value="ngram-id")
+    ), patch.object(
+        service, "_create_bert_model_from_checkpoint", new=AsyncMock(return_value="bert-id")
+    ):
+        await service.init_models()
+
+    inserted_docs = [call.args[0] for call in mock_collection.insert_one.call_args_list]
+    qwen_doc = next(
+        d for d in inserted_docs if d.get("CHECKPOINT") == "Qwen/Qwen2.5-72B-Instruct"
+    )
+    llama_doc = next(
+        d for d in inserted_docs if d.get("CHECKPOINT") == "meta-llama/Llama-3.3-70B-Instruct"
+    )
+    assert qwen_doc["COMPILED_PROGRAM_PATH"] == str(compiled_file)
+    assert llama_doc["COMPILED_PROGRAM_PATH"] is None
+
+
+def test_evaluate_rag_compiled_vs_baseline_with_dummylm(tmp_path: Path):
+    # Salva un programma DSPy reale compilato/base su disco per il confronto
+    prog = GreekRAGInfiller(retriever=None, enable_refinement=False)
+    compiled_file = tmp_path / "compiled_test.json"
+    prog.save(str(compiled_file))
+
+    cases = [
+        DevCase(
+            x="ἐνταῦθα δὲ [...] τοὺς λόγους",
+            y=["καὶ"],
+            gap_length=3,
+            corpus_id="tlg",
+            file_id="tlg0007081.xml",
+            gap_type="word",
+        )
+    ]
+
+    dummy_lm = DummyLM(
+        [
+            # Baseline
+            {
+                "philological_reasoning": "Tentativo baseline errato.",
+                "candidates": [{"supplement": "γὰρ", "confidence": 0.9}],
+            },
+            # Compiled
+            {
+                "philological_reasoning": "Connettivo καί esatto.",
+                "candidates": [{"supplement": "καὶ", "confidence": 0.95}],
+            },
+        ]
+    )
+
+    report = evaluate_rag_compiled_vs_baseline(
+        cases=cases,
+        compiled_program_path=compiled_file,
+        lm=dummy_lm,
+        retriever=None,
+        top_k_passages=0,
+    )
+    assert report["baseline"]["overall"]["top1"] == 0.0
+    assert report["compiled"]["overall"]["top1"] == 100.0
+    assert report["delta"]["overall"]["top1"] == 100.0
+    md = format_rag_compiled_comparison_markdown(report, model_name="Qwen/Qwen2.5-72B-Instruct")
+    assert "Baseline Top-1" in md
+    assert "+100.00 pp" in md
+
 
 

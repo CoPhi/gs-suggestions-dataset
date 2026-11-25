@@ -759,6 +759,7 @@ RAG_HERC_DEFAULT_CATEGORY ?= phil.
 RAG_NEUTRAL_RATIO ?= 0.15
 RAG_CATEGORIES ?=
 RAG_COMPILED_PATH ?=
+RAG_COMPARE_COMPILED ?= false
 RAG_CSV_PATH ?= test_abs.csv
 RAG_OUTPUT_MD ?= eval/results/rag_test_abs_evaluation.md
 RAG_OUTPUT_CSV ?= eval/results/rag_test_abs_predictions.csv
@@ -783,7 +784,7 @@ rag:
 	@echo "   make rag-compile [RAG_LM=$(RAG_LM) RAG_OPTIMIZER=miprov2|copro|gepa]"
 	@echo ""
 	@echo "3. Valutazione su benchmark stratificati (default, word, suffix):"
-	@echo "   make rag-eval [RAG_LM=$(RAG_LM) EVAL_DATASET=$(EVAL_DATASET) POLICY=$(POLICY)]"
+	@echo "   make rag-eval [RAG_LM=$(RAG_LM) EVAL_DATASET=$(EVAL_DATASET) POLICY=$(POLICY) RAG_COMPILED_PATH=... RAG_COMPARE_COMPILED=true]"
 	@echo "   make rag-eval-abs [RAG_LM=$(RAG_LM) RAG_CSV_PATH=$(RAG_CSV_PATH) RAG_TOP_K_PASSAGES=$(RAG_TOP_K_PASSAGES)]"
 	@echo ""
 	@echo "4. Test di inferenza interattiva da terminale:"
@@ -833,6 +834,7 @@ rag-eval:
 		--max-cases $(MAX_EVAL_CASES) \
 		--top-k-passages $(RAG_TOP_K_PASSAGES) \
 		$(if $(strip $(RAG_COMPILED_PATH)),--compiled-path "$(RAG_COMPILED_PATH)",) \
+		$(if $(filter true,$(RAG_COMPARE_COMPILED)),--compare-compiled,) \
 		$(if $(strip $(OUTPUT_JSON)),--output-json "$(OUTPUT_JSON)",)
 
 rag-eval-abs:
