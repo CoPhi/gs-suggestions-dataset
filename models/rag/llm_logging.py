@@ -66,9 +66,27 @@ _SENSITIVE_HEADER_FRAGMENTS = (
 )
 
 _HANDLER_MARKER = "_gs_llm_call_logging_handler"
+_HF_MAX_RETRIES_FILTER_MARKER = "_gs_hf_max_retries_filter"
+_HF_TRANSFORMATION_LOGGER_NAME = "litellm.llms.huggingface.chat.transformation"
 _configured = False
 _callback_installed = False
 _configure_lock = threading.Lock()
+
+
+class _IgnoreHfMaxRetriesFilter(logging.Filter):
+    """Sopprime il warning innocuo di LiteLLM su `max_retries` per il provider Hugging Face."""
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        return "`max_retries` is not supported. It will be ignored." not in record.getMessage()
+
+
+def _install_litellm_warning_filters() -> None:
+    """Registra in modo idempotente il filtro sui warning ripetitivi di LiteLLM/HF."""
+    hf_logger = logging.getLogger(_HF_TRANSFORMATION_LOGGER_NAME)
+    if not any(getattr(flt, _HF_MAX_RETRIES_FILTER_MARKER, False) for flt in hf_logger.filters):
+        flt = _IgnoreHfMaxRetriesFilter()
+        setattr(flt, _HF_MAX_RETRIES_FILTER_MARKER, True)
+        hf_logger.addFilter(flt)
 
 
 def _env_bool(name: str, default: bool = False) -> bool:
@@ -506,6 +524,9 @@ def install_llm_call_logging(force: bool = False) -> bool:
         il logging è disabilitato o LiteLLM non è installato.
     """
     global _callback_installed
+
+    # Silenzia il warning ripetitivo su `max_retries` anche se il logging strutturato è su "off".
+    _install_litellm_warning_filters()
 
     if _resolve_destination() == "off" and not force:
         return False

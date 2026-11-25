@@ -1518,10 +1518,38 @@ def test_build_rag_corpus_extra_dirs_author_map_and_work_stratification(
     assert atts[0]["source_id"] == "Plato — Respublica"
 
 
+def test_greek_rag_infiller_deepcopy_shares_retriever_without_warnings(caplog):
+    """
+    Verifica che `GreekRAGInfiller.deepcopy()` (usato da `MIPROv2` e `BootstrapFewShot`)
+    cloni in modo indipendente i predittori DSPy ma mantenga per riferimento
+    `GreekHybridRetriever` (che contiene `dspy.Embeddings`/`Unbatchify`), senza
+    emettere warning né errori di `__del__` su `stop_event`.
+    """
+    import logging
 
+    corpus = [
+        "[Corpus: tlg | Plato] ἐνταῦθα δὲ καὶ τοὺς λόγους αὐτοὺς καθ' αὑτοὺς",
+        "[Corpus: DCLP | P. Bagnall. 13] Ἆρες Ἆρες βροτολοιγὲ μιαιφόνε τειχεσιβλῆτα",
+    ]
+    retriever = GreekHybridRetriever(corpus=corpus, embedder=_dummy_greek_embedder, k=1)
+    student = GreekRAGInfiller(retriever=retriever, top_k_passages=1)
 
+    with caplog.at_level(logging.WARNING):
+        cloned = student.deepcopy()
 
+    assert cloned is not student
+    assert cloned.retriever is retriever
+    assert cloned.generate_infill is not student.generate_infill
+    assert cloned.refine_infill is not student.refine_infill
+    assert "Failed to deep copy attribute 'retriever'" not in caplog.text
 
-
+    # Verifica che le mutazioni sui predittori del clone non tocchino l'originale
+    cloned.generate_infill.signature = cloned.generate_infill.signature.with_instructions(
+        "Istruzione ottimizzata di prova."
+    )
+    assert (
+        student.generate_infill.signature.instructions
+        != cloned.generate_infill.signature.instructions
+    )
 
 

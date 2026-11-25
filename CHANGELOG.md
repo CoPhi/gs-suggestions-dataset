@@ -48,6 +48,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Aggiornato il valore iniziale del form control `num_predictions` da 1 a 10 in [`prompt-box.component.ts`](./frontend/src/app/components/prompt-box/prompt-box.component.ts), allineando la configurazione iniziale dell'interfaccia utente alla richiesta standard di 10 candidati per lacuna.
 
 ### Fixed
+- **Soppressione Warning `deepcopy` Retriever e `max_retries` LiteLLM in Compilazione DSPy (`models/rag/retriever.py`, `models/rag/llm_logging.py`)**:
+  - Implementato `GreekHybridRetriever.__deepcopy__` in [`models/rag/retriever.py`](./models/rag/retriever.py) restituendo `self` per evitare che `BaseModule.deepcopy()` (usato da `MIPROv2` e `BootstrapFewShot`) tenti di clonare `dspy.Embeddings`/`Unbatchify` (con `threading.Thread`/`stop_event` non picklabili) eliminando il warning `Failed to deep copy attribute 'retriever'` e gli errori `AttributeError: 'Unbatchify' object has no attribute 'stop_event'` in `__del__`.
+  - Aggiunto in [`models/rag/llm_logging.py`](./models/rag/llm_logging.py) un filtro di logging mirato (`_IgnoreHfMaxRetriesFilter`) sul logger `litellm.llms.huggingface.chat.transformation` per sopprimere il warning innocuo su `max_retries` ad ogni chiamata al router Hugging Face.
+  - Aggiunti test di regressione in [`tests/test_dspy_rag.py`](./tests/test_dspy_rag.py) e [`tests/test_llm_logging.py`](./tests/test_llm_logging.py).
 - **Rimozione Falsi Positivi nell'Highlighting della Frase Ricostruita (`SuggestComponent`)**:
   - Aggiornato `sentenceSegments` in [`suggest.component.ts`](./frontend/src/app/components/suggest/suggest.component.ts) affinché utilizzi esclusivamente `reconstructed_word` come target di evidenziazione quando valorizzato (ricorrendo a `token_str` solo come fallback in sua assenza), evitando di evidenziare parole indipendenti nella frase che coincidono con il solo supplemento (es. `οὐ` quando `token_str = "ου"`).
   - Aggiunto test di regressione dedicato in [`suggest.component.spec.ts`](./frontend/src/app/components/suggest/suggest.component.spec.ts).

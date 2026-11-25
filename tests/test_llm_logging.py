@@ -206,3 +206,17 @@ def test_both_destination_logs_to_stdout_and_file(tmp_path, monkeypatch, capsys)
         assert "HF/LLM request skipped" in text
         assert "HF/LLM fallback activated" in text
 
+
+def test_hf_max_retries_warning_is_filtered(caplog, monkeypatch):
+    monkeypatch.setenv("RAG_LLM_LOG_DEST", "off")
+    llm_logging.install_llm_call_logging()
+
+    hf_logger = logging.getLogger("litellm.llms.huggingface.chat.transformation")
+    with caplog.at_level(logging.WARNING, logger="litellm.llms.huggingface.chat.transformation"):
+        hf_logger.warning("`max_retries` is not supported. It will be ignored.")
+        hf_logger.warning("Altro warning reale da non sopprimere.")
+
+    assert "`max_retries` is not supported" not in caplog.text
+    assert "Altro warning reale da non sopprimere." in caplog.text
+
+

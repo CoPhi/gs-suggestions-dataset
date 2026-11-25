@@ -1140,6 +1140,16 @@ class GreekHybridRetriever:
                     normalize=True,
                 )
 
+    def __deepcopy__(self, memo: dict[int, Any] | None = None) -> "GreekHybridRetriever":
+        """
+        Restituisce `self` durante `copy.deepcopy` (usato da `dspy.MIPROv2` / `BaseModule.deepcopy`).
+        """
+        # Evita di clonare indici read-only voluminosi e il thread worker `Unbatchify`
+        # interno a `dspy.Embeddings` (non picklabile: causerebbe warning e AttributeError in __del__).
+        if memo is not None:
+            memo[id(self)] = self
+        return self
+
     def __call__(
         self,
         query: str,
