@@ -409,7 +409,7 @@ restart: stop run
 
 test-api:
 	@echo "=== [QA] Esecuzione Test Suite Backend / API ==="
-	uv run python -m pytest tests/test_multiple_lacunae.py tests/backend/core/test_preprocess.py tests/backend/core/test_transpiler.py tests/test_model_service_checkpoints.py tests/test_dspy_rag.py tests/test_llm_logging.py tests/test_conversation_logging.py
+	uv run python -m pytest tests/test_multiple_lacunae.py tests/backend/core/test_preprocess.py tests/backend/core/test_transpiler.py tests/test_model_service_checkpoints.py tests/test_dspy_rag.py tests/test_tlg_categories_dspy.py tests/test_llm_logging.py tests/test_conversation_logging.py
 
 
 test-frontend:
@@ -750,8 +750,14 @@ RAG_EMBEDDER_BATCH_SIZE ?= 32
 RAG_INDEX_DIR ?= models/rag/index
 RAG_MAX_PASSAGES ?= 20000
 RAG_TOP_K_PASSAGES ?= 5
-RAG_OPTIMIZER ?= bootstrap
+RAG_OPTIMIZER ?= miprov2
+RAG_MAX_BOOTSTRAPPED_DEMOS ?= 0
+RAG_MAX_LABELED_DEMOS ?= 0
 RAG_MAX_TRAIN_CASES ?= 40
+RAG_TLG_RATIO ?= 0.6
+RAG_HERC_DEFAULT_CATEGORY ?= phil.
+RAG_NEUTRAL_RATIO ?= 0.15
+RAG_CATEGORIES ?=
 RAG_COMPILED_PATH ?=
 RAG_CSV_PATH ?= test_abs.csv
 RAG_OUTPUT_MD ?= eval/results/rag_test_abs_evaluation.md
@@ -773,8 +779,8 @@ rag:
 	@echo "1. Costruzione dell'indice ibrido (BM25 + Dense Embeddings BERT) da data/:"
 	@echo "   make rag-index [RAG_MAX_PASSAGES=$(RAG_MAX_PASSAGES) RAG_EMBEDDER=$(RAG_EMBEDDER)]"
 	@echo ""
-	@echo "2. Compilazione automatica del modulo DSPy (BootstrapFewShot / MIPROv2):"
-	@echo "   make rag-compile [RAG_LM=$(RAG_LM) RAG_OPTIMIZER=bootstrap|miprov2]"
+	@echo "2. Compilazione zero-shot delle istruzioni di ragionamento DSPy (0 demos):"
+	@echo "   make rag-compile [RAG_LM=$(RAG_LM) RAG_OPTIMIZER=miprov2|copro|gepa]"
 	@echo ""
 	@echo "3. Valutazione su benchmark stratificati (default, word, suffix):"
 	@echo "   make rag-eval [RAG_LM=$(RAG_LM) EVAL_DATASET=$(EVAL_DATASET) POLICY=$(POLICY)]"
@@ -803,12 +809,17 @@ rag-index:
 		--embedder-batch-size $(RAG_EMBEDDER_BATCH_SIZE)
 
 rag-compile:
-	@echo "=== Compilazione Modulo DSPy GreekRAGInfiller per [$(RAG_LM)] ==="
+	@echo "=== Compilazione Zero-Shot Istruzioni DSPy GreekRAGInfiller per [$(RAG_LM)] ==="
 	uv run --no-sync python -m models.rag.optimizer \
 		--lm "$(RAG_LM)" \
 		--backend "$(RAG_BACKEND)" \
 		--optimizer "$(RAG_OPTIMIZER)" \
+		--max-bootstrapped-demos $(RAG_MAX_BOOTSTRAPPED_DEMOS) \
+		--max-labeled-demos $(RAG_MAX_LABELED_DEMOS) \
 		--max-train-cases $(RAG_MAX_TRAIN_CASES) \
+		--tlg-ratio $(RAG_TLG_RATIO) \
+		--herc-default-category "$(RAG_HERC_DEFAULT_CATEGORY)" \
+		--neutral-ratio $(RAG_NEUTRAL_RATIO) \
 		$(if $(strip $(RAG_COMPILED_PATH)),--output "$(RAG_COMPILED_PATH)",)
 
 rag-eval:
@@ -845,6 +856,7 @@ rag-predict:
 		--lm "$(RAG_LM)" \
 		--backend "$(RAG_BACKEND)" \
 		--top-k-passages $(RAG_TOP_K_PASSAGES) \
+		$(if $(strip $(RAG_CATEGORIES)),--category $(RAG_CATEGORIES),) \
 		$(if $(strip $(RAG_COMPILED_PATH)),--compiled-path "$(RAG_COMPILED_PATH)",)
 
 rag-logs:
