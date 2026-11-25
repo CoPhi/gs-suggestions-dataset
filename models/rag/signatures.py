@@ -80,15 +80,25 @@ class GreekInfillingSignature(dspy.Signature):
     Il tuo compito è proporre supplementi in greco antico per colmare la lacuna indicata da `[...]`
     nel frammento fornito, sfruttando i passi paralleli (loci similes) recuperati dai corpora antichi
     e rispettando rigorosamente i vincoli di lunghezza in caratteri e la morfologia della parola.
+    Quando `text_category` specifica una o più categorie TLG (`<cla>`), calibra le ipotesi su
+    lessico tecnico, registro stilistico, coloritura dialettale e struttura metrica o prosastica del genere;
+    se `text_category` indica `Non specificata`, mantieni un approccio filologico neutro guidato dal contesto.
     Articola il ragionamento su due livelli:
-    1) `philological_reasoning` (CoT di 1° livello): analisi logica e filologica di come interpreti il contesto
-       e le informazioni estratte dai documenti rilevanti del retriever per inquadrare la lacuna;
+    1) `philological_reasoning` (CoT di 1° livello): analisi logica e filologica di come interpreti il contesto,
+       l'eventuale genere letterario in `text_category` e le informazioni estratte dai documenti rilevanti del retriever;
     2) `rationale` in ciascun `GreekCandidate` (CoT di 2° livello): spiegazione puntuale e concisa del perché
        quella singola integrazione è plausibile per colmare la lacuna.
     Restituisci in `supplement` esclusivamente i caratteri greci che sostituiscono `[...]`."""
 
     context_with_gap: str = dspy.InputField(
         desc="Frammento di testo in greco antico contenente la lacuna target indicata da `[...]`."
+    )
+    text_category: str = dspy.InputField(
+        desc=(
+            "Categoria/genere letterario TLG (<cla>) del testo lacunoso (es. 'Filosofia (phil.)', "
+            "'Epica (epic.)', oppure 'Non specificata' se ignota), utile per calibrare registro, dialetto, "
+            "lessico tecnico e struttura metrica o sintattica."
+        )
     )
     gap_constraints: str = dspy.InputField(
         desc=(
@@ -121,10 +131,14 @@ class GreekInfillingSignature(dspy.Signature):
 class ConstraintRefinementSignature(dspy.Signature):
     """Alcuni supplementi proposti in precedenza non rispettavano il numero esatto di lettere greche
     richiesto dalla lacuna papirologica. Correggi e genera nuovi supplementi in greco antico che
-    rispettino rigorosamente il conteggio di caratteri specificato in `gap_constraints`."""
+    rispettino rigorosamente il conteggio di caratteri specificato in `gap_constraints`,
+    mantenendo la coerenza stilistica, lessicale e metrica con il genere indicato in `text_category`."""
 
     context_with_gap: str = dspy.InputField(
         desc="Frammento in greco antico con lacuna `[...]`."
+    )
+    text_category: str = dspy.InputField(
+        desc="Categoria/genere letterario TLG (<cla>) del testo lacunoso per preservare coerenza stilistica e lessicale nella correzione."
     )
     gap_constraints: str = dspy.InputField(
         desc="Vincoli rigorosi sul numero di caratteri e prefisso e/o suffisso."

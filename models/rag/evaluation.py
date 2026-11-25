@@ -172,12 +172,18 @@ def evaluate_rag_on_cases(
             gold_raw = " ".join(case.y) if isinstance(case.y, list) else str(case.y)
             gap_len = case.gap_length
             policy = getattr(case, "gap_type", "default") or "default"
+            text_cats = getattr(case, "text_categories", None)
         else:
             x_text = str(case.get("x") or case.get("text") or case.get("context_with_gap") or "")
             raw_y = case.get("y") or case.get("gold_target") or case.get("gold_supplement") or ""
             gold_raw = " ".join(raw_y) if isinstance(raw_y, list) else str(raw_y)
             gap_len = case.get("gap_length")
             policy = str(case.get("policy") or case.get("gap_type") or "default")
+            text_cats = (
+                case.get("text_categories")
+                or case.get("text_category")
+                or case.get("cla")
+            )
 
         if not x_text or not gold_raw:
             continue
@@ -187,20 +193,23 @@ def evaluate_rag_on_cases(
             continue
 
         try:
-            preds = fill_mask_rag(
-                text=x_text,
-                checkpoint=checkpoint,
-                lm=lm,
-                backend=backend,
-                retriever=retriever,
-                use_default_retriever=retriever is not None or top_k_passages > 0,
-                top_k_passages=top_k_passages,
-                compiled_program_path=compiled_program_path,
-                n_chars=gap_len,
-                K=K,
-                exclude_query_overlap=True,
-                return_details=False,
-            )
+            eval_kwargs: dict[str, Any] = {
+                "text": x_text,
+                "checkpoint": checkpoint,
+                "lm": lm,
+                "backend": backend,
+                "retriever": retriever,
+                "use_default_retriever": retriever is not None or top_k_passages > 0,
+                "top_k_passages": top_k_passages,
+                "compiled_program_path": compiled_program_path,
+                "n_chars": gap_len,
+                "K": K,
+                "exclude_query_overlap": True,
+                "return_details": False,
+            }
+            if text_cats:
+                eval_kwargs["text_categories"] = text_cats
+            preds = fill_mask_rag(**eval_kwargs)
         except Exception:
             preds = []
 

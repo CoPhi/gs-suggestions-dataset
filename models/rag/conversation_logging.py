@@ -698,6 +698,9 @@ def format_conversation_record(
         f"| prefix='{inp.get('word_prefix', '')}' | suffix='{inp.get('word_suffix', '')}' "
         f"| K={inp.get('K')}"
     )
+    if inp.get("text_category") or inp.get("text_categories"):
+        cat_label = inp.get("text_category") or ", ".join(inp.get("text_categories") or [])
+        lines.append(f"CATEGORIA: {cat_label}")
     if inp.get("human_feedback"):
         lines.append(f"HITL FEEDBACK: {inp.get('human_feedback')}")
     if inp.get("rejected_candidates"):

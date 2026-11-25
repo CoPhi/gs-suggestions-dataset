@@ -18,6 +18,7 @@ class DevCase:
     corpus_id: str
     file_id: str
     gap_type: str = "default"  # "default" | "word" | "suffix"
+    text_categories: list[str] | None = None
 
 
 def build_dev_cases(

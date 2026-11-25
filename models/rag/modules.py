@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import re
 import unicodedata
-from typing import Any
+from typing import Any, Sequence
 
 import dspy
 
@@ -23,6 +23,11 @@ from backend.core.preprocess import (
     normalize_greek,
     process_editorial_marks,
     strip_diacritics,
+)
+from models.rag.categories import (
+    DEFAULT_TEXT_CATEGORY_PROMPT,
+    format_text_category_for_prompt,
+    normalize_text_categories,
 )
 from models.rag.retriever import (
     GreekHybridRetriever,
@@ -411,11 +416,13 @@ class GreekRAGInfiller(dspy.Module):
         retriever: GreekHybridRetriever | None = None,
         top_k_passages: int = 5,
         enable_refinement: bool = True,
+        default_exclude_query_overlap: bool = False,
     ) -> None:
         super().__init__()
         self.retriever = retriever
         self.top_k_passages = top_k_passages
         self.enable_refinement = enable_refinement
+        self.default_exclude_query_overlap = default_exclude_query_overlap
 
         # Predittori dichiarativi gestiti dal modulo DSPy:
         # GreekInfillingSignature include già `philological_reasoning` come primo OutputField
@@ -431,9 +438,10 @@ class GreekRAGInfiller(dspy.Module):
         word_prefix: str | None = None,
         word_suffix: str | None = None,
         num_candidates: int = 20,
-        exclude_query_overlap: bool = False,
+        exclude_query_overlap: bool | None = None,
         human_feedback: str = "",
         rejected_candidates: list[str] | None = None,
+        text_category: str | Sequence[str] | None = None,
     ) -> dspy.Prediction:
         # 1. Estrazione automatica dei vincoli se non specificati esplicitamente
         meta = extract_lacuna_metadata(context_with_gap)
@@ -442,6 +450,23 @@ class GreekRAGInfiller(dspy.Module):
         req_max = meta["max_chars"] if max_chars is None else int(max_chars)
         w_prefix = meta["word_prefix"] if word_prefix is None else word_prefix
         w_suffix = meta["word_suffix"] if word_suffix is None else word_suffix
+        eff_exclude_overlap = (
+            self.default_exclude_query_overlap
+            if exclude_query_overlap is None
+            else bool(exclude_query_overlap)
+        )
+
+        # Normalizza le eventuali categorie <cla> in codici canonici e le espande per l'LLM;
+        # se assenti o neutre, usa la dicitura neutra senza invocazioni aggiuntive all'LLM.
+        if text_category is None or (
+            isinstance(text_category, str)
+            and text_category.strip() in {"", DEFAULT_TEXT_CATEGORY_PROMPT}
+        ):
+            normalized_categories: list[str] = []
+            text_category_prompt = DEFAULT_TEXT_CATEGORY_PROMPT
+        else:
+            normalized_categories = normalize_text_categories(text_category)
+            text_category_prompt = format_text_category_for_prompt(normalized_categories)
 
         # Normalizza i candidati scartati dal filologo (senza diacritici e case-folded)
         # per poterli filtrare deterministicamente anche se l'LLM li ripropone con accenti diversi.
@@ -469,7 +494,7 @@ class GreekRAGInfiller(dspy.Module):
                 k=self.top_k_passages,
                 word_prefix=w_prefix,
                 word_suffix=w_suffix,
-                exclude_query_overlap=exclude_query_overlap,
+                exclude_query_overlap=eff_exclude_overlap,
             )
             retrieved_passages = list(getattr(ret_pred, "passages", []) or [])
             all_retrieved_passages = list(
@@ -479,6 +504,7 @@ class GreekRAGInfiller(dspy.Module):
         # 3. Generazione Chain-of-Thought tramite GreekInfillingSignature
         gen_pred = self.generate_infill(
             context_with_gap=clean_context,
+            text_category=text_category_prompt,
             gap_constraints=gap_constraints_str,
             retrieved_passages=retrieved_passages,
             num_candidates=num_candidates,
@@ -530,6 +556,7 @@ class GreekRAGInfiller(dspy.Module):
             try:
                 ref_pred = self.refine_infill(
                     context_with_gap=clean_context,
+                    text_category=text_category_prompt,
                     gap_constraints=gap_constraints_str,
                     retrieved_passages=retrieved_passages,
                     previous_invalid_candidates=invalid_candidates_desc[:10],
@@ -665,6 +692,8 @@ class GreekRAGInfiller(dspy.Module):
             retrieved_passages=retrieved_passages,
             all_retrieved_passages=all_retrieved_passages,
             gap_constraints=gap_constraints_str,
+            text_category=text_category_prompt,
+            text_categories=normalized_categories,
             min_chars=req_min,
             max_chars=req_max,
             word_prefix=w_prefix,

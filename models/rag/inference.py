@@ -13,7 +13,7 @@ import argparse
 import math
 import re
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any, Literal, Sequence
 
 import dspy
 
@@ -35,6 +35,10 @@ from models.bert.inference.vocab import (
     check_tlg_attestation,
     get_normalized_vocab,
     normalize_for_tlg_lookup,
+)
+from models.rag.categories import (
+    format_text_category_for_prompt,
+    normalize_text_categories,
 )
 from models.rag.conversation_logging import (
     ConversationTraceRecorder,
@@ -459,6 +463,7 @@ def fill_mask_rag(
     rejected_candidates: list[str] | None = None,
     session_id: str | None = None,
     model_id: str | None = None,
+    text_categories: str | Sequence[str] | None = None,
 ) -> list[tuple[str, float]] | tuple[list[tuple[str, float]], dict[str, Any]]:
     """
     Esegue il text-infilling su un testo greco contenente una lacuna `[...]` o `[---]`
@@ -498,6 +503,9 @@ def fill_mask_rag(
     center_chars = meta["center_chars"]
     word_prefix = meta["word_prefix"]
     word_suffix = meta["word_suffix"]
+
+    normalized_categories = normalize_text_categories(text_categories)
+    text_category_prompt = format_text_category_for_prompt(normalized_categories)
 
     active_retriever = retriever
     if active_retriever is None and use_default_retriever and top_k_passages > 0:
@@ -572,6 +580,8 @@ def fill_mask_rag(
                     "exclude_query_overlap": exclude_query_overlap,
                     "human_feedback": human_feedback or "",
                     "rejected_candidates": list(rejected_candidates or []),
+                    "text_categories": normalized_categories,
+                    "text_category": text_category_prompt,
                 },
             )
 
@@ -592,6 +602,7 @@ def fill_mask_rag(
             "exclude_query_overlap": exclude_query_overlap,
             "human_feedback": human_feedback or "",
             "rejected_candidates": rejected_candidates,
+            "text_category": normalized_categories,
         }
 
         try:
@@ -989,6 +1000,8 @@ def fill_mask_rag(
             "candidate_rationales": candidate_rationales,
             "tlg_attestations": tlg_attestations,
             "gap_constraints": getattr(pred, "gap_constraints", ""),
+            "text_category": text_category_prompt,
+            "text_categories": normalized_categories,
             "min_chars": min_chars,
             "max_chars": max_chars,
             "word_prefix": word_prefix,
@@ -1056,6 +1069,13 @@ def main() -> None:
         default=None,
         help="Identificativo di sessione opzionale per correlare la traccia nei log JSONL",
     )
+    parser.add_argument(
+        "--category",
+        "--categories",
+        nargs="*",
+        default=None,
+        help="Una o più categorie TLG <cla> del testo lacunoso (es. phil. epic. rhet.)",
+    )
     args = parser.parse_args()
 
     preds, details = fill_mask_rag(
@@ -1067,7 +1087,12 @@ def main() -> None:
         K=args.k,
         return_details=True,
         session_id=args.session_id,
+        text_categories=args.category,
     )
+
+    if details.get("text_categories"):
+        print("\n=== Categoria TLG (<cla>) ===")
+        print(details["text_category"])
 
     print("\n=== Vincoli Papirologici Estratti ===")
     print(details["gap_constraints"])
