@@ -13,6 +13,7 @@ services:
       - HF_TOKEN=${HF_TOKEN:-}
       - RAG_DEFAULT_LM=${RAG_DEFAULT_LM:-Qwen/Qwen2.5-72B-Instruct}
       - RAG_DEFAULT_BACKEND=${RAG_DEFAULT_BACKEND:-auto}
+      - RAG_COMPILED_PROGRAMS=${RAG_COMPILED_PROGRAMS:-}
       - RAG_API_BASE=${RAG_API_BASE:-}
       - RAG_API_KEY=${RAG_API_KEY:-}
       - RAG_LLM_LOG_DEST=${RAG_LLM_LOG_DEST:-stdout}

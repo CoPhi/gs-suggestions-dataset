@@ -1,3 +1,4 @@
+import json
 import os
 from pathlib import Path
 from typing import Any
@@ -62,6 +63,47 @@ RAG_DEFAULT_BACKEND = os.getenv("RAG_DEFAULT_BACKEND", "auto")
 RAG_DEFAULT_EMBEDDER = os.getenv("RAG_DEFAULT_EMBEDDER", "CNR-ILC/gs-GreBerta")
 RAG_TOP_K_PASSAGES = int(os.getenv("RAG_TOP_K_PASSAGES", "5"))
 RAG_CHECKPOINTS = [RAG_DEFAULT_LM, "meta-llama/Llama-3.3-70B-Instruct", RAG_DEFAULT_BERT]
+
+
+def parse_rag_compiled_programs_env(raw: str | None = None) -> dict[str, str]:
+    """
+    Parsa la mappa opt-in `RAG_COMPILED_PROGRAMS` da variabile d'ambiente:
+    supporta sia JSON (`{"Qwen/Qwen2.5-72B-Instruct": "models/...json"}`) sia
+    coppie `checkpoint=path` separate da virgola o punto e virgola.
+    Di default restituisce `{}` (tutti i modelli usano `COMPILED_PROGRAM_PATH=None`).
+    """
+    value = (os.getenv("RAG_COMPILED_PROGRAMS") if raw is None else raw) or ""
+    value = value.strip()
+    if not value:
+        return {}
+
+    if value.startswith("{"):
+        try:
+            parsed = json.loads(value)
+        except json.JSONDecodeError:
+            return {}
+        if isinstance(parsed, dict):
+            return {
+                str(k).strip(): str(v).strip()
+                for k, v in parsed.items()
+                if str(k).strip() and v is not None and str(v).strip()
+            }
+        return {}
+
+    mapping: dict[str, str] = {}
+    for entry in value.replace(";", ",").split(","):
+        item = entry.strip()
+        if not item or "=" not in item:
+            continue
+        ckpt, path = item.split("=", 1)
+        ckpt_clean = ckpt.strip()
+        path_clean = path.strip()
+        if ckpt_clean and path_clean:
+            mapping[ckpt_clean] = path_clean
+    return mapping
+
+
+RAG_COMPILED_PROGRAMS: dict[str, str] = parse_rag_compiled_programs_env()
 
 # Catalogo di modelli LLM e BERT neuro-lessicali supportati per il sistema DSPy RAG
 RAG_SUPPORTED_LMS: list[dict[str, Any]] = [

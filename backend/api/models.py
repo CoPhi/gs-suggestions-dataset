@@ -45,7 +45,17 @@ class RAGModel(BaseModel):
         description="Percorso opzionale al programma DSPy compilato (.json)",
     )
     TYPE: Literal["RAG"]
-    
+
+
+class RAGModelUpdate(BaseModel):
+    """Payload per aggiornare selettivamente (opt-in) il programma compilato di un modello RAG."""
+
+    COMPILED_PROGRAM_PATH: str | None = Field(
+        default=None,
+        description="Percorso al programma DSPy compilato (.json) da attivare sul modello, oppure null per ripristinare le istruzioni base.",
+    )
+
+
 Model = Union[NgramModel, BERTModel, IthacaModel, RAGModel]
 
 class ModelsResponse(BaseModel): 

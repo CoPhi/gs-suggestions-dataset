@@ -4,7 +4,7 @@ from fastapi import APIRouter, Body, Depends, Path
 from fastapi.responses import JSONResponse
 
 
-from backend.api.models import Model, ModelsResponse
+from backend.api.models import Model, ModelsResponse, RAGModelUpdate
 from backend.api.services.model_service import ModelService
 from backend.config.settings import RAG_SUPPORTED_LMS
 
@@ -197,6 +197,29 @@ async def create_model(
 async def create_models(service: ModelService = Depends(get_service)):
     ids = await service.init_models()
     return JSONResponse(status_code=201, content={"IDs": ids})
+
+
+@router.patch(
+    "/{id}",
+    response_model=Model,
+    summary="Aggiorna selettivamente il programma compilato (.json) di un modello RAG",
+    responses={
+        200: {"description": "RAG model updated successfully"},
+        400: {"description": "Invalid compiled program path or non-RAG model"},
+        404: {"description": "Model not found"},
+        500: {"description": "Internal server error"},
+    },
+)
+async def update_model_compiled_program(
+    id: Annotated[str, Path(title="ID", description="ID del modello RAG")],
+    payload: RAGModelUpdate,
+    service: ModelService = Depends(get_service),
+):
+    updated = await service.update_rag_compiled_program(
+        model_id=id,
+        compiled_program_path=payload.COMPILED_PROGRAM_PATH,
+    )
+    return JSONResponse(status_code=200, content={"model": updated})
 
 
 @router.delete(

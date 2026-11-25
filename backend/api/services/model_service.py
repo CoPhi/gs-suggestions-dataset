@@ -1,7 +1,10 @@
+import json
+import logging
 import pickle
 import zlib
 import asyncio
 from functools import partial
+from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
@@ -23,6 +26,7 @@ from backend.config.settings import (
     LM_TYPES,
     N,
     RAG_CHECKPOINTS,
+    RAG_COMPILED_PROGRAMS,
     RAG_DEFAULT_BACKEND,
     RAG_TOP_K_PASSAGES,
     get_compact_ngram_checkpoint_path,
@@ -32,6 +36,37 @@ from backend.core.model_cache import shared_bert_cache
 from models.ngrams.train.training import pipeline_train
 from models.rag.inference import is_bert_checkpoint
 from backend.api.services.suggestions_service import SuggestionsService
+
+logger = logging.getLogger(__name__)
+
+
+def validate_compiled_program_path(raw_path: str | None) -> str | None:
+    """
+    Valida il percorso opt-in di un programma DSPy compilato (`.json`).
+    Restituisce `None` se vuoto/null, oppure verifica esistenza e JSON valido.
+    """
+    if raw_path is None:
+        return None
+    cleaned = str(raw_path).strip()
+    if not cleaned:
+        return None
+
+    candidate = Path(cleaned)
+    if not candidate.is_file():
+        raise ValueError(
+            f"Programma DSPy compilato non trovato al percorso '{cleaned}'."
+        )
+    try:
+        payload = json.loads(candidate.read_text(encoding="utf-8"))
+    except Exception as exc:
+        raise ValueError(
+            f"Programma DSPy compilato non valido ('{cleaned}'): {exc}"
+        ) from exc
+    if not isinstance(payload, dict):
+        raise ValueError(
+            f"Programma DSPy compilato '{cleaned}' deve contenere un oggetto JSON."
+        )
+    return cleaned
 
 
 class ModelService:
@@ -101,11 +136,24 @@ class ModelService:
                     if is_bert_checkpoint(checkpoint)
                     else RAG_DEFAULT_BACKEND
                 )
+                opt_in_path: str | None = None
+                raw_opt_in = RAG_COMPILED_PROGRAMS.get(checkpoint)
+                if raw_opt_in and not is_bert_checkpoint(checkpoint):
+                    try:
+                        opt_in_path = validate_compiled_program_path(raw_opt_in)
+                    except ValueError as exc:
+                        # Non blocca il bootstrap di altri modelli se un percorso opt-in da env manca su disco
+                        logger.warning(
+                            "Percorso opt-in RAG_COMPILED_PROGRAMS ignorato per '%s': %s",
+                            checkpoint,
+                            exc,
+                        )
                 ids.append(
                     await self._create_rag_model_from_checkpoint(
                         checkpoint=checkpoint,
                         backend=rag_backend,
                         top_k_passages=RAG_TOP_K_PASSAGES,
+                        compiled_program_path=opt_in_path,
                     )
                 )
             except ModelAlreadyExistsError:
@@ -269,8 +317,33 @@ class ModelService:
         await self._check_duplicate(identity_filter)
         return await self._insert_one_safe(model_dict)
 
+    async def update_rag_compiled_program(
+        self,
+        model_id: str,
+        compiled_program_path: str | None,
+    ) -> dict:
+        """
+        Attiva o disattiva selettivamente (`opt-in` / `null`) `COMPILED_PROGRAM_PATH`
+        su un modello `RAG` già registrato su MongoDB.
+        """
+        model = await self._serial_model(model_id)
+        if not model:
+            raise ModelNotFoundError(f"Model '{model_id}' not found")
+        if model.get("TYPE") != "RAG":
+            raise ValueError("Solo i modelli di tipo 'RAG' supportano COMPILED_PROGRAM_PATH.")
+
+        validated_path = validate_compiled_program_path(compiled_program_path)
+        await self._collection.update_one(
+            {"_id": ObjectId(model_id)},
+            {"$set": {"COMPILED_PROGRAM_PATH": validated_path}},
+        )
+        return await self.get_model(model_id)
+
     async def _create_rag_model(self, model: RAGModel) -> str:
         model_dict = model.model_dump()
+        model_dict["COMPILED_PROGRAM_PATH"] = validate_compiled_program_path(
+            model_dict.get("COMPILED_PROGRAM_PATH")
+        )
         identity_filter = {
             "TYPE": "RAG",
             "CHECKPOINT": model_dict["CHECKPOINT"],
@@ -284,6 +357,7 @@ class ModelService:
         checkpoint: str,
         backend: str = "auto",
         top_k_passages: int = 5,
+        compiled_program_path: str | None = None,
     ) -> str:
         identity_filter = {
             "TYPE": "RAG",
@@ -295,7 +369,7 @@ class ModelService:
             "CHECKPOINT": checkpoint,
             "BACKEND": backend,
             "TOP_K_PASSAGES": top_k_passages,
-            "COMPILED_PROGRAM_PATH": None,
+            "COMPILED_PROGRAM_PATH": compiled_program_path,
             "TYPE": "RAG",
         }
         return await self._insert_one_safe(model_dict)
